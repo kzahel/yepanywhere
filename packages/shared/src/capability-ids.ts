@@ -990,6 +990,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "session-creation-claude-text",
     introducedIn: "0.11.1",
   },
+  agentAuthRouterHosted: {
+    id: 162,
+    direction: "server",
+    name: "agent-auth-router-hosted",
+    introducedIn: "0.12.1",
+  },
 } as const satisfies Record<string, CapabilityIdAllocation>;
 
 export type CapabilityBitset = readonly (readonly [

@@ -1,3 +1,6 @@
+import { hostedRouterApi } from "../api/hostedRouter";
+import { HostedRouterControls } from "./HostedRouterControls";
+import { SegmentedControl } from "./ui/SegmentedControl";
 import { AgentAuthRouterPools } from "./AgentAuthRouterPools";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -29,6 +32,13 @@ export function AgentAuthRouterSettings() {
 function RouterSettingsForSource() {
   const { t } = useI18n();
   const { version } = useVersion();
+  const supportsHosted = serverHasCapability(
+    version,
+    SERVER_CAPABILITIES.agentAuthRouterHosted.name,
+  );
+  const [connectionChoice, setConnectionChoice] = useState<
+    "local" | "hosted" | null
+  >(null);
   const supportsPools = serverHasCapability(
     version,
     SERVER_CAPABILITIES.agentAuthRouterPools.name,
@@ -91,6 +101,7 @@ function RouterSettingsForSource() {
       try {
         if (action) {
           await action(id);
+          if (request.current !== id) return;
           window.dispatchEvent(new Event("router-connection-changed"));
         }
         if (request.current === id) await read(id);
@@ -113,12 +124,57 @@ function RouterSettingsForSource() {
       request.current++;
     };
   }, [run]);
+  useEffect(() => {
+    if (
+      !supportsHosted ||
+      status.connectionKind !== "hosted" ||
+      !["pairing", "revocation-pending"].includes(status.state) ||
+      status.pairingExpired
+    )
+      return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const result = await api.routerStatus();
+        if (!active) return;
+        setStatus(result);
+        if (result.state === "connected" || result.state === "disconnected") {
+          void run();
+          return;
+        }
+      } catch {
+        /* The server keeps waiting; Check status reports connection failures. */
+      }
+      if (active)
+        timer = setTimeout(poll, (status.pairing?.interval ?? 5) * 1000);
+    };
+    timer = setTimeout(poll, (status.pairing?.interval ?? 5) * 1000);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [
+    supportsHosted,
+    status.connectionKind,
+    status.state,
+    status.pairingExpired,
+    status.pairing?.interval,
+    run,
+  ]);
   const state = status.state;
+  const connectionKind =
+    state !== "disconnected"
+      ? (status.connectionKind ?? "local")
+      : (connectionChoice ?? status.connectionKind ?? "local");
+  const hosted = supportsHosted && connectionKind === "hosted";
   const stateLabel =
     state === "connected"
-      ? t("routerConnected")
+      ? status.connectionKind === "hosted"
+        ? t("routerHostedConnected", { host: status.host ?? "" })
+        : t("routerConnected")
       : state === "pairing"
-        ? t("routerPairing")
+        ? t(hosted ? "routerHostedWaiting" : "routerPairing")
         : state === "revocation-pending"
           ? t("routerRevocationPending")
           : t("routerDisconnected");
@@ -127,6 +183,7 @@ function RouterSettingsForSource() {
   const healthy = canReadAccounts && recovery?.reachable !== false;
   // A healthy pairing needs no socket choice; show it on trouble or request.
   const showSocket =
+    !hosted &&
     state !== "revocation-pending" &&
     (state === "disconnected" || !healthy || editingSocket);
   const checkedAt = recovery?.checkedAt
@@ -149,6 +206,7 @@ function RouterSettingsForSource() {
             ? t(busy ? "routerChecking" : "routerStatusUnknown")
             : stateLabel}
         </strong>
+        {status.pairingIssue && <p>{status.pairingIssue.message}</p>}
         {recovery?.issue && (
           <p>
             {state === "revocation-pending" &&
@@ -179,12 +237,35 @@ function RouterSettingsForSource() {
         {!supportsRecovery && state === "connected" && (
           <p>{t("routerLegacyStatus")}</p>
         )}
-        {state === "revocation-pending" && <p>{t("routerRevocationHelp")}</p>}
-        {state === "pairing" && <p>{t("routerPairingHelp")}</p>}
+        {state === "revocation-pending" && (
+          <p>
+            {t(hosted ? "routerHostedRevocationHelp" : "routerRevocationHelp")}
+          </p>
+        )}
+        {state === "pairing" && !hosted && <p>{t("routerPairingHelp")}</p>}
         {loaded && state === "disconnected" && (
           <p>{t("routerDisconnectedHelp")}</p>
         )}
       </div>
+      {supportsHosted && state === "disconnected" && (
+        <SegmentedControl
+          aria-label={t("routerConnectionKind")}
+          value={connectionKind}
+          onChange={setConnectionChoice}
+          options={[
+            { value: "local", label: t("routerLocal") },
+            { value: "hosted", label: t("routerHosted") },
+          ]}
+        />
+      )}
+      {hosted && loaded && (
+        <HostedRouterControls
+          key={status.origin ?? "new"}
+          status={status}
+          busy={busy}
+          run={run}
+        />
+      )}
       {showSocket && (
         <Field label={t("routerSocket")}>
           <TextInput
@@ -215,30 +296,60 @@ function RouterSettingsForSource() {
               : t("routerRetryConnection")}
           </Button>
         )}
-        <Button disabled={busy} onClick={() => void run()}>
+        {hosted && recovery?.issue?.code === "revoked" && (
+          <Button
+            variant="primary"
+            disabled={busy}
+            onClick={() =>
+              void run(async (id) => {
+                await api.routerDisconnect();
+                if (request.current === id && status.origin)
+                  await hostedRouterApi.connect(
+                    status.origin,
+                    status.pairingName ??
+                      status.defaultPairingName ??
+                      "Yep Anywhere",
+                  );
+              })
+            }
+          >
+            {t("routerHostedPairAgain")}
+          </Button>
+        )}
+        <Button
+          disabled={busy}
+          onClick={() =>
+            void run(
+              status.pairingIssue || status.pairingExpired
+                ? () => hostedRouterApi.pairing()
+                : undefined,
+            )
+          }
+        >
           {busy && loaded ? t("routerCheckingShort") : t("routerCheckStatus")}
         </Button>
-        {!showSocket && state === "connected" && (
+        {!hosted && !showSocket && state === "connected" && (
           <Button disabled={busy} onClick={() => setEditingSocket(true)}>
             {t("routerChangeSocket")}
           </Button>
         )}
-        {state !== "disconnected" && (
-          <Button
-            variant="danger-outline"
-            disabled={busy}
-            onClick={() =>
-              void run(async () => {
-                await api.routerDisconnect();
-                setUsage({});
-              })
-            }
-          >
-            {state === "revocation-pending"
-              ? t("routerFinishDisconnect")
-              : t("routerDisconnectAction")}
-          </Button>
-        )}
+        {state !== "disconnected" &&
+          !(hosted && state === "pairing" && !status.pairingExpired) && (
+            <Button
+              variant="danger-outline"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await api.routerDisconnect();
+                  setUsage({});
+                })
+              }
+            >
+              {state === "revocation-pending"
+                ? t("routerFinishDisconnect")
+                : t("routerDisconnectAction")}
+            </Button>
+          )}
       </div>
       {error && error !== recovery?.issue?.message && (
         <Banner tone="error" compact>

@@ -38,3 +38,11 @@
   border-top: 1px solid var(--border-color);
   padding-top: 0.7rem;
 }
+
+.pairingCode {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xl);
+  letter-spacing: 0.15em;
+  margin-bottom: var(--space-3);
+}

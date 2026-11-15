@@ -1,7 +1,8 @@
+import { registerHostedRouterRoutes } from "./agent-auth-router-hosted.js";
 import { registerAgentAuthRouterPoolRoutes } from "./agent-auth-router-pools.js";
-import { Hono } from "hono";
+import { Hono, type Env } from "hono";
 import {
-  type AgentAuthRouter,
+  AgentAuthRouter,
   RouterUnavailable,
 } from "../services/AgentAuthRouter.js";
 import { registerAgentAuthRouterRecoveryRoutes } from "./agent-auth-router-recovery.js";
@@ -21,7 +22,7 @@ export function createAgentAuthRouterRoutes(
         error:
           error instanceof RouterUnavailable
             ? error.message
-            : "Local router operation failed",
+            : "Router operation failed",
       },
       409,
     ),
@@ -30,6 +31,7 @@ export function createAgentAuthRouterRoutes(
   routes.post("/agent-auth-router/selection", async (c) =>
     c.json(await router.selection((await c.req.json()).provider)),
   );
+  registerHostedRouterRoutes(routes, router);
   registerAgentAuthRouterRecoveryRoutes(routes, router);
   registerAgentAuthRouterPoolRoutes(routes, router);
   if (sessions)
@@ -56,4 +58,16 @@ export function createAgentAuthRouterRoutes(
     c.json(await router.quotas(c.req.param("id"))),
   );
   return routes;
+}
+
+export function mountAgentAuthRouterRoutes<E extends Env>(
+  app: Hono<E>,
+  dataDir: string,
+  metadata: ConstructorParameters<typeof AgentAuthRouter>[1],
+  login: ConstructorParameters<typeof AgentAuthRouter>[2],
+  sessions: SessionSwitchSupervisor,
+) {
+  const router = new AgentAuthRouter(dataDir, metadata, login);
+  app.route("/api", createAgentAuthRouterRoutes(router, sessions));
+  return router;
 }

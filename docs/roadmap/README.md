@@ -1327,6 +1327,11 @@ transport overrides and durable same-account pins. Live adapter creation,
 continuation and resume passed with temporary YA profiles; full YA HTTP
 restart/resume and tool approval also passed. The
 [owning topic](../../topics/agent-auth-router.md) records setup and boundaries.
+The 2026-11-15 hosted slice adds owner-selected HTTPS routers, durable
+server-side code pairing and Settings controls behind optional capability 162.
+TLS fixtures and focused browser checks cover recovery, revocation and layout;
+public reverse-proxy/live-provider and other native-platform qualification
+remain pending. The local path and retained session pins keep their contracts.
 The authorized recovery follow-up adds on-demand reachability, disabled-account
 guidance and explicit cancellation/disconnect retry before automatic policies.
 AAR owns the SHA-pinned cross-repository regression suite for both providers.

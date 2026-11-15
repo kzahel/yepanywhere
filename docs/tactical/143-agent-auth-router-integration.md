@@ -556,17 +556,13 @@ listener serves no control operations. One router can therefore serve YA
 servers on several machines without a private network, while each YA keeps
 full pool selection, quotas, pinning, switching and recovery.
 
-Remaining YA work, not implemented:
-
-- A remote connection kind (HTTPS base URL plus a control credential that YA
-  generates and keeps in server-side private state) next to the socket kind.
-  Pairing uses the code flow and polls `pair/status`.
-- An HTTPS transport for the single router request path, with normal
-  certificate verification and no plain-HTTP fallback. Router ID and protocol
-  checks are unchanged.
-- For remote connections, the inference-origin check requires `https:` and the
-  configured host instead of loopback.
-- Settings UI for the URL, Pair, and the pending code, as specified below.
+YA's hosted connection slice is implemented (2026-11-15): HTTPS control,
+private durable code pairing, restart recovery and the settings controls below.
+The [owning contract](../../topics/agent-auth-router.md#hosted-https-router-2026-11-15)
+records capability 162, the checked stable-server corpus, cancellation semantics
+and qualification limits. Existing local/provider behavior remains covered by
+its prior proofs; new hosted control checks use an isolated TLS router fixture.
+Public deployment and additional native-platform qualification remain follow-ups.
 
 #### Hosted router settings (agreed 2026-11-15)
 

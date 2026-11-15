@@ -1,3 +1,4 @@
+import { HOSTED_ROUTER_SERVER_CAPABILITIES } from "./server-capabilities-router-hosted.js";
 import { CAPABILITY_ID_ALLOCATIONS } from "./capability-ids.js";
 import type { ServerCapabilityDefinition } from "./server-capability-definition.js";
 
@@ -430,6 +431,7 @@ export const SESSIONS_SERVER_CAPABILITIES = {
       responseFields: ["pools", "accounts", "selection"],
     },
   },
+  ...HOSTED_ROUTER_SERVER_CAPABILITIES,
   agentAuthRouterRecovery: {
     id: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterRecovery.id,
     name: "agent-auth-router-recovery",

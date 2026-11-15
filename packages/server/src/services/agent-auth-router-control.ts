@@ -1,5 +1,7 @@
 import { lstatSync } from "node:fs";
 import http from "node:http";
+import https from "node:https";
+import type { RouterEndpoint } from "./agent-auth-router-connection.js";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AgentAuthRouterIssueCode } from "@yep-anywhere/shared";
@@ -107,22 +109,82 @@ function rejectedForLogin(status: number | undefined, body: Buffer): boolean {
     return false;
   }
 }
-/** No fetch fallback: control traffic can only use the verified Unix socket. */
+export function hostedRouterOrigin(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new RouterUnavailable(
+      400,
+      "Enter a valid HTTPS router URL",
+      "invalid-url",
+    );
+  }
+  if (
+    value.length > 2048 ||
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  )
+    throw new RouterUnavailable(
+      400,
+      "Use a bare HTTPS router URL without credentials, a path, query or fragment",
+      "invalid-url",
+    );
+  return url.origin;
+}
+function transportFailure(
+  endpoint: RouterEndpoint,
+  error?: Error & { code?: string },
+) {
+  if (typeof endpoint === "string") return routerOffline();
+  const host = new URL(endpoint.origin).host;
+  if (
+    error?.code &&
+    /CERT|TLS|SELF_SIGNED|UNABLE_TO_VERIFY|UNABLE_TO_GET_ISSUER/.test(
+      error.code,
+    )
+  )
+    return new RouterUnavailable(
+      503,
+      `The certificate for ${host} could not be verified. Check its hostname, validity and certificate chain.`,
+      "certificate-invalid",
+    );
+  return new RouterUnavailable(
+    503,
+    `Can't reach ${host}. Check the router and retry. Sessions keep their pinned accounts.`,
+    "unavailable",
+  );
+}
+/** Neither transport follows redirects or changes credential surfaces. */
 export async function routerRequest<T>(
-  socketPath: string,
+  endpoint: RouterEndpoint,
   path: string,
   credential?: string,
   body?: object,
 ): Promise<T> {
-  validateRouterSocket(socketPath);
+  if (typeof endpoint === "string") validateRouterSocket(endpoint);
+  else hostedRouterOrigin(endpoint.origin);
   return new Promise<T>((resolveResult, reject) => {
-    const request = http.request(
+    const remote =
+      typeof endpoint !== "string" ? new URL(endpoint.origin) : undefined;
+    const request = (remote ? https : http).request(
       {
-        socketPath,
-        path,
+        ...(remote
+          ? {
+              hostname: remote.hostname.replace(/^\[|\]$/g, ""),
+              port: remote.port || 443,
+              protocol: "https:",
+              rejectUnauthorized: true,
+            }
+          : { socketPath: endpoint as string }),
+        path: remote ? `/control${path}` : path,
         method: body ? "POST" : "GET",
         headers: {
-          host: "localhost",
+          host: remote?.host ?? "localhost",
           "content-type": "application/json",
           ...(credential ? { authorization: `Bearer ${credential}` } : {}),
         },
@@ -136,7 +198,7 @@ export async function routerRequest<T>(
             response.destroy(new Error("oversized response"));
           else chunks.push(chunk);
         });
-        response.on("error", () => reject(routerOffline()));
+        response.on("error", () => reject(transportFailure(endpoint)));
         response.on("end", () => {
           if (response.statusCode !== 200) {
             if (rejectedForLogin(response.statusCode, Buffer.concat(chunks)))
@@ -151,7 +213,12 @@ export async function routerRequest<T>(
                 response.statusCode === 401
                   ? "Router connection revoked. Finish disconnecting in Settings → Providers, then reconnect for new sessions. Existing sessions cannot adopt a new pairing."
                   : `Router rejected the operation${reason ? ` (${reason})` : ""}. Check the pinned account and model in Settings → Providers, then retry. No account was substituted.`,
-                response.statusCode === 401 ? "revoked" : "operation-rejected",
+                response.statusCode === 401
+                  ? "revoked"
+                  : response.statusCode === 403 &&
+                      pendingPairing(Buffer.concat(chunks))
+                    ? "pairing-pending"
+                    : "operation-rejected",
               ),
             );
           }
@@ -174,7 +241,15 @@ export async function routerRequest<T>(
       20_000,
     );
     request.on("close", () => clearTimeout(timer));
-    request.on("error", () => reject(routerOffline()));
+    request.on("error", (error) => reject(transportFailure(endpoint, error)));
     request.end(body ? JSON.stringify(body) : undefined);
   });
+}
+
+function pendingPairing(body: Buffer): boolean {
+  try {
+    return JSON.parse(body.toString()).code === "pairing_pending";
+  } catch {
+    return false;
+  }
 }

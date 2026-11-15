@@ -3,6 +3,19 @@ import type { ModelInfo, ThinkingOption } from "./types.js";
 export interface AgentAuthRouterStatus {
   state: "pairing" | "connected" | "revocation-pending" | "disconnected";
   routerId: string | null;
+  connectionKind?: "hosted";
+  host?: string;
+  origin?: string;
+  pairingName?: string;
+  defaultPairingName?: string;
+  pairingExpired?: boolean;
+  pairingIssue?: { code: AgentAuthRouterIssueCode; message: string };
+  pairing?: {
+    userCode: string;
+    verificationUri: string;
+    expiresAt: string;
+    interval: number;
+  };
   /**
    * Whether the saved pairing uses a socket other than AAR's default, so the
    * UI can say which without receiving the path. Absent while disconnected
@@ -12,6 +25,9 @@ export interface AgentAuthRouterStatus {
 }
 
 export type AgentAuthRouterIssueCode =
+  | "invalid-url"
+  | "certificate-invalid"
+  | "pairing-pending"
   | "unavailable"
   | "revoked"
   | "identity-mismatch"

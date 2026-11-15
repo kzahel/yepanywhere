@@ -48,9 +48,8 @@ import { readServerIdentity } from "./core-api/server-identity.js";
 import { productionApiSources } from "./core-api/production-sources.js";
 import { createV0Routes } from "./routes/v0/index.js";
 import { PRINCIPAL_VARIABLE, SUPERUSER } from "./auth/principal.js";
-import { AgentAuthRouter } from "./services/AgentAuthRouter.js";
 import { readClaudeAiLogin } from "./sdk/providers/claude-executable.js";
-import { createAgentAuthRouterRoutes } from "./routes/agent-auth-router.js";
+import { mountAgentAuthRouterRoutes } from "./routes/agent-auth-router.js";
 import { DraftStore } from "./drafts/DraftStore.js";
 import { createDraftRoutes } from "./routes/drafts.js";
 import { ConversationSubscriptions } from "./experimental/conversation-subscriptions.js";
@@ -1861,6 +1860,7 @@ export function createApp(options: AppOptions): AppResult {
       await apiCommands?.idle();
       apiReceipts?.close();
       await supervisor.stopBackgroundTasks();
+      await agentAuthRouter.close();
       await rendezCompose?.close();
       await rendezDraftDelivery?.close();
       await rendezWatch?.close();
@@ -2465,14 +2465,12 @@ export function createApp(options: AppOptions): AppResult {
         projectMetadataForNames.getProjectDisplayName(projectPath)
     : getProjectName;
 
-  const agentAuthRouter = new AgentAuthRouter(
+  const agentAuthRouter = mountAgentAuthRouterRoutes(
+    app,
     effectiveDataDir,
     options.sessionMetadataService,
     readClaudeAiLogin,
-  );
-  app.route(
-    "/api",
-    createAgentAuthRouterRoutes(agentAuthRouter, () => supervisor),
+    () => supervisor,
   );
 
   const readAgentApi: ApiReadPort = serverAgentApiAdmission(

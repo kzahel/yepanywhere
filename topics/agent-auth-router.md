@@ -1,6 +1,6 @@
 # Agent Auth Router
 
-YA supports an optional local Agent Auth Router (AAR) connection for pinned native Claude and Codex sessions on macOS and Linux.
+YA supports an optional local or hosted HTTPS Agent Auth Router (AAR) connection for pinned native Claude and Codex sessions on macOS and Linux.
 Router-owned pools offer every selection policy the connected AAR lists
 (currently Manual, Round robin, Most remaining and Weekly pace) for new sessions.
 A pool's policy is its default; New Session can choose another router policy or
@@ -13,8 +13,10 @@ The design and deferred work are in [plan 143](../docs/tactical/143-agent-auth-r
 
 1. Enroll accounts with the AAR app or CLI and start the router. Its default
    private control socket is `~/.agent-auth-router/control.sock`.
-2. As the YA owner, open **Settings → Providers → Agent Auth Router**. Use
-   **Connect local router**, optionally specifying a different socket path.
+2. As the YA owner, open **Settings → Providers → Agent Auth Router**. Choose
+   **On this computer** and **Connect local router**, optionally specifying a
+   different socket path. For a hosted router, choose **Hosted** and follow the
+   [code-pairing setup](#hosted-https-router-2026-11-15).
    With router-owned pools, pairing initially grants no accounts. In AAR,
    grant this integration permission to use a pool. Its current members become
    available without restarting or pairing again. New Session refreshes discovery
@@ -45,7 +47,8 @@ Settings distinguishes a **saved pairing** from an on-demand reachability check.
 Opening the panel or choosing **Check status** checks the same router identity
 and granted accounts, and reports unavailable, revoked, incompatible or insecure
 connections without copying raw router responses or filesystem paths to the UI.
-There is no background polling, automatic reconnect or account substitution.
+There is no background account polling, automatic reconnect or account substitution.
+Hosted code pairing has a finite server-owned waiting loop, described below.
 Status reads never retry cleanup or change pairing/revocation state.
 
 A healthy pairing shows the check time and whether it uses AAR's default
@@ -717,3 +720,88 @@ live changes and older-version fallback follow [service tiers](service-tier.md#a
 The router remains the owner of account eligibility and credentials; YA never
 borrows speed availability from its direct login. This is an additive optional
 feature, not a change to the existing routing or process-configuration capabilities.
+
+## Hosted HTTPS router (2026-11-15)
+
+Start AAR's opt-in public listener behind a TLS reverse proxy with a valid
+certificate, following [AAR's hosted setup](https://github.com/kzahel/agent-auth-router/blob/main/docs/remote.md).
+Then the owner can choose **On this computer** or **Hosted** in the existing
+Settings → Providers router card. Local pairing keeps its private socket
+contract. Hosted requires a bare HTTPS origin, with no credentials, path,
+query or fragment. Its editable name defaults to `Yep Anywhere on <hostname>`;
+the name identifies this YA installation in AAR's approval list. It is not a
+principal or a grant. The YA owner authorizes connection setup; AAR authenticates
+the installation's separate integration credential and enforces pool grants.
+Browser/relay reachability supplies neither of those authorities.
+
+YA sends control requests from the server to `/control/v1/*`, using normal
+certificate and hostname verification. It never follows redirects, downgrades
+to HTTP, or sends control requests from the browser. Discovery requires protocol
+1, `manual-bindings`, `remote-pairing-v1`, a stable router ID, and an inference
+origin exactly matching the configured HTTPS origin (including its port).
+Certificate failures, unreachable hosts, unsupported pairing and protocol or
+identity mismatches have distinct safe errors. No failure substitutes a direct
+provider login or another account.
+
+**Connect** privately persists a random integration ID and control credential
+before sending `{id, name, tokenHash}` to AAR. A lost reply repeats that same
+identity and hash. The code screen shows AAR's code, an expiry countdown and
+**Open router dashboard**, pointing to the same origin's `/#pair` without a
+prefilled code. The owner types the code in Connections → Pair a device and
+chooses pool grants in AAR. Pending responses expose the code, link and expiry
+to the YA owner, never the control credential, its hash or a socket path.
+
+One server-owned timer polls pairing status at AAR's bounded interval, with no
+overlap. Pending URL, name, integration identity, credential, code and deadline
+live in the private durable store, so closing the tab or restarting YA resumes
+waiting. Approval stops polling and exposes the ordinary accounts, pools,
+quotas and pinned-session behavior. Expiry stops waiting and offers **Get a new
+code**. A pending request dropped by AAR (401, including a router restart) is
+shown as expired. Lost replies or unreachable routers stop automatic work at
+the pending deadline; the private identity remains available for explicit
+recovery. An unacknowledged request gets a ten-minute recovery budget.
+
+**Cancel** fences new launches immediately. AAR currently has no unauthenticated
+pending-request deletion operation: YA retains the private credential and
+boundedly observes the original request. If approval raced cancellation, YA
+revokes it before declaring disconnection; a 401 acknowledges that no active
+grant remains. Expiry or unavailable AAR leaves explicit disconnect/recovery
+available. YA does not claim that issued credentials were revoked without an
+acknowledgement. Disconnecting an established connection retries only on the
+owner's explicit action, rather than starting background reconnect work.
+
+A connected router that later answers 401 is shown as removed/revoked and offers
+**Pair again**. This acknowledges the old revocation and creates a distinct
+integration for new sessions. Unreachable routers offer **Check status** and
+keep pins. One router is configured per installation: changing between local
+and hosted, or changing origins, requires Disconnect first. Old sessions retain
+their old router/integration binding and cannot move to a new pairing. Native
+Claude/Codex adapters receive the same per-binding token and `/claude` or
+`/codex` launch URL as before; only the validated origin changes.
+
+Optional capability 162 (`agent-auth-router-hosted`) covers the three hosted
+setup/status/cancel routes and their public status metadata. It is advertised
+with the existing router integration on supported macOS/Linux installations.
+Without it, clients show only local controls and send no hosted requests. The
+2026-11-15 review inspected the optional-feature corpus, stable `v0.12.0`
+(2026-11-12) and `v0.11.0` (2026-10-24): both have the local routes and neither
+has hosted operations. Existing capability meanings and the remote protocol
+level are unchanged. Older clients can observe additive status fields and
+Disconnect; they cannot initiate hosted pairing. Downgrading routed app data
+remains unsupported.
+
+HTTPS service tests cover trusted and rejected certificates, endpoint and
+router-identity checks, lost pairing/commit replies, private file permissions,
+restart/pin recovery, cancellation/approval races, revocation, limited-user
+refusal, and server-owned polling shutdown. The TLS fixture requires OpenSSL;
+hosts without it skip that fixture. Browser checks use synthetic API responses
+and concurrent updates with 48-account fixture data; they cover real sequential
+URL/name typing, code presentation, approval, and desktop/phone layout.
+The browser case took 6.3 seconds (21.7 seconds including shared setup) on
+macOS/Node 24.22.1; all 90 sequential characters retained focus and input identity,
+with a maximum measured acknowledgement of 17 ms. Final 1000×600 and 375×812
+form/code captures were presented through the artifact facility and inspected:
+fields fit, instructions wrap, and dashboard/Cancel controls remain clear. These prove
+the hosted control/launch boundary on macOS, not a new live-provider or public
+reverse-proxy qualification. Linux/Windows native qualification remains pending;
+Windows router UI remains unavailable in this slice.

@@ -94,3 +94,11 @@ no client navigation changes belong to this transport slice. The stacks still
 do not identify an owning fixture, so an isolated repair needs the attribution
 audit above rather than a global diagnostic filter. Evidence:
 [workspace test log](/tmp/ya-peer-all-final.log).
+
+
+2026-11-15: hosted AAR pairing verification on Node 24.22.1 repeats five
+unattributed jsdom navigation diagnostics while all 7,420 client tests pass.
+The ten focused router component checks and real-browser code/typing checks
+emit none. The timer-only stacks still do not identify their link fixtures;
+a safe isolated fix needs the attribution audit above, rather than suppressing
+navigation globally. Evidence: local `/tmp/yar-tests-stable.log`.

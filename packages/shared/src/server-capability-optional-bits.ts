@@ -97,6 +97,11 @@ export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
     index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterPools.id,
     introducedIn: "0.9.4",
   },
+  agentAuthRouterHosted: {
+    name: "agent-auth-router-hosted",
+    index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterHosted.id,
+    introducedIn: "0.12.1",
+  },
   agentAuthRouterRecovery: {
     name: "agent-auth-router-recovery",
     index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterRecovery.id,

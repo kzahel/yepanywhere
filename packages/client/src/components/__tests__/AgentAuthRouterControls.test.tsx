@@ -15,6 +15,7 @@ import { AgentAuthRouterSettings } from "../AgentAuthRouterControls";
 const fixture = vi.hoisted(() => ({
   source: "host:first",
   capabilities: ["agent-auth-router", "agent-auth-router-recovery"],
+  hosted: { connect: vi.fn(), pairing: vi.fn(), cancel: vi.fn() },
   api: {
     routerStatus: vi.fn(),
     routerRecovery: vi.fn(),
@@ -37,6 +38,7 @@ const translate = (key: string, params?: Record<string, unknown>) => {
   return value;
 };
 vi.mock("../../api/client", () => ({ api: fixture.api }));
+vi.mock("../../api/hostedRouter", () => ({ hostedRouterApi: fixture.hosted }));
 vi.mock("../../hooks/useVersion", () => ({
   useVersion: () => ({ version: { capabilities: fixture.capabilities } }),
 }));
@@ -329,4 +331,50 @@ it("does not follow an old source's pool refresh with a request to the new sourc
   );
   await act(async () => resolve());
   expect(fixture.api.routerOverview).toHaveBeenCalledTimes(2);
+});
+
+it("restores a pending hosted code and re-pairs only after revocation is acknowledged", async () => {
+  fixture.capabilities.push("agent-auth-router-hosted");
+  Object.assign(recovery, {
+    state: "pairing",
+    connectionKind: "hosted",
+    origin: "https://aar.example.com",
+    host: "aar.example.com",
+    pairingName: "YA fixture",
+    pairing: {
+      userCode: "ABCD-EFGH",
+      verificationUri: "https://aar.example.com/#pair",
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      interval: 5,
+    },
+    accounts: [],
+  });
+  render(<AgentAuthRouterSettings />);
+  await screen.findByText("ABCD-EFGH");
+  expect(screen.queryByRole("textbox")).toBeNull();
+  recovery.state = "connected";
+  delete recovery.pairing;
+  recovery.issue = {
+    code: "revoked",
+    message: "The router removed this computer.",
+  };
+  fireEvent.click(screen.getByRole("button", { name: "Check status" }));
+  const pair = await screen.findByRole("button", { name: "Pair again" });
+  fixture.api.routerDisconnect.mockImplementation(async () => {
+    recovery.state = "disconnected";
+    return recovery;
+  });
+  fixture.hosted.connect.mockImplementation(async () => {
+    recovery.state = "pairing";
+    delete recovery.issue;
+    return recovery;
+  });
+  fireEvent.click(pair);
+  await waitFor(() =>
+    expect(fixture.hosted.connect).toHaveBeenCalledWith(
+      "https://aar.example.com",
+      "YA fixture",
+    ),
+  );
+  expect(fixture.api.routerDisconnect).toHaveBeenCalledTimes(1);
 });

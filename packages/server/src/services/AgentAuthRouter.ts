@@ -1,4 +1,13 @@
 import {
+  HostedRouterPairing,
+  defaultRouterPairingName,
+} from "./agent-auth-router-hosted.js";
+import {
+  routerEndpoint,
+  type RouterConnection as Connection,
+  type RouterInfo as Info,
+} from "./agent-auth-router-connection.js";
+import {
   RouterUnavailable,
   routerLoginRequired,
   routerOffline,
@@ -56,13 +65,6 @@ export interface RouterLaunch {
   baseUrl: string;
   token: string;
 }
-interface Connection {
-  id: string;
-  token: string;
-  socketPath: string;
-  routerId: string;
-  state: "pairing" | "connected" | "revocation-pending" | "disconnected";
-}
 interface Allocation {
   thinking?: ThinkingOption;
   serviceTier?: string;
@@ -88,14 +90,6 @@ interface PrivateState {
   version: 1;
   connection?: Connection;
   allocations: Record<string, Allocation>;
-}
-interface Info {
-  protocol: number;
-  routerId: string;
-  inferenceOrigin: string;
-  capabilities: string[];
-  supportedPolicies?: string[];
-  policies?: { id: string; label: string }[];
 }
 export interface RouterAccount {
   displayName?: string;
@@ -203,6 +197,7 @@ export class AgentAuthRouter {
   private state: PrivateState;
   private readonly directory: string;
   private readonly file: string;
+  private readonly hosted: HostedRouterPairing;
   private tail: Promise<unknown> = Promise.resolve();
   constructor(
     dataDir: string,
@@ -237,6 +232,12 @@ export class AgentAuthRouter {
       )
         throw new Error("Invalid router credential store");
     } else this.state = { version: 1, allocations: {} };
+    this.hosted = new HostedRouterPairing({
+      get: () => this.state.connection,
+      save: (connection) => this.save({ ...this.state, connection }),
+      info: (connection) => this.info(connection),
+      observe: () => this.pairingStatus(),
+    });
   }
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.tail.then(operation);
@@ -258,12 +259,48 @@ export class AgentAuthRouter {
     });
     this.state = next;
   }
+  async close() {
+    this.hosted.close();
+    await this.tail;
+  }
+  connectHosted(url: string, name = defaultRouterPairingName()) {
+    return this.serialize(async () => {
+      await this.hosted.connect(url, name);
+      return this.summary();
+    });
+  }
+  pairingStatus() {
+    return this.serialize(async () => {
+      await this.hosted.check();
+      return this.summary();
+    });
+  }
+  cancelPairing() {
+    return this.serialize(async () => {
+      await this.hosted.cancel();
+      return this.summary();
+    });
+  }
   summary(): AgentAuthRouterStatus {
     const c = this.state.connection;
     return {
       state: c?.state ?? "disconnected",
       routerId: c?.routerId ?? null,
-      ...(c && c.state !== "disconnected"
+      defaultPairingName: defaultRouterPairingName(),
+      ...(c?.pairingIssue ? { pairingIssue: c.pairingIssue } : {}),
+      ...(c?.kind === "hosted"
+        ? {
+            connectionKind: "hosted" as const,
+            host: new URL(c.origin).host,
+            origin: c.origin,
+            pairingName: c.name,
+            ...(c.state === "pairing" && c.pairing
+              ? { pairing: c.pairing }
+              : {}),
+            ...(c.expired ? { pairingExpired: true } : {}),
+          }
+        : {}),
+      ...(c && c.kind !== "hosted" && c.state !== "disconnected"
         ? { customSocket: c.socketPath !== defaultRouterSocket() }
         : {}),
     };
@@ -287,12 +324,19 @@ export class AgentAuthRouter {
             : 0,
         accounts: [],
       };
-      if (!c || c.state === "disconnected") return snapshot;
+      if (
+        !c ||
+        c.state === "disconnected" ||
+        (c.kind === "hosted" &&
+          (c.state === "pairing" ||
+            (c.state === "revocation-pending" && c.pendingApproval)))
+      )
+        return snapshot;
       try {
         await this.info(c);
         snapshot.reachable = true;
         const result = await routerRequest<{ accounts: RouterAccount[] }>(
-          c.socketPath,
+          routerEndpoint(c),
           "/v1/accounts",
           c.token,
         );
@@ -322,25 +366,36 @@ export class AgentAuthRouter {
         409,
         c?.state === "revocation-pending"
           ? "Router disconnect is pending. Finish revocation in Settings → Providers. Routed sessions are blocked until it is acknowledged; existing workers may still have access."
-          : "Connect the local router in Settings → Providers before launching this session. A session from a disconnected pairing requires a new session; its account pin cannot move.",
+          : "Connect the router in Settings → Providers before launching this session. A session from a disconnected pairing requires a new session; its account pin cannot move.",
       );
     return c;
   }
-  private async info(
-    c: Pick<Connection, "socketPath" | "routerId">,
-  ): Promise<Info> {
-    const info = await routerRequest<Info>(c.socketPath, "/v1/info");
+  private async info(c: Connection): Promise<Info> {
+    const info = await routerRequest<Info>(routerEndpoint(c), "/v1/info");
     if (c.routerId && info.routerId !== c.routerId)
       throw new RouterUnavailable(
         409,
-        "Router identity changed. Restore the original AAR state and socket; this pairing and its sessions cannot move to another router.",
+        "Router identity changed. Restore the original AAR state and connection; this pairing and its sessions cannot move to another router.",
         "identity-mismatch",
       );
-    if (info.protocol !== 1 || !info.capabilities?.includes("manual-bindings"))
+    if (
+      info.protocol !== 1 ||
+      !Array.isArray(info.capabilities) ||
+      !info.capabilities.includes("manual-bindings") ||
+      typeof info.routerId !== "string" ||
+      !info.routerId ||
+      info.routerId.length > 200
+    )
       throw new RouterUnavailable(
         409,
-        "Router protocol mismatch. Run an AAR version supporting local manual bindings (protocol 1), then retry.",
+        "Router protocol mismatch. Run an AAR version supporting manual bindings (protocol 1), then retry.",
         "protocol-mismatch",
+      );
+    if (c.kind === "hosted" && !info.capabilities.includes("remote-pairing-v1"))
+      throw new RouterUnavailable(
+        409,
+        "This router does not support hosted pairing. Update AAR and enable its public listener.",
+        "unsupported",
       );
     let origin: URL;
     try {
@@ -353,8 +408,10 @@ export class AgentAuthRouter {
       );
     }
     if (
-      origin.protocol !== "http:" ||
-      !["127.0.0.1", "[::1]"].includes(origin.hostname) ||
+      (c.kind === "hosted"
+        ? origin.protocol !== "https:" || origin.origin !== c.origin
+        : origin.protocol !== "http:" ||
+          !["127.0.0.1", "[::1]"].includes(origin.hostname)) ||
       origin.username ||
       origin.password ||
       origin.pathname !== "/" ||
@@ -363,23 +420,36 @@ export class AgentAuthRouter {
     )
       throw new RouterUnavailable(
         409,
-        "Router inference endpoint must be loopback. Fix the AAR listener and retry.",
+        c.kind === "hosted"
+          ? "Router inference endpoint must use the configured HTTPS origin."
+          : "Router inference endpoint must be loopback. Fix the AAR listener and retry.",
         "protocol-mismatch",
       );
-    return info;
+    return { ...info, inferenceOrigin: origin.origin };
   }
   connect(socketPath?: string) {
     return this.serialize(async () => {
       const previous = this.state.connection;
       if (previous?.state === "revocation-pending")
         throw new RouterUnavailable(409, "Finish pending disconnect first");
-      const keep = previous && previous.state !== "disconnected";
+      if (previous?.kind === "hosted" && previous.state !== "disconnected")
+        throw new RouterUnavailable(
+          409,
+          "Disconnect the hosted router before connecting a local router",
+        );
+      const keep =
+        previous &&
+        previous.kind !== "hosted" &&
+        previous.state !== "disconnected";
       const path = resolve(
         socketPath ?? (keep ? previous.socketPath : defaultRouterSocket()),
       );
       const info = await this.info({
         socketPath: path,
         routerId: keep ? previous.routerId : "",
+        id: "",
+        token: "",
+        state: "pairing",
       });
       const connection: Connection = keep
         ? { ...previous, socketPath: path }
@@ -407,13 +477,17 @@ export class AgentAuthRouter {
     return this.serialize(async () => {
       const c = this.state.connection;
       if (!c || c.state === "disconnected") return this.summary();
+      if (c.kind === "hosted") {
+        await this.hosted.cancel();
+        return this.summary();
+      }
       await this.save({
         ...this.state,
         connection: { ...c, state: "revocation-pending" },
       });
       await this.info(c);
       try {
-        await routerRequest(c.socketPath, "/v1/disconnect", c.token, {});
+        await routerRequest(routerEndpoint(c), "/v1/disconnect", c.token, {});
       } catch (error) {
         if (!(error instanceof RouterUnavailable && error.status === 401))
           throw error;
@@ -428,17 +502,21 @@ export class AgentAuthRouter {
   async accounts(): Promise<{ accounts: RouterAccount[] }> {
     const c = this.connection();
     await this.info(c);
-    return routerRequest(c.socketPath, "/v1/accounts", c.token);
+    return routerRequest(routerEndpoint(c), "/v1/accounts", c.token);
   }
   async catalog(accountId: string): Promise<{ models: RouterModel[] }> {
     const c = this.connection();
     await this.info(c);
-    return routerRequest(c.socketPath, "/v1/catalog", c.token, { accountId });
+    return routerRequest(routerEndpoint(c), "/v1/catalog", c.token, {
+      accountId,
+    });
   }
   async quotas(accountId: string): Promise<unknown> {
     const c = this.connection();
     await this.info(c);
-    return routerRequest(c.socketPath, "/v1/quotas", c.token, { accountId });
+    return routerRequest(routerEndpoint(c), "/v1/quotas", c.token, {
+      accountId,
+    });
   }
   private async flushCancellations(c: Connection): Promise<void> {
     for (const allocation of Object.values(this.state.allocations)) {
@@ -448,7 +526,7 @@ export class AgentAuthRouter {
         allocation.cancellationAcknowledged
       )
         continue;
-      await routerRequest(c.socketPath, "/v1/bindings/cancel", c.token, {
+      await routerRequest(routerEndpoint(c), "/v1/bindings/cancel", c.token, {
         id: allocation.id,
       });
       await this.save({
@@ -480,7 +558,12 @@ export class AgentAuthRouter {
           "Manage accounts, pools and grants in Agent Auth Router.",
           "operation-rejected",
         );
-      const result = await routerRequest<T>(c.socketPath, path, c.token, body);
+      const result = await routerRequest<T>(
+        routerEndpoint(c),
+        path,
+        c.token,
+        body,
+      );
       // The router's own policy list and labels pass through unchanged.
       if (path === "/v1/overview" || path === "/v1/overview/refresh")
         return {
@@ -498,7 +581,7 @@ export class AgentAuthRouter {
   ): Promise<string | undefined> {
     try {
       const { pools } = await routerRequest<AgentAuthRouterOverview>(
-        c.socketPath,
+        routerEndpoint(c),
         "/v1/overview",
         c.token,
         {},
@@ -534,7 +617,7 @@ export class AgentAuthRouter {
       job = (async () => {
         const info = await this.info(c);
         const result = await routerRequest<AgentAuthRouterOverview>(
-          c.socketPath,
+          routerEndpoint(c),
           "/v1/selection",
           c.token,
           { provider },
@@ -753,7 +836,7 @@ export class AgentAuthRouter {
     allocation: Allocation,
   ): Promise<PreparedPin> {
     return routerRequest<PreparedPin>(
-      c.socketPath,
+      routerEndpoint(c),
       allocation.poolId ? "/v1/pools/prepare" : "/v1/bindings/prepare",
       c.token,
       {
@@ -898,7 +981,7 @@ export class AgentAuthRouter {
         await this.flushCancellations(c);
         const { accounts } = await routerRequest<{
           accounts: RouterAccount[];
-        }>(c.socketPath, "/v1/accounts", c.token);
+        }>(routerEndpoint(c), "/v1/accounts", c.token);
         const account = accounts.find(
           (a) =>
             a.id === target.accountId &&
@@ -968,9 +1051,14 @@ export class AgentAuthRouter {
             thinking,
             session.serviceTier,
           );
-          await routerRequest(c.socketPath, "/v1/bindings/commit", c.token, {
-            id: allocation.id,
-          });
+          await routerRequest(
+            routerEndpoint(c),
+            "/v1/bindings/commit",
+            c.token,
+            {
+              id: allocation.id,
+            },
+          );
           next = await this.poolBinding(c, info, allocation, selected, {
             account: accountName,
           });
@@ -1094,7 +1182,7 @@ export class AgentAuthRouter {
         throw new RouterUnavailable(409, "Session account pin cannot change");
       const selectedId = allocation?.accountId ?? accountId;
       const { accounts } = await routerRequest<{ accounts: RouterAccount[] }>(
-        c.socketPath,
+        routerEndpoint(c),
         "/v1/accounts",
         c.token,
       );
@@ -1211,7 +1299,7 @@ export class AgentAuthRouter {
           requestedThinking,
           settings?.serviceTier,
         );
-        await routerRequest(c.socketPath, "/v1/bindings/commit", c.token, {
+        await routerRequest(routerEndpoint(c), "/v1/bindings/commit", c.token, {
           id: allocation.id,
         });
       } catch (error) {

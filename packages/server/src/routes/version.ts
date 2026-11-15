@@ -781,6 +781,7 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     // Cached older clients still use this bit; current clients use scoped responses.
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterServiceTiers.name);
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterRecovery.name);
+    capabilities.push(SERVER_CAPABILITIES.agentAuthRouterHosted.name);
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterPools.name);
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterOwnedPools.name);
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterMostRemaining.name);
