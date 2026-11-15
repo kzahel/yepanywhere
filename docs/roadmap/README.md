@@ -1112,20 +1112,22 @@ runner, question and vocabulary steps wait on the decision that review
 records.
 
 [Provider history facts and queries](../../topics/provider-history-facts.md)
-(proposed 2026-11-14) sets the rule for both growth axes: a history question
-costs in proportion to the answer, not the session's length, and upkeep costs
-in proportion to what changed, not the session count. It extends the Claude
-durable index to a shared bounded-query module. Its delivery order starts
-with the length axis (bounded preview excerpt, then shared detail/v0 windows,
-then Codex durable facts) before forward consumers on the count axis. Step 1
+sets the rule for both growth axes: a history question costs in proportion to
+the answer, not the session's length, and upkeep costs in proportion to what
+changed, not the session count. Trimmed 2026-11-15 from a proposed shared
+query architecture to a list of concrete readers: each step removes one
+reader's hidden whole-file read, using a tail read or the provider's existing
+index, and derived facts go into existing homes rather than new caches. Step 1
 is done (2026-11-14): Claude and Codex hover excerpts use a bounded tail read
-with no complete-read fallback, and v0 conversation passes the Codex summary
-hint. Codex launch-settings recovery now reads the tail too, with a named
-complete read when the tail cannot decide. Instruction restoration is a
-prefix fold and keeps its complete read. The Claude resume guard waits on an
-exact indexed tip ([gap](../../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md)). Shared
-windows, Codex durable facts and the count axis remain open. All Sessions text indexing is a separate
-downstream project and does not gate this work.
+with no complete-read fallback, v0 conversation passes the Codex summary
+hint, and Codex launch-settings recovery reads the tail with a named complete
+read when the tail cannot decide. Next, in order: the rewind boundary row,
+Codex complete-reader fallbacks, the restart and handoff source, speech
+vocabulary, then the Claude index tip
+([gap](../../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md))
+and the resume guard that waits on it. Instruction restoration keeps its
+complete read. All Sessions text indexing is a separate downstream project
+and does not gate this work.
 
 This maintenance work does not displace release delivery or concurrent design work.
 
