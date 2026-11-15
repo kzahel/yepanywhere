@@ -118,7 +118,7 @@ consumer adds its row here before adding a reader.
 | Session detail: tail, older pages, reconnect catch-up, in-session search (`routes/session-detail-routes.ts`, `sessions/bound-session-reader.ts`) | Window | **Bounded** for Claude after the first build and for eligible Codex rollouts. Preserves rewind groups, task snapshots, global IDs and counts. |
 | v0 conversation and read-follow (`experimental/provider-conversation-source.ts`, `core-api/conversation.ts`) | Window | **Bounded** on the same readers; Codex passes the summary hint. Message selection still happens after normalization ([gap](../gaps/conversation-window-acquisition-cost.md)). |
 | Task lists and cross-window state (`claude-source-index.ts`, `claude-linear-writer.ts`) | State as of a point | **Bounded** by the Claude index. A tail must not lose state created before it. |
-| Rewind boundary row (`readRewindBoundRowId` in `routes/sessions.ts`) | Latest state | **Open.** Loads the whole Claude session to return the last rewindable row in file order. A tail read is exact here: it needs no branch selection. |
+| Rewind boundary row (`sessions/claude-rewind-bound.ts`) | Latest state | **Done.** The bound is the non-empty string uuid of the last non-progress row, in file order, among lines that parse, read from the tail. It needs no branch selection and does not depend on the rest of the transcript loading; whenever the complete read succeeds, the two agree. No such row inside the budget, a file that changed during the read, or a read error takes the named complete read, whose result or failure stands, because a missing bound makes the rewind group fall back to timestamps. |
 | Codex complete-reader fallbacks (`sessions/codex-reader.ts`) | Window | **Open.** Reference-backed forks, compressed rollouts, old or unknown cursors and results needing omitted tool context take the complete reader. Codex has the largest files. A leaf path is not complete history; inherited segments need ancestor evidence. |
 | Restart and handoff source (`loadRestartSourceSession` in `routes/sessions.ts`, ten call sites) | Mixed | **Open.** Loads and normalizes the whole session. Some calls use only the title and the latest user message. |
 | Speech vocabulary (`services/voice/vocabulary-sessions.ts`) | Everything since last time | **Open.** A changed session is re-paged end to start, so any append rereads its history. Opt-in feature; live arrival is a separate input ([gap](../gaps/vocabulary-learning-has-no-live-tail.md)). |
@@ -182,7 +182,13 @@ here.
    Codex launch-settings recovery matched the complete read on 507 of 534
    sampled rollouts; the other 27 end in a turn longer than the budget and
    take the named complete read.
-2. **Rewind boundary row.** A tail read; exact without branch selection.
+2. **Rewind boundary row (done 2026-11-15).** A tail read, defined on its
+   own (see [Consumers](#consumers)). Evidence on one maintainer host's local
+   data: of 3,879 Claude transcripts, the tail answered 3,878 with the
+   complete read's answer and was unknown on one, a single row without a
+   uuid, which took the complete read. None differed and no complete read
+   failed. The tail reads took 0.6 s in total against 11 s for the complete
+   reads.
 3. **Codex complete-reader fallbacks.** Count how often each fallback fires on
    real rollouts, then bound the ones that do.
 4. **Restart and handoff source.** Audit what each of the ten calls uses;

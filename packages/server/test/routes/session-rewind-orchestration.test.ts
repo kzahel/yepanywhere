@@ -219,9 +219,9 @@ describe("rewind orchestration", () => {
       droppedTurnCount: 1,
       reason: "clear",
     });
-    // One read resolves the cut; one after the process stops finds the last
-    // row the rewind drops.
-    expect(fixture.getSession).toHaveBeenCalledTimes(2);
+    // One read resolves the cut. The last row the rewind drops, found after
+    // the process stops, comes from a tail read, not a second session read.
+    expect(fixture.getSession).toHaveBeenCalledTimes(1);
   });
 
   it("an interactive rewind records what the queued command records", async () => {
@@ -247,7 +247,7 @@ describe("rewind orchestration", () => {
       },
     );
     expect(response.status).toBe(200);
-    expect(interactive.getSession).toHaveBeenCalledTimes(2);
+    expect(interactive.getSession).toHaveBeenCalledTimes(1);
 
     const pick = ({
       cutMessageId,

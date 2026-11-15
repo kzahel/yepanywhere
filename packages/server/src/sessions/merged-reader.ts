@@ -10,6 +10,7 @@ import type {
   ISessionReader,
   LoadedSession,
   RecoveredSessionLaunchSettings,
+  RewindBoundRead,
   SessionListSummary,
 } from "./types.js";
 import { sortProviderChildSessions } from "./types.js";
@@ -156,6 +157,16 @@ export class MergedSessionReader implements ISessionReader {
       if (excerpt !== undefined) return excerpt;
     }
     return undefined;
+  }
+
+  async readRewindBound(sessionId: string): Promise<RewindBoundRead> {
+    // `getSession` answers from the first root holding the session, so a
+    // later root cannot answer for a transcript an earlier one holds.
+    for (const reader of this.readers) {
+      const read = (await reader.readRewindBound?.(sessionId)) ?? "unknown";
+      if (read !== "absent") return read;
+    }
+    return "absent";
   }
 
   async getSessionSummary(

@@ -1121,9 +1121,9 @@ index, and derived facts go into existing homes rather than new caches. Step 1
 is done (2026-11-14): Claude and Codex hover excerpts use a bounded tail read
 with no complete-read fallback, v0 conversation passes the Codex summary
 hint, and Codex launch-settings recovery reads the tail with a named complete
-read when the tail cannot decide. Next, in order: the rewind boundary row,
-Codex complete-reader fallbacks, the restart and handoff source, speech
-vocabulary, then the Claude index tip
+read when the tail cannot decide. Step 2, the rewind boundary row, is done
+(2026-11-15) the same way. Next, in order: Codex complete-reader fallbacks,
+the restart and handoff source, speech vocabulary, then the Claude index tip
 ([gap](../../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md))
 and the resume guard that waits on it. Instruction restoration keeps its
 complete read. All Sessions text indexing is a separate downstream project

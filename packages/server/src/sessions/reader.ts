@@ -32,6 +32,7 @@ import type {
   GetSessionSummaryOptions,
   ISessionReader,
   LoadedSession,
+  RewindBoundRead,
 } from "./types.js";
 import { sortProviderChildSessions } from "./types.js";
 
@@ -44,6 +45,7 @@ import {
   isConversationEntry,
 } from "@yep-anywhere/shared";
 import { readClaudeLatestAgentExcerpt } from "./latest-agent-excerpt.js";
+import { readClaudeTailRewindBound } from "./claude-rewind-bound.js";
 import { collectVisibleClaudeEntries } from "./claude-messages.js";
 import {
   lastAgentExcerptFromState,
@@ -866,6 +868,13 @@ export class ClaudeSessionReader implements ISessionReader {
       if (excerpt) return excerpt;
     }
     return readClaudeLatestAgentExcerpt(filePath);
+  }
+
+  /** Bounded rewind-bound read; see `sessions/claude-rewind-bound.ts`. */
+  async readRewindBound(sessionId: string): Promise<RewindBoundRead> {
+    // The same lookup `getSession` uses, so both read one file.
+    const filePath = await this.findSessionFile(sessionId);
+    return filePath ? readClaudeTailRewindBound(filePath) : "absent";
   }
 
   /**

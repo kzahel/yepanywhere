@@ -99,7 +99,7 @@ import type { GeminiSessionReader } from "../sessions/gemini-reader.js";
 import type { GrokSessionReader } from "../sessions/grok-reader.js";
 import type { PiSessionReader } from "../sessions/pi-reader.js";
 import { extractLastAgentExcerpt } from "../sessions/agent-excerpt.js";
-import { lastRewindableClaudeRowId } from "../sessions/claude-messages.js";
+import { readSessionRewindBoundRowId } from "../sessions/claude-rewind-bound.js";
 import {
   getCodexProviderForkTurnId,
   normalizeSession,
@@ -1270,8 +1270,8 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
   };
 
   /**
-   * The transcript's last row on disk, read once the session's process has
-   * stopped: every row up to it belongs to a rewind recorded now, and the
+   * The transcript's last non-progress row with a uuid, read once the process
+   * has stopped: every row up to it belongs to a rewind recorded now, and the
    * resumed continuation is written after it.
    */
   const readRewindBoundRowId = async (
@@ -1287,21 +1287,13 @@ export function createSessionsRoutes(deps: SessionsDeps): Hono {
       providerResolutionDeps(deps),
       providerName,
     );
-    const loaded = await resolved?.source.reader.getSession(
-      resolved.nativeSessionId,
-      projectId,
-      undefined,
-      { includeOrphans: false },
-    );
-    const data = loaded?.data;
-    switch (data?.provider) {
-      case "claude":
-      case "claude-gateway":
-      case "claude-ollama":
-        return lastRewindableClaudeRowId(data.session.messages);
-      default:
-        return undefined;
-    }
+    return resolved
+      ? readSessionRewindBoundRowId(
+          resolved.source.reader,
+          resolved.nativeSessionId,
+          projectId,
+        )
+      : undefined;
   };
 
   const interruptOldProcessForHandoff = async (

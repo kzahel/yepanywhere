@@ -170,8 +170,10 @@ takes the record's `N` from the kept turn's own stamp, then:
    droppedThroughMessageId, droppedTurnCount, reason: "clear" | "clearloop"
    (+ loop id and iteration) }`. `droppedThroughMessageId` is the
    transcript's last row, read after the live process stopped (the next
-   step), so it bounds the dropped span by file position. It is a display
-   object: never model context, survives restart and device change.
+   step), so it bounds the dropped span by file position. Precisely, it is
+   the last non-progress row with a uuid, read from the end of the file, so
+   finding it does not require the rest of the transcript to load. It is a
+   display object: never model context, survives restart and device change.
 3. Stops the live process, if any, and arms the record as the session's
    **pending rewind**. Claude's truncation is a resume option, so the rewind
    takes effect when the next process for the session launches, whichever
