@@ -91,6 +91,11 @@ catch-up paths, read `topics/architecture-mandates.md`. In particular, an idle
 provider session and a closed client tab must never indefinitely consume server
 resources.
 
+`pnpm lint` fails when a production source file gains a repeating, zero-delay
+or dropped-handle timer beyond `scripts/timer-ownership.json`. Give the timer
+an owner that stops it rather than adding an entry; see
+[timer ownership](topics/architecture-mandates.md#timer-ownership).
+
 ## Oversized Source Files
 
 Production source files over 1,500 lines are frozen at a recorded budget, and

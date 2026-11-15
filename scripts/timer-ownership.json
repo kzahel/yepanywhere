@@ -1,0 +1,454 @@
+{
+  "$comment": "Per-file counts of repeating, zero-delay and dropped-handle timers in production source, checked by scripts/check-timer-ownership.mjs. Owned by topics/architecture-mandates.md#timer-ownership. Lower with `pnpm timers:check --record`; a new entry or a higher count needs maintainer approval.",
+  "updated": "2026-11-15",
+  "recurring": {
+    "packages/client/src/components/EmulatorStream.tsx": {
+      "count": 2,
+      "kind": "poll",
+      "stops": "Video-health and adaptive-bitrate checks for one mounted stream; each effect's cleanup clears its interval."
+    },
+    "packages/client/src/components/ExternalSessionWarning.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Elapsed counter while the banner is visible; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/components/ForkSummaryDisplayObject.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Elapsed counter while the summary is generating; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/components/HostedRouterControls.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Pairing countdown while a pairing is pending; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/components/PendingToolWarning.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Elapsed counter while the warning is mounted; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/components/ProcessingIndicator.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Quiet-time tick while a turn is processing and the indicator is in the viewport; the effect cleanup clears it."
+    },
+    "packages/client/src/components/ProjectQueueSection.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Countdown tick while the project queue has items; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/components/RemoteAccessSetup.tsx": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Relay status refresh only while the relay is connecting or registering; the effect cleanup clears it."
+    },
+    "packages/client/src/components/RendezAttachment.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Auto-send countdown while the tab is visible and a send time is pending; clears itself at the send time and in the effect cleanup."
+    },
+    "packages/client/src/components/TemplateCreationProgress.tsx": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Elapsed counter while template creation is active; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/contexts/AgentContentContext.tsx": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Polls a ref every 100 ms for another caller's load; cleared when that load lands or after 30 s. gaps/agent-content-duplicate-load-polls-a-ref.md"
+    },
+    "packages/client/src/extension/sidepanel/SidePanel.tsx": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Side-panel refresh while mounted, skipped when hidden; the effect cleanup clears it."
+    },
+    "packages/client/src/hooks/useBrowserDebugLease.ts": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Lease countdown while the debug lease is active; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/hooks/useFileActivity.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Reads the activity bus connection flag each second while enabled, for want of a disconnect event; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
+    },
+    "packages/client/src/hooks/useGitStatus.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Safety refresh while a git-status consumer is mounted and visible; stopSafetyRefresh and the effect cleanup clear it."
+    },
+    "packages/client/src/hooks/useMessageListIsearch.tsx": {
+      "count": 1,
+      "kind": "repeat",
+      "stops": "Arrow-button auto-repeat while the pointer is held; stopSearchArrowRepeat clears it on release, cancel and unmount."
+    },
+    "packages/client/src/hooks/useNeedsAttentionBadge.ts": {
+      "count": 1,
+      "kind": "clock",
+      "stops": "Tab-title activity cadence while session activity is shown; the effect cleanup clears it."
+    },
+    "packages/client/src/hooks/useRelativeNow.ts": {
+      "count": 2,
+      "kind": "clock",
+      "stops": "The shared clocks: a minute clock that runs only while it has subscribers, and a per-caller interval cleared on unmount."
+    },
+    "packages/client/src/hooks/useSession.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Durable-history fetch while a sent message is still unconfirmed; the effect cleanup clears it when none remain."
+    },
+    "packages/client/src/hooks/useSessionPerformanceSettings.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "One page-lifetime sweep of the session-detail memory cache, created at module load and never cleared."
+    },
+    "packages/client/src/lib/browserDebugLease.ts": {
+      "count": 1,
+      "kind": "flush",
+      "stops": "Event flush while debug instrumentation is installed; the returned removal function clears it."
+    },
+    "packages/client/src/lib/browserDebugPerformance.ts": {
+      "count": 1,
+      "kind": "sampler",
+      "stops": "Performance window sample while the recorder runs; stop() clears it."
+    },
+    "packages/client/src/lib/connection/ConnectionManager.ts": {
+      "count": 1,
+      "kind": "heartbeat",
+      "stops": "Default implementation of the injected timer interface; its one caller is the stale-connection check, cleared on disconnect."
+    },
+    "packages/client/src/lib/developmentPerformance.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "Development-only clearing of native performance measures; the returned uninstall function clears it."
+    },
+    "packages/client/src/lib/diagnostics/ClientLogCollector.ts": {
+      "count": 1,
+      "kind": "sampler",
+      "stops": "Telemetry entry while log collection is on; _stopTelemetry clears it."
+    },
+    "packages/client/src/lib/speechProviders/sharedMicCapture.ts": {
+      "count": 1,
+      "kind": "heartbeat",
+      "stops": "Cross-tab lease heartbeat while this tab holds the idle microphone stream; cleared when the lease is released."
+    },
+    "packages/client/src/lib/streamedDownload.ts": {
+      "count": 1,
+      "kind": "heartbeat",
+      "stops": "Service-worker keepalive for one download; cleared when the download settles."
+    },
+    "packages/client/src/pages/settings/MessageDeliverySettings.tsx": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Rendez status refresh while the settings pane is mounted; the effect cleanup clears it."
+    },
+    "packages/desktop/src/main/LauncherView.tsx": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Server status refresh while the launcher view is mounted; the effect cleanup clears it."
+    },
+    "packages/desktop/src/main/ServerOutputView.tsx": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Server output refresh while the output view is mounted; the effect cleanup clears it."
+    },
+    "packages/relay/src/telemetry.ts": {
+      "count": 1,
+      "kind": "sampler",
+      "stops": "One connection-count sample per recorder; close() clears it."
+    },
+    "packages/relay/src/ws-handler.ts": {
+      "count": 1,
+      "kind": "heartbeat",
+      "stops": "Ping for one waiting connection; cleared when it pairs or closes."
+    },
+    "packages/server/src/app.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "One draft-store cleanup per app, unref'd; the app's dispose clears it."
+    },
+    "packages/server/src/artifacts/ArtifactServer.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "One grant and deletion sweep per artifact server, unref'd; close() clears it."
+    },
+    "packages/server/src/indexes/SessionIndexService.ts": {
+      "count": 1,
+      "kind": "sampler",
+      "stops": "Warmup progress log while warmup jobs exist; stops itself when the last job ends."
+    },
+    "packages/server/src/lib/processIdleSweep.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "The process-wide idle-release interval, unref'd and created outside request context; cleared when the last sweep unregisters."
+    },
+    "packages/server/src/logging/resource-sample.ts": {
+      "count": 1,
+      "kind": "sampler",
+      "stops": "One resource sample per process when sampling is on, unref'd; the returned stop function clears it."
+    },
+    "packages/server/src/logging/stall-recording.ts": {
+      "count": 1,
+      "kind": "sampler",
+      "stops": "One event-loop stall check per process when recording is on; the returned stop function clears it."
+    },
+    "packages/server/src/projects/projectGlossarySubscriptionManager.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "One glossary poll per project with a subscriber, unref'd; cleared when the last subscriber leaves."
+    },
+    "packages/server/src/projects/projectWorktreeSubscriptionManager.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "One fallback reconciliation poll per project with a subscriber; cleared when the mode changes or the last subscriber leaves."
+    },
+    "packages/server/src/remote-access/RemoteSessionService.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "One hourly expired-session cleanup per service; shutdown() clears it."
+    },
+    "packages/server/src/routes/android-host-summary.ts": {
+      "count": 1,
+      "kind": "heartbeat",
+      "stops": "Transport liveness comment for one summary stream; cleared when the stream is cancelled."
+    },
+    "packages/server/src/routes/ws-relay-handlers.ts": {
+      "count": 3,
+      "kind": "heartbeat",
+      "stops": "One heartbeat per session-watch, glossary and worktree subscription; each subscription's cleanup clears its own."
+    },
+    "packages/server/src/routes/ws-relay.ts": {
+      "count": 2,
+      "kind": "heartbeat",
+      "stops": "WebSocket ping for one direct or relay-accepted connection; cleared on close and on a failed ping."
+    },
+    "packages/server/src/sdk/providers/claude-tool-output-preview.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "One output tail poll per Claude process while a Bash call is running, unref'd; cleared when the last tail stops."
+    },
+    "packages/server/src/server-main.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "One attachment-staging TTL cleanup per server, unref'd; cleared on shutdown."
+    },
+    "packages/server/src/services/BangCommandService.ts": {
+      "count": 1,
+      "kind": "flush",
+      "stops": "Output preview flush for one running bang command; cleared when the command exits."
+    },
+    "packages/server/src/services/ProviderInstallationCoordinator.ts": {
+      "count": 1,
+      "kind": "heartbeat",
+      "stops": "Lease-file heartbeat for one provider installation; the returned stop function clears it when the install ends."
+    },
+    "packages/server/src/services/RelayClientService.ts": {
+      "count": 1,
+      "kind": "heartbeat",
+      "stops": "Keepalive for the one relay connection; stopKeepalive clears it on disconnect."
+    },
+    "packages/server/src/services/RendezWatchService.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "One watch reschedule per service while Rendez watching is enabled, unref'd; cleared when disabled or closed."
+    },
+    "packages/server/src/services/host-awake/MacHostAwakeBackend.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Power-state sample for the one host-awake lease, unref'd; cleared when the lease is released."
+    },
+    "packages/server/src/subscriptions.ts": {
+      "count": 2,
+      "kind": "heartbeat",
+      "stops": "One heartbeat per session and per activity subscription; each subscription's cleanup clears its own."
+    },
+    "packages/server/src/supervisor/Process.ts": {
+      "count": 1,
+      "kind": "sweep",
+      "stops": "Replay-bucket swap for one provider process, idle or not, until it terminates. gaps/replay-bucket-swap-is-a-per-session-interval.md"
+    },
+    "packages/server/src/supervisor/Supervisor.ts": {
+      "count": 2,
+      "kind": "sweep",
+      "stops": "One stale-process check and one liveness probe check per supervisor, both unref'd; stopBackgroundTasks clears them."
+    },
+    "packages/server/src/watcher/FileWatcher.ts": {
+      "count": 1,
+      "kind": "poll",
+      "stops": "Fixed-file poll for one watcher where inode watches are unreliable, unref'd and created outside request context; stop() clears it."
+    },
+    "packages/server/src/watcher/FocusedSessionWatchManager.ts": {
+      "count": 2,
+      "kind": "poll",
+      "stops": "File poll and path-resolve retry for one focused session target; cleared when its last viewer unsubscribes."
+    }
+  },
+  "yields": {
+    "packages/client/src/components/ConversationActivity.tsx": {
+      "count": 1,
+      "reason": "Chrome dispatches the adjusted touch click in the pointerup task; the guard drops on the next task. The handle is kept and cleared."
+    },
+    "packages/client/src/components/FileViewer.tsx": {
+      "count": 1,
+      "reason": "Reads the selection after the browser has applied the pointer or key event that changes it; coalesced and cleared in the effect cleanup."
+    },
+    "packages/client/src/components/MessageInput.tsx": {
+      "count": 2,
+      "reason": "One is the fallback where requestAnimationFrame is absent. The other reads the caret after the browser applies the click, with no handle."
+    },
+    "packages/client/src/components/NewSessionForm.tsx": {
+      "count": 1,
+      "reason": "Reads the textarea selection after the browser applies the click, with no handle; the same shape as MessageInput."
+    },
+    "packages/client/src/components/ResizableSourceColumns.tsx": {
+      "count": 1,
+      "reason": "Suppresses the click that follows a column drag in the same task; no handle is kept."
+    },
+    "packages/client/src/components/SessionShareModal.tsx": {
+      "count": 1,
+      "reason": "Focuses the URL field after the state update that renders it, with no handle; a commit-time focus would not need a timer."
+    },
+    "packages/client/src/components/SourceContextMenu.tsx": {
+      "count": 1,
+      "reason": "Keeps click suppression through the compatibility click dispatched in the pointerup task. The handle is kept and cleared."
+    },
+    "packages/client/src/components/session-search/ContentSearchScan.ts": {
+      "count": 1,
+      "reason": "Yields the main thread between scan slices so typing stays acknowledged; the scan checks cancellation after each yield."
+    },
+    "packages/client/src/components/session-search/SearchTitle.tsx": {
+      "count": 1,
+      "reason": "Moves title fitting out of the keyboard echo's pre-paint commit; coalesced and cleared in the effect cleanup."
+    },
+    "packages/client/src/components/session-search/useSearchIntersection.ts": {
+      "count": 1,
+      "reason": "Yields the main thread after 8 ms of matching so typing stays acknowledged; checks cancellation after each yield."
+    },
+    "packages/client/src/components/ui/TooltipLayer.tsx": {
+      "count": 1,
+      "reason": "Keeps the blocked activation through the click dispatched in the pointerup task. The handle is kept and cleared."
+    },
+    "packages/client/src/hooks/useBtwAsides.ts": {
+      "count": 1,
+      "reason": "Focuses the aside composer after the current key event finishes, with no handle."
+    },
+    "packages/client/src/hooks/useCodeFenceRenderers.tsx": {
+      "count": 1,
+      "reason": "Fallback where requestAnimationFrame is absent; the refresh is coalesced by a flag."
+    },
+    "packages/client/src/hooks/useComposerDelivery.ts": {
+      "count": 1,
+      "reason": "Fallback where requestAnimationFrame is absent, for the post-send focus boundary."
+    },
+    "packages/client/src/hooks/useMessageListIsearch.tsx": {
+      "count": 1,
+      "reason": "Runs a history search page off the calling task where Worker is absent."
+    },
+    "packages/client/src/hooks/useSelectionActionCapture.ts": {
+      "count": 1,
+      "reason": "Reads the selection after the browser finalizes it for the pointerup, with no handle."
+    },
+    "packages/client/src/hooks/useSessionMessages.ts": {
+      "count": 1,
+      "reason": "Lets the loading-progress row paint between transcript load steps, only when that progress display is enabled."
+    },
+    "packages/client/src/hooks/useTranscriptDragSelection.ts": {
+      "count": 1,
+      "reason": "Reads the caret the browser places after the press dispatches. The handle is kept and cleared."
+    },
+    "packages/client/src/lib/browserDebugLease.ts": {
+      "count": 1,
+      "reason": "Reconciles the persisted lease after pageshow restores the page from the back-forward cache, with no handle."
+    },
+    "packages/client/src/lib/imageActions.ts": {
+      "count": 1,
+      "reason": "Revokes the object URL after the synchronous download click has captured it."
+    },
+    "packages/server/src/routes/security-clients.ts": {
+      "count": 1,
+      "reason": "Starts the revocation cascade after the handler returns its response on a non-SRP transport; SRP transports use deferAfterResponse instead."
+    },
+    "packages/server/src/services/issues/content.ts": {
+      "count": 1,
+      "reason": "Yields the event loop between pages of a finite content pass, abortable through the pass's signal."
+    }
+  },
+  "detached": {
+    "packages/client/src/components/FileViewer.tsx": {
+      "count": 1,
+      "reason": "Copied-state reset. gaps/copied-flash-timers-have-private-copies.md"
+    },
+    "packages/client/src/components/QuestionAnswerPanel.tsx": {
+      "count": 1,
+      "reason": "Scrolls the Other input into view 100 ms after focus, a guess at when the on-screen keyboard has opened."
+    },
+    "packages/client/src/components/RemoteAccessSetup.tsx": {
+      "count": 1,
+      "reason": "Copied-state reset. gaps/copied-flash-timers-have-private-copies.md"
+    },
+    "packages/client/src/components/UserTurnNavigator.tsx": {
+      "count": 1,
+      "reason": "Releases marker-click suppression 800 ms after a long press opens the notch menu; nothing clears it on unmount."
+    },
+    "packages/client/src/components/blocks/TextBlock.tsx": {
+      "count": 1,
+      "reason": "Copied-state reset. gaps/copied-flash-timers-have-private-copies.md"
+    },
+    "packages/client/src/components/blocks/ToolCallRow.tsx": {
+      "count": 1,
+      "reason": "Repeats the expanded-row scroll 80 ms later, a guess at when the expanded content has laid out."
+    },
+    "packages/client/src/components/blocks/ToolHeaderCopyButton.tsx": {
+      "count": 1,
+      "reason": "Copied-state reset. gaps/copied-flash-timers-have-private-copies.md"
+    },
+    "packages/client/src/components/renderers/tools/EditDiffPresentation.tsx": {
+      "count": 1,
+      "reason": "Copied-state reset. gaps/copied-flash-timers-have-private-copies.md"
+    },
+    "packages/client/src/components/renderers/tools/ReadRenderer.tsx": {
+      "count": 1,
+      "reason": "Revokes a PDF object URL once the tab it was opened in has had time to load it; no owner outlives the click."
+    },
+    "packages/client/src/components/renderers/tools/outputPreview.tsx": {
+      "count": 1,
+      "reason": "Copied-state reset. gaps/copied-flash-timers-have-private-copies.md"
+    },
+    "packages/client/src/contexts/ToastContext.tsx": {
+      "count": 1,
+      "reason": "Auto-dismiss for one toast; an early manual dismiss leaves the timer to fire as a no-op on the app-lifetime provider."
+    },
+    "packages/client/src/hooks/useBtwAsides.ts": {
+      "count": 2,
+      "reason": "Self-rearming aside poll with no handle. gaps/btw-aside-poll-outlives-its-view.md"
+    },
+    "packages/client/src/hooks/useCodeFenceRenderers.tsx": {
+      "count": 1,
+      "reason": "Copied-state reset on a code fence's copy button. gaps/copied-flash-timers-have-private-copies.md"
+    },
+    "packages/client/src/lib/connection/RelayProtocol.ts": {
+      "count": 3,
+      "reason": "Forget an abandoned request id, or a closed subscription id, after the window in which a late reply can still arrive; each deletes one set entry."
+    },
+    "packages/client/src/lib/streamedDownload.ts": {
+      "count": 1,
+      "reason": "Removes the download frame once the browser has had time to hand the response to its download manager."
+    },
+    "packages/server/src/maintenance/server.ts": {
+      "count": 1,
+      "reason": "Exits the process after the reload response is sent and provider installs have drained."
+    },
+    "packages/server/src/network/listeners.ts": {
+      "count": 1,
+      "reason": "Destroys a retired listener's remaining sockets after its grace period, unref'd; the listener is already closed."
+    },
+    "packages/server/src/routes/server-admin.ts": {
+      "count": 1,
+      "reason": "Exits the process after the restart response is sent, for the supervisor to restart it."
+    },
+    "packages/server/src/services/BangCommandService.ts": {
+      "count": 1,
+      "reason": "Escalates to SIGKILL after the grace period if the command is still running, unref'd."
+    }
+  }
+}

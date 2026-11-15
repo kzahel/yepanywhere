@@ -66,9 +66,53 @@ circuit; they do not schedule attempts to reconstruct the same oversized
 watcher set. An experimental or opt-in label never substitutes for that
 invariant.
 
+## Timer Ownership
+
+Every timer in production source has an owner that can stop it. `pnpm lint`
+runs `scripts/check-timer-ownership.mjs` (`pnpm timers:check` alone) over the
+same production source scope as the
+[growth guard](typescript-module-boundary-refactor.md#growth-guard). It
+classifies each timer call from the syntax tree and bounds three classes per
+file in `scripts/timer-ownership.json`:
+
+- **Repeating** (`setInterval`): each file's entry names what the timers do
+  (`kind`), what owns them and what stops them (`stops`). A repeating timer
+  belongs to a process-wide owner with a fixed cadence, or to a client-held
+  resource that stops when its last holder leaves. Join an existing owner
+  before adding one: `lib/processIdleSweep.ts` for server idle release,
+  `hooks/useRelativeNow.ts` for client clocks.
+- **Zero-delay** (`setTimeout` with no delay or a literal `0`): the timer waits
+  for something it does not name. Act on the event, promise or layout pass
+  that makes the work ready. The recorded entries are browser event-order
+  dependencies, main-thread yields inside long scans, and fallbacks where
+  `requestAnimationFrame` or `Worker` is absent.
+- **Dropped handle** (a `setTimeout` whose return value nothing keeps):
+  nothing can cancel it when its owner goes away. Keep the handle and clear
+  it on teardown. A promise that settles on a timer is reported as a sleep
+  and is not bounded.
+
+Recorded counts only shrink. A file may not exceed its count, and a file with
+no entry may not gain a timer of that class. A new entry or a higher count
+needs maintainer approval and a note that states the owner and stop path, or
+why the timer stands. `pnpm timers:check --record` lowers counts and retires
+empty entries; it never adds or raises. `pnpm timers:check --list [class]`
+prints every site, including the unbounded classes: `owned`, `sleep`, `frame`
+and `immediate`.
+
+The check establishes that a handle is kept, not that it is cleared. An
+`owned` timer still needs the teardown review below. A call on an injected
+clock (`this.timers.setTimeout`) is not a site; the default implementation
+that calls the real timer is.
+
+The 2026-11-15 baseline recorded 64 repeating, 23 zero-delay and 22
+dropped-handle timers among 589 sites. Entries that name a gap are known
+defects, not accepted designs.
+
 ## Review Checklist
 
 - Every poll, retry, heartbeat, watch, and catch-up path has a teardown path.
+- A new repeating, zero-delay or dropped-handle timer is absent, or recorded
+  with its owner under [timer ownership](#timer-ownership).
 - Closed WebSocket/EventSource subscriptions remove server-side subscribers
   and clear timers.
 - Idle sessions do not schedule per-session server work without a live owner or
