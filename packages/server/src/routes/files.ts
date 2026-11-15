@@ -959,17 +959,14 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
       parsePositiveIntegerQuery(c.req.query("lineEnd")),
     );
 
-    // Validate project ID format
     if (!isUrlProjectId(projectId)) {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    // Validate path parameter
     if (!relativePath) {
       return c.json({ error: "Missing path parameter" }, 400);
     }
 
-    // Get project
     const project = await deps.scanner.getProject(projectId, {
       allowStaleSnapshot: true,
     });
@@ -977,7 +974,6 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
       return c.json({ error: "Project not found" }, 404);
     }
 
-    // Get the project's working directory
     const projectRoot = project.path;
 
     let filePath: string;
@@ -1036,7 +1032,6 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
         modifiedAt: Math.round(stats.mtimeMs),
       };
 
-      // Build raw URL
       const rawUrl = `/api/projects/${projectId}/files/raw?path=${encodeURIComponent(relativePath)}`;
 
       const response: FileContentResponse = {
@@ -1082,7 +1077,6 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
             response.contentTruncated = true;
           }
 
-          // Add syntax highlighting if requested
           if (highlight) {
             // Keep source rendering bounded even when the document preview
             // needs all embedded assets. A minified HTML line can be huge.
@@ -1218,17 +1212,14 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
     const relativePath = c.req.query("path");
     const download = c.req.query("download") === "true";
 
-    // Validate project ID format
     if (!isUrlProjectId(projectId)) {
       return c.json({ error: "Invalid project ID format" }, 400);
     }
 
-    // Validate path parameter
     if (!relativePath) {
       return c.json({ error: "Missing path parameter" }, 400);
     }
 
-    // Get project
     const project = await deps.scanner.getProject(projectId, {
       allowStaleSnapshot: true,
     });
@@ -1236,7 +1227,6 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
       return c.json({ error: "Project not found" }, 404);
     }
 
-    // Get the project's working directory
     const projectRoot = project.path;
 
     let filePath: string;
@@ -1371,7 +1361,6 @@ export function createFilesRoutes(deps: FilesDeps): Hono {
    *   - originalFile: complete file content from SDK Edit result
    */
   routes.post("/:projectId/diff/expand", async (c) => {
-    // Parse body
     let body: {
       filePath: string;
       oldString: string;

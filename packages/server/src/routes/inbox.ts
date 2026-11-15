@@ -210,7 +210,6 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
   ): Promise<EnrichedInboxSession[]> {
     const allProjects = await deps.scanner.listProjects();
 
-    // Filter to single project if projectId query param provided
     const projects = filterProjectId
       ? allProjects.filter((p) => p.id === filterProjectId)
       : allProjects;
@@ -226,7 +225,6 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
       deps.sessionAutoArchiveDays,
     );
 
-    // Fetch sessions from all projects in parallel
     const projectSessionResults = await Promise.all(
       projects.map(async (project) => {
         try {
@@ -418,17 +416,14 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
           }))
       : await readInbox(filterProjectId);
 
-    // Build the inbox response by categorizing into tiers
     const needsAttention: InboxItem[] = [];
     const active: InboxItem[] = [];
     const recentActivity: InboxItem[] = [];
     const unread8h: InboxItem[] = [];
     const unread24h: InboxItem[] = [];
 
-    // Track which sessions have been assigned to a tier
     const assignedSessionIds = new Set<string>();
 
-    // Helper to convert to InboxItem
     const toInboxItem = (
       item: EnrichedInboxSession,
       nonHumanUserTurn = item.nonHumanUserTurn !== undefined
@@ -523,7 +518,6 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
       }
     }
 
-    // Sort each tier by updatedAt descending (most recent first)
     const sortByUpdatedAt = (a: InboxItem, b: InboxItem) =>
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
 
@@ -533,7 +527,6 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
     unread8h.sort(sortByUpdatedAt);
     unread24h.sort(sortByUpdatedAt);
 
-    // Apply limits per tier
     const response: InboxResponse = {
       ...(retained?.nextTransitionAt !== undefined
         ? { nextTransitionAt: retained.nextTransitionAt }
