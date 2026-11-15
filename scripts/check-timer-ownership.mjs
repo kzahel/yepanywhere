@@ -21,12 +21,6 @@ const EXCLUDED_SOURCE =
 const MIN_NOTE_LENGTH = 20;
 
 const TIMER_CALL = /setTimeout|setInterval|requestAnimationFrame|setImmediate/;
-const TIMER_NAMES = new Set([
-  "setTimeout",
-  "setInterval",
-  "requestAnimationFrame",
-  "setImmediate",
-]);
 // `window.setTimeout`, `rootWindow.setTimeout`, `doc.defaultView.setTimeout`.
 // A call on any other object (`deps.setTimeout`, `this.timers.setTimeout`) is
 // an injected clock; its real timer is the default implementation's call.
