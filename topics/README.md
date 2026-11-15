@@ -31,6 +31,10 @@
   over direct and Remote Access connections, confirmation before a change cuts
   off its own caller, and runtime listener changes)
 - Security trust boundaries
+- [Deliberate departures from standard web practice](web-practice-exceptions.md)
+  (register of loosened browser-hardening defaults and declined platform
+  recommendations, each with its need, compensating control and owner;
+  Chromium-first support stance)
 - Active content security (confirmed same-origin HTML execution, scriptless
   file viewing, and isolated origins for agent-built applications)
 - [File source editing](file-source-editing.md) (conditional saves and HTML
