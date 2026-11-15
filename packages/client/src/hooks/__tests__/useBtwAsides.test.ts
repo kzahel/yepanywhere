@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+import { act, cleanup, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api/client";
+import type {
+  GetSessionResult,
+  SourceApiClient,
+} from "../../lib/sourceRuntime";
 import type { Message } from "../../types";
 import {
   buildBtwAsideFollowupPrompt,
@@ -8,6 +15,7 @@ import {
   messageContentToBtwLiveText,
   providerSupportsBtwAsideFork,
   truncateBtwPreview,
+  useBtwAsides,
 } from "../useBtwAsides";
 
 describe("useBtwAsides helpers", () => {
@@ -150,5 +158,128 @@ describe("useBtwAsides helpers", () => {
   it("normalizes and truncates preview text", () => {
     expect(truncateBtwPreview("  one\n\n two\tthree  ")).toBe("one two three");
     expect(truncateBtwPreview("x".repeat(710))).toHaveLength(700);
+  });
+});
+
+describe("/btw aside poll ownership", () => {
+  const POLL_MS = 1500;
+  let replies: Array<(owner: "self" | "none") => void>;
+  let getSession: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    replies = [];
+    vi.spyOn(api, "cloneSession").mockResolvedValue({
+      sessionId: "aside-session",
+      messageCount: 0,
+      clonedFrom: "parent",
+      provider: "claude",
+    });
+    vi.spyOn(api, "resumeSession").mockResolvedValue({
+      processId: "aside-process",
+      permissionMode: "default",
+      modeVersion: 1,
+      serverTimestamp: 0,
+    });
+    vi.spyOn(api, "interruptProcess").mockResolvedValue({
+      interrupted: true,
+      supported: true,
+    });
+    getSession = vi.fn(
+      () =>
+        new Promise<GetSessionResult>((resolve) => {
+          replies.push((owner) =>
+            resolve({
+              session: { id: "aside-session" },
+              ownership:
+                owner === "none"
+                  ? { owner: "none" }
+                  : { owner: "self", processId: "aside-process" },
+              messages: [{ type: "assistant", content: `answer ${owner}` }],
+            } as unknown as GetSessionResult),
+          );
+        }),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  async function startPolledAside() {
+    const sourceApi = { getSession } as unknown as SourceApiClient;
+    const hook = renderHook(
+      ({ sessionId }: { sessionId: string }) =>
+        useBtwAsides({
+          basePath: "",
+          projectId: "project",
+          sessionId,
+          actualSessionId: sessionId,
+          locationSearch: "",
+          sourceApi,
+          effectiveProvider: "claude",
+          isWideScreen: true,
+          permissionMode: "default",
+          liveModel: undefined,
+          sessionModel: undefined,
+          sessionExecutor: undefined,
+          parentSessionId: null,
+          showToast: vi.fn(),
+          onNavigateToParentAside: vi.fn(),
+        }),
+      { initialProps: { sessionId: "parent" } },
+    );
+    await act(async () => {
+      hook.result.current.startBtwAside("Check the route split");
+    });
+    await act(() => vi.advanceTimersByTimeAsync(POLL_MS));
+    expect(getSession).toHaveBeenCalledTimes(1);
+    return hook;
+  }
+
+  async function reply(owner: "self" | "none") {
+    await act(async () => {
+      replies.shift()?.(owner);
+    });
+  }
+
+  async function expectNoFurtherPolls(calls: number) {
+    await act(() => vi.advanceTimersByTimeAsync(POLL_MS * 10));
+    expect(getSession).toHaveBeenCalledTimes(calls);
+  }
+
+  it("stops when the hook unmounts, even with a request in flight", async () => {
+    const hook = await startPolledAside();
+    hook.unmount();
+    await reply("self");
+    await expectNoFurtherPolls(1);
+  });
+
+  it("stops when the session changes", async () => {
+    const hook = await startPolledAside();
+    await reply("self");
+    expect(hook.result.current.stickyBtwAsides[0]?.status).toBe("running");
+    hook.rerender({ sessionId: "other" });
+    await expectNoFurtherPolls(1);
+  });
+
+  it("stops when the aside is stopped and drops the late reply", async () => {
+    const hook = await startPolledAside();
+    const asideId = hook.result.current.stickyBtwAsides[0]?.id ?? "";
+    await act(() => hook.result.current.handleStopBtwAside(asideId));
+    await reply("none");
+    const aside = hook.result.current.historyBtwAsides[0];
+    expect(aside?.status).toBe("stopped");
+    expect(aside?.preview).toBeUndefined();
+    await expectNoFurtherPolls(1);
+  });
+
+  it("stops when the asides are reset", async () => {
+    const hook = await startPolledAside();
+    await reply("self");
+    act(() => hook.result.current.resetBtwAsides());
+    await expectNoFurtherPolls(1);
   });
 });

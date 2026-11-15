@@ -418,10 +418,6 @@
       "count": 1,
       "reason": "Auto-dismiss for one toast; an early manual dismiss leaves the timer to fire as a no-op on the app-lifetime provider."
     },
-    "packages/client/src/hooks/useBtwAsides.ts": {
-      "count": 2,
-      "reason": "Self-rearming aside poll with no handle. gaps/btw-aside-poll-outlives-its-view.md"
-    },
     "packages/client/src/hooks/useCodeFenceRenderers.tsx": {
       "count": 1,
       "reason": "Copied-state reset on a code fence's copy button. gaps/copied-flash-timers-have-private-copies.md"

@@ -310,6 +310,7 @@ export function useBtwAsides({
   const asideComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const btwAsidesRef = useRef<BtwAside[]>([]);
   const hydratedBtwSessionIdsRef = useRef<Set<string>>(new Set());
+  const btwAsidePollsRef = useRef<Map<string, AbortController>>(new Map());
 
   const focusedBtwAside = focusedBtwAsideId
     ? (btwAsides.find((aside) => aside.id === focusedBtwAsideId) ?? null)
@@ -346,8 +347,40 @@ export function useBtwAsides({
     );
   }, []);
 
+  const stopBtwAsidePoll = useCallback((asideId: string) => {
+    btwAsidePollsRef.current.get(asideId)?.abort();
+    btwAsidePollsRef.current.delete(asideId);
+  }, []);
+
+  const stopAllBtwAsidePolls = useCallback(() => {
+    for (const poll of btwAsidePollsRef.current.values()) {
+      poll.abort();
+    }
+    btwAsidePollsRef.current.clear();
+  }, []);
+
+  // Polls belong to the session they were started in, so leaving it (or
+  // unmounting) stops them all.
+  useEffect(() => {
+    void sessionId;
+    return stopAllBtwAsidePolls;
+  }, [sessionId, stopAllBtwAsidePolls]);
+
   const pollBtwAside = useCallback(
     (asideId: string, asideSessionId: string) => {
+      // A follow-up turn replaces the aside's earlier poll.
+      stopBtwAsidePoll(asideId);
+      const owner = new AbortController();
+      btwAsidePollsRef.current.set(asideId, owner);
+      let timer: number | undefined;
+      owner.signal.addEventListener("abort", () => {
+        window.clearTimeout(timer);
+      });
+      const finish = () => {
+        if (btwAsidePollsRef.current.get(asideId) === owner) {
+          btwAsidePollsRef.current.delete(asideId);
+        }
+      };
       let polls = 0;
 
       const poll = async () => {
@@ -359,6 +392,9 @@ export function useBtwAsides({
             fullHistory: true,
             fullHistoryReason: "/btw aside poll",
           });
+          if (owner.signal.aborted) {
+            return;
+          }
           const nextStatus: BtwAsideStatus =
             result.ownership.owner === "none" ? "complete" : "running";
           updateBtwAside(asideId, (aside) => {
@@ -387,9 +423,13 @@ export function useBtwAsides({
             };
           });
           if (nextStatus === "complete" || polls >= BTW_ASIDE_MAX_POLLS) {
+            finish();
             return;
           }
         } catch (err) {
+          if (owner.signal.aborted) {
+            return;
+          }
           if (polls >= BTW_ASIDE_MAX_POLLS) {
             updateBtwAside(asideId, (aside) => ({
               ...aside,
@@ -398,15 +438,16 @@ export function useBtwAsides({
               historyAt: aside.historyAt ?? new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             }));
+            finish();
             return;
           }
         }
-        window.setTimeout(poll, BTW_ASIDE_POLL_MS);
+        timer = window.setTimeout(poll, BTW_ASIDE_POLL_MS);
       };
 
-      window.setTimeout(poll, BTW_ASIDE_POLL_MS);
+      timer = window.setTimeout(poll, BTW_ASIDE_POLL_MS);
     },
-    [projectId, sourceApi, updateBtwAside],
+    [projectId, sourceApi, stopBtwAsidePoll, updateBtwAside],
   );
 
   const runBtwAsideTurn = useCallback(
@@ -684,6 +725,7 @@ export function useBtwAsides({
     async (asideId: string) => {
       const aside = btwAsides.find((item) => item.id === asideId);
       if (!aside) return;
+      stopBtwAsidePoll(asideId);
       if (!aside.processId) {
         hideBtwAside(asideId);
         return;
@@ -724,7 +766,7 @@ export function useBtwAsides({
       }
       setFocusedBtwAsideId((current) => (current === asideId ? null : current));
     },
-    [btwAsides, hideBtwAside, updateBtwAside],
+    [btwAsides, hideBtwAside, stopBtwAsidePoll, updateBtwAside],
   );
 
   const handleDoneBtwAside = useCallback(() => {
@@ -817,11 +859,12 @@ export function useBtwAsides({
   );
 
   const resetBtwAsides = useCallback(() => {
+    stopAllBtwAsidePolls();
     setBtwAsides([]);
     btwAsidesRef.current = [];
     setFocusedBtwAsideId(null);
     hydratedBtwSessionIdsRef.current.clear();
-  }, []);
+  }, [stopAllBtwAsidePolls]);
 
   return {
     asideComposerRef,
