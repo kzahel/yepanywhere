@@ -1,3 +1,4 @@
+import { CliInstallationSettings } from "./CliInstallationSettings";
 import commandStyles from "./SettingsCommand.module.css";
 import rowsStyles from "./SettingsRows.module.css";
 import { AgentAuthRouterSettings } from "../../components/AgentAuthRouterControls";
@@ -1052,7 +1053,14 @@ export function ProvidersSettings() {
                       "disable agent",
                       "disable plan mode",
                     ]
-                  : undefined
+                  : provider.id === "codex" || provider.id === "antigravity"
+                    ? [
+                        "CLI installation",
+                        "executable path",
+                        "fnm",
+                        "execution probe",
+                      ]
+                    : undefined
               }
               after={
                 <>
@@ -1076,6 +1084,16 @@ export function ProvidersSettings() {
                       {t("providersClaudeOllamaDeprecationNotice")}
                     </Banner>
                   ) : undefined}
+                  {(provider.id === "codex" || provider.id === "antigravity") &&
+                    serverHasCapability(
+                      version,
+                      SERVER_CAPABILITIES.cliInstallations.name,
+                    ) && (
+                      <CliInstallationSettings
+                        family={provider.id}
+                        onChanged={() => void reloadProviders()}
+                      />
+                    )}
                 </>
               }
               info={

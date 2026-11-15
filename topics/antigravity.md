@@ -8,6 +8,16 @@ uses the same POSIX process boundary but has not been live-qualified. Windows re
 until its native child-tree teardown is qualified. This is a separate provider;
 legacy Gemini histories and execution settings never migrate implicitly.
 
+## Installation selection
+
+The shared [CLI installation selector](provider-cli-installations.md) can persist
+an explicit Antigravity path on the target server/profile. `ANTIGRAVITY_ACP_PATH`
+remains authoritative. `agy acp` and standalone ACP share a launch descriptor;
+removed executables and changed symlink targets are observed on each resolution.
+Offline execution verification is currently unsupported and is reported as such,
+separately from authentication or an execution failure. No Windows support or new
+provider authentication/update mechanism is introduced by the selector.
+
 ## Native installation and authentication
 
 Install Google's `agy` CLI and sign in with it. `agy` 1.5 and later include

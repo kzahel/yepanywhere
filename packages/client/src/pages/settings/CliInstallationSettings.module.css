@@ -1,0 +1,55 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-code);
+  min-width: 0;
+}
+
+.root form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.candidates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.candidates li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.candidates code {
+  display: block;
+  white-space: normal;
+}
+
+.root form button {
+  align-self: flex-start;
+}
+.selector {
+  max-width: 100%;
+}

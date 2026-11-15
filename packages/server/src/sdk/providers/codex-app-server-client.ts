@@ -8,6 +8,7 @@ import type {
   JsonRpcServerRequest,
 } from "./codex-json-rpc.js";
 import { log } from "./codex-log.js";
+import { cliProcessLaunch } from "../../utils/cliProcessLaunch.js";
 
 const APP_SERVER_SHUTDOWN_GRACE_MS = 1500;
 
@@ -291,20 +292,21 @@ export class CodexAppServerClient {
     );
     const child = (() => {
       try {
-        return spawn(
-          sandboxed?.command ?? this.command,
-          sandboxed?.args ?? commandArgs,
-          {
-            cwd: sandboxed?.cwd ?? this.cwd,
-            detached: process.platform !== "win32",
-            stdio: sandboxed?.stdio ?? ["pipe", "pipe", "pipe"],
-            env: sandboxed?.env ?? this.env,
-            shell: sandboxed
-              ? false
-              : process.platform === "win32" &&
-                !this.command.toLowerCase().endsWith(".exe"),
-          },
-        );
+        const launch = sandboxed
+          ? {
+              command: sandboxed.command,
+              args: sandboxed.args,
+              windowsVerbatimArguments: false,
+            }
+          : cliProcessLaunch(this.command, commandArgs, this.env);
+        return spawn(launch.command, launch.args, {
+          cwd: sandboxed?.cwd ?? this.cwd,
+          detached: process.platform !== "win32",
+          stdio: sandboxed?.stdio ?? ["pipe", "pipe", "pipe"],
+          env: sandboxed?.env ?? this.env,
+          shell: false,
+          windowsVerbatimArguments: launch.windowsVerbatimArguments,
+        });
       } finally {
         sandboxed?.release();
       }

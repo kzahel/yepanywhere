@@ -125,6 +125,8 @@ export interface ProviderRuntimeConfig {
 }
 
 export interface ProviderRuntimeSnapshot {
+  cliInstallationDataDir?: string;
+  cliInstallations?: import("@yep-anywhere/shared/provider-cli-installations").CliInstallationSelections;
   steeringModes?: import("@yep-anywhere/shared").SteeringModeSettings;
   codexCliPath?: string;
   codexPlanToolMode?: CodexPlanToolMode;

@@ -59,6 +59,11 @@
       "source": "./src/sidebar-snapshot.ts",
       "types": "./dist/sidebar-snapshot.d.ts",
       "default": "./dist/sidebar-snapshot.js"
+    },
+    "./provider-cli-installations": {
+      "source": "./src/provider-cli-installations.ts",
+      "import": "./dist/provider-cli-installations.js",
+      "types": "./dist/provider-cli-installations.d.ts"
     }
   },
   "scripts": {

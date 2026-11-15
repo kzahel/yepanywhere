@@ -51,7 +51,7 @@ import {
   providerInstallationCoordinator,
 } from "../../services/ProviderInstallationCoordinator.js";
 import { probeServiceEffort } from "../../services/GatewayEffortProbe.js";
-import { findCodexCliPath } from "../cli-detection.js";
+import { codexCli } from "../cli-installation-runtime.js";
 import { MessageQueue, type QueuedSDKUserMessage } from "../messageQueue.js";
 import { readFirstLine } from "../../utils/jsonl.js";
 import type { SDKMessage } from "../types.js";
@@ -251,9 +251,7 @@ export class CodexOSSProvider implements AgentProvider {
   }
 
   getModelCatalogCacheKey(): string {
-    return this.installationCoordinator.getSourceVersion(
-      CODEX_INSTALLATION_FAMILY,
-    );
+    return codexCli.catalogKey(this.installationCoordinator);
   }
 
   /**
@@ -866,7 +864,7 @@ export class CodexOSSProvider implements AgentProvider {
     runtime: { process?: ChildProcess; exit: Promise<number | null> },
   ): AsyncIterableIterator<SDKMessage> {
     if (signal.aborted) return;
-    const codexPath = await this.findCodexPath();
+    const codexPath = await this.findCodexPath(true);
     if (signal.aborted) return;
     if (!codexPath) {
       yield {
@@ -1569,8 +1567,9 @@ export class CodexOSSProvider implements AgentProvider {
   /**
    * Find codex binary path.
    */
-  private async findCodexPath(): Promise<string | null> {
-    return findCodexCliPath(this.codexPath, this.installationCoordinator);
+  private async findCodexPath(verify = false): Promise<string | null> {
+    const resolve = verify ? codexCli.launch : codexCli.find;
+    return resolve(this.codexPath, this.installationCoordinator);
   }
 }
 

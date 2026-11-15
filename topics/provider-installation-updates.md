@@ -9,6 +9,9 @@ Topic: provider-installation-updates
 
 Related topics:
 
+- [provider-cli-installations](provider-cli-installations.md) — shared server-side
+  selection, managed overrides and execution-verification cache;
+
 - [provider-refresh](provider-refresh.md) — maintainer compatibility audits
   after an upstream release; this is separate from mutating a user's install;
 - [provider-authoring](provider-authoring.md) — provider discovery and launch

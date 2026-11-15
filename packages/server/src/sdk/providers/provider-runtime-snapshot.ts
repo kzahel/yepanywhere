@@ -1,3 +1,4 @@
+import { configureCliInstallations } from "../cli-installation-runtime.js";
 /**
  * Applying a launch snapshot inside a provider worker process.
  *
@@ -21,6 +22,15 @@ import { gatewayEffortProbeCache } from "../../services/GatewayEffortProbe.js";
 export async function applyProviderRuntimeSnapshot(
   config: ProviderRuntimeSnapshot,
 ): Promise<void> {
+  if (config.cliInstallationDataDir)
+    configureCliInstallations(
+      config.cliInstallationDataDir,
+      () => config.cliInstallations ?? {},
+      () => ({
+        codex: config.codexCliPath,
+        antigravity: process.env.ANTIGRAVITY_ACP_PATH,
+      }),
+    );
   configureProviderRuntime({
     codexCliPath: config.codexCliPath,
     getClaudeAdditionalModels: () => config.claudeAdditionalModels ?? [],

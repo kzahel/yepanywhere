@@ -96,6 +96,14 @@ one process call site, resolve one launch descriptor and use it for version
 probes, catalogs, sessions, and contract tests so detection cannot disagree
 with startup.
 
+The shared [CLI installation service](provider-cli-installations.md) owns
+server/profile selection, managed overrides and cached execution verification.
+An adapter supplies discovery, provenance/ranking, launch descriptors, relevant
+installation files and an optional offline execution recipe. Unsupported
+verification is distinct from failure. Codex and both Antigravity launch forms
+use this boundary; integrating another provider does not authorize an updater,
+auth flow or new platform qualification.
+
 ## The convergence contract: paired stream items settle to persisted shape
 
 The live and reader halves are two producers of the *same* session, so they

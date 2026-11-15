@@ -505,3 +505,5 @@
 - v0 review follow-ups and mesh testbed - Fixes from the 2026-11-13 independent v0 review, a scripted multi-profile mesh testbed, and eval/baseline tightening.
 - session-catalog-identity-conflicts - Preserve saved session ownership while isolating conflicting native catalogue observations.
 - provider-history-facts - Bounded provider-history reads: cost scales with the answer, not session length; upkeep with change, not session count. Lists every history reader and its remaining whole-file reads.
+
+- provider-cli-installations - Shared target-server CLI selection and cached offline execution verification.

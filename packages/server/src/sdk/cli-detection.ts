@@ -14,6 +14,8 @@ import {
   resolveNpmCommandTarget,
 } from "../utils/npmCommand.js";
 import { whichCommand } from "./which-command.js";
+import { fnmCodexPaths } from "./fnm-codex-discovery.js";
+import { getCliInstallationService } from "./cli-installation-context.js";
 
 export type InstallationReadCoordinator = Pick<
   ProviderInstallationCoordinator,
@@ -32,6 +34,10 @@ let npmGlobalCodexPathsCache:
   | { paths: string[]; expiresAt: number }
   | undefined;
 let npmGlobalCodexPathsRequest: Promise<string[]> | undefined;
+
+export function resetCodexCliDiscovery(): void {
+  npmGlobalCodexPathsCache = undefined;
+}
 
 /**
  * Information about the Claude CLI installation.
@@ -334,6 +340,10 @@ function compareCodexCandidates(
   a: VersionedCodexCandidate,
   b: VersionedCodexCandidate,
 ): number {
+  const internalFallback = (candidate: VersionedCodexCandidate) =>
+    candidate.path.replaceAll("\\", "/").includes("/.codex/.sandbox-bin/");
+  if (internalFallback(a) !== internalFallback(b))
+    return internalFallback(a) ? -1 : 1;
   if (a.normalizedVersion && b.normalizedVersion) {
     // A desktop app may bundle an alpha build. It must not silently replace
     // a versioned install the user chose, so it ranks below every other one.
@@ -354,40 +364,6 @@ function compareCodexCandidates(
   return b.order - a.order;
 }
 
-function selectBestCodexCandidate(
-  candidates: VersionedCodexCandidate[],
-): VersionedCodexCandidate | null {
-  let best: VersionedCodexCandidate | null = null;
-  for (const candidate of candidates) {
-    if (!best || compareCodexCandidates(candidate, best) > 0) {
-      best = candidate;
-    }
-  }
-  return best;
-}
-
-async function probeCodexCandidate(
-  path: string,
-  order: number,
-  installationCoordinator: InstallationReadCoordinator,
-): Promise<VersionedCodexCandidate | null> {
-  const result = await probeCodexCliVersion(path, installationCoordinator);
-  if (!result.ok) {
-    log.debug(
-      { path, reason: result.reason, error: result.error },
-      "Codex CLI candidate probe failed",
-    );
-    return null;
-  }
-  const version = result.version;
-  return {
-    path,
-    version,
-    normalizedVersion: normalizeCodexCliVersion(version),
-    order,
-  };
-}
-
 async function getPathCodexCandidates(): Promise<string[]> {
   try {
     // `where` returns every Windows match, while Unix `which` needs `-a` to
@@ -406,30 +382,47 @@ async function getPathCodexCandidates(): Promise<string[]> {
 async function findAutoCodexCliInstall(
   installationCoordinator: InstallationReadCoordinator,
 ): Promise<CodexCliInstall | null> {
+  const candidates = await discoverCodexCliCandidates(installationCoordinator);
+  const best = candidates.find((candidate) => !candidate.error);
+  return best
+    ? {
+        path: best.path,
+        version: best.version!,
+        normalizedVersion: normalizeCodexCliVersion(best.version),
+      }
+    : null;
+}
+
+/** Ordered inventory retains rejected version probes for settings diagnostics. */
+export async function discoverCodexCliCandidates(
+  installationCoordinator: InstallationReadCoordinator = providerInstallationCoordinator,
+): Promise<Array<{ path: string; version?: string; error?: string }>> {
   const candidatePaths = uniquePaths([
     ...(await getPathCodexCandidates()),
+    ...fnmCodexPaths(),
     ...(await getNpmGlobalCodexPaths()),
     ...getCodexCommonPaths().filter((path) => existsSync(path)),
   ]);
 
-  const candidates = (
-    await Promise.all(
-      candidatePaths.map((path, order) =>
-        probeCodexCandidate(path, order, installationCoordinator),
-      ),
-    )
-  ).filter((candidate): candidate is VersionedCodexCandidate =>
-    Boolean(candidate),
+  const candidates = await Promise.all(
+    candidatePaths.slice(0, 64).map(async (path, order) => {
+      const result = await probeCodexCliVersion(path, installationCoordinator);
+      return {
+        path,
+        order,
+        version: result.ok ? result.version : "",
+        normalizedVersion: result.ok
+          ? normalizeCodexCliVersion(result.version)
+          : null,
+        ...(result.ok ? {} : { error: result.error ?? result.reason }),
+      };
+    }),
   );
-
-  const best = selectBestCodexCandidate(candidates);
-  return best
-    ? {
-        path: best.path,
-        version: best.version,
-        normalizedVersion: best.normalizedVersion,
-      }
-    : null;
+  return candidates.sort(
+    (a, b) =>
+      Number(Boolean(a.error)) - Number(Boolean(b.error)) ||
+      compareCodexCandidates(b, a),
+  );
 }
 
 /**
@@ -456,6 +449,20 @@ export async function findCodexCliInstall(
   explicitPath?: string,
   installationCoordinator: InstallationReadCoordinator = providerInstallationCoordinator,
 ): Promise<CodexCliInstall | null> {
+  const service = getCliInstallationService();
+  if (service) {
+    const inventory = await service.inventory("codex", explicitPath, false);
+    const selected = inventory.candidates.find(
+      (candidate) => candidate.selected && !candidate.error,
+    );
+    return selected?.version
+      ? {
+          path: selected.launch.command,
+          version: selected.version,
+          normalizedVersion: normalizeCodexCliVersion(selected.version),
+        }
+      : null;
+  }
   return installationCoordinator.withReadLease(
     CODEX_INSTALLATION_FAMILY,
     async () => {
@@ -528,6 +535,7 @@ async function probeCodexCliVersionUncoordinated(
     const options = {
       encoding: "utf-8",
       timeout: CODEX_VERSION_PROBE_TIMEOUT_MS,
+      maxBuffer: 16 * 1024,
       windowsHide: true,
     } as const;
     const { stdout } = isWindowsCommandScript(codexPath)
@@ -536,7 +544,7 @@ async function probeCodexCliVersionUncoordinated(
           windowsHide: true,
         })
       : await execFileAsync(codexPath, ["--version"], options);
-    const output = stdout.trim();
+    const output = stdout.trim().slice(0, 512);
     return output
       ? { ok: true, version: output }
       : { ok: false, reason: "empty-output" };
@@ -548,7 +556,7 @@ async function probeCodexCliVersionUncoordinated(
         failure.killed || failure.code === "ETIMEDOUT"
           ? "timeout"
           : "launch-failure",
-      error: failure.message,
+      error: failure.message.slice(0, 4096),
     };
   }
 }

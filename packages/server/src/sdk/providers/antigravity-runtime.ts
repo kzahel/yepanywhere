@@ -1,7 +1,9 @@
+import { describeAntigravityCandidate } from "./antigravity-launch.js";
+import { getCliInstallationService } from "../cli-installation-context.js";
 import { spawn, type ChildProcess } from "node:child_process";
-import { accessSync, constants, existsSync, realpathSync } from "node:fs";
+import { accessSync, constants } from "node:fs";
 import { homedir } from "node:os";
-import { basename, delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
 import type { SDKMessage } from "../types.js";
 
@@ -144,21 +146,13 @@ export interface AntigravityRuntimeCommand {
   layout: "cli" | "acp";
 }
 
-function layoutFor(path: string): AntigravityRuntimeCommand["layout"] {
-  return basename(path) === "agy" ? "cli" : "acp";
-}
-
-// Positive resolutions only, so installing a runtime later is still noticed.
-let resolved: { key: string; runtime: AntigravityRuntimeCommand } | undefined;
-
 /** Synchronous so the store path can be derived wherever it is needed. */
 export function resolveAntigravityRuntime(): AntigravityRuntimeCommand | null {
   // The preview's process-group teardown is qualified only on POSIX hosts.
   if (process.platform === "win32") return null;
-  const explicit = process.env.ANTIGRAVITY_ACP_PATH;
-  const key = `${explicit ?? ""}\0${process.env.PATH ?? ""}`;
-  if (resolved?.key === key && existsSync(resolved.runtime.command))
-    return resolved.runtime;
+  const explicit =
+    process.env.ANTIGRAVITY_ACP_PATH ??
+    getCliInstallationService()?.selectedPath("antigravity");
   const names = ["agy", "agy_acp_server.par", "antigravity-acp"];
   const directories = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
   // Name order wins over PATH order: the CLI's built-in server is preferred.
@@ -171,15 +165,12 @@ export function resolveAntigravityRuntime(): AntigravityRuntimeCommand | null {
     try {
       accessSync(candidate, constants.X_OK);
       // Resolve launcher symlinks so Google's companion harness stays beside it.
-      const command = realpathSync(candidate);
-      const layout = layoutFor(candidate);
-      const runtime = {
-        command,
-        args: layout === "cli" ? ["acp"] : [],
-        layout,
+      const descriptor = describeAntigravityCandidate(candidate);
+      if (descriptor.error) continue;
+      return {
+        ...descriptor.launch,
+        layout: descriptor.launch.args.length ? "cli" : "acp",
       };
-      resolved = { key, runtime };
-      return runtime;
     } catch {
       /* Continue PATH discovery; an explicit path never falls back. */
     }

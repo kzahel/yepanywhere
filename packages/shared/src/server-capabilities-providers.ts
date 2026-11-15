@@ -3,6 +3,37 @@ import { OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS } from "./server-capability-
 import type { ServerCapabilityDefinition } from "./server-capability-definition.js";
 
 export const PROVIDERS_SERVER_CAPABILITIES = {
+  cliInstallations: {
+    id: CAPABILITY_ID_ALLOCATIONS.cliInstallations.id,
+    name: "cli-installations",
+    kind: "permanent",
+    area: "providers",
+    introducedIn: "0.12.0",
+    advertisement: {
+      kind: "optional-bit",
+      index: OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS.cliInstallations.index,
+    },
+    description:
+      "Server-owned provider CLI selection, candidate diagnostics and isolated execution verification.",
+    clientFallback:
+      "Hide installation controls and send no installation requests or settings writes.",
+    serverContract: {
+      routes: [
+        "GET /api/settings/cli-installations/:family",
+        "PUT /api/settings/cli-installations/:family",
+        "POST /api/settings/cli-installations/:family/test",
+        "POST /api/settings/cli-installations/:family/rescan",
+      ],
+      routeModules: ["packages/server/src/routes/cli-installations.ts"],
+      requestFields: ["path"],
+      responseFields: ["family", "selection", "managed", "candidates"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Hosted clients may outpace installed server installation management.",
+    },
+  },
   providerDescriptors: {
     id: CAPABILITY_ID_ALLOCATIONS.providerDescriptors.id,
     name: "provider-descriptors",

@@ -654,6 +654,7 @@ export interface DeviceBridgeStatus {
 }
 
 export interface VersionRouteOptions {
+  cliInstallationsAvailable?: boolean;
   collectionQueryUpdatesAvailable?: boolean;
   /** Owned update lookup; the default uses the public update service. */
   getLatestVersion?: typeof getLatestVersion;
@@ -785,6 +786,8 @@ export function getServerCapabilities(options?: VersionRouteOptions): string[] {
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterMostRemaining.name);
     capabilities.push(SERVER_CAPABILITIES.agentAuthRouterSessionSwitch.name);
   }
+  if (options?.cliInstallationsAvailable)
+    capabilities.push(SERVER_CAPABILITIES.cliInstallations.name);
   // The readiness route and the default setting mount together.
   if (options?.installedMachineControlAvailable)
     capabilities.push(

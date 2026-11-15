@@ -5183,5 +5183,21 @@
   "relationshipTrustLocal": "Recorded by this server",
   "relationshipTrustPeer": "Attested by a peer",
   "relationshipTrustProvider": "Observed in provider data",
-  "relationshipTrustCommand": "Observed in a command"
+  "relationshipTrustCommand": "Observed in a command",
+  "cliInstallationTitle": "CLI installation",
+  "cliInstallationManaged": "Managed by an environment override on this server.",
+  "cliInstallationHint": "Choose the installation used for new sessions on this server. Running sessions keep their current executable.",
+  "cliInstallationAuto": "Auto",
+  "cliInstallationCustom": "Custom path…",
+  "cliInstallationPath": "Absolute executable path",
+  "cliInstallationSave": "Save path",
+  "cliInstallationRescan": "Rescan",
+  "cliInstallationTest": "Test execution",
+  "cliInstallationVerificationHint": "Execution checks use a local scripted model without paid inference. Account authentication and model access are checked separately.",
+  "cliInstallationVersionUnknown": "Version unknown",
+  "cliInstallationSelected": "Selected",
+  "cliInstallationState_unverified": "Execution not yet verified",
+  "cliInstallationState_verified": "Command execution verified",
+  "cliInstallationState_failed": "Execution verification failed",
+  "cliInstallationState_unsupported": "Offline execution verification unavailable"
 }

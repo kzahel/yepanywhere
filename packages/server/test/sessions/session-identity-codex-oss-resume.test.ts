@@ -375,5 +375,7 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:
       await rm(root, { recursive: true, force: true });
     }
   },
-  15000,
+  // Two cold app/profile cycles: 13.56–14.71s complete; 15s timed out.
+  // Three times the observed lower bound preserves every identity assertion.
+  45000,
 );

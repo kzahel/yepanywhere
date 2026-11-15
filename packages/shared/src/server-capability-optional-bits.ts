@@ -2,6 +2,11 @@ import { CAPABILITY_ID_ALLOCATIONS } from "./capability-ids.js";
 import { SECURITY_CLIENT_AUDIT_CAPABILITY } from "./security-clients.js";
 
 export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
+  cliInstallations: {
+    name: "cli-installations",
+    index: CAPABILITY_ID_ALLOCATIONS.cliInstallations.id,
+    introducedIn: "0.12.0",
+  },
   collectionMetadataFields: {
     name: "collection-metadata-fields",
     index: CAPABILITY_ID_ALLOCATIONS.collectionMetadataFields.id,

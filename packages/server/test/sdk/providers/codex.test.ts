@@ -460,6 +460,38 @@ describe("CodexProvider", () => {
       );
     });
 
+    it("pins the launch executable when selection changes before the iterator connects", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-selected-launch-"));
+      const firstLog = join(tempDir, "first.jsonl");
+      const nextLog = join(tempDir, "next.jsonl");
+      const first = createFakeCodexCommand(
+        tempDir,
+        "first",
+        buildFakeCodexAppServer(firstLog),
+      );
+      const next = createFakeCodexCommand(
+        tempDir,
+        "next",
+        buildFakeCodexAppServer(nextLog),
+      );
+      const selected = new CodexProvider({ codexPath: first });
+      const session = await selected.startSession({ cwd: tempDir });
+      try {
+        selected.setCodexPath(next);
+        await session.iterator.next();
+        expect(
+          readFakeCodexRequests(firstLog).some(
+            (request) => request.method === "initialize",
+          ),
+        ).toBe(true);
+        expect(existsSync(nextLog)).toBe(false);
+      } finally {
+        await session.abort();
+        await session.iterator.return?.(undefined);
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
     it("appends user and assistant history through app-server without starting a turn", async () => {
       const tempDir = mkdtempSync(join(tmpdir(), "codex-context-"));
       const logPath = join(tempDir, "requests.jsonl");

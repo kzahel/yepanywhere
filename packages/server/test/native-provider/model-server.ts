@@ -1,3 +1,4 @@
+import { scriptedResponse } from "../../src/sdk/scripted-responses.js";
 import { createServer, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { connect } from "node:net";
@@ -31,34 +32,7 @@ export class Exchange {
   }
 
   private responseInfo(status: string, output: unknown[]) {
-    return {
-      id: this.id,
-      object: "response",
-      created_at: 1,
-      status,
-      error: null,
-      incomplete_details: null,
-      instructions: null,
-      metadata: {},
-      model: this.model,
-      output,
-      parallel_tool_calls: true,
-      previous_response_id: null,
-      store: false,
-      temperature: 1,
-      text: { format: { type: "text" } },
-      tool_choice: "auto",
-      tools: [],
-      top_p: 1,
-      truncation: "disabled",
-      usage: {
-        input_tokens: 100,
-        output_tokens: 5,
-        total_tokens: 105,
-        input_tokens_details: { cached_tokens: 0 },
-        output_tokens_details: { reasoning_tokens: 0 },
-      },
-    };
+    return scriptedResponse(this.id, this.model, status, output);
   }
 
   private event(type: string, fields: Record<string, unknown>) {

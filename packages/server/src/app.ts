@@ -1,3 +1,4 @@
+import { appProviderRuntime } from "./sdk/app-provider-runtime.js";
 import { ownedApiSessions } from "./core-api/owned-sessions.js";
 import type { ProviderObservationCallbacks } from "./watcher/ProviderSessionWatcherRegistry.js";
 import { createClaudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
@@ -357,13 +358,9 @@ import { createSecurityClientRoutes } from "./routes/security-clients.js";
 import { createNativePushRoutes } from "./routes/native-push.js";
 import type { NativePushService } from "./push/NativePushService.js";
 import { DiscoverySqliteService } from "./storage/discovery-sqlite.js";
-import {
-  createVersionRoutes,
-  type VersionRouteOptions,
-} from "./routes/version.js";
+import type { VersionRouteOptions } from "./routes/version.js";
 import { createProviderHostRoutes } from "./routes/provider-host.js";
 import {
-  configureProviderRuntime,
   getAllProviders,
   getProvider,
   isProviderRuntimeHostAvailable,
@@ -719,7 +716,7 @@ export function createApp(options: AppOptions): AppResult {
       options.serverSettingsService?.getSetting("subagentMaxDepth");
     return configured === undefined ? DEFAULT_SUBAGENT_MAX_DEPTH : configured;
   };
-  configureProviderRuntime({
+  appProviderRuntime.configure(options, {
     codexCliPath: options.codexCliPath,
     getClaudeAdditionalModels: () =>
       options.serverSettingsService?.getSetting("claudeAdditionalModels"),
@@ -3042,7 +3039,7 @@ export function createApp(options: AppOptions): AppResult {
   // Version check (outside /api for easy access)
   app.route(
     "/api/version",
-    createVersionRoutes({
+    appProviderRuntime.versionRoutes({
       getLatestVersion: options.getLatestVersion,
       collectionQueryUpdatesAvailable: !!options.eventBus,
       installedMachineControlAvailable: machineControlMounted,

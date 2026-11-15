@@ -1,3 +1,5 @@
+import { getCliInstallationService } from "../cli-installation-context.js";
+import { verifiedCodexLaunchPath } from "../cli-installation-runtime.js";
 import { nativeStorageScope } from "./native-storage-scope.js";
 import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
@@ -283,9 +285,7 @@ export class CodexProvider implements AgentProvider {
   }
 
   getModelCatalogCacheKey(): string {
-    return this.installationCoordinator.getSourceVersion(
-      CODEX_INSTALLATION_FAMILY,
-    );
+    return `${this.installationCoordinator.getSourceVersion(CODEX_INSTALLATION_FAMILY)}\0${getCliInstallationService()?.selectedPath("codex") ?? "auto"}`;
   }
 
   /**
@@ -789,8 +789,21 @@ export class CodexProvider implements AgentProvider {
       await this.installationCoordinator.acquireRuntimeLease(
         CODEX_INSTALLATION_FAMILY,
       );
+    let launchPath: string;
+    try {
+      launchPath = await verifiedCodexLaunchPath(
+        this.config.codexPath,
+        this.installationCoordinator,
+      );
+    } catch (error) {
+      await installationLease.release();
+      throw error;
+    }
     const session = new CodexSession({
-      host: this.sessionHost,
+      host: {
+        ...this.sessionHost,
+        resolveCodexCommand: async () => launchPath,
+      },
       options,
       steeringMode,
       mcpAppViews: this.getMcpAppViews(),

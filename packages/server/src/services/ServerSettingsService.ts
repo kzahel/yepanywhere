@@ -110,6 +110,7 @@ export type ToolResultMediaPreservation =
 
 /** Server-wide settings */
 export interface ServerSettings {
+  cliInstallations?: import("@yep-anywhere/shared/provider-cli-installations").CliInstallationSelections;
   steeringModes?: import("@yep-anywhere/shared").SteeringModeSettings;
   computerControl?: import("../machine-control/legacy-retirement.js").LegacyComputerSettings;
   /** Experimental issue discovery; absent means disabled, viewed scope. */
@@ -714,6 +715,9 @@ export class ServerSettingsService {
   private dataDir: string;
   private filePath: string;
   private initialized = false;
+  get dataDirectory(): string {
+    return this.dataDir;
+  }
   private updateTail: Promise<void> = Promise.resolve();
   private readonly changeListeners = new Set<ServerSettingsChangeListener>();
   private readonly logger: Pick<Console, "error">;

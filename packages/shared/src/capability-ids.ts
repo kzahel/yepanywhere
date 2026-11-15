@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  cliInstallations: {
+    id: 161,
+    direction: "server",
+    name: "cli-installations",
+    introducedIn: "0.12.0",
+  },
   machineControlSetting: {
     id: 160,
     direction: "server",

@@ -1,3 +1,4 @@
+import { createCliInstallationRoutes } from "./cli-installations.js";
 /**
  * Server settings API routes
  */
@@ -188,6 +189,10 @@ export function createSettingsRoutes(deps: SettingsRoutesDeps) {
   const app = new Hono<{
     Variables: Record<typeof PRINCIPAL_VARIABLE, Principal>;
   }>();
+  app.route(
+    "/cli-installations",
+    createCliInstallationRoutes(deps.serverSettingsService),
+  );
   let settingsUpdateTail: Promise<void> = Promise.resolve();
   const serializeSettingsUpdate = <T>(
     operation: () => Promise<T>,

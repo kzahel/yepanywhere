@@ -1,5 +1,15 @@
 # Roadmap
 
+The 2026-11-15 [provider CLI installation reliability](../../topics/provider-cli-installations.md)
+slice implements profile-owned selection, managed overrides, fnm default discovery
+and cached offline Codex command verification, with reusable Antigravity launch
+descriptors. [Plan 193](../tactical/193-provider-cli-installations.md) records the
+verification and release boundaries. Command-driven macOS/Windows/Linux evidence
+is separate from packaged GUI launch qualification; Antigravity offline execution
+verification remains unsupported. This defect repair does not change release
+priorities or enroll other providers in installation/update management.
+
+
 On-device Android hosting is authorized as a separate incubation effort
 (2026-10-17), not a blocker or replacement for the published mobile companion.
 The [Android host contract](../../topics/android-host.md) owns the scaffold,
