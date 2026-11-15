@@ -2309,7 +2309,7 @@ Check a file after reviewing all its comments in context. Append the review date
 - [ ] [packages/server/src/machine-control/installation.ts](../../../packages/server/src/machine-control/installation.ts)
 - [ ] [packages/server/src/machine-control/legacy-retirement.ts](../../../packages/server/src/machine-control/legacy-retirement.ts)
 - [ ] [packages/server/src/machine-control/signature.ts](../../../packages/server/src/machine-control/signature.ts)
-- [ ] [packages/server/src/maintenance/debug-routes.ts](../../../packages/server/src/maintenance/debug-routes.ts)
+- [x] [packages/server/src/maintenance/debug-routes.ts](../../../packages/server/src/maintenance/debug-routes.ts) — 2026-11-15
 - [ ] [packages/server/src/maintenance/server.ts](../../../packages/server/src/maintenance/server.ts)
 - [ ] [packages/server/src/media/ToolResultMediaStore.ts](../../../packages/server/src/media/ToolResultMediaStore.ts)
 - [ ] [packages/server/src/metadata/ProjectMetadataService.ts](../../../packages/server/src/metadata/ProjectMetadataService.ts)
@@ -2510,7 +2510,7 @@ Check a file after reviewing all its comments in context. Append the review date
 - [ ] [packages/server/src/routes/speech.ts](../../../packages/server/src/routes/speech.ts)
 - [ ] [packages/server/src/routes/supervisor-queue.ts](../../../packages/server/src/routes/supervisor-queue.ts)
 - [ ] [packages/server/src/routes/untrusted-file-response.ts](../../../packages/server/src/routes/untrusted-file-response.ts)
-- [ ] [packages/server/src/routes/upload.ts](../../../packages/server/src/routes/upload.ts)
+- [x] [packages/server/src/routes/upload.ts](../../../packages/server/src/routes/upload.ts) — 2026-11-15
 - [ ] [packages/server/src/routes/users.ts](../../../packages/server/src/routes/users.ts)
 - [ ] [packages/server/src/routes/v0/index.ts](../../../packages/server/src/routes/v0/index.ts)
 - [ ] [packages/server/src/routes/version.ts](../../../packages/server/src/routes/version.ts)
@@ -2519,7 +2519,7 @@ Check a file after reviewing all its comments in context. Append the review date
 - [ ] [packages/server/src/routes/ws-internal-request-env.ts](../../../packages/server/src/routes/ws-internal-request-env.ts)
 - [ ] [packages/server/src/routes/ws-message-router.ts](../../../packages/server/src/routes/ws-message-router.ts)
 - [ ] [packages/server/src/routes/ws-relay-handlers.ts](../../../packages/server/src/routes/ws-relay-handlers.ts)
-- [ ] [packages/server/src/routes/ws-relay.ts](../../../packages/server/src/routes/ws-relay.ts)
+- [x] [packages/server/src/routes/ws-relay.ts](../../../packages/server/src/routes/ws-relay.ts) — 2026-11-15
 - [ ] [packages/server/src/routes/ws-srp-handlers.ts](../../../packages/server/src/routes/ws-srp-handlers.ts)
 - [ ] [packages/server/src/routes/ws-stream-policy.ts](../../../packages/server/src/routes/ws-stream-policy.ts)
 - [ ] [packages/server/src/routes/ws-transport-auth.ts](../../../packages/server/src/routes/ws-transport-auth.ts)
@@ -3254,7 +3254,7 @@ Check a file after reviewing all its comments in context. Append the review date
 - [ ] [packages/server/test/services/speech-vocabulary-relearn.test.ts](../../../packages/server/test/services/speech-vocabulary-relearn.test.ts)
 - [ ] [packages/server/test/services/speech-vocabulary-session-share.test.ts](../../../packages/server/test/services/speech-vocabulary-session-share.test.ts)
 - [ ] [packages/server/test/services/xai-stt-backend.test.ts](../../../packages/server/test/services/xai-stt-backend.test.ts)
-- [ ] [packages/server/test/session-filtering.test.ts](../../../packages/server/test/session-filtering.test.ts)
+- [x] [packages/server/test/session-filtering.test.ts](../../../packages/server/test/session-filtering.test.ts) — 2026-11-15
 - [ ] [packages/server/test/session-project-routing.test.ts](../../../packages/server/test/session-project-routing.test.ts)
 - [ ] [packages/server/test/session-resume.test.ts](../../../packages/server/test/session-resume.test.ts)
 - [ ] [packages/server/test/session-sandbox-port-broker.test.ts](../../../packages/server/test/session-sandbox-port-broker.test.ts)

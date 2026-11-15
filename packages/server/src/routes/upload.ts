@@ -28,7 +28,6 @@ import { createUntrustedFileResponseHeaders } from "./untrusted-file-response.js
 import { actingUsername } from "../auth/limitedLaunchPolicy.js";
 import type { RendezDraftDelivery } from "../services/RendezDraftDelivery.js";
 
-/** Progress update interval in bytes (64KB) */
 const PROGRESS_INTERVAL_BYTES = 64 * 1024;
 
 // biome-ignore lint/suspicious/noExplicitAny: Complex third-party type from @hono/node-server
@@ -135,7 +134,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
       data: string | ArrayBuffer | SharedArrayBuffer | Buffer | Blob,
       ws: WSContext,
     ): Promise<void> => {
-      // Wait for validation to complete if it hasn't yet
       if (validationResult === null && validationPromise) {
         validationResult = await validationPromise;
       }
@@ -145,9 +143,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
         return;
       }
 
-      // Accept both text and binary payloads from the WebSocket adapter.
-
-      // Convert Buffer/ArrayBuffer to string for potential JSON parsing
       let stringData: string | null = null;
       let bufferData: Buffer | null = null;
 
@@ -161,10 +156,8 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
         bufferData = Buffer.isBuffer(data)
           ? data
           : Buffer.from(data as ArrayBuffer);
-        // Try to interpret as UTF-8 string for JSON control messages
         stringData = bufferData.toString("utf8");
       } else if (data instanceof Blob) {
-        // Blob handling (rare in Node.js WebSocket but possible)
         const arrayBuffer = await data.arrayBuffer();
         bufferData = Buffer.from(arrayBuffer);
         stringData = bufferData.toString("utf8");
@@ -184,11 +177,9 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
         }
       }
 
-      // If we parsed a control message, handle it
       if (msg !== null) {
         switch (msg.type) {
           case "start": {
-            // Clean up any previous upload
             if (currentUploadId) {
               await backend.cancelUpload(currentUploadId);
             }
@@ -251,7 +242,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
 
       const uploadId = currentUploadId;
       try {
-        // Convert to Buffer if needed (bufferData should already be set at this point)
         const chunk =
           bufferData ?? (typeof data === "string" ? Buffer.from(data) : null);
         if (!chunk) {
@@ -261,7 +251,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
 
         const bytesReceived = await backend.writeChunk(uploadId, chunk);
 
-        // Send progress updates periodically
         if (bytesReceived - lastProgressSent >= PROGRESS_INTERVAL_BYTES) {
           const progress: UploadProgressMessage = {
             type: "progress",
@@ -280,7 +269,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
 
     return {
       onOpen(_evt, ws) {
-        // Start validation; Hono's Node adapter does not await onOpen.
         validationPromise = validate();
         validationPromise.then((result) => {
           validationResult = result;
@@ -292,8 +280,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
       },
 
       onMessage(evt, ws) {
-        // Queue this message to be processed after all previous messages complete
-        // This serializes async processing and prevents race conditions
         messageQueue = messageQueue.then(() =>
           processMessage(evt.data, ws).catch((err) => {
             console.error("[Upload WS] Unexpected error:", err);
@@ -303,16 +289,14 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
       },
 
       async onClose(_evt, _ws) {
-        // Wait for any pending messages to complete
+        // Drain admitted writes before cancelling the upload to avoid racing a write.
         await messageQueue;
-        // Clean up partial uploads on disconnect
         if (currentUploadId) {
           await backend.cancelUpload(currentUploadId);
         }
       },
 
       onError(_evt, _ws) {
-        // Clean up on error
         if (currentUploadId) {
           backend.cancelUpload(currentUploadId).catch(() => {});
         }
@@ -320,7 +304,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
     };
   };
 
-  // WebSocket endpoint: /projects/:projectId/sessions/:sessionId/upload/ws
   routes.get(
     "/projects/:projectId/sessions/:sessionId/upload/ws",
     deps.upgradeWebSocket((c) => {
@@ -329,7 +312,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
       let projectPath: string | null = null;
 
       const validate = async (): Promise<boolean> => {
-        // Validate projectId format
         if (!isUrlProjectId(projectId)) {
           return false;
         }
@@ -375,7 +357,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
     }),
   );
 
-  // WebSocket endpoint: /attachments/staging/drafts/upload/ws
   routes.get(
     "/attachments/staging/drafts/upload/ws",
     deps.upgradeWebSocket((c) => {
@@ -425,7 +406,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
     }),
   );
 
-  // POST endpoint: /attachments/staging/drafts/:batchId/validate
   routes.post("/attachments/staging/drafts/:batchId/validate", async (c) => {
     if (!deps.attachmentStagingService) {
       return c.json({ error: "Attachment staging is unavailable" }, 404);
@@ -455,7 +435,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
     }
   });
 
-  // DELETE endpoint: /attachments/staging/drafts/:batchId/:attachmentId
   routes.delete(
     "/attachments/staging/drafts/:batchId/:attachmentId",
     async (c) => {
@@ -481,7 +460,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
     },
   );
 
-  // POST endpoint: /projects/:projectId/sessions/:sessionId/attachments/staging/materialize
   routes.post(
     "/projects/:projectId/sessions/:sessionId/attachments/staging/materialize",
     async (c) => {
@@ -533,8 +511,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
     },
   );
 
-  // GET endpoint: /projects/:projectId/sessions/:sessionId/upload/:filename
-  // Serves uploaded files for viewing in the client
   routes.get(
     "/projects/:projectId/sessions/:sessionId/upload/:filename",
     async (c) => {
@@ -542,7 +518,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
       const sessionId = c.req.param("sessionId") as string;
       const filename = c.req.param("filename") as string;
 
-      // Validate projectId format
       if (!isUrlProjectId(projectId)) {
         return c.json({ error: "Invalid project ID" }, 400);
       }
@@ -607,7 +582,6 @@ export function createUploadRoutes(deps: UploadDeps): Hono {
         }
         const foundPath = found.path;
 
-        // Determine content type from filename extension
         const ext = filename.split(".").pop()?.toLowerCase() ?? "";
         const mimeTypes: Record<string, string> = {
           png: "image/png",

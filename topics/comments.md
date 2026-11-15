@@ -60,9 +60,10 @@ narration-heavy files and handle judgment-heavy field documentation when its
 file is already being touched. Keep useful constraints under the criteria above.
 
 Commit coherent file or directory sweeps separately from behavior repairs.
-Verify that comment-only TypeScript changes preserve emitted JavaScript, then
-run applicable repository checks. A completed sweep is evidence of review at
-that point, not a permanent exemption from reviewing later comments.
+Verify that comment-only TypeScript changes preserve emitted JavaScript after
+normalizing emitted formatting, then run applicable repository checks. A
+completed sweep is evidence of review at that point, not a permanent exemption
+from reviewing later comments.
 
 An automated gate remains undecided. Mechanical checks should enforce only
 rules they can reliably establish without creating noisy CI.

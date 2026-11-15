@@ -1,14 +1,4 @@
-/**
- * Debug API routes for the maintenance server.
- *
- * These endpoints provide programmatic access to session internals for testing:
- * - List/inspect active sessions
- * - Send messages (blocking/non-blocking)
- * - Compare SSE vs JSONL message history
- * - Rapid message submission for testing
- *
- * All routes are prefixed with /debug and live on the maintenance server port.
- */
+/** Debug/testing routes under /debug, served on the maintenance server port. */
 import type * as http from "node:http";
 import type { SDKMessage } from "../sdk/types.js";
 import { normalizeSession } from "../sessions/normalization.js";
@@ -18,10 +8,7 @@ import type { Process } from "../supervisor/Process.js";
 import type { Supervisor } from "../supervisor/Supervisor.js";
 import type { Message } from "../supervisor/types.js";
 
-/**
- * Context required by debug routes.
- * This is populated by createApp and passed to the maintenance server.
- */
+/** Populated by createApp and passed to the maintenance server. */
 export interface DebugContext {
   supervisor: Supervisor;
   /** Borrow the app's scoped native reader for this public session. */
@@ -33,30 +20,19 @@ export interface DebugContext {
     nativeSessionId: string;
     projectId: UrlProjectId;
   } | null>;
-  /** Claude sessions directory (for finding JSONL files) */
   claudeSessionsDir: string;
 }
 
 /** Global debug context - set by the main app */
 let debugContext: DebugContext | null = null;
 
-/**
- * Set the debug context (called from main app initialization).
- */
 export function setDebugContext(ctx: DebugContext | null): void {
   debugContext = ctx;
 }
 
-/**
- * Get the current debug context.
- */
 export function getDebugContext(): DebugContext | null {
   return debugContext;
 }
-
-// ============================================================================
-// Response types
-// ============================================================================
 
 interface SessionListItem {
   sessionId: string;
@@ -153,11 +129,6 @@ interface CreateResult {
   error?: string;
 }
 
-// ============================================================================
-// Helper functions
-// ============================================================================
-
-/** Send JSON response */
 function sendJson(
   res: http.ServerResponse,
   status: number,
@@ -167,7 +138,6 @@ function sendJson(
   res.end(JSON.stringify(data, null, 2));
 }
 
-/** Read JSON body from request */
 async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -184,7 +154,6 @@ async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
   });
 }
 
-/** Parse query string from URL */
 function parseQuery(url: URL): Record<string, string> {
   const params: Record<string, string> = {};
   url.searchParams.forEach((value, key) => {
@@ -193,7 +162,6 @@ function parseQuery(url: URL): Record<string, string> {
   return params;
 }
 
-/** Get content preview from an SDK message */
 function getContentPreview(message: SDKMessage): string {
   if (message.type === "user" && message.message?.content) {
     const content = message.message.content;
@@ -208,7 +176,6 @@ function getContentPreview(message: SDKMessage): string {
       return content.length > 100 ? `${content.slice(0, 100)}...` : content;
     }
     if (Array.isArray(content)) {
-      // Extract text from content blocks
       const textParts: string[] = [];
       for (const block of content) {
         const b = block as { type?: string; text?: string };
@@ -220,7 +187,6 @@ function getContentPreview(message: SDKMessage): string {
         const text = textParts.join(" ");
         return text.length > 100 ? `${text.slice(0, 100)}...` : text;
       }
-      // Fall back to showing block types if no text
       const types = content.map(
         (b) => (b as { type?: string }).type ?? "unknown",
       );
@@ -234,7 +200,6 @@ function getContentPreview(message: SDKMessage): string {
   return `[${message.type}]`;
 }
 
-/** Convert SDK message to preview */
 function toMessagePreview(message: SDKMessage): MessagePreview {
   return {
     uuid: message.uuid,
@@ -244,7 +209,6 @@ function toMessagePreview(message: SDKMessage): MessagePreview {
   };
 }
 
-/** Wait for process to reach idle state with timeout */
 async function waitForIdle(
   process: Process,
   timeoutMs: number,
@@ -252,7 +216,6 @@ async function waitForIdle(
   const startTime = Date.now();
 
   return new Promise((resolve) => {
-    // Check if already idle
     if (process.state.type === "idle") {
       resolve({
         success: true,
@@ -285,11 +248,6 @@ async function waitForIdle(
   });
 }
 
-// ============================================================================
-// Route handlers
-// ============================================================================
-
-/** GET /debug/sessions - List all active sessions */
 async function handleListSessions(
   res: http.ServerResponse,
   ctx: DebugContext,
@@ -323,7 +281,6 @@ async function handleListSessions(
   sendJson(res, 200, { sessions });
 }
 
-/** GET /debug/sessions/:sessionId - Get session details */
 async function handleGetSession(
   res: http.ServerResponse,
   ctx: DebugContext,
@@ -346,7 +303,6 @@ async function handleGetSession(
     ? history
     : history.filter((m) => m.type !== "stream_event");
 
-  // Apply pagination
   messages = messages.slice(offset, offset + limit);
 
   const userCount = history.filter((m) => m.type === "user").length;
@@ -372,7 +328,6 @@ async function handleGetSession(
   sendJson(res, 200, detail);
 }
 
-/** GET /debug/sessions/:sessionId/compare - Compare SSE vs JSONL */
 async function handleCompare(
   res: http.ServerResponse,
   ctx: DebugContext,
@@ -410,7 +365,6 @@ async function handleCompare(
   const session = loadedSession ? normalizeSession(loadedSession) : null;
   const jsonlMessages = session?.messages ?? [];
 
-  // Compare
   const sseUuids = new Set(sseMessages.map((m) => m.uuid).filter(Boolean));
   const jsonlUuids = new Set(
     jsonlMessages.map((m: Message) => m.uuid).filter(Boolean),
@@ -424,7 +378,6 @@ async function handleCompare(
   ) as string[];
   const matching = [...sseUuids].filter((u) => u && jsonlUuids.has(u)).length;
 
-  // Check parent UUID differences
   const parentUuidDiffs: CompareResult["comparison"]["parentUuidDiffs"] = [];
   for (const sseMsg of sseMessages) {
     if (!sseMsg.uuid) continue;
@@ -464,7 +417,6 @@ async function handleCompare(
   sendJson(res, 200, result);
 }
 
-/** POST /debug/sessions/:sessionId/send - Send a message */
 async function handleSend(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -492,10 +444,8 @@ async function handleSend(
   const blocking = body.blocking ?? false;
   const timeoutMs = body.timeoutMs ?? 60000;
 
-  // Get message count before sending
   const beforeCount = process.getMessageHistory().length;
 
-  // Queue the message
   const queueResult = process.queueMessage({ text: body.message });
 
   if (!queueResult.success) {
@@ -512,7 +462,6 @@ async function handleSend(
     return;
   }
 
-  // Wait for idle state
   const waitResult = await waitForIdle(process, timeoutMs);
 
   if (!waitResult.success) {
@@ -524,7 +473,6 @@ async function handleSend(
     return;
   }
 
-  // Get new messages
   const afterHistory = process.getMessageHistory();
   const newMessages = afterHistory
     .slice(beforeCount)
@@ -539,7 +487,6 @@ async function handleSend(
   sendJson(res, 200, result);
 }
 
-/** POST /debug/sessions/:sessionId/rapid - Send multiple messages rapidly */
 async function handleRapid(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -576,7 +523,6 @@ async function handleRapid(
   const startTime = Date.now();
   const results: RapidResult["results"] = [];
 
-  // Send all messages rapidly
   for (const message of body.messages) {
     const queuedAt = new Date().toISOString();
     const queueResult = process.queueMessage({ text: message });
@@ -611,7 +557,6 @@ async function handleRapid(
     return;
   }
 
-  // Wait for all messages to be processed
   const waitResult = await waitForIdle(process, timeoutMs);
 
   // Analyze DAG structure (simplified - just look at branches)
@@ -625,7 +570,6 @@ async function handleRapid(
   }
   const branches = [...parentCounts.values()].filter((c) => c > 1).length || 1;
 
-  // Find leaf nodes (messages with no children)
   const hasChildren = new Set<string>();
   for (const msg of history) {
     if (msg.parentUuid) {
@@ -656,7 +600,6 @@ async function handleRapid(
   sendJson(res, 200, result);
 }
 
-/** POST /debug/sessions/create - Create a new session */
 async function handleCreate(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -700,7 +643,6 @@ async function handleCreate(
       },
     );
 
-    // Check if queued
     if ("queued" in result && result.queued) {
       sendJson(res, 202, {
         queued: true,
@@ -710,7 +652,6 @@ async function handleCreate(
       return;
     }
 
-    // Check if queue full error
     if ("error" in result) {
       sendJson(res, 503, {
         error: result.error,
@@ -733,7 +674,6 @@ async function handleCreate(
       return;
     }
 
-    // Wait for initial response
     const waitResult = await waitForIdle(process, timeoutMs);
 
     const createResult: CreateResult = {
@@ -756,7 +696,6 @@ async function handleCreate(
   }
 }
 
-/** DELETE /debug/sessions/:sessionId - Terminate a session */
 async function handleDelete(
   res: http.ServerResponse,
   ctx: DebugContext,
@@ -779,10 +718,6 @@ async function handleDelete(
   }
 }
 
-// ============================================================================
-// Main router
-// ============================================================================
-
 /**
  * Handle a debug API request.
  * Returns true if the request was handled, false otherwise.
@@ -795,12 +730,10 @@ export async function handleDebugRequest(
   const path = url.pathname;
   const method = req.method ?? "GET";
 
-  // Only handle /debug/* paths
   if (!path.startsWith("/debug")) {
     return false;
   }
 
-  // Check if debug context is available
   if (!debugContext) {
     sendJson(res, 503, {
       error: "Debug API not available",
@@ -813,53 +746,45 @@ export async function handleDebugRequest(
   const query = parseQuery(url);
 
   try {
-    // Route: GET /debug/sessions
     if (path === "/debug/sessions" && method === "GET") {
       await handleListSessions(res, ctx);
       return true;
     }
 
-    // Route: POST /debug/sessions/create
     if (path === "/debug/sessions/create" && method === "POST") {
       await handleCreate(req, res, ctx);
       return true;
     }
 
-    // Route: GET /debug/sessions/:sessionId
     const sessionMatch = path.match(/^\/debug\/sessions\/([^/]+)$/);
     if (sessionMatch?.[1] && method === "GET") {
       await handleGetSession(res, ctx, sessionMatch[1], query);
       return true;
     }
 
-    // Route: DELETE /debug/sessions/:sessionId
     if (sessionMatch?.[1] && method === "DELETE") {
       await handleDelete(res, ctx, sessionMatch[1]);
       return true;
     }
 
-    // Route: GET /debug/sessions/:sessionId/compare
     const compareMatch = path.match(/^\/debug\/sessions\/([^/]+)\/compare$/);
     if (compareMatch?.[1] && method === "GET") {
       await handleCompare(res, ctx, compareMatch[1]);
       return true;
     }
 
-    // Route: POST /debug/sessions/:sessionId/send
     const sendMatch = path.match(/^\/debug\/sessions\/([^/]+)\/send$/);
     if (sendMatch?.[1] && method === "POST") {
       await handleSend(req, res, ctx, sendMatch[1]);
       return true;
     }
 
-    // Route: POST /debug/sessions/:sessionId/rapid
     const rapidMatch = path.match(/^\/debug\/sessions\/([^/]+)\/rapid$/);
     if (rapidMatch?.[1] && method === "POST") {
       await handleRapid(req, res, ctx, rapidMatch[1]);
       return true;
     }
 
-    // Unknown debug route
     sendJson(res, 404, {
       error: "Unknown debug endpoint",
       path,

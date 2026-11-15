@@ -17,9 +17,12 @@ generator or source if its comments need work. Track real tests, including
 integration tests, as ordinary first-party files.
 
 Commit coherent file or directory sweeps separately from behavior changes.
-For TypeScript comment-only changes, verify identical emitted JavaScript
-against the commit baseline and run the applicable repository checks. Review
-all comments in a file before checking it off; partial edits do not count.
+For TypeScript comment-only changes, compare comment-stripped emitted
+JavaScript against the commit baseline after normalizing emitted formatting
+(for example, with esbuild's whitespace-only minification). Removing a comment
+can let a formatter collapse an empty block without changing code. Run the
+applicable repository checks. Review all comments in a file before checking it
+off; partial edits do not count.
 
 The checklist was seeded on 2026-11-15 from first-party, comment-bearing
 source/configuration paths in the earlier snapshot, filtered for generated,

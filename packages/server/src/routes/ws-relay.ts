@@ -56,17 +56,12 @@ export interface WsRelayDeps {
   activityEventForIdentity?: RelayHandlerDeps["activityEventForIdentity"];
   conversationSubscriptions?: ConversationSubscriptions;
   upgradeWebSocket: UpgradeWebSocketFn;
-  /** The main Hono app to route requests through */
   app: Hono<{ Bindings: HttpBindings }>;
   /** Base URL for internal requests (e.g., "http://localhost:3400") */
   baseUrl: string;
-  /** Supervisor for subscribing to session events */
   supervisor: Supervisor;
-  /** Event bus for subscribing to activity events */
   eventBus: EventBus;
-  /** Upload manager for handling file uploads */
   uploadManager: UploadManager;
-  /** Attachment staging service for draft-staged uploads */
   attachmentStagingService?: AttachmentStagingService;
   /** Remote access service for SRP authentication (optional) */
   remoteAccessService?: RemoteAccessService;
@@ -76,11 +71,8 @@ export interface WsRelayDeps {
   securityClientService?: SecurityClientService;
   /** Durable patient queue state included in session snapshots. */
   sessionQueuePersistenceService?: SessionQueuePersistenceService;
-  /** Connected browsers service for tracking WS connections (optional) */
   connectedBrowsers?: ConnectedBrowsersService;
-  /** Browser profile service for tracking connection origins (optional) */
   browserProfileService?: BrowserProfileService;
-  /** Focused session watch manager for per-session targeted file watching (optional) */
   focusedSessionWatchManager?: FocusedSessionWatchManager;
   /** Project glossary path subscriptions and reference-counted watchers. */
   projectGlossarySubscriptionManager?: ProjectGlossarySubscriptionManager;
@@ -100,27 +92,19 @@ export interface WsRelayDeps {
   ) => Promise<ReadonlySet<string>>;
 }
 
-/**
- * Dependencies for accepting relay connections (Phase 4).
- * Subset of WsRelayDeps without upgradeWebSocket since the connection is already established.
- */
+/** The relay server has already upgraded these connections. */
 export interface AcceptRelayConnectionDeps {
   /** Limited-user SRP verifiers and subscription authorization. */
   limitedUsers?: RelayHandlerDeps["limitedUsers"];
   authorizeSubscription?: RelayHandlerDeps["authorizeSubscription"];
   activityEventForIdentity?: RelayHandlerDeps["activityEventForIdentity"];
   conversationSubscriptions?: ConversationSubscriptions;
-  /** The main Hono app to route requests through */
   app: Hono<{ Bindings: HttpBindings }>;
   /** Base URL for internal requests (e.g., "http://localhost:3400") */
   baseUrl: string;
-  /** Supervisor for subscribing to session events */
   supervisor: Supervisor;
-  /** Event bus for subscribing to activity events */
   eventBus: EventBus;
-  /** Upload manager for handling file uploads */
   uploadManager: UploadManager;
-  /** Attachment staging service for draft-staged uploads */
   attachmentStagingService?: AttachmentStagingService;
   /** Remote access service for SRP authentication */
   remoteAccessService: RemoteAccessService;
@@ -130,11 +114,8 @@ export interface AcceptRelayConnectionDeps {
   securityClientService?: SecurityClientService;
   /** Durable patient queue state included in session snapshots. */
   sessionQueuePersistenceService?: SessionQueuePersistenceService;
-  /** Connected browsers service for tracking WS connections (optional) */
   connectedBrowsers?: ConnectedBrowsersService;
-  /** Browser profile service for tracking connection origins (optional) */
   browserProfileService?: BrowserProfileService;
-  /** Focused session watch manager for per-session targeted file watching (optional) */
   focusedSessionWatchManager?: FocusedSessionWatchManager;
   /** Project glossary path subscriptions and reference-counted watchers. */
   projectGlossarySubscriptionManager?: ProjectGlossarySubscriptionManager;
@@ -154,9 +135,6 @@ export interface AcceptRelayConnectionDeps {
   ) => Promise<ReadonlySet<string>>;
 }
 
-/**
- * Create a WSAdapter from a raw ws.WebSocket.
- */
 function createWSAdapter(
   ws: RawWebSocket,
   connState: ConnectionState,
@@ -237,14 +215,8 @@ function getPeerAddress(c: Context<{ Bindings: HttpBindings }>): string | null {
 }
 
 /**
- * Create WebSocket relay routes for Phase 2b/2c.
- *
- * This endpoint allows clients to send HTTP-like requests over WebSocket,
- * which are then routed to the existing Hono handlers and responses returned.
- *
- * Supports:
- * - request/response (Phase 2b)
- * - subscriptions for session and activity events (Phase 2c)
+ * Route HTTP-like WebSocket requests through the existing Hono handlers,
+ * alongside session and activity subscriptions.
  */
 export function createWsRelayRoutes(
   deps: WsRelayDeps,
@@ -277,7 +249,6 @@ export function createWsRelayRoutes(
     activityEventForIdentity,
   } = deps;
 
-  // Build handler dependencies
   const handlerDeps: RelayHandlerDeps = {
     app,
     baseUrl,
@@ -305,13 +276,10 @@ export function createWsRelayRoutes(
     activityEventForIdentity,
   };
 
-  // Return the WebSocket handler with origin validation
   return upgradeWebSocket((c) => {
-    // Check origin before upgrading
     const origin = c.req.header("origin");
     if (!isAllowedOrigin(origin, c.req.header("host"))) {
       console.warn(`[WS Relay] Rejected connection from origin: ${origin}`);
-      // Return empty handlers - connection will be closed immediately
       return {
         onOpen(_evt, ws) {
           ws.close(4003, "Forbidden: Invalid origin");
@@ -319,11 +287,9 @@ export function createWsRelayRoutes(
       };
     }
 
-    // Track active subscriptions for this connection
+    // Socket-owned subscriptions, uploads and device sessions are released on close.
     const subscriptions = new Map<string, () => void>();
-    // Track active uploads for this connection
     const uploads = new Map<string, RelayUploadState>();
-    // Track active emulator streaming sessions for this connection
     const deviceSessions = new Set<string>();
     const speechSessionRef: Parameters<
       typeof handleMessage
@@ -343,13 +309,11 @@ export function createWsRelayRoutes(
     let pingInterval: ReturnType<typeof setInterval> | null = null;
     // Encryption-aware send function (created on open, captures connState)
     let send: ReturnType<typeof createSendFn>;
-    // WSAdapter wrapper
     let wsAdapter: WSAdapter;
 
     return {
       onOpen(_evt, ws) {
         console.log("[WS Relay] Client connected");
-        // Create WSAdapter wrapper for Hono's WSContext
         wsAdapter = {
           isOpen: () => ws.readyState === 1,
           send(data: string | ArrayBuffer | Uint8Array<ArrayBuffer>): void {
@@ -368,7 +332,6 @@ export function createWsRelayRoutes(
             }
           },
         };
-        // Create the send function that captures this connection's state
         send = createSendFn(wsAdapter, connState);
         const hasSessionCookieAuth = c.get("authenticatedViaSession") === true;
         const requestHostname = getRequestHostname(c);
@@ -415,7 +378,6 @@ export function createWsRelayRoutes(
       },
 
       onMessage(evt, _ws) {
-        // Queue messages for sequential processing
         messageQueue = messageQueue.then(() =>
           handleMessage(
             wsAdapter,
@@ -438,19 +400,16 @@ export function createWsRelayRoutes(
         securityClientService?.disconnect(connState.connectionId);
         cleanupConnectionState(connState);
 
-        // Clean up all uploads
         cleanupUploads(uploads, uploadManager, attachmentStagingService).catch(
           (err) => {
             console.error("[WS Relay] Error cleaning up uploads:", err);
           },
         );
 
-        // Clean up emulator streaming sessions
         cleanupDeviceSessions(deviceSessions, deviceBridgeService);
         speechSessionRef.current?.close();
         speechSessionRef.current = null;
 
-        // Clean up all subscriptions
         cleanupSubscriptions(subscriptions);
         console.log("[WS Relay] Client disconnected");
       },
@@ -464,20 +423,9 @@ export function createWsRelayRoutes(
 }
 
 /**
- * Create an accept relay connection handler (Phase 4).
- *
- * This returns a function that accepts already-connected WebSocket connections
- * from the RelayClientService. Unlike createWsRelayRoutes which uses Hono's
- * upgradeWebSocket, this works with raw ws.WebSocket instances since the
- * WebSocket upgrade already happened at the relay server.
- *
- * The handler:
- * - Wires up message/close/error events
- * - Processes the first message (usually SRP init from phone)
- * - Uses the same SRP authentication and message handling as direct connections
- *
- * @param deps - Dependencies (same as WsRelayDeps but without upgradeWebSocket)
- * @returns A function that accepts (ws, firstMessage, isBinary) and handles the connection
+ * Accept already-upgraded sockets from RelayClientService. The first message
+ * has already been received; process it through the same SRP/message handler
+ * as subsequent traffic.
  */
 export function createAcceptRelayConnection(
   deps: AcceptRelayConnectionDeps,
@@ -509,7 +457,6 @@ export function createAcceptRelayConnection(
     activityEventForIdentity,
   } = deps;
 
-  // Build handler dependencies
   const handlerDeps: RelayHandlerDeps = {
     app,
     baseUrl,
@@ -537,7 +484,6 @@ export function createAcceptRelayConnection(
     activityEventForIdentity,
   };
 
-  // Return the accept relay connection handler
   return (
     rawWs: RawWebSocket,
     firstMessage: Buffer,
@@ -545,11 +491,9 @@ export function createAcceptRelayConnection(
   ): void => {
     console.log("[WS Relay] Accepting relay connection");
 
-    // Track active subscriptions for this connection
+    // Socket-owned subscriptions, uploads and device sessions are released on close.
     const subscriptions = new Map<string, () => void>();
-    // Track active uploads for this connection
     const uploads = new Map<string, RelayUploadState>();
-    // Track active emulator streaming sessions for this connection
     const deviceSessions = new Set<string>();
     const speechSessionRef: Parameters<
       typeof handleMessage
@@ -563,11 +507,9 @@ export function createAcceptRelayConnection(
     });
     connState.connectionPolicy = "srp_required";
 
-    // Create WSAdapter for raw WebSocket
     const wsAdapter = createWSAdapter(rawWs, connState);
     const send = createSendFn(wsAdapter, connState);
 
-    // Wire up message handling
     // Note: ws library provides (data, isBinary) - isBinary tells us the frame type
     rawWs.on("message", (data: Buffer, isBinary: boolean) => {
       messageQueue = messageQueue.then(() =>
@@ -596,7 +538,6 @@ export function createAcceptRelayConnection(
       }
     }, 30_000);
 
-    // Wire up close handling
     rawWs.on("close", () => {
       clearInterval(pingInterval);
       securityClientService?.disconnect(connState.connectionId);
@@ -608,7 +549,6 @@ export function createAcceptRelayConnection(
         },
       );
 
-      // Clean up emulator streaming sessions
       cleanupDeviceSessions(deviceSessions, deviceBridgeService);
       speechSessionRef.current?.close();
       speechSessionRef.current = null;
@@ -617,14 +557,12 @@ export function createAcceptRelayConnection(
       console.log("[WS Relay] Relay connection closed");
     });
 
-    // Wire up error handling
     rawWs.on("error", (err: Error) => {
       console.error("[WS Relay] WebSocket error:", err);
       wsAdapter.close(1011, "WebSocket error");
     });
 
     // Process the first message (SRP init from phone client)
-    // Pass isBinary to correctly identify frame type
     messageQueue = messageQueue.then(() =>
       handleMessage(
         wsAdapter,

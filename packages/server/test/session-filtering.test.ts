@@ -12,7 +12,6 @@ import type { ISessionReader } from "../src/sessions/types.js";
 import { encodeProjectId } from "../src/supervisor/types.js";
 
 /**
- * Helper to create a message with a UUID (required for DAG processing).
  * Messages without UUIDs are skipped by the DAG builder.
  */
 function createMessage(
@@ -31,8 +30,6 @@ function createMessage(
 }
 
 /**
- * Tests for session filtering behavior.
- *
  * Claude Code creates various types of .jsonl files that shouldn't be shown
  * as user-facing sessions:
  * - agent-*.jsonl: Subagent sidechain sessions (Task tool warmups)
@@ -104,13 +101,11 @@ describe("Session Filtering", () => {
 
   describe("File-level filtering", () => {
     it("excludes agent-* files from session list", async () => {
-      // Create a valid session
       await writeFile(
         join(projectDir, "valid-session.jsonl"),
         `${createMessage("user", "Hello", null, { cwd: projectPath })}\n`,
       );
 
-      // Create an agent warmup session (should be excluded)
       await writeFile(
         join(projectDir, "agent-abc123.jsonl"),
         `${createMessage("user", "Warmup", null, {
@@ -129,7 +124,6 @@ describe("Session Filtering", () => {
     });
 
     it("excludes agent-* files from session count", async () => {
-      // Create valid sessions
       await writeFile(
         join(projectDir, "sess-1.jsonl"),
         `${createMessage("user", "Hello 1", null, { cwd: projectPath })}\n`,
@@ -139,7 +133,6 @@ describe("Session Filtering", () => {
         `${createMessage("user", "Hello 2", null, { cwd: projectPath })}\n`,
       );
 
-      // Create multiple agent sessions (should be excluded from count)
       for (let i = 0; i < 5; i++) {
         await writeFile(
           join(projectDir, `agent-${i}.jsonl`),
@@ -155,23 +148,19 @@ describe("Session Filtering", () => {
         (p: { path: string }) => p.path === projectPath,
       );
       expect(project).toBeDefined();
-      // Count should be 2, not 7
       expect(project.sessionCount).toBe(2);
     });
   });
 
   describe("Content-level filtering", () => {
     it("excludes empty files from session list", async () => {
-      // Create a valid session
       await writeFile(
         join(projectDir, "valid-session.jsonl"),
         `${createMessage("user", "Hello", null, { cwd: projectPath })}\n`,
       );
 
-      // Create an empty file
       await writeFile(join(projectDir, "empty-session.jsonl"), "");
 
-      // Create a whitespace-only file
       await writeFile(
         join(projectDir, "whitespace-session.jsonl"),
         "   \n\n  ",
@@ -186,13 +175,11 @@ describe("Session Filtering", () => {
     });
 
     it("includes metadata-only transcripts as sessions without conversation messages", async () => {
-      // Create a valid session
       await writeFile(
         join(projectDir, "valid-session.jsonl"),
         `${createMessage("user", "Hello", null, { cwd: projectPath })}\n`,
       );
 
-      // Create a file with only file-history-snapshot entries
       await writeFile(
         join(projectDir, "metadata-only.jsonl"),
         `${[
@@ -209,7 +196,6 @@ describe("Session Filtering", () => {
         ].join("\n")}\n`,
       );
 
-      // Create a file with only queue-operation entries
       await writeFile(
         join(projectDir, "queue-only.jsonl"),
         `${JSON.stringify({
@@ -232,8 +218,6 @@ describe("Session Filtering", () => {
     });
 
     it("counts only user/assistant messages in messageCount", async () => {
-      // Create a session with mixed message types
-      // Build a proper chain: user -> assistant
       const userUuid = randomUUID();
       const assistantUuid = randomUUID();
       await writeFile(
@@ -242,7 +226,6 @@ describe("Session Filtering", () => {
           // Internal messages (should not be counted, no uuid)
           JSON.stringify({ type: "queue-operation", operation: "dequeue" }),
           JSON.stringify({ type: "file-history-snapshot", snapshot: {} }),
-          // User message (should be counted)
           JSON.stringify({
             type: "user",
             uuid: userUuid,
@@ -250,14 +233,12 @@ describe("Session Filtering", () => {
             cwd: projectPath,
             message: { content: "Hello" },
           }),
-          // Assistant message (should be counted)
           JSON.stringify({
             type: "assistant",
             uuid: assistantUuid,
             parentUuid: userUuid,
             message: { content: "Hi there!" },
           }),
-          // More internal messages
           JSON.stringify({ type: "file-history-snapshot", snapshot: {} }),
         ].join("\n")}\n`,
       );
@@ -267,7 +248,6 @@ describe("Session Filtering", () => {
 
       expect(res.status).toBe(200);
       expect(json.sessions).toHaveLength(1);
-      // Should count only user + assistant = 2, not all 5 lines
       expect(json.sessions[0].messageCount).toBe(2);
     });
   });
@@ -321,7 +301,6 @@ describe("Session Filtering", () => {
     });
 
     it("returns null title when no user message found", async () => {
-      // Session with only assistant message (unusual but possible)
       await writeFile(
         join(projectDir, "session.jsonl"),
         `${createMessage("assistant", "Hello!", null, { cwd: projectPath })}\n`,
