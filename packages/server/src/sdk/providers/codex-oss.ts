@@ -1,3 +1,4 @@
+import { extractCodexOssUserText } from "./codex-oss-user-text.js";
 import { nativeStorageScope } from "./native-storage-scope.js";
 /**
  * CodexOSS Provider - Local models via Codex CLI with --oss flag.
@@ -906,7 +907,7 @@ export class CodexOSSProvider implements AgentProvider {
     for await (const message of messageGen) {
       if (signal.aborted) break;
 
-      let userPrompt = this.extractTextFromMessage(message);
+      let userPrompt = extractCodexOssUserText(message);
       if (!userPrompt) continue;
 
       // Prepend global instructions to the first message of new sessions
@@ -1563,42 +1564,6 @@ export class CodexOSSProvider implements AgentProvider {
       default:
         return [];
     }
-  }
-
-  /**
-   * Extract text from user message.
-   */
-  private extractTextFromMessage(message: unknown): string {
-    if (!message || typeof message !== "object") return "";
-
-    const userMsg = message as { text?: string };
-    if (typeof userMsg.text === "string") return userMsg.text;
-
-    const sdkMsg = message as { message?: { content?: string | unknown[] } };
-    const content = sdkMsg.message?.content;
-
-    if (typeof content === "string") return content;
-
-    if (Array.isArray(content)) {
-      return content
-        .map((block: unknown) => {
-          if (typeof block === "string") return block;
-          if (
-            typeof block === "object" &&
-            block !== null &&
-            "type" in block &&
-            (block as { type: string }).type === "text" &&
-            "text" in block
-          ) {
-            return (block as { text: string }).text;
-          }
-          return "";
-        })
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    return "";
   }
 
   /**

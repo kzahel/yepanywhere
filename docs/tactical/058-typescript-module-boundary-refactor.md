@@ -5301,3 +5301,16 @@ normalizer. No dependencies, signatures or behavior change.
 Tier 1: shared build, server typecheck, focused Codex normalization/reader
 tests, exact-file lint and diff checks. Tier 2 follows with the instruction
 visibility repair in the same work session.
+
+## 2026-11-15 — Codex OSS user-message text extraction
+
+Moved the pure user-message text reader from the frozen `codex-oss.ts` into
+`codex-oss-user-text.ts` before wiring the shared CLI installation owner. The
+function body is unchanged; the class calls the named function. The move-only
+slice lowers the hub budget from 1,615 to 1,580 lines. Its subsequent installation
+wiring remains within that lower budget.
+
+Tier 1 verification: shared build, server TypeScript checking, focused Codex,
+Codex OSS and runtime-snapshot checks, exact-file Biome lint and staged diff
+review. The combined work also passes full workspace tests (7,561 server cases,
+97 existing skips). No scheduling or provider protocol moves occur in this slice.
