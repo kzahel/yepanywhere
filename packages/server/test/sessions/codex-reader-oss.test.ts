@@ -2435,8 +2435,10 @@ describe("CodexSessionReader - OSS Support", () => {
       "compacted",
       "event_msg",
     ]);
-    expect(ranges.length).toBeGreaterThan(1);
-    expect(ranges[1]?.start).toBeLessThan(ranges[0]?.start ?? 0);
+    // Blocks go backward from the end; 1 KiB reads are append-fence probes.
+    const blocks = ranges.filter((range) => range.length > 1024);
+    expect(blocks.length).toBeGreaterThan(1);
+    expect(blocks[1]?.start).toBeLessThan(blocks[0]?.start ?? 0);
     expect(
       ranges.every((range) => range.start > 0 || range.length <= 1024),
     ).toBe(true);

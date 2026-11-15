@@ -6,7 +6,7 @@
  */
 
 import { createReadStream } from "node:fs";
-import { open, readFile } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import * as zlib from "node:zlib";
 import { promisify, TextDecoder } from "node:util";
 
@@ -71,21 +71,6 @@ function firstLineFromContent(content: string): string | null {
   return line || null;
 }
 
-async function readUtf8File(filePath: string): Promise<string> {
-  if (!isZstdPath(filePath)) {
-    return readFile(filePath, "utf-8");
-  }
-
-  const decompress = getZstdDecompress();
-  if (!decompress) {
-    throw new Error("zstd-compressed JSONL is not supported by this Node.js");
-  }
-
-  const raw = await readFile(filePath);
-  const decompressed = await decompress(raw);
-  return decompressed.toString("utf-8");
-}
-
 async function readFirstLineFromZstd(
   filePath: string,
   maxBytes: number,
@@ -97,6 +82,9 @@ async function readFirstLineFromZstd(
 
   const source = createReadStream(filePath);
   const decompressor = createZstdDecompress();
+  // `pipe` does not forward source errors: a missing file would otherwise
+  // escape as an uncaught stream error instead of rejecting this read.
+  source.on("error", (error) => decompressor.destroy(error));
   const stream = source.pipe(decompressor);
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -172,14 +160,6 @@ export async function readFirstLine(
   }
 }
 
-/**
- * Read a file and return BOM-stripped lines.
- */
-export async function readJsonlLines(filePath: string): Promise<string[]> {
-  const raw = await readUtf8File(filePath);
-  return stripBom(raw).trim().split("\n");
-}
-
 async function* streamPlainJsonlText(filePath: string): AsyncIterable<string> {
   const stream = createReadStream(filePath, { encoding: "utf-8" });
   try {
@@ -199,6 +179,9 @@ async function* streamZstdJsonlText(filePath: string): AsyncIterable<string> {
 
   const source = createReadStream(filePath);
   const decompressor = createZstdDecompress();
+  // `pipe` does not forward source errors: a missing file would otherwise
+  // escape as an uncaught stream error instead of rejecting this read.
+  source.on("error", (error) => decompressor.destroy(error));
   const stream = source.pipe(decompressor);
   const decoder = new TextDecoder("utf-8");
 

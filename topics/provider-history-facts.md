@@ -119,7 +119,7 @@ consumer adds its row here before adding a reader.
 | v0 conversation and read-follow (`experimental/provider-conversation-source.ts`, `core-api/conversation.ts`) | Window | **Bounded** on the same readers; Codex passes the summary hint. Message selection still happens after normalization ([gap](../gaps/conversation-window-acquisition-cost.md)). |
 | Task lists and cross-window state (`claude-source-index.ts`, `claude-linear-writer.ts`) | State as of a point | **Bounded** by the Claude index. A tail must not lose state created before it. |
 | Rewind boundary row (`sessions/claude-rewind-bound.ts`) | Latest state | **Done.** The bound is the non-empty string uuid of the last non-progress row, in file order, among lines that parse, read from the tail. It needs no branch selection and does not depend on the rest of the transcript loading; whenever the complete read succeeds, the two agree. No such row inside the budget, a file that changed during the read, or a read error takes the named complete read, whose result or failure stands, because a missing bound makes the rewind group fall back to timestamps. |
-| Codex complete-reader fallbacks (`sessions/codex-reader.ts`) | Window | **Measured, open.** Compressed rollouts, reference-backed forks, rollouts with fewer boundaries than requested, old or unknown cursors and results needing omitted tool context take the complete reader. Deciding that a rollout has too few boundaries scans the whole file on every read and catch-up ([gap](../gaps/codex-compact-tail-decision-rescans-whole-file.md)); that is fixed first. Compressed rollouts are the largest cold-open cost and come second (see [Delivery order](#delivery-order) step 3). A leaf path is not complete history; inherited segments need ancestor evidence. |
+| Codex complete-reader fallbacks (`sessions/codex-reader.ts`, `sessions/codex-rollout-window.ts`) | Window | **Done.** Rollouts with fewer boundaries than requested, compressed rollouts, reference-backed forks, old or unknown cursors and results needing omitted tool context take the complete reader. The reader remembers each rollout's settled `compacted` positions, so while that memo is retained a warm open or catch-up decides again from appended bytes only. Compressed rollouts are read as a line stream. A compact-tail window for compressed rollouts is deliberately not built (see [Delivery order](#delivery-order) step 3). A leaf path is not complete history; inherited segments need ancestor evidence. |
 | Restart and handoff source (`loadRestartSourceSession` in `routes/sessions.ts`, ten call sites) | Mixed | **Open.** Loads and normalizes the whole session. Some calls use only the title and the latest user message. |
 | Speech vocabulary (`services/voice/vocabulary-sessions.ts`) | Everything since last time | **Open.** A changed session is re-paged end to start, so any append rereads its history. Opt-in feature; live arrival is a separate input ([gap](../gaps/vocabulary-learning-has-no-live-tail.md)). |
 | Claude resume guard (`routes/session-claude-resume-guard.ts`) | Latest state on the current branch | **Deliberate complete read**, once per resume, until the index tip is exact ([gap](../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md)). The current branch is selected across the whole file, so a tail alone cannot certify it. |
@@ -189,7 +189,7 @@ here.
    uuid, which took the complete read. None differed and no complete read
    failed. The tail reads took 0.6 s in total against 11 s for the complete
    reads.
-3. **Codex complete-reader fallbacks (measured 2026-11-15).**
+3. **Codex complete-reader fallbacks (done 2026-11-15).**
    `pnpm exec tsx --conditions source scripts/perf-repro/codex-complete-read-fallbacks.mjs`
    asks the reader's own code what one uncursored open does for each rollout.
    Detail open and v0 conversation both request two boundaries. The census
@@ -202,7 +202,7 @@ here.
    | Bounded compact tail | 283 | 8,588 MB | none: 2,334 MB window |
    | Compressed rollout | 919 | 3,450 MB | 8,935 MB decompressed |
    | At or below 4 MiB | 2,396 | 2,615 MB | 2,615 MB |
-   | Fewer than two boundaries | 192 | 1,912 MB | 1,912 MB, after a 1,912 MB boundary scan |
+   | Fewer than two boundaries | 192 | 1,912 MB | 1,912 MB, after a 1,912 MB boundary scan on a cold open |
    | Reference-backed fork | 8 | 123 MB | 218 MB, leaves decompressed, with ancestors |
 
    Decompressed and fed to the same boundary finder, 216 of the compressed
@@ -221,24 +221,31 @@ here.
    took 36 s with a 2.7 GB peak RSS.
 
    The census models one cold open of every rollout; it does not know how
-   often each is opened. Compressed rollouts are 65% of the bytes a cold open
-   of every rollout would parse in full. The order is:
+   often each is opened. Two fixes followed:
 
-   1. **The boundary rescan**
-      ([gap](../gaps/codex-compact-tail-decision-rescans-whole-file.md)). It
-      is the only measured cost that recurs on a session in use: every warm
-      open and every catch-up of a rollout over 4 MiB with fewer than two
-      compactions scans the whole file again. The fix is cheap. The complete
-      result itself is the
-      [pagination contract](session-compact-tail-pagination.md#contract).
-   2. **Compressed rollouts.** The largest cold-open cost, but they are
-      older sessions and how often they are opened is unknown. Today the whole
-      decompressed text becomes one string. A streaming decompressor can keep
-      only the bytes after the Nth-last `compacted` record it has seen:
-      decompression stays proportional to the file, and parsing and memory
-      follow the window.
+   - **The boundary rescan is remembered.** Deciding that a rollout has
+     fewer than two boundaries used to scan the whole file on every open and
+     every catch-up. The window reader now keeps each rollout's settled
+     `compacted` positions, fenced like the append cache, and later scans
+     only appended bytes. On the 97 MB rollout with too few boundaries, a
+     warm open or catch-up read 96.5 MB to decide and now reads nothing. That
+     holds while the memo is retained (in process, at most 256 rollouts) and
+     under the append cache's fence assumptions; a cold open still scans once
+     and then takes the complete read.
+   - **Compressed rollouts are read as a line stream.** The complete reader
+     no longer builds the whole decompressed text as one string. On the
+     largest compressed rollout (177 MB on disk, 301 MB decompressed,
+     25,424 entries) a fresh open peaked at 0.61 GB RSS and took 1.8 s,
+     against 1.90 GB and 2.2 s before. All 919 compressed non-fork rollouts
+     gave identical entries.
 
-   Forks are rare here, and the at-or-below-4-MiB class is small by design.
+   A compact-tail window for compressed rollouts is deliberately not built.
+   That rests on the maintainer's judgment that a long-idle compressed
+   session is opened infrequently; the frequency is not measured. The
+   measured facts are that decompressing the largest file here takes 0.4 s
+   and that the streamed read removed the memory cost. The what-if above is
+   the evidence for anyone who revisits it. Forks are rare here, and the at-or-below-4-MiB class is small by
+   design.
 4. **Restart and handoff source.** Audit what each of the ten calls uses;
    calls that need only the title and latest user message take the summary
    plus a tail read.
@@ -271,6 +278,5 @@ Related open gaps: [conversation acquisition](../gaps/conversation-window-acquis
 [search index](../gaps/all-sessions-search-index.md),
 [vocabulary live arrival](../gaps/vocabulary-learning-has-no-live-tail.md),
 [index tip divergence](../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md),
-[Codex boundary rescan](../gaps/codex-compact-tail-decision-rescans-whole-file.md),
 [active-session cost](../gaps/active-session-tab-background-cost.md).
 The [roadmap](../docs/roadmap/README.md) owns priority.

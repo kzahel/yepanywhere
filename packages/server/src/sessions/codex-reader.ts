@@ -74,11 +74,7 @@ import {
   plainCodexRolloutPath,
   preferPlainCodexRollouts,
 } from "../utils/codexRolloutFiles.js";
-import {
-  iterateJsonlLines,
-  iterateJsonlLineRecords,
-  readJsonlLines,
-} from "../utils/jsonl.js";
+import { iterateJsonlLines, iterateJsonlLineRecords } from "../utils/jsonl.js";
 import {
   getCodexRolloutTreeEpoch,
   isCodexRolloutTreeEnumerationTrusted,
@@ -2719,26 +2715,29 @@ export class CodexSessionReader implements ISessionReader {
       };
     }
     if (isCompressedCodexRolloutPath(filePath)) {
-      const lines = await readJsonlLines(filePath);
-      const readLinesMs = Date.now() - readStartedAt;
+      // Line by line: one decompressed string can exceed V8's string limit.
+      // Each line is trimmed as the plain reader trims it, so both agree.
       const entries: CodexSessionEntry[] = [];
+      let lineCount = 0;
       let maxLineLength = 0;
       let sourceBytes = 0;
-      const parseStartedAt = Date.now();
-      for (const line of lines) {
+      let parseMs = 0;
+      for await (const line of iterateJsonlLines(filePath)) {
+        lineCount += 1;
         maxLineLength = Math.max(maxLineLength, line.length);
         sourceBytes += Buffer.byteLength(line) + 1;
-        const entry = parseCodexSessionEntry(line);
-        if (entry) {
-          entries.push(entry);
-        }
+        const parseStartedAt = Date.now();
+        const entry = parseCodexSessionEntry(line.trim());
+        parseMs += Date.now() - parseStartedAt;
+        if (entry) entries.push(entry);
       }
+      const readLinesMs = Math.max(0, Date.now() - readStartedAt - parseMs);
       return {
         entries,
         partialLine: Buffer.alloc(0),
         readLinesMs,
-        parseMs: Date.now() - parseStartedAt,
-        lineCount: lines.length,
+        parseMs,
+        lineCount,
         maxLineLength,
         sourceBytes,
       };

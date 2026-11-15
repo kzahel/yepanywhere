@@ -153,13 +153,16 @@ async function readExactRange(filePath, start, length) {
 }
 const windowReader = new CodexRolloutWindowReader(readExactRange);
 // Spy on the real backward scan so null (no Nth boundary) and 0 are told apart.
-const realScan = windowReader.findCompactWindowStart.bind(windowReader);
+// Each rollout is classified once, so the reader's boundary memo never hits.
+const realScan = windowReader.scanCompactStarts.bind(windowReader);
 let located;
-windowReader.findCompactWindowStart = async (...scanArgs) => {
+windowReader.scanCompactStarts = async (filePath, floor, endByte, limit) => {
+  assert.equal(floor, 0, "a first decision scans from byte 0");
   phase = "scan";
   try {
-    located = await realScan(...scanArgs);
-    return located;
+    const scan = await realScan(filePath, floor, endByte, limit);
+    located = scan.starts[limit - 1] ?? null;
+    return scan;
   } finally {
     phase = "window";
   }
@@ -269,7 +272,7 @@ async function classify(file, compactions) {
     outcome,
     complete: outcome === O.compressed ? file.decompressed : size,
     // A rejected located range was parsed before the reader gave up.
-    scan: scan + read.window,
+    scan: outcome === O.notCompacted ? scan + read.window : scan,
     checked: true,
   };
 }

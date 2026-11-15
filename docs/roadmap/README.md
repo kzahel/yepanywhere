@@ -1122,15 +1122,13 @@ is done (2026-11-14): Claude and Codex hover excerpts use a bounded tail read
 with no complete-read fallback, v0 conversation passes the Codex summary
 hint, and Codex launch-settings recovery reads the tail with a named complete
 read when the tail cannot decide. Step 2, the rewind boundary row, is done
-(2026-11-15) the same way. Step 3, Codex complete-reader fallbacks, is
-measured (2026-11-15). Next, in order: the Codex boundary rescan, the only
-measured cost that recurs on a session in use (deciding that a rollout has
-fewer than two compactions rescans the whole file on every warm open and
-catch-up; [gap](../../gaps/codex-compact-tail-decision-rescans-whole-file.md));
-then compressed rollouts, which are 65% of the bytes a cold open of every
-rollout would parse in full on one host, though how often they are opened is
-unknown; then the restart and handoff source, speech vocabulary, then the
-Claude index tip
+(2026-11-15) the same way. Step 3, Codex complete-reader fallbacks, is done
+(2026-11-15): the reader remembers where a rollout's compactions are, so a
+warm open or catch-up no longer rescans the whole file to learn it has too
+few, and compressed rollouts are read as a line stream rather than one
+string. A compact-tail window for compressed rollouts is deliberately not
+built. Next, in order: the restart and handoff source, speech vocabulary,
+then the Claude index tip
 ([gap](../../gaps/claude-index-tip-diverges-from-dag-on-forward-parent.md))
 and the resume guard that waits on it. Instruction restoration keeps its
 complete read. All Sessions text indexing is a separate downstream project

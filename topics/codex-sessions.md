@@ -359,6 +359,29 @@ path. Old or unparseable older-page cursors also use that established fallback.
 This preserves the contract that fewer than N initial boundaries returns the
 complete transcript while keeping valid plain-rollout pages blockwise.
 
+Learning that a rollout has fewer than N boundaries takes a scan to byte 0, so
+the reader remembers the answer. After a scan that reaches the start of the
+file, the window reader keeps every `compacted` record start below the end of
+the last newline-terminated line, together with the file's dev, inode, size,
+times and a fence over its head and end bytes. An unchanged file is answered
+from that memo with no reads. A file that only grew, by the append cache's
+standard (same dev and inode, larger size, matching head and end probes), is
+scanned only from the end of the remembered lines, and the remembered starts
+supply the rest, so the Nth boundary from the end may be a remembered one.
+A trailing line without a newline is never remembered as settled; it is
+rescanned when the file grows. Any other change discards the memo. Answers
+equal a fresh full scan for every requested N. The memo is in process only,
+for at most 256 rollouts and 64 boundaries each; after a restart the first
+request scans once. A cold open therefore still scans the file and then takes
+the complete read; while the memo is retained, warm opens and incremental
+catch-up decide from appended bytes only. Both fences are rechecked after the
+scan, as the append cache rechecks around its read: if the remembered prefix
+changed during the scan, the answer comes from a fresh full scan and the memo
+is dropped. A request answered before reaching the remembered lines, such as a
+smaller N, keeps the memo. Like the append cache, the fence cannot see a
+rewrite that keeps the inode and both probe ranges. Older-page cursors do not
+use the memo.
+
 A three-repetition diagnostic on the 538,524,921-byte recovery rollout measured
 the detail read after an equivalent full-summary warm-up. The complete reader
 took 4.07–4.38 seconds, retained 192,108 entries, and added 1.03–1.04 GB RSS.
@@ -375,7 +398,17 @@ invalidation does not remove the in-flight owner and thereby permit a second
 writer to race it.
 
 Compressed rollouts remain full-read snapshots because their representation is
-not append-derived. Cache retention is still bounded separately by the reader
+not append-derived, and no compact-tail window is built for them. That is the
+maintainer's judgment that a long-idle compressed session is opened
+infrequently; the frequency is not measured. Measured: decompressing the
+largest local rollout takes about 0.4 s, and the streamed read removed the
+memory cost ([census](provider-history-facts.md#delivery-order)). The complete
+read streams them line by line, never holding the decompressed text as one
+string, so peak memory follows the parsed entries and a rollout larger than
+V8's string limit still opens. A `.jsonl.zst` holds the bytes its `.jsonl`
+did, so it yields the entries the plain complete read yields for those bytes:
+each line is trimmed and parsed the same way, including BOM, CRLF, blank lines,
+edge whitespace and an unterminated final record. Cache retention is still bounded separately by the reader
 memory work in tactical 038; eviction policy and concurrency ownership are
 independent contracts.
 

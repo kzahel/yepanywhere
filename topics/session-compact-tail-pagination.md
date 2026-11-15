@@ -208,7 +208,10 @@ still receive the route's existing bounded recovery response. Missing or
 invalid summary hints, compressed rollouts, reference-backed forks, and files
 below the compact-tail crossover retain the complete-reader path;
 `fullHistory=1` also bypasses this optimization. The next eligible recent
-cursor replaces a previously cached complete transcript with its suffix.
+cursor replaces a previously cached complete transcript with its suffix. A
+large rollout with fewer than the requested boundaries is not rescanned on each
+catch-up: the reader remembers its boundary positions and scans only appended
+bytes ([compact-tail source reads](codex-sessions.md#compact-tail-source-reads)).
 
 **Design decision:** reuse the append cache with an explicit source start
 instead of keeping a second full-transcript cursor index or reparsing the tail

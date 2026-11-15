@@ -97,6 +97,37 @@ describe("jsonl utilities", () => {
     }
   });
 
+  // A source error that escapes the decompressor kills the server process.
+  itIfNativeZstd(
+    "rejects when a zstd rollout cannot be read, leaving nothing unhandled",
+    async () => {
+      const dir = join(tmpdir(), `jsonl-zstd-missing-${randomUUID()}`);
+      tempDirs.push(dir);
+      await mkdir(join(dir, "directory.jsonl.zst"), { recursive: true });
+      const { iterateJsonlLines, readFirstLine } = await import(
+        "../../src/utils/jsonl.js"
+      );
+      const drain = async (path: string) => {
+        for await (const _line of iterateJsonlLines(path));
+      };
+      const uncaught = vi.fn();
+      process.on("uncaughtException", uncaught);
+      try {
+        await expect(
+          drain(join(dir, "missing.jsonl.zst")),
+        ).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(
+          drain(join(dir, "directory.jsonl.zst")),
+        ).rejects.toMatchObject({ code: "EISDIR" });
+        expect(await readFirstLine(join(dir, "missing.jsonl.zst"))).toBeNull();
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } finally {
+        process.off("uncaughtException", uncaught);
+      }
+      expect(uncaught).not.toHaveBeenCalled();
+    },
+  );
+
   itIfNativeZstd(
     "streams the first line of zstd JSONL without full file reads",
     async () => {
