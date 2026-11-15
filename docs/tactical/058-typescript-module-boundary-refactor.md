@@ -487,6 +487,15 @@ Follow-ups recorded:
 
 ## Landing Notes
 
+### Router control boundary — prepare hosted pairing (2026-11-15)
+
+Moved socket validation, request transport and router errors verbatim from
+`AgentAuthRouter.ts` to `services/agent-auth-router-control.ts`. The existing
+service exports remain its public facade. No signature or behavior changes.
+Tier 1: shared build, server typecheck, router integration tests, exact-file
+lint and diff review. Root checks follow with the hosted integration slice.
+
+
 ### Slice 4.12 — Claude model and slash-command catalog (Landed 2026-11-09, this commit)
 
 Moved to new `claude-model-catalog.ts`:
