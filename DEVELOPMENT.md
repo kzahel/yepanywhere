@@ -180,6 +180,7 @@ are not a requirement to read every neighboring document.
 | When the task involves… | Read / required action |
 | --- | --- |
 | Source edits or OS-sensitive behavior | [Testing](docs/development/testing.md): required checks, Linux/macOS/Windows coverage, and platform limitations. |
+| Writing or reviewing source comments | [Code comments](topics/comments.md): retain intent and constraints; remove narration recoverable from nearby code. |
 | Adding, reviewing, removing, or accelerating tests at any level | [Test value and CI cost](docs/development/testing.md#test-value-and-ci-cost): retention by likely regression value, authority to remove shallow tests, and runtime in seconds. |
 | Choosing a test level, adding or changing browser tests, or deciding local E2E scope | [E2E testing](topics/e2e-testing.md): unique boundary, cost, retry evidence, and focused local verification. |
 | Source formatting, warning cleanup, or a commit | [Code quality](docs/development/code-quality.md): warning-free checks, exact-file formatting, no routine import/export reordering, and explicit re-exports (no `export *`). |

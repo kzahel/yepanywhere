@@ -3,11 +3,10 @@
 Topic: comments
 
 Direction agreed 2026-11-14: comment cleanup is worthwhile. On 2026-11-15 the
-maintainer selected a repository-wide block checklist, suspecting roughly 90%
-of comments may be removable. The [review inventory](../docs/research/comment-review/README.md)
-records the committed snapshot, per-block decisions and extraction limits.
-The estimate is a hypothesis to test through review, not a deletion quota.
-No automated gate or blanket comment ban is adopted.
+maintainer replaced the initial block ledger with whole-file sweeps and a
+[file checklist](../docs/research/comment-review/README.md). Start where
+redundant narration is concentrated; Git records the actual edits. No
+automated gate, blanket comment ban or removal quota is adopted.
 
 ## What earns a comment
 
@@ -53,12 +52,17 @@ The audit found misleading explanations around
 alongside redundant narration. These defects retain their existing owners.
 Comment counts and keyword matches identify candidates, not a quality score.
 
-Review the inventory in bounded module sweeps, recording remove, keep or
-rewrite/move decisions with brief reasons. Check off a block after its decision
-has been applied and verified. Verify the current source against the snapshot
-before editing, and resolve the inventory's extraction-completeness checks
-before claiming every block has been found. Keep useful constraints under the
-criteria above; measure the resulting removal rate rather than forcing it.
+Use the whole file as the review unit. Inspect its comments with the surrounding
+code and check off the path after the sweep is complete; do not record a
+decision for each retained comment. Skip generated code, vendored sources and
+fixture payloads, and review their owning source when needed. Prioritize
+narration-heavy files and handle judgment-heavy field documentation when its
+file is already being touched. Keep useful constraints under the criteria above.
+
+Commit coherent file or directory sweeps separately from behavior repairs.
+Verify that comment-only TypeScript changes preserve emitted JavaScript, then
+run applicable repository checks. A completed sweep is evidence of review at
+that point, not a permanent exemption from reviewing later comments.
 
 An automated gate remains undecided. Mechanical checks should enforce only
 rules they can reliably establish without creating noisy CI.
