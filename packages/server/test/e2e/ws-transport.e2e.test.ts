@@ -34,15 +34,6 @@ import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { UploadManager } from "../../src/uploads/manager.js";
 import { EventBus } from "../../src/watcher/index.js";
 
-/**
- * E2E tests for the WebSocket transport (Phase 2b/2c).
- *
- * These tests verify:
- * - Basic request/response over WebSocket
- * - Event subscriptions (activity channel)
- * - Proper cleanup on disconnect
- */
-
 describe("WebSocket Transport E2E", () => {
   let testDir: string;
   let server: ReturnType<typeof serve>;
@@ -51,7 +42,6 @@ describe("WebSocket Transport E2E", () => {
   let eventBus: EventBus;
 
   beforeAll(async () => {
-    // Create temp directory for project data
     testDir = join(tmpdir(), `ws-transport-test-${randomUUID()}`);
     const projectPath = "/home/user/testproject";
     const encodedPath = projectPath.replaceAll("/", "-");
@@ -62,21 +52,17 @@ describe("WebSocket Transport E2E", () => {
       `{"type":"user","cwd":"${projectPath}","message":{"content":"Hello"}}\n`,
     );
 
-    // Create services
     mockSdk = new ScriptedClaudeProvider();
     eventBus = new EventBus();
 
-    // Create the app
     const { app, supervisor } = createApp({
       provider: mockSdk,
       projectsDir: testDir,
       eventBus,
     });
 
-    // Add WebSocket support
     const wss = new WebSocketServer({ noServer: true });
 
-    // Add WebSocket relay route
     const baseUrl = "http://localhost:0";
     const uploadManager = new UploadManager({
       uploadsDir: join(testDir, "uploads"),
@@ -91,7 +77,6 @@ describe("WebSocket Transport E2E", () => {
     });
     app.get("/api/ws", wsRelayHandler);
 
-    // Start server on random port
     server = serve(
       { fetch: app.fetch, websocket: { server: wss }, port: 0 },
       (info) => {
@@ -115,9 +100,6 @@ describe("WebSocket Transport E2E", () => {
     await rm(testDir, { recursive: true, force: true });
   });
 
-  /**
-   * Helper to create a WebSocket connection.
-   */
   function connectWebSocket(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${serverPort}/api/ws`);
@@ -127,9 +109,6 @@ describe("WebSocket Transport E2E", () => {
     });
   }
 
-  /**
-   * Helper to send a message and wait for response.
-   */
   function sendRequest(
     ws: WebSocket,
     request: RelayRequest,
@@ -154,9 +133,6 @@ describe("WebSocket Transport E2E", () => {
     });
   }
 
-  /**
-   * Helper to collect events from a subscription.
-   */
   function collectEvents(
     ws: WebSocket,
     subscriptionId: string,
@@ -196,7 +172,7 @@ describe("WebSocket Transport E2E", () => {
           type: "request",
           id: randomUUID(),
           method: "GET",
-          path: "/health", // health is at /health, not /api/health
+          path: "/health",
         };
 
         const response = await sendRequest(ws, request);
@@ -243,7 +219,6 @@ describe("WebSocket Transport E2E", () => {
         const response = await sendRequest(ws, request);
 
         expect(response.status).toBe(200);
-        // Projects returns { projects: [...] }
         expect(response.body).toHaveProperty("projects");
         expect(
           Array.isArray((response.body as { projects: unknown[] }).projects),
@@ -289,7 +264,6 @@ describe("WebSocket Transport E2E", () => {
           path: "/api/version",
         };
 
-        // Send both requests concurrently
         const [response1, response2] = await Promise.all([
           sendRequest(ws, request1),
           sendRequest(ws, request2),
@@ -317,7 +291,6 @@ describe("WebSocket Transport E2E", () => {
           channel: "activity",
         };
 
-        // Collect the first event (should be 'connected')
         const eventsPromise = collectEvents(ws, subscriptionId, 1);
         ws.send(JSON.stringify(subscribe));
 
@@ -342,16 +315,13 @@ describe("WebSocket Transport E2E", () => {
           channel: "activity",
         };
 
-        // Subscribe first
         ws.send(JSON.stringify(subscribe));
 
-        // Wait for connected event, then collect more
         const eventsPromise = collectEvents(ws, subscriptionId, 3, 3000);
 
         // Give subscription time to be established
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // Emit events on the event bus
         eventBus.emit({
           type: "file-change",
           provider: "claude",
@@ -369,12 +339,10 @@ describe("WebSocket Transport E2E", () => {
 
         const events = await eventsPromise;
 
-        // Should have: connected, file-change, session-status-changed
         expect(events.length).toBeGreaterThanOrEqual(2);
 
         const eventTypes = events.map((e) => e.eventType);
         expect(eventTypes).toContain("connected");
-        // At least one of our events should have arrived
         expect(
           eventTypes.includes("file-change") ||
             eventTypes.includes("session-status-changed"),
@@ -390,7 +358,6 @@ describe("WebSocket Transport E2E", () => {
       try {
         const subscriptionId = randomUUID();
 
-        // Subscribe
         const subscribe: RelaySubscribe = {
           type: "subscribe",
           subscriptionId,
@@ -398,10 +365,8 @@ describe("WebSocket Transport E2E", () => {
         };
         ws.send(JSON.stringify(subscribe));
 
-        // Wait for connected event
         await collectEvents(ws, subscriptionId, 1);
 
-        // Unsubscribe
         const unsubscribe: RelayUnsubscribe = {
           type: "unsubscribe",
           subscriptionId,
@@ -411,7 +376,6 @@ describe("WebSocket Transport E2E", () => {
         // Wait a bit for unsubscribe to process
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // Emit an event - should not receive it
         eventBus.emit({
           type: "file-change",
           provider: "claude",
@@ -420,10 +384,8 @@ describe("WebSocket Transport E2E", () => {
           timestamp: new Date().toISOString(),
         });
 
-        // Try to collect events (should timeout with 0 new events)
         const events = await collectEvents(ws, subscriptionId, 1, 500);
 
-        // Should not receive the event after unsubscribing
         const fileChangeEvents = events.filter(
           (e) => e.eventType === "file-change",
         );
@@ -444,7 +406,6 @@ describe("WebSocket Transport E2E", () => {
         const events1Promise = collectEvents(ws, subscriptionId1, 2, 2000);
         const events2Promise = collectEvents(ws, subscriptionId2, 2, 2000);
 
-        // Subscribe to activity twice with different IDs
         const subscribe1: RelaySubscribe = {
           type: "subscribe",
           subscriptionId: subscriptionId1,
@@ -462,7 +423,6 @@ describe("WebSocket Transport E2E", () => {
         // Give time for subscriptions to be established
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // Emit an event
         eventBus.emit({
           type: "file-change",
           provider: "claude",
@@ -471,13 +431,11 @@ describe("WebSocket Transport E2E", () => {
           timestamp: new Date().toISOString(),
         });
 
-        // Both subscriptions should receive the event
         const [events1, events2] = await Promise.all([
           events1Promise,
           events2Promise,
         ]);
 
-        // Each should have connected + file-change
         expect(events1.some((e) => e.eventType === "connected")).toBe(true);
         expect(events2.some((e) => e.eventType === "connected")).toBe(true);
       } finally {
@@ -494,10 +452,8 @@ describe("WebSocket Transport E2E", () => {
           type: "subscribe",
           subscriptionId,
           channel: "session",
-          // Missing sessionId
         };
 
-        // Listen for response (error will come as a response)
         const responsePromise = new Promise<RelayResponse>((resolve) => {
           const handler = (data: WebSocket.RawData) => {
             const msg = JSON.parse(data.toString()) as YepMessage;
@@ -524,7 +480,6 @@ describe("WebSocket Transport E2E", () => {
     it("should clean up subscriptions on disconnect", async () => {
       const subscriptionId = randomUUID();
 
-      // Connect and subscribe
       const ws = await connectWebSocket();
       const subscribe: RelaySubscribe = {
         type: "subscribe",
@@ -533,24 +488,19 @@ describe("WebSocket Transport E2E", () => {
       };
       ws.send(JSON.stringify(subscribe));
 
-      // Wait for connected event
       await collectEvents(ws, subscriptionId, 1);
 
-      // Check initial subscriber count
       const initialCount = eventBus.subscriberCount;
 
-      // Close connection
       ws.close();
 
       // Wait for cleanup
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // Subscriber count should have decreased
       expect(eventBus.subscriberCount).toBeLessThan(initialCount);
     });
 
     it("should handle reconnection", async () => {
-      // First connection
       const ws1 = await connectWebSocket();
       const request1: RelayRequest = {
         type: "request",
@@ -565,7 +515,6 @@ describe("WebSocket Transport E2E", () => {
       // Wait for disconnect to process
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Second connection - should work fine
       const ws2 = await connectWebSocket();
       const request2: RelayRequest = {
         type: "request",
@@ -580,7 +529,6 @@ describe("WebSocket Transport E2E", () => {
   });
 
   describe("File Upload (Phase 2d)", () => {
-    // Helper to collect upload messages
     function collectUploadMessages(
       ws: WebSocket,
       uploadId: string,
@@ -625,10 +573,8 @@ describe("WebSocket Transport E2E", () => {
         const fileContent = "Hello, World!";
         const fileSize = fileContent.length;
 
-        // Start collecting messages before sending
         const messagesPromise = collectUploadMessages(ws, uploadId);
 
-        // Send upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -643,7 +589,6 @@ describe("WebSocket Transport E2E", () => {
         // Wait a bit for start to process
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Send chunk (base64 encoded)
         const base64Content = Buffer.from(fileContent).toString("base64");
         const chunkMsg: RelayUploadChunk = {
           type: "upload_chunk",
@@ -653,20 +598,16 @@ describe("WebSocket Transport E2E", () => {
         };
         ws.send(JSON.stringify(chunkMsg));
 
-        // Send upload_end
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(JSON.stringify(endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
-        // Should have at least one message
         expect(messages.length).toBeGreaterThanOrEqual(1);
 
-        // Last message should be upload_complete
         const lastMsg = messages[messages.length - 1];
         expect(lastMsg.type).toBe("upload_complete");
 
@@ -691,10 +632,8 @@ describe("WebSocket Transport E2E", () => {
         const fileSize = 200 * 1024;
         const fileContent = Buffer.alloc(fileSize, "X");
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessages(ws, uploadId);
 
-        // Send upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -708,7 +647,6 @@ describe("WebSocket Transport E2E", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Send in 64KB chunks
         const chunkSize = 64 * 1024;
         let offset = 0;
         while (offset < fileSize) {
@@ -724,26 +662,21 @@ describe("WebSocket Transport E2E", () => {
           offset = end;
         }
 
-        // Send upload_end
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(JSON.stringify(endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
-        // Should have multiple progress messages plus complete
         expect(messages.length).toBeGreaterThanOrEqual(2);
 
-        // Check we got progress updates
         const progressMsgs = messages.filter(
           (m) => m.type === "upload_progress",
         ) as RelayUploadProgress[];
         expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
 
-        // Last message should be upload_complete
         const lastMsg = messages[messages.length - 1];
         expect(lastMsg.type).toBe("upload_complete");
 
@@ -762,10 +695,8 @@ describe("WebSocket Transport E2E", () => {
         const projectId = "test-project";
         const sessionId = "test-session";
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessages(ws, uploadId);
 
-        // Send upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -788,7 +719,6 @@ describe("WebSocket Transport E2E", () => {
         };
         ws.send(JSON.stringify(chunkMsg));
 
-        // Wait for error
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
@@ -808,10 +738,8 @@ describe("WebSocket Transport E2E", () => {
       try {
         const uploadId = randomUUID();
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessages(ws, uploadId, 2000);
 
-        // Send chunk for non-existent upload
         const chunkMsg: RelayUploadChunk = {
           type: "upload_chunk",
           uploadId,
@@ -820,7 +748,6 @@ describe("WebSocket Transport E2E", () => {
         };
         ws.send(JSON.stringify(chunkMsg));
 
-        // Wait for error
         const messages = await messagesPromise;
 
         expect(messages.length).toBe(1);
@@ -841,7 +768,6 @@ describe("WebSocket Transport E2E", () => {
         const projectId = "test-project";
         const sessionId = "test-session";
 
-        // Send first upload_start
         const startMsg1: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -855,10 +781,8 @@ describe("WebSocket Transport E2E", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Start collecting messages for the duplicate
         const messagesPromise = collectUploadMessages(ws, uploadId, 2000);
 
-        // Send duplicate upload_start with same ID
         const startMsg2: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -870,10 +794,8 @@ describe("WebSocket Transport E2E", () => {
         };
         ws.send(JSON.stringify(startMsg2));
 
-        // Wait for error
         const messages = await messagesPromise;
 
-        // Should get an error for the duplicate
         const errorMsgs = messages.filter(
           (m) => m.type === "upload_error",
         ) as RelayUploadError[];
@@ -886,9 +808,6 @@ describe("WebSocket Transport E2E", () => {
   });
 
   describe("Binary Frame Support (Phase 0)", () => {
-    /**
-     * Helper to send a binary frame and wait for binary response.
-     */
     function sendBinaryRequest(
       ws: WebSocket,
       request: RelayRequest,
@@ -900,7 +819,6 @@ describe("WebSocket Transport E2E", () => {
         );
 
         const handler = (data: WebSocket.RawData) => {
-          // Expect binary response
           if (!(data instanceof Buffer)) {
             // If we get a string, the server might have fallen back to text
             clearTimeout(timeout);
@@ -931,7 +849,6 @@ describe("WebSocket Transport E2E", () => {
         };
 
         ws.on("message", handler);
-        // Send as binary frame
         ws.send(encodeJsonFrame(request));
       });
     }
@@ -967,7 +884,6 @@ describe("WebSocket Transport E2E", () => {
           path: "/health",
         };
 
-        // Send as text (JSON string)
         const response = await sendRequest(ws, request);
 
         expect(response.status).toBe(200);
@@ -984,15 +900,13 @@ describe("WebSocket Transport E2E", () => {
       const ws = await connectWebSocket();
 
       try {
-        // Create a binary frame with invalid format byte 0x00
         const payload = Buffer.from(
           JSON.stringify({ type: "request", id: "test" }),
         );
         const invalidFrame = Buffer.alloc(1 + payload.length);
-        invalidFrame[0] = 0x00; // Invalid format byte
+        invalidFrame[0] = 0x00;
         payload.copy(invalidFrame, 1);
 
-        // The server should close the connection with error code 4002
         const closePromise = new Promise<{ code: number; reason: string }>(
           (resolve) => {
             ws.on("close", (code, reason) => {
@@ -1022,7 +936,6 @@ describe("WebSocket Transport E2E", () => {
       const ws = await connectWebSocket();
 
       try {
-        // First request as text
         const textRequest: RelayRequest = {
           type: "request",
           id: randomUUID(),
@@ -1032,7 +945,6 @@ describe("WebSocket Transport E2E", () => {
         const textResponse = await sendRequest(ws, textRequest);
         expect(textResponse.status).toBe(200);
 
-        // Second request as binary
         const binaryRequest: RelayRequest = {
           type: "request",
           id: randomUUID(),
@@ -1057,7 +969,6 @@ describe("WebSocket Transport E2E", () => {
           path: "/health",
         };
 
-        // Track whether we received a binary response
         let receivedBinary = false;
 
         const response = await new Promise<RelayResponse>((resolve, reject) => {
@@ -1082,7 +993,6 @@ describe("WebSocket Transport E2E", () => {
                 reject(err);
               }
             } else {
-              // Text frame - still accept but note it
               try {
                 const msg = JSON.parse(data.toString()) as YepMessage;
                 if (msg.type === "response" && msg.id === request.id) {
@@ -1090,9 +1000,7 @@ describe("WebSocket Transport E2E", () => {
                   ws.off("message", handler);
                   resolve(msg);
                 }
-              } catch {
-                // ignore
-              }
+              } catch {}
             }
           };
 
@@ -1101,7 +1009,6 @@ describe("WebSocket Transport E2E", () => {
         });
 
         expect(response.status).toBe(200);
-        // Server should respond with binary after receiving binary
         expect(receivedBinary).toBe(true);
       } finally {
         ws.close();
@@ -1119,7 +1026,6 @@ describe("WebSocket Transport E2E", () => {
           channel: "activity",
         };
 
-        // Collect events using binary frames
         const eventsPromise = new Promise<RelayEvent[]>((resolve) => {
           const events: RelayEvent[] = [];
           const timeout = setTimeout(() => {
@@ -1146,15 +1052,12 @@ describe("WebSocket Transport E2E", () => {
                   resolve(events);
                 }
               }
-            } catch {
-              // ignore parse errors
-            }
+            } catch {}
           };
 
           ws.on("message", handler);
         });
 
-        // Send subscribe as binary
         ws.send(encodeJsonFrame(subscribe));
 
         const events = await eventsPromise;
@@ -1171,8 +1074,6 @@ describe("WebSocket Transport E2E", () => {
       const ws = await connectWebSocket();
 
       try {
-        // Send a request - the UTF-8 test is about the binary frame encoding
-        // of JSON content with unicode characters in the body
         const request: RelayRequest = {
           type: "request",
           id: randomUUID(),
@@ -1180,13 +1081,9 @@ describe("WebSocket Transport E2E", () => {
           path: "/health",
         };
 
-        // Verify the encodeJsonFrame handles UTF-8 properly by checking the request
-        // goes through successfully (the request id contains nothing special but
-        // the framing itself uses TextEncoder/TextDecoder which handles UTF-8)
         const response = await sendBinaryRequest(ws, request);
         expect(response.status).toBe(200);
 
-        // Also test that a request ID with UTF-8 round-trips correctly
         const utf8Request: RelayRequest = {
           type: "request",
           id: `test-${randomUUID()}-emoji-🎉`,
@@ -1195,7 +1092,6 @@ describe("WebSocket Transport E2E", () => {
         };
         const utf8Response = await sendBinaryRequest(ws, utf8Request);
         expect(utf8Response.status).toBe(200);
-        // The response ID should match what we sent
         expect(utf8Response.id).toBe(utf8Request.id);
       } finally {
         ws.close();
@@ -1204,7 +1100,6 @@ describe("WebSocket Transport E2E", () => {
   });
 
   describe("Binary Upload Chunks (Phase 2)", () => {
-    // Helper to collect upload messages (works with both text and binary frames)
     function collectUploadMessagesForBinary(
       ws: WebSocket,
       uploadId: string,
@@ -1226,7 +1121,7 @@ describe("WebSocket Transport E2E", () => {
               msg = JSON.parse(data.toString()) as YepMessage;
             }
           } catch {
-            return; // Ignore parse errors
+            return;
           }
 
           if (
@@ -1259,10 +1154,8 @@ describe("WebSocket Transport E2E", () => {
         const fileContent = "Hello from binary upload!";
         const fileSize = fileContent.length;
 
-        // Start collecting messages before sending
         const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
 
-        // Send upload_start as JSON (to initiate the upload)
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1274,7 +1167,6 @@ describe("WebSocket Transport E2E", () => {
         };
         ws.send(JSON.stringify(startMsg));
 
-        // Wait a bit for start to process
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         // Send chunk using binary format 0x02
@@ -1283,20 +1175,16 @@ describe("WebSocket Transport E2E", () => {
         const binaryFrame = encodeUploadChunkFrame(uploadId, 0, chunkData);
         ws.send(Buffer.from(binaryFrame));
 
-        // Send upload_end as JSON
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(JSON.stringify(endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
-        // Should have at least one message
         expect(messages.length).toBeGreaterThanOrEqual(1);
 
-        // Last message should be upload_complete
         const lastMsg = messages[messages.length - 1];
         expect(lastMsg.type).toBe("upload_complete");
 
@@ -1317,14 +1205,11 @@ describe("WebSocket Transport E2E", () => {
         const projectId = "test-project";
         const sessionId = "test-session";
         const filename = "large-binary.bin";
-        // Create a 200KB file
         const fileSize = 200 * 1024;
         const fileContent = Buffer.alloc(fileSize, "Y");
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
 
-        // Send upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1338,40 +1223,33 @@ describe("WebSocket Transport E2E", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Send in 64KB binary chunks
         const chunkSize = 64 * 1024;
         let offset = 0;
         while (offset < fileSize) {
           const end = Math.min(offset + chunkSize, fileSize);
           const chunk = fileContent.slice(offset, end);
 
-          // Send using binary format 0x02
           const binaryFrame = encodeUploadChunkFrame(uploadId, offset, chunk);
           ws.send(Buffer.from(binaryFrame));
 
           offset = end;
         }
 
-        // Send upload_end
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(JSON.stringify(endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
-        // Should have multiple progress messages plus complete
         expect(messages.length).toBeGreaterThanOrEqual(2);
 
-        // Check we got progress updates
         const progressMsgs = messages.filter(
           (m) => m.type === "upload_progress",
         ) as RelayUploadProgress[];
         expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
 
-        // Last message should be upload_complete
         const lastMsg = messages[messages.length - 1];
         expect(lastMsg.type).toBe("upload_complete");
 
@@ -1393,10 +1271,8 @@ describe("WebSocket Transport E2E", () => {
         const fileContent = "Mixed binary and JSON";
         const fileSize = fileContent.length;
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
 
-        // Send upload_start as binary JSON frame (format 0x01)
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1410,19 +1286,16 @@ describe("WebSocket Transport E2E", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Send chunk using binary format 0x02
         const chunkData = Buffer.from(fileContent);
         const binaryFrame = encodeUploadChunkFrame(uploadId, 0, chunkData);
         ws.send(Buffer.from(binaryFrame));
 
-        // Send upload_end as binary JSON frame (format 0x01)
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(encodeJsonFrame(endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
@@ -1439,19 +1312,16 @@ describe("WebSocket Transport E2E", () => {
       try {
         const uploadId = randomUUID();
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessagesForBinary(
           ws,
           uploadId,
           2000,
         );
 
-        // Send binary chunk for non-existent upload
         const chunkData = Buffer.from("test data");
         const binaryFrame = encodeUploadChunkFrame(uploadId, 0, chunkData);
         ws.send(Buffer.from(binaryFrame));
 
-        // Wait for error
         const messages = await messagesPromise;
 
         expect(messages.length).toBe(1);
@@ -1472,10 +1342,8 @@ describe("WebSocket Transport E2E", () => {
         const projectId = "test-project";
         const sessionId = "test-session";
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
 
-        // Send upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1491,10 +1359,9 @@ describe("WebSocket Transport E2E", () => {
 
         // Send binary chunk with wrong offset (should be 0)
         const chunkData = Buffer.from("test");
-        const binaryFrame = encodeUploadChunkFrame(uploadId, 50, chunkData); // Wrong offset!
+        const binaryFrame = encodeUploadChunkFrame(uploadId, 50, chunkData);
         ws.send(Buffer.from(binaryFrame));
 
-        // Wait for error
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
@@ -1516,17 +1383,14 @@ describe("WebSocket Transport E2E", () => {
         const projectId = "test-project";
         const sessionId = "test-session";
         const filename = "binary-data.bin";
-        // Create binary data with all byte values
         const fileContent = Buffer.alloc(256);
         for (let i = 0; i < 256; i++) {
           fileContent[i] = i;
         }
         const fileSize = fileContent.length;
 
-        // Start collecting messages
         const messagesPromise = collectUploadMessagesForBinary(ws, uploadId);
 
-        // Send upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1540,18 +1404,15 @@ describe("WebSocket Transport E2E", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Send binary chunk with actual binary data
         const binaryFrame = encodeUploadChunkFrame(uploadId, 0, fileContent);
         ws.send(Buffer.from(binaryFrame));
 
-        // Send upload_end
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(JSON.stringify(endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);

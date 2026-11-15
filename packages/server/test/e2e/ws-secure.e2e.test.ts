@@ -69,16 +69,6 @@ import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { UploadManager } from "../../src/uploads/manager.js";
 import { EventBus } from "../../src/watcher/index.js";
 
-/**
- * E2E tests for secure WebSocket transport (Phase 3).
- *
- * These tests verify:
- * - SRP authentication handshake
- * - Encrypted request/response over WebSocket
- * - Encrypted event subscriptions
- */
-
-// Test credentials
 const TEST_USERNAME = "testuser";
 const TEST_PASSWORD = "testpassword123";
 // Use a non-loopback hostname allowed by host policy (*.ts.net) while routing
@@ -116,7 +106,6 @@ describe("Secure WebSocket Transport E2E", () => {
   let remoteSessionService: RemoteSessionService;
 
   beforeAll(async () => {
-    // Create temp directory for project data
     testDir = join(tmpdir(), `ws-secure-test-${randomUUID()}`);
     const projectPath = "/home/user/testproject";
     const encodedPath = projectPath.replaceAll("/", "-");
@@ -127,11 +116,9 @@ describe("Secure WebSocket Transport E2E", () => {
       `{"type":"user","cwd":"${projectPath}","message":{"content":"Hello"}}\n`,
     );
 
-    // Create data dir for remote access
     const dataDir = join(testDir, "data");
     await mkdir(dataDir, { recursive: true });
 
-    // Create services
     mockSdk = new ScriptedClaudeProvider();
     eventBus = new EventBus();
     authService = new AuthService({
@@ -140,7 +127,6 @@ describe("Secure WebSocket Transport E2E", () => {
     });
     await authService.initialize();
 
-    // Set up remote access with test credentials
     // First configure relay (relay username is used as SRP identity)
     remoteAccessService = new RemoteAccessService({ dataDir });
     await remoteAccessService.initialize();
@@ -153,7 +139,6 @@ describe("Secure WebSocket Transport E2E", () => {
     remoteSessionService = new RemoteSessionService({ dataDir });
     await remoteSessionService.initialize();
 
-    // Create the app
     const { app, supervisor } = createApp({
       provider: mockSdk,
       projectsDir: testDir,
@@ -162,10 +147,8 @@ describe("Secure WebSocket Transport E2E", () => {
       authDisabled: true,
     });
 
-    // Add WebSocket support
     const wss = new WebSocketServer({ noServer: true });
 
-    // Add WebSocket relay route with remote access enabled
     const baseUrl = "http://localhost:0";
     const uploadManager = new UploadManager({
       uploadsDir: join(testDir, "uploads"),
@@ -182,7 +165,6 @@ describe("Secure WebSocket Transport E2E", () => {
     });
     app.get("/api/ws", wsRelayHandler);
 
-    // Start server on random port
     server = serve(
       { fetch: app.fetch, websocket: { server: wss }, port: 0 },
       (info) => {
@@ -193,7 +175,6 @@ describe("Secure WebSocket Transport E2E", () => {
       },
     );
 
-    // Attach the unified upgrade handler
     attachUnifiedUpgradeHandler(server, {
       frontendProxy: undefined,
       isApiPath: (urlPath) => urlPath.startsWith("/api"),
@@ -209,9 +190,6 @@ describe("Secure WebSocket Transport E2E", () => {
     await rm(testDir, { recursive: true, force: true });
   });
 
-  /**
-   * Helper to create a WebSocket connection.
-   */
   function connectWebSocket(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(
@@ -226,10 +204,6 @@ describe("Secure WebSocket Transport E2E", () => {
     });
   }
 
-  /**
-   * Helper to close a WebSocket connection and wait for the close event.
-   * This ensures proper cleanup between tests.
-   */
   async function closeWebSocket(ws: WebSocket): Promise<void> {
     await new Promise<void>((resolve) => {
       if (ws.readyState === WebSocket.CLOSED) {
@@ -245,24 +219,15 @@ describe("Secure WebSocket Transport E2E", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
-  /**
-   * Convert bigint to hex string.
-   */
   function bigIntToHex(n: bigint): string {
     return n.toString(16);
   }
 
-  /**
-   * Convert hex string to bigint.
-   */
   function hexToBigInt(hex: string): bigint {
     return BigInt(`0x${hex}`);
   }
 
-  /**
-   * Perform full SRP handshake and return session key.
-   * Refactored version with proper state handling.
-   */
+  /** Return the transport session key after validating the server proof. */
   async function performSrpHandshakeV2(
     ws: WebSocket,
     username: string,
@@ -271,26 +236,22 @@ describe("Secure WebSocket Transport E2E", () => {
     const clientSession = new SRPClientSession(SRP_ROUTINES);
     const clientStep1 = await clientSession.step1(username, password);
 
-    // Send hello
     const hello: SrpClientHello = {
       type: "srp_hello",
       identity: username,
     };
     ws.send(JSON.stringify(hello));
 
-    // Wait for challenge
     const challenge = await waitForMessage<SrpServerChallenge>(
       ws,
       (msg): msg is SrpServerChallenge => isSrpServerChallenge(msg),
       5000,
     );
 
-    // Process challenge
     const saltBigInt = hexToBigInt(challenge.salt);
     const B = hexToBigInt(challenge.B);
     const clientStep2 = await clientStep1.step2(saltBigInt, B);
 
-    // Send proof
     const proof: SrpClientProof = {
       type: "srp_proof",
       A: bigIntToHex(clientStep2.A),
@@ -298,18 +259,15 @@ describe("Secure WebSocket Transport E2E", () => {
     };
     ws.send(JSON.stringify(proof));
 
-    // Wait for verify
     const verify = await waitForMessage<SrpServerVerify>(
       ws,
       (msg): msg is SrpServerVerify => isSrpServerVerify(msg),
       5000,
     );
 
-    // Verify server proof
     const M2 = hexToBigInt(verify.M2);
     await clientStep2.step3(M2);
 
-    // Derive session key
     const keyBuffer = bigIntToArrayBuffer(clientStep2.S);
     const rawKey = new Uint8Array(keyBuffer);
     const baseSessionKey = deriveSecretboxKey(rawKey);
@@ -329,9 +287,6 @@ describe("Secure WebSocket Transport E2E", () => {
     return transportSessionKey;
   }
 
-  /**
-   * Perform full SRP handshake and return session keys + sessionId.
-   */
   async function performSrpHandshakeWithSession(
     ws: WebSocket,
     username: string,
@@ -414,9 +369,6 @@ describe("Secure WebSocket Transport E2E", () => {
     return { sessionKey, baseSessionKey, sessionId: verify.sessionId };
   }
 
-  /**
-   * Helper to wait for a specific message type.
-   */
   function waitForMessage<T>(
     ws: WebSocket,
     predicate: (msg: unknown) => msg is T,
@@ -491,9 +443,6 @@ describe("Secure WebSocket Transport E2E", () => {
     return Buffer.from(new Uint8Array(24).fill(fill)).toString("base64");
   }
 
-  /**
-   * Send an encrypted request and wait for encrypted response.
-   */
   async function sendEncryptedRequest(
     ws: WebSocket,
     sessionKey: Uint8Array,
@@ -514,12 +463,12 @@ describe("Secure WebSocket Transport E2E", () => {
           try {
             decrypted = decryptBinaryEnvelope(bytes, sessionKey);
           } catch {
-            return; // Not a valid binary envelope, skip
+            return;
           }
         }
 
         if (!decrypted) {
-          return; // Skip messages we couldn't decrypt
+          return;
         }
 
         try {
@@ -534,7 +483,7 @@ describe("Secure WebSocket Transport E2E", () => {
             resolve(response);
           }
         } catch {
-          return; // Couldn't parse decrypted content
+          return;
         }
       };
 
@@ -587,9 +536,7 @@ describe("Secure WebSocket Transport E2E", () => {
             ws.off("message", handler);
             resolve(response);
           }
-        } catch {
-          // Ignore non-JSON payloads
-        }
+        } catch {}
       };
 
       ws.on("message", handler);
@@ -1277,10 +1224,8 @@ describe("Secure WebSocket Transport E2E", () => {
         path: "/health",
       };
 
-      // Send plaintext (should trigger connection close)
       ws.send(JSON.stringify(request));
 
-      // Wait for the close event
       const closeResult = await closePromise;
 
       expect(closeResult.code).toBe(4001);
@@ -1339,7 +1284,6 @@ describe("Secure WebSocket Transport E2E", () => {
 
         const subscriptionId = randomUUID();
 
-        // Set up event collector for binary encrypted responses
         const events: RelayEvent[] = [];
         const eventHandler = (data: WebSocket.RawData) => {
           let decrypted: string | null = null;
@@ -1371,7 +1315,6 @@ describe("Secure WebSocket Transport E2E", () => {
         };
         ws.on("message", eventHandler);
 
-        // Send encrypted subscribe
         const subscribe: RelaySubscribe = {
           type: "subscribe",
           subscriptionId,
@@ -1391,9 +1334,6 @@ describe("Secure WebSocket Transport E2E", () => {
   });
 
   describe("Binary Encrypted Transport (Phase 1)", () => {
-    /**
-     * Send a binary encrypted request and wait for binary encrypted response.
-     */
     async function sendBinaryEncryptedRequest(
       ws: WebSocket,
       sessionKey: Uint8Array,
@@ -1406,9 +1346,7 @@ describe("Secure WebSocket Transport E2E", () => {
         );
 
         const handler = (data: WebSocket.RawData) => {
-          // Expect binary response
           if (!Buffer.isBuffer(data) && !(data instanceof ArrayBuffer)) {
-            // Skip non-binary messages (shouldn't happen after we send binary)
             return;
           }
 
@@ -1515,7 +1453,6 @@ describe("Secure WebSocket Transport E2E", () => {
 
         const subscriptionId = randomUUID();
 
-        // Set up event collector for binary responses
         const events: RelayEvent[] = [];
         const eventHandler = (data: WebSocket.RawData) => {
           if (!Buffer.isBuffer(data) && !(data instanceof ArrayBuffer)) {
@@ -1543,7 +1480,6 @@ describe("Secure WebSocket Transport E2E", () => {
         };
         ws.on("message", eventHandler);
 
-        // Send binary encrypted subscribe
         const subscribe: RelaySubscribe = {
           type: "subscribe",
           subscriptionId,
@@ -1638,9 +1574,6 @@ describe("Secure WebSocket Transport E2E", () => {
   });
 
   describe("Encrypted Binary Upload Chunks (Phase 2)", () => {
-    /**
-     * Helper to collect upload messages from encrypted responses.
-     */
     function collectEncryptedUploadMessages(
       ws: WebSocket,
       sessionKey: Uint8Array,
@@ -1666,9 +1599,7 @@ describe("Secure WebSocket Transport E2E", () => {
               data instanceof ArrayBuffer ? new Uint8Array(data) : data;
             try {
               decrypted = decryptBinaryEnvelope(bytes, sessionKey);
-            } catch {
-              // Not a valid binary envelope
-            }
+            } catch {}
           }
 
           if (!decrypted) return;
@@ -1692,9 +1623,7 @@ describe("Secure WebSocket Transport E2E", () => {
                 resolve(messages);
               }
             }
-          } catch {
-            // Parsing failed
-          }
+          } catch {}
         };
 
         ws.on("message", handler);
@@ -1718,14 +1647,12 @@ describe("Secure WebSocket Transport E2E", () => {
         const fileContent = "Hello from encrypted binary upload!";
         const fileSize = fileContent.length;
 
-        // Start collecting messages
         const messagesPromise = collectEncryptedUploadMessages(
           ws,
           sessionKey,
           uploadId,
         );
 
-        // Send encrypted upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1756,7 +1683,6 @@ describe("Secure WebSocket Transport E2E", () => {
         );
         ws.send(chunkEnvelope);
 
-        // Send encrypted upload_end
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
@@ -1768,7 +1694,6 @@ describe("Secure WebSocket Transport E2E", () => {
         );
         ws.send(endEnvelope);
 
-        // Wait for completion
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
@@ -1784,7 +1709,6 @@ describe("Secure WebSocket Transport E2E", () => {
     }, 15000);
 
     // Skip: Timing-sensitive test that's flaky on slow CI runners.
-    // Same issue as above - message timeout races with server processing.
     it.skip("should upload larger file with multiple encrypted binary chunks", async () => {
       const ws = await connectWebSocket();
 
@@ -1799,18 +1723,15 @@ describe("Secure WebSocket Transport E2E", () => {
         const projectId = "test-project";
         const sessionId = "test-session";
         const filename = "large-secure.bin";
-        // Create a 200KB file
         const fileSize = 200 * 1024;
         const fileContent = Buffer.alloc(fileSize, "Z");
 
-        // Start collecting messages
         const messagesPromise = collectEncryptedUploadMessages(
           ws,
           sessionKey,
           uploadId,
         );
 
-        // Send encrypted upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1824,14 +1745,12 @@ describe("Secure WebSocket Transport E2E", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        // Send in 64KB encrypted binary chunks
         const chunkSize = 64 * 1024;
         let offset = 0;
         while (offset < fileSize) {
           const end = Math.min(offset + chunkSize, fileSize);
           const chunk = fileContent.slice(offset, end);
 
-          // Encrypt binary chunk payload
           const payload = encodeUploadChunkPayload(uploadId, offset, chunk);
           const envelope = encryptBytesToBinaryEnvelope(
             payload,
@@ -1843,25 +1762,21 @@ describe("Secure WebSocket Transport E2E", () => {
           offset = end;
         }
 
-        // Send encrypted upload_end
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(encryptSequencedClientMessage(ws, sessionKey, endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(2);
 
-        // Check progress updates
         const progressMsgs = messages.filter(
           (m) => m.type === "upload_progress",
         ) as RelayUploadProgress[];
         expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
 
-        // Last message should be upload_complete
         const lastMsg = messages[messages.length - 1];
         expect(lastMsg.type).toBe("upload_complete");
 
@@ -1884,7 +1799,6 @@ describe("Secure WebSocket Transport E2E", () => {
 
         const uploadId = randomUUID();
 
-        // Start collecting messages
         const messagesPromise = collectEncryptedUploadMessages(
           ws,
           sessionKey,
@@ -1892,7 +1806,6 @@ describe("Secure WebSocket Transport E2E", () => {
           2000,
         );
 
-        // Send encrypted binary chunk without starting upload
         const chunkData = Buffer.from("test data");
         const payload = encodeUploadChunkPayload(uploadId, 0, chunkData);
         const envelope = encryptBytesToBinaryEnvelope(
@@ -1902,7 +1815,6 @@ describe("Secure WebSocket Transport E2E", () => {
         );
         ws.send(envelope);
 
-        // Wait for error
         const messages = await messagesPromise;
 
         expect(messages.length).toBe(1);
@@ -1929,21 +1841,18 @@ describe("Secure WebSocket Transport E2E", () => {
         const projectId = "test-project";
         const sessionId = "test-session";
         const filename = "binary-data-secure.bin";
-        // Create binary data with all byte values
         const fileContent = Buffer.alloc(256);
         for (let i = 0; i < 256; i++) {
           fileContent[i] = i;
         }
         const fileSize = fileContent.length;
 
-        // Start collecting messages
         const messagesPromise = collectEncryptedUploadMessages(
           ws,
           sessionKey,
           uploadId,
         );
 
-        // Send encrypted upload_start
         const startMsg: RelayUploadStart = {
           type: "upload_start",
           uploadId,
@@ -1957,7 +1866,6 @@ describe("Secure WebSocket Transport E2E", () => {
 
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Send encrypted binary chunk
         const payload = encodeUploadChunkPayload(uploadId, 0, fileContent);
         ws.send(
           encryptBytesToBinaryEnvelope(
@@ -1967,14 +1875,12 @@ describe("Secure WebSocket Transport E2E", () => {
           ),
         );
 
-        // Send encrypted upload_end
         const endMsg: RelayUploadEnd = {
           type: "upload_end",
           uploadId,
         };
         ws.send(encryptSequencedClientMessage(ws, sessionKey, endMsg));
 
-        // Wait for completion
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);

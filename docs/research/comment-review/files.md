@@ -3001,8 +3001,8 @@ Check a file after reviewing all its comments in context. Append the review date
 - [ ] [packages/server/test/e2e/ws-limited-user.e2e.test.ts](../../../packages/server/test/e2e/ws-limited-user.e2e.test.ts)
 - [ ] [packages/server/test/e2e/ws-local-auth.e2e.test.ts](../../../packages/server/test/e2e/ws-local-auth.e2e.test.ts)
 - [ ] [packages/server/test/e2e/ws-loopback-unrestricted.e2e.test.ts](../../../packages/server/test/e2e/ws-loopback-unrestricted.e2e.test.ts)
-- [ ] [packages/server/test/e2e/ws-secure.e2e.test.ts](../../../packages/server/test/e2e/ws-secure.e2e.test.ts)
-- [ ] [packages/server/test/e2e/ws-transport.e2e.test.ts](../../../packages/server/test/e2e/ws-transport.e2e.test.ts)
+- [x] [packages/server/test/e2e/ws-secure.e2e.test.ts](../../../packages/server/test/e2e/ws-secure.e2e.test.ts) — 2026-11-15
+- [x] [packages/server/test/e2e/ws-transport.e2e.test.ts](../../../packages/server/test/e2e/ws-transport.e2e.test.ts) — 2026-11-15
 - [ ] [packages/server/test/envSettings.test.ts](../../../packages/server/test/envSettings.test.ts)
 - [ ] [packages/server/test/experimental/provider-conversation-source.test.ts](../../../packages/server/test/experimental/provider-conversation-source.test.ts)
 - [ ] [packages/server/test/frontend/proxy.test.ts](../../../packages/server/test/frontend/proxy.test.ts)
