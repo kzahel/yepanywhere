@@ -66,7 +66,9 @@ reach the wide content.
 
 The desired invariant is:
 
-- ordinary transcript content reflows to the content column;
+- ordinary transcript content reflows to the content column; delivery-status
+  markers stay beside their own bubbles within the transcript viewport and
+  never create horizontal overflow for otherwise wrapping user text;
 - when any transcript descendant is wider than that column, the transcript
   provides a generic horizontal scrolling fallback;
 - known wide renderer content may still own a local scroller when that gives a

@@ -20,7 +20,9 @@ Topic: composer-full-pane-editing
 - Follow and the in-session maximize/restore control keep the same horizontal
   anchors when the composer changes between its ordinary and one-line states.
   Collapsed-field actions fit below that stable control group instead of moving
-  it sideways.
+  it sideways. Follow sits fully above the editor with a small gap, including
+  its larger touch target, so neither Follow nor New output below covers draft
+  text as the composer grows.
 - Full-pane mode is transient UI state. Leaving the page or restoring the
   ordinary composer does not change a saved preference or the draft text.
 - A nonempty in-session composer exposes **Clear composer** at its upper left

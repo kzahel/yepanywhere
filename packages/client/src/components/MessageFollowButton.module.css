@@ -1,8 +1,14 @@
 .messageFollowToggle {
   position: absolute;
-  top: -12px;
+  bottom: calc(100% + var(--space-1));
   right: 10px;
   z-index: 2;
+}
+
+/* Floating ages occupy the first row above the editor on narrow layouts. */
+[data-session-input-inner]:has([data-status-floats] [data-composer-status-ages])
+> .messageFollowToggle {
+  bottom: calc(100% + 2rem);
 }
 
 .messageFollowToggle svg {

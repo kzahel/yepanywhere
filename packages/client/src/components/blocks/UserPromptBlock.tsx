@@ -679,7 +679,7 @@ export const UserPromptBlock = memo(function UserPromptBlock({
       >
         <div
           ref={actionPacking.bubbleRef}
-          className={`${listStyles.message} ${styles.messageUserPrompt} ${onCorrect ? styles.userPromptCorrectable : ""}${unconfirmedClass}`}
+          className={`${listStyles.message} ${styles.messageUserPrompt} ${onCorrect ? styles.userPromptCorrectable : ""} ${unconfirmedClass}`}
           data-message
           data-message-user-prompt
           data-user-prompt-correctable={onCorrect || undefined}
@@ -756,7 +756,7 @@ export const UserPromptBlock = memo(function UserPromptBlock({
     >
       <div
         ref={actionPacking.bubbleRef}
-        className={`${listStyles.message} ${styles.messageUserPrompt} ${onCorrect ? styles.userPromptCorrectable : ""}${unconfirmedClass}`}
+        className={`${listStyles.message} ${styles.messageUserPrompt} ${onCorrect ? styles.userPromptCorrectable : ""} ${unconfirmedClass}`}
         data-message
         data-message-user-prompt
         data-user-prompt-correctable={onCorrect || undefined}
