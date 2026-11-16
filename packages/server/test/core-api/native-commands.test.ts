@@ -463,8 +463,10 @@ it("preserves batched input identities, rejects false push evidence, and tears d
     );
     commands.close();
     commands = new SessionCommands("A", store, owner, () => true);
+    // A replacement controller over the same process's receipts reattaches
+    // the incumbent owner's evidence; delivery is still awaited.
     const recovered = await commands.follow(pending.id, { waitMs: "0" });
-    expect(recovered.receipt?.delivery).toBe("uncertain");
+    expect(recovered.receipt?.delivery).toBe("unknown");
     const reattached = commands.follow(pending.id, { after: recovered.cursor });
     const resumedInput = queue.generator();
     await resumedInput.next();

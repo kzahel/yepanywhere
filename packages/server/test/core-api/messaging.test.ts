@@ -1,4 +1,3 @@
-import { seedHistoricalReceiptAlias } from "../support/legacy-session-aliases.js";
 import { expect, it, vi } from "vitest";
 import { openSqliteOrThrow } from "../../src/storage/sqlite.js";
 import { migrateDiscoveryDatabase } from "../../src/storage/discovery-sqlite.js";
@@ -215,42 +214,6 @@ it("marks missing consumption uncertain after owner loss/restart and releases re
     await expect(f.commands.follow("missing", {})).rejects.toMatchObject({
       status: 404,
     });
-  } finally {
-    f.close();
-  }
-});
-
-it("replays after target alias changes without repeating input and publishes committed remaps", async () => {
-  let sends = 0;
-  const f = fixture({
-    async start() {
-      return { rejected: true };
-    },
-    canSend: () => true,
-    send() {
-      sends++;
-      return { accepted: true };
-    },
-  });
-  try {
-    const first = await f.commands.input(session, input, launch);
-    const initial = await f.commands.follow(first.id, {});
-    const waiting = f.commands.follow(first.id, { after: initial.cursor });
-    seedHistoricalReceiptAlias(f.store, "target", "canonical-target");
-    expect(await waiting).toMatchObject({
-      changed: true,
-      receipt: { sessionId: "canonical-target" },
-    });
-    expect(
-      (
-        await f.commands.input(
-          { ...session, id: "canonical-target" },
-          input,
-          launch,
-        )
-      ).id,
-    ).toBe(first.id);
-    expect(sends).toBe(1);
   } finally {
     f.close();
   }

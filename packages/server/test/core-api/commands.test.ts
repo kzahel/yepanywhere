@@ -1,5 +1,5 @@
 import { apiCommand } from "../support/api-command-request.js";
-import { seedHistoricalReceiptAlias } from "../support/legacy-session-aliases.js";
+import { seedHistoricalSessionAlias } from "../support/legacy-session-aliases.js";
 import {
   PeerDirectory,
   fixturePeerGrant,
@@ -289,7 +289,7 @@ it.skipIf(process.platform === "win32")(
   },
 );
 
-it("persists request identity across reopen, marks interrupted work uncertain, and preserves both ends through remap", async () => {
+it("keeps request identity for the process only and resolves historical session aliases", async () => {
   const dir = await mkdtemp(join(tmpdir(), "ya-receipts-"));
   let f: ReturnType<typeof fixture> | undefined;
   try {
@@ -303,8 +303,9 @@ it("persists request identity across reopen, marks interrupted work uncertain, a
       openSqliteOrThrow(path),
     );
     f.enable();
+    seedHistoricalSessionAlias(f.database, "old-parent", "parent");
     const launch = {
-      id: "parent",
+      id: "old-parent",
       launchId: "launch-a",
       management: true as const,
     };
@@ -313,63 +314,42 @@ it("persists request identity across reopen, marks interrupted work uncertain, a
       body,
       launch,
     });
-    expect(first).toHaveProperty("id");
     const id = (first as { id: string }).id;
+    expect(first).toMatchObject({ creator: { sessionId: "parent" } });
     await f.commands.idle();
     expect(f.store.get(id)?.state).toBe("queued");
     f.sources.projects = async () => ({ items: [] });
     f.sources.providers = async () => [];
     expect(
-      await f.core.call("createSession", SUPERUSER, { body, launch }),
+      await f.core.call("createSession", SUPERUSER, {
+        body,
+        launch: { ...launch, id: "parent", launchId: "launch-b" },
+      }),
     ).toMatchObject({ id, state: "queued" });
+    expect(f.store.relationships("parent", 0, 50).initiated[0]?.id).toBe(id);
     f.close();
     let relaunched = 0;
     f = fixture(
       {
         async start() {
           relaunched++;
-          return { sessionId: "unexpected" };
-        },
-        async recover() {
-          return undefined;
+          return { queueId: "second-queue" };
         },
       },
       openSqliteOrThrow(path),
     );
     f.enable();
-    const replay = await f.core.call("createSession", SUPERUSER, {
+    await expect(
+      f.core.call("receipt", SUPERUSER, { receiptId: id }),
+    ).rejects.toMatchObject({ status: 404, code: "receipt_not_found" });
+    const fresh = await f.core.call("createSession", SUPERUSER, {
       body,
-      launch: { ...launch, launchId: "launch-b" },
+      launch,
     });
-    expect(replay).toMatchObject({
-      id,
-      state: "uncertain",
-      queueId: "native-queue",
-    });
-    expect(relaunched).toBe(0);
-    seedHistoricalReceiptAlias(f.store, "parent", "canonical-parent");
-    const remapped = await f.core.call("createSession", SUPERUSER, {
-      body,
-      launch: { ...launch, id: "canonical-parent" },
-    });
-    expect(remapped).toMatchObject({
-      id,
-      creator: { sessionId: "canonical-parent", launchId: "launch-a" },
-    });
-    f.store.update(id, { sessionId: "child", state: "accepted" });
-    seedHistoricalReceiptAlias(f.store, "child", "canonical-child");
-    expect(
-      f.store.relationships("canonical-child", 0, 50).creation,
-    ).toMatchObject({ id, sessionId: "canonical-child" });
-    expect(
-      f.store.relationships("canonical-parent", 0, 50).initiated[0]?.id,
-    ).toBe(id);
-    const other = await f.core.call("createSession", SUPERUSER, {
-      body,
-      launch: { ...launch, id: "different-source" },
-    });
-    expect((other as { id: string }).id).not.toBe(id);
+    expect((fresh as { id: string }).id).not.toBe(id);
     await f.commands.idle();
+    expect(relaunched).toBe(1);
+    expect(f.store.relationships("parent", 0, 50).initiated).toHaveLength(1);
   } finally {
     f?.close();
     await rm(dir, { recursive: true, force: true });
@@ -497,38 +477,51 @@ it("rechecks a queued peer creation's actual grant before native dispatch withou
   }
 });
 
-it("starts and lists around a receipt this build cannot parse", () => {
+it("evicts the oldest finished receipts at capacity and never an in-flight one", () => {
   const database = openSqliteOrThrow(":memory:");
   migrateDiscoveryDatabase(database);
-  const store = new ApiReceiptStore(database);
-  const { receipt } = store.reserve({
-    requestId: "readable-0001",
-    kind: "prompt",
-    projectId: "p",
-    sessionId: "s",
-    creator: {
-      serverId: "A",
-      sessionId: "parent",
-      launchId: "launch-1",
-      principal: { kind: "superuser" },
-    },
-    destinationServerId: "A",
-    payload: {},
-  });
-  const legacy = JSON.stringify({ ...receipt, kind: "sendMessage" });
-  database
-    .prepare(
-      "INSERT INTO agent_api_receipts (id, scope_key, payload_hash, kind, project_id, session_id, source_session_id, state, receipt_json) VALUES ('legacy', 'legacy', 'h', 'sendMessage', 'p', 's', 'parent', 'accepted', ?)",
-    )
-    .run(legacy);
-  expect(() => store.recoverInterrupted()).not.toThrow();
-  expect(store.get(receipt.id)?.state).toBe("uncertain");
-  expect(store.relationships("parent", 0, 10).initiated).toHaveLength(1);
-  expect(
-    database
-      .prepare(
-        "SELECT receipt_json FROM agent_api_receipts WHERE id = 'legacy'",
-      )
-      .get<{ receipt_json: string }>()?.receipt_json,
-  ).toBe(legacy);
+  const store = new ApiReceiptStore(database, undefined, 3);
+  const reserve = (requestId: string, kind: "input" | "cancel" = "input") =>
+    store.reserve({
+      requestId,
+      kind,
+      projectId: "p",
+      sessionId: "s",
+      creator: {
+        serverId: "A",
+        sessionId: "parent",
+        launchId: null,
+        principal: { kind: "superuser" },
+      },
+      destinationServerId: "A",
+      payload: { requestId },
+    });
+  try {
+    const waiting = reserve("waiting-0001").receipt;
+    const failed = reserve("failed-00001").receipt;
+    const control = reserve("control-0001", "cancel").receipt;
+    store.update(waiting.id, { state: "accepted" });
+    store.update(failed.id, { state: "failed" });
+    store.update(control.id, { state: "accepted" });
+    const fourth = reserve("fourth-00001").receipt;
+    expect(store.get(failed.id)).toBeUndefined();
+    expect(store.get(waiting.id)).toBeDefined();
+    reserve("fifth-000001");
+    expect(store.get(control.id)).toBeUndefined();
+    expect(() => reserve("sixth-000001")).toThrow(
+      expect.objectContaining({ code: "receipt_capacity", status: 503 }),
+    );
+    expect(reserve("waiting-0001")).toMatchObject({
+      created: false,
+      receipt: { id: waiting.id },
+    });
+    store.update(fourth.id, { state: "accepted", delivery: "consumed" });
+    const sixth = reserve("sixth-000001");
+    expect(sixth.created).toBe(true);
+    expect(store.get(fourth.id)).toBeUndefined();
+    expect(store.get(waiting.id)).toBeDefined();
+  } finally {
+    store.close();
+    database.close();
+  }
 });

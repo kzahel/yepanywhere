@@ -67,7 +67,7 @@ export interface SessionCommandOwner {
     | { rejected: true; message?: string }
   >;
 }
-/** Native launch admission plus durable retry identity; no HTTP or workflow policy. */
+/** Native launch admission plus per-process retry identity; no HTTP or workflow policy. */
 export class SessionCommands {
   private active = new Set<Promise<void>>();
   private disposed = false;
@@ -83,9 +83,7 @@ export class SessionCommands {
       receiptId: string,
       reason: unknown,
     ) => void = () => {},
-  ) {
-    store.recoverInterrupted();
-  }
+  ) {}
   creator(launch?: ApiLaunchContext, authenticated?: ApiCreator): ApiCreator {
     if (authenticated) return authenticated;
     return {
@@ -132,7 +130,7 @@ export class SessionCommands {
         "Session command owner is closing",
         503,
       );
-    // Replays remain possible at capacity: inspect durable identity first.
+    // Replays remain possible at capacity: inspect retry identity first.
     const reserved = this.store.reserve({
       requestId: request.requestId,
       kind: "createSession",
@@ -467,7 +465,7 @@ export class SessionCommands {
         "Session controls are unavailable",
         409,
       );
-    // Capture the incumbent before the durable reservation; retries never acquire another owner.
+    // Capture the incumbent before the reservation; retries never acquire another owner.
     const execute = this.owner.prepareControl(
       session.id,
       operation,

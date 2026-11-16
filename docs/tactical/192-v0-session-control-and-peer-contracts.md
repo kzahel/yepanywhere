@@ -158,7 +158,8 @@ A receipt id alone is insufficient when a creation initially has no session id;
 subsequent receipt observations must also carry the updated binding.
 
 New control commands use the same retry principle: after a lost reply, the
-identical request recovers its recorded outcome. In particular, retrying an old
+identical request recovers its recorded outcome while the target server process
+retains it (receipts stopped being persisted on 2026-11-16). In particular, retrying an old
 interrupt/stop must not act on a newly resumed process or later turn. Use the
 existing receipt owner and capture the incumbent process at admission;
 no separate command lifecycle service is needed.

@@ -6,6 +6,12 @@ autonomous delivery, with YA-launched Sol 6.1 high reviews between phases.
 The owning contract is [HTTP v0](../../topics/http-api-v0.md#next-slice-session-commands-and-compact-following-proposal).
 This extends [165](165-http-api-v0.md) and [166](166-agent-api-bootstrap-and-documentation.md).
 
+Later change, 2026-11-16: receipts are no longer persisted. They last for the
+server process, migration 39 dropped `agent_api_receipts`, and restart
+reconciliation was removed; creator relationships remain durable. The Phase 4
+evidence below describes the original SQLite design. See
+[creation and retry receipts](../../topics/http-api-v0.md#creation-and-retry-receipts).
+
 ## Outcome and boundaries
 
 An explicitly authorized local agent can read a compact conversation, follow

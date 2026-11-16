@@ -233,7 +233,7 @@ export const receiptSchema = z.object({
   delivery: z
     .enum(["unknown", "consumed", "uncertain", "cancelled"])
     .describe(
-      "unknown awaits evidence; uncertain means owner/restart lost delivery proof. consumed means the native provider consumed the input (for compaction, that it compacted), not provider acknowledgement or successful completion. cancelled means removed from YA's queue before delivery.",
+      "unknown awaits evidence; uncertain means the owner lost delivery proof. consumed means the native provider consumed the input (for compaction, that it compacted), not provider acknowledgement or successful completion. cancelled means removed from YA's queue before delivery.",
     ),
   completion: z
     .enum(["unknown", "compacted", "failed", "unconfirmed"])

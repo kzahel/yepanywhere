@@ -1,3 +1,4 @@
+import { DROP_AGENT_API_RECEIPTS_SCHEMA } from "./migrations/039-drop-agent-api-receipts.js";
 import { CLAUDE_TRANSCRIPT_TO_CACHE_SCHEMA } from "./migrations/038-claude-transcript-to-cache.js";
 import { PROJECT_DISCOVERY_FACTS_SCHEMA } from "./migrations/037-project-discovery-facts.js";
 import { CLAUDE_WRITER_STATE_SCHEMA } from "./migrations/036-claude-writer-state.js";
@@ -97,6 +98,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 36, sql: CLAUDE_WRITER_STATE_SCHEMA },
   { version: 37, sql: PROJECT_DISCOVERY_FACTS_SCHEMA },
   { version: 38, sql: CLAUDE_TRANSCRIPT_TO_CACHE_SCHEMA },
+  { version: 39, sql: DROP_AGENT_API_RECEIPTS_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

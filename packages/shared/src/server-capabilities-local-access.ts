@@ -72,7 +72,7 @@ export const LOCAL_ACCESS_SERVER_CAPABILITIES = {
       index: CAPABILITY_ID_ALLOCATIONS.agentApiManagement.id,
     },
     description:
-      "Separate default-off native v0 session-command enablement, durable retry receipts and trusted creation provenance for qualified operator launches. Existing read leases remain read-only.",
+      "Separate default-off native v0 session-command enablement, per-process retry receipts and durable trusted creation provenance for qualified operator launches. Existing read leases remain read-only.",
     clientFallback:
       "Hide the session-command setting and send no agentApiManagementEnabled. Keep read-only discovery independent.",
     serverContract: {

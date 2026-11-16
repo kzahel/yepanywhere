@@ -539,8 +539,9 @@ Planned in [plan 189](../docs/tactical/189-session-catalog-in-sqlite.md).
 - `artifacts/` held 48 orphaned staging files from September, including
   32-byte `app-access.key.<uuid>` copies (`VhostAccess.ts:56-64`); sweep
   staging files on load.
-- `peer_api_outbound` and `agent_api_receipts` have no delete path
-  (intentional durable receipts not verified).
+- `peer_api_outbound` has no delete path (intentional durable receipts not
+  verified). `agent_api_receipts` was dropped by migration 39 on 2026-11-16;
+  v0 receipts are now per-process memory.
 - `IssueStore.ts:916-960` aggregates all visible evidence per issue-list
   request with unanchored `LIKE`; experimental and gated, so lower priority.
 

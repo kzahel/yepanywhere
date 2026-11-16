@@ -1,8 +1,5 @@
 import { apiCommand } from "../support/api-command-request.js";
-import {
-  seedHistoricalReceiptAlias,
-  seedHistoricalOutboundAlias,
-} from "../support/legacy-session-aliases.js";
+import { seedHistoricalOutboundAlias } from "../support/legacy-session-aliases.js";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { Hono } from "hono";
@@ -318,7 +315,6 @@ it("creates, messages and follows across real v0 authentication, with separate d
       ).json()
     ).initiated,
   ).toEqual([]);
-  seedHistoricalReceiptAlias(b.receipts, "parent", "local-renamed");
   expect(b.receipts.get(first.id)?.creator.sessionId).toBe("parent");
   const forwarded = await a.app.request("/v0/servers/B/projects");
   expect(forwarded.headers.get("cache-control")).toBe("no-store");
@@ -743,14 +739,9 @@ it("authorizes conflicting receipts before disclosing mismatch and accepts targe
   expect(
     (await post(a, "/v0/servers/B/sessions/parent/inputs", input)).status,
   ).toBe(202);
-  seedHistoricalReceiptAlias(b.receipts, "parent", "canonical-target");
-  b.sessions.find((s) => s.id === "parent")!.id = "canonical-target";
   const retry = await post(a, "/v0/servers/B/sessions/parent/inputs", input);
   expect(retry.status).toBe(202);
-  expect(await retry.json()).toMatchObject({
-    requestedSessionId: "parent",
-    sessionId: "canonical-target",
-  });
+  expect(await retry.json()).toMatchObject({ sessionId: "parent" });
   expect(b.sends()).toBe(1);
   expect(b.receipts.get(created.id)?.creator.sessionId).toBeNull();
   b.directory.put({ ...grant, projects: [] });

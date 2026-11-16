@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
-import { getLogger } from "../logging/logger.js";
 import { CoreApiError } from "./errors.js";
 import { profileSessionRelationships } from "../sessions/SessionRelationshipWriter.js";
 import {
@@ -9,14 +8,63 @@ import {
   type ApiCreator,
 } from "./command-contracts.js";
 
-/** Durable identity/outcomes only; never stores prompts or bearer credentials. */
+/** Receipts retained per process; only completed ones are evicted. */
+export const API_RECEIPT_CAPACITY = 10_000;
+
+type ReceiptPatch = Partial<
+  Pick<
+    ApiReceipt,
+    | "state"
+    | "sessionId"
+    | "queueId"
+    | "delivery"
+    | "completion"
+    | "input"
+    | "failure"
+    | "result"
+  >
+>;
+interface Entry {
+  receipt: ApiReceipt;
+  scope: string;
+  hash: string;
+}
+
+/**
+ * A receipt can still change while its admission is unresolved, its input
+ * awaits consumption evidence, or a consumed compaction awaits its outcome.
+ */
+function inFlight(receipt: ApiReceipt): boolean {
+  if (receipt.state === "dispatching" || receipt.state === "queued")
+    return true;
+  if (receipt.state !== "accepted") return false;
+  if (!["createSession", "prompt", "input"].includes(receipt.kind))
+    return false;
+  if (receipt.delivery === "unknown") return true;
+  return (
+    receipt.input?.type === "compact" &&
+    receipt.delivery === "consumed" &&
+    receipt.completion === "unknown"
+  );
+}
+
+/**
+ * Retry identity and outcomes for the life of this server process; a restart
+ * forgets every receipt. Never stores prompts or bearer credentials. The
+ * creator relationship a createSession receipt names is the durable part, and
+ * is committed to the profile graph before the receipt itself changes.
+ */
 export class ApiReceiptStore {
   private statements = new Map<string, SqliteStatement>();
+  /** Insertion order is creation order, which eviction and paging follow. */
+  private readonly receipts = new Map<string, Entry>();
+  private readonly scopes = new Map<string, string>();
   private readonly listeners = new Map<
     string,
     Set<(receipt: ApiReceipt) => void>
   >();
   private listenerCount = 0;
+  private readonly detachLookup: () => void;
   subscribe(id: string, listener: (receipt: ApiReceipt) => void) {
     if (this.listenerCount >= 128)
       throw new CoreApiError(
@@ -43,7 +91,7 @@ export class ApiReceiptStore {
   private publish(receipt: ApiReceipt) {
     for (const listener of [...(this.listeners.get(receipt.id) ?? [])]) {
       try {
-        listener(receipt);
+        listener(structuredClone(receipt));
       } catch {
         /* Observation cannot undo committed admission. */
       }
@@ -51,30 +99,42 @@ export class ApiReceiptStore {
   }
 
   forPeer(serverId: string) {
-    return this.statement(
-      "SELECT receipt_json FROM agent_api_receipts WHERE kind = 'createSession' AND json_extract(receipt_json, '$.creator.principal.kind') = 'peer' AND json_extract(receipt_json, '$.creator.serverId') = ? ORDER BY json_extract(receipt_json, '$.createdAt') DESC, id DESC LIMIT 20",
-    )
-      .all<{ receipt_json: string }>(serverId)
-      .flatMap((row) => {
-        const record = this.decodeReadable(row);
-        if (!record) return [];
-        return [
-          {
-            id: record.id,
-            sessionId: record.sessionId,
-            projectId: record.projectId,
-            createdAt: record.createdAt,
-            state: record.state,
-            sourceSessionId: record.creator.sessionId,
-          },
-        ];
-      });
+    const matches: ApiReceipt[] = [];
+    for (const { receipt } of this.receipts.values())
+      if (
+        receipt.kind === "createSession" &&
+        receipt.creator.principal.kind === "peer" &&
+        receipt.creator.serverId === serverId
+      )
+        matches.push(receipt);
+    return matches
+      .sort(
+        (a, b) =>
+          (a.createdAt < b.createdAt
+            ? 1
+            : a.createdAt > b.createdAt
+              ? -1
+              : 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+      )
+      .slice(0, 20)
+      .map((record) => ({
+        id: record.id,
+        sessionId: record.sessionId,
+        projectId: record.projectId,
+        createdAt: record.createdAt,
+        state: record.state,
+        sourceSessionId: record.creator.sessionId,
+      }));
   }
   constructor(
     private readonly database: SqliteDatabase,
     readonly relationshipWriter = profileSessionRelationships(database),
+    private readonly capacity = API_RECEIPT_CAPACITY,
   ) {
     relationshipWriter.assertProfileConnection(database);
+    this.detachLookup = relationshipWriter.attachReceiptLookup((id) =>
+      this.get(id),
+    );
   }
   private statement(sql: string) {
     let statement = this.statements.get(sql);
@@ -84,32 +144,14 @@ export class ApiReceiptStore {
     }
     return statement;
   }
-  private decode(row: { receipt_json: string } | undefined) {
-    return row ? receiptSchema.parse(JSON.parse(row.receipt_json)) : undefined;
+  get(id: string): ApiReceipt | undefined {
+    const entry = this.receipts.get(id);
+    return entry ? structuredClone(entry.receipt) : undefined;
   }
   /**
-   * Bulk reads and startup recovery must not fail on one receipt this build
-   * cannot parse (for example, written by an older or newer build). The row is
-   * left untouched, so a build that understands it can still read it.
+   * Public session ids remapped by builds before 2026-11-03 still resolve
+   * through their recorded aliases. Nothing writes this table now.
    */
-  private decodeReadable(row: { receipt_json: string }) {
-    try {
-      return this.decode(row);
-    } catch (error) {
-      getLogger().warn(
-        { error },
-        "Skipping API receipt this build cannot parse",
-      );
-      return undefined;
-    }
-  }
-  get(id: string) {
-    return this.decode(
-      this.statement(
-        "SELECT receipt_json FROM agent_api_receipts WHERE id = ?",
-      ).get<{ receipt_json: string }>(id),
-    );
-  }
   resolveId(id: string): string {
     const seen = new Set<string>();
     for (let hop = 0; hop < 32; hop++) {
@@ -123,6 +165,36 @@ export class ApiReceiptStore {
     }
     throw new Error("API session alias depth exceeded");
   }
+  private scopeKey(input: {
+    requestId: string;
+    kind: ApiReceipt["kind"];
+    projectId: string;
+    sessionId: string | null;
+    creator: ApiCreator;
+  }) {
+    return JSON.stringify([
+      input.creator.serverId,
+      input.creator.sessionId && input.creator.principal.kind !== "peer"
+        ? this.resolveId(input.creator.sessionId)
+        : input.creator.sessionId,
+      input.creator.principal,
+      input.kind,
+      input.sessionId ? this.resolveId(input.sessionId) : input.projectId,
+      input.requestId,
+    ]);
+  }
+  private replay(scope: string, payload: unknown, checkPayload: boolean) {
+    const id = this.scopes.get(scope);
+    const previous = id ? this.receipts.get(id) : undefined;
+    if (!previous) return;
+    if (checkPayload && previous.hash !== payloadHash(payload))
+      throw new CoreApiError(
+        "request_id_conflict",
+        "Retry key already names a different request",
+        409,
+      );
+    return structuredClone(previous.receipt);
+  }
   lookup(
     input: {
       requestId: string;
@@ -134,30 +206,7 @@ export class ApiReceiptStore {
     },
     checkPayload = true,
   ) {
-    const scope = JSON.stringify([
-      input.creator.serverId,
-      input.creator.sessionId && input.creator.principal.kind !== "peer"
-        ? this.resolveId(input.creator.sessionId)
-        : input.creator.sessionId,
-      input.creator.principal,
-      input.kind,
-      input.sessionId ? this.resolveId(input.sessionId) : input.projectId,
-      input.requestId,
-    ]);
-    const previous = this.statement(
-      "SELECT payload_hash, receipt_json FROM agent_api_receipts WHERE scope_key = ?",
-    ).get<{ payload_hash: string; receipt_json: string }>(scope);
-    if (!previous) return;
-    const hash = createHash("sha256")
-      .update(JSON.stringify(input.payload))
-      .digest("hex");
-    if (checkPayload && previous.payload_hash !== hash)
-      throw new CoreApiError(
-        "request_id_conflict",
-        "Retry key already names a different request",
-        409,
-      );
-    return this.decode(previous)!;
+    return this.replay(this.scopeKey(input), input.payload, checkPayload);
   }
   reserve(input: {
     requestId: string;
@@ -179,184 +228,124 @@ export class ApiReceiptStore {
             : input.creator.sessionId,
       },
     };
-    const scope = JSON.stringify([
-      input.creator.serverId,
-      input.creator.sessionId,
-      input.creator.principal,
-      input.kind,
-      input.sessionId ?? input.projectId,
-      input.requestId,
-    ]);
-    const hash = createHash("sha256")
-      .update(JSON.stringify(input.payload))
-      .digest("hex");
-    return this.database.transaction(() => {
-      const previous = this.statement(
-        "SELECT payload_hash, receipt_json FROM agent_api_receipts WHERE scope_key = ?",
-      ).get<{ payload_hash: string; receipt_json: string }>(scope);
-      if (previous) {
-        if (previous.payload_hash !== hash)
-          throw new CoreApiError(
-            "request_id_conflict",
-            "Retry key already names a different request",
-            409,
-          );
-        return { created: false, receipt: this.decode(previous)! };
-      }
-      const count = this.statement(
-        "SELECT COUNT(*) AS total FROM agent_api_receipts",
-      ).get<{ total: number }>()!.total;
-      if (count >= 10000)
-        throw new CoreApiError(
-          "receipt_capacity",
-          "Durable API receipt capacity reached",
-          503,
-        );
-      const now = new Date().toISOString();
-      const receipt: ApiReceipt = {
-        id: randomUUID(),
-        requestId: input.requestId,
-        kind: input.kind,
-        state: "dispatching",
-        projectId: input.projectId,
-        sessionId: input.sessionId,
-        creator: input.creator,
-        destinationServerId: input.destinationServerId,
-        createdAt: now,
-        updatedAt: now,
-        delivery: "unknown",
-        completion: "unknown",
-      };
-      this.statement(
-        "INSERT INTO agent_api_receipts (id, scope_key, payload_hash, kind, project_id, session_id, source_session_id, state, receipt_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      ).run(
-        receipt.id,
-        scope,
-        hash,
-        receipt.kind,
-        receipt.projectId,
-        receipt.sessionId,
-        receipt.creator.sessionId,
-        receipt.state,
-        JSON.stringify(receipt),
-      );
+    const scope = this.scopeKey(input);
+    const previous = this.replay(scope, input.payload, true);
+    if (previous) return { created: false, receipt: previous };
+    this.makeRoom();
+    const now = new Date().toISOString();
+    const receipt: ApiReceipt = {
+      id: randomUUID(),
+      requestId: input.requestId,
+      kind: input.kind,
+      state: "dispatching",
+      projectId: input.projectId,
+      sessionId: input.sessionId,
+      creator: input.creator,
+      destinationServerId: input.destinationServerId,
+      createdAt: now,
+      updatedAt: now,
+      delivery: "unknown",
+      completion: "unknown",
+    };
+    this.recordCreator(receipt);
+    this.receipts.set(receipt.id, {
+      receipt,
+      scope,
+      hash: payloadHash(input.payload),
+    });
+    this.scopes.set(scope, receipt.id);
+    return { created: true, receipt: structuredClone(receipt) };
+  }
+  /** Evict the oldest completed receipt; in-flight receipts are never dropped. */
+  private makeRoom() {
+    if (this.receipts.size < this.capacity) return;
+    for (const [id, entry] of this.receipts) {
+      if (inFlight(entry.receipt)) continue;
+      this.receipts.delete(id);
+      this.scopes.delete(entry.scope);
+      return;
+    }
+    throw new CoreApiError(
+      "receipt_capacity",
+      "Every retained API receipt is still in flight",
+      503,
+    );
+  }
+  /**
+   * The durable creator relationship commits before the in-memory receipt
+   * changes, so a failed graph write leaves the receipt as it was.
+   */
+  private recordCreator(receipt: ApiReceipt) {
+    if (
+      receipt.kind !== "createSession" ||
+      !receipt.sessionId ||
+      !receipt.creator.sessionId
+    )
+      return;
+    this.database.transaction(() =>
       this.relationshipWriter.receiptWithinTransaction(receipt, (id) =>
         this.resolveId(id),
-      );
-      return { created: true, receipt };
-    });
-  }
-  update(
-    id: string,
-    patch: Partial<
-      Pick<
-        ApiReceipt,
-        | "state"
-        | "sessionId"
-        | "queueId"
-        | "delivery"
-        | "completion"
-        | "input"
-        | "failure"
-        | "result"
-      >
-    >,
-  ) {
-    const result = this.database.transaction(() =>
-      this.updateWithinTransaction(id, patch),
+      ),
     );
-    if (result?.changed) this.publish(result.receipt);
-    return result?.receipt;
   }
-  private updateWithinTransaction(
-    id: string,
-    patch: Partial<
-      Pick<
-        ApiReceipt,
-        | "state"
-        | "sessionId"
-        | "queueId"
-        | "delivery"
-        | "completion"
-        | "input"
-        | "failure"
-        | "result"
-      >
-    >,
-  ) {
-    const previous = this.get(id);
-    if (!previous) return;
-    const next = receiptSchema.parse({ ...previous, ...patch });
+  update(id: string, patch: ReceiptPatch) {
+    const entry = this.receipts.get(id);
+    if (!entry) return;
+    const previous = entry.receipt;
+    // A patch clears a field with undefined; the JSON form drops the key.
+    const next = receiptSchema.parse(
+      JSON.parse(JSON.stringify({ ...previous, ...patch })),
+    );
     if (JSON.stringify(next) === JSON.stringify(previous))
-      return { receipt: previous, changed: false };
+      return structuredClone(previous);
     next.updatedAt = new Date().toISOString();
-    this.statement(
-      "UPDATE agent_api_receipts SET session_id = ?, state = ?, receipt_json = ? WHERE id = ?",
-    ).run(next.sessionId, next.state, JSON.stringify(next), id);
-    this.relationshipWriter.receiptWithinTransaction(next, (id) =>
-      this.resolveId(id),
-    );
-    return { receipt: next, changed: true };
+    this.recordCreator(next);
+    entry.receipt = next;
+    this.publish(next);
+    return structuredClone(next);
   }
-  /** A crash/reload cannot prove whether an external startup crossed its boundary. */
-  recoverInterrupted() {
-    const recovered: ApiReceipt[] = [];
-    this.database.transaction(() => {
-      const rows = this.statement(
-        "SELECT receipt_json FROM agent_api_receipts WHERE state IN ('dispatching', 'queued', 'accepted') LIMIT 10000",
-      ).all<{ receipt_json: string }>();
-      for (const row of rows) {
-        const receipt = this.decodeReadable(row);
-        if (!receipt) continue;
-        // Accepted input still awaits consumption evidence. An accepted
-        // control already recorded its outcome and delivers no input.
-        if (
-          receipt.state === "accepted" &&
-          (receipt.delivery === "consumed" ||
-            receipt.delivery === "cancelled" ||
-            !["createSession", "prompt", "input"].includes(receipt.kind))
-        )
-          continue;
-        const next = this.updateWithinTransaction(
-          receipt.id,
-          receipt.state === "accepted"
-            ? {
-                delivery: "uncertain",
-                failure: {
-                  code: "delivery_uncertain",
-                  message:
-                    "Server restarted without durable input-consumption evidence; no automatic resend is performed",
-                },
-              }
-            : { state: "uncertain", delivery: "uncertain" },
-        );
-        if (next?.changed) recovered.push(next.receipt);
-      }
-    });
-    for (const receipt of recovered) this.publish(receipt);
-  }
+  /**
+   * Receipts from this process only. creation is null for a session created
+   * before the last restart; its durable creator remains a created_session
+   * relationship.
+   */
   relationships(sessionId: string, offset: number, limit: number) {
-    const creation =
-      this.decode(
-        this.statement(
-          "SELECT receipt_json FROM agent_api_receipts WHERE session_id = ? AND kind = 'createSession' ORDER BY rowid LIMIT 1",
-        ).get<{ receipt_json: string }>(sessionId),
-      ) ?? null;
-    const rows = this.statement(
-      "SELECT receipt_json FROM agent_api_receipts WHERE source_session_id = ? AND json_extract(receipt_json, '$.creator.principal.kind') != 'peer' ORDER BY id LIMIT ? OFFSET ?",
-    ).all<{ receipt_json: string }>(sessionId, limit + 1, offset);
+    let creation: ApiReceipt | null = null;
+    const initiated: ApiReceipt[] = [];
+    let skipped = 0;
+    let more = false;
+    for (const { receipt } of this.receipts.values()) {
+      if (
+        !creation &&
+        receipt.kind === "createSession" &&
+        receipt.sessionId === sessionId
+      )
+        creation = receipt;
+      if (
+        more ||
+        receipt.creator.sessionId !== sessionId ||
+        receipt.creator.principal.kind === "peer"
+      )
+        continue;
+      if (skipped < offset) skipped++;
+      else if (initiated.length < limit) initiated.push(receipt);
+      else more = true;
+    }
     return {
       sessionId,
-      creation,
-      initiated: rows
-        .slice(0, limit)
-        .flatMap((row) => this.decodeReadable(row) ?? []),
-      nextCursor: rows.length > limit ? String(offset + limit) : null,
+      creation: creation && structuredClone(creation),
+      initiated: structuredClone(initiated),
+      nextCursor: more ? String(offset + limit) : null,
     };
   }
   close() {
+    this.detachLookup();
     this.listeners.clear();
     for (const statement of this.statements.values()) statement.finalize();
     this.statements.clear();
   }
+}
+
+function payloadHash(payload: unknown) {
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }

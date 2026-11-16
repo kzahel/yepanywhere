@@ -2,26 +2,27 @@ import { isYaSessionId } from "@yep-anywhere/shared";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
 import { runOutsideRequestContext } from "../lib/outsideRequestContext.js";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
-import {
-  type CreationRelationshipSource,
-  type ReceiptRelationshipSource,
-  type OutboundRelationshipSource,
-  type SessionRelationshipWriter,
-  receiptRelationshipJson,
+import type {
+  CreationRelationshipSource,
+  OutboundRelationshipSource,
+  SessionRelationshipWriter,
 } from "./SessionRelationshipWriter.js";
 
 const PRODUCER = "ya-relationship-reconciliation-v1";
 const SOURCE = "profile";
 const BATCH = 100;
+// Saved cursors name phases by position. Phase 2 read agent_api_receipts,
+// dropped by migration 039; it stays as an empty slot so a cursor saved before
+// then still resumes at the right table. Its creator relationships remain.
 const tables = [
   "session_creations",
   "session_metadata",
-  "agent_api_receipts",
+  null,
   "peer_api_outbound",
 ] as const;
 // Project only relationship fields: saved prompt bodies, credential ids and
 // proof material never leave SQLite for reconciliation or enter graph rows.
-const keys = ["id", "session_id", "id", "id"] as const;
+const keys = ["id", "session_id", null, "id"] as const;
 const projections = [
   `json_object('id', id, 'sessionId', session_id, 'createdAt', created_at,
     'nativeReceiptId', CASE WHEN owner_key = 'superuser' AND request_key = initial_input_id
@@ -42,7 +43,7 @@ const projections = [
     'parentSessionId', coalesce(parent_session_id, json_extract(extra, '$.parentSessionId')),
     'parentSessionKind', coalesce(parent_session_kind, json_extract(extra, '$.parentSessionKind')),
     'forkedFromSessionId', coalesce(forked_from_session_id, json_extract(extra, '$.forkedFromSessionId')))`,
-  receiptRelationshipJson,
+  null,
   `json_object('id', id, 'operation', json_extract(record_json, '$.operation'),
     'state', json_extract(record_json, '$.state'),
     'sourceSessionId', source_session_id, 'destinationServerId', destination_server_id,
@@ -98,15 +99,16 @@ export function reconcileSessionRelationships(
           )
             throw new Error("Invalid relationship reconciliation progress");
           const phase = cursor.phase;
-          const table = tables[phase]!;
-          const key = keys[phase]!;
-          statements[phase] ??= database.prepare(
-            `SELECT ${key} AS position, (SELECT COALESCE(MAX(${key}), '') FROM ${table}) AS high,
+          const table = tables[phase];
+          const key = keys[phase];
+          if (table && key)
+            statements[phase] ??= database.prepare(
+              `SELECT ${key} AS position, (SELECT COALESCE(MAX(${key}), '') FROM ${table}) AS high,
               ${projections[phase]} AS source FROM ${table}
              WHERE ${key} > ? AND ${key} <= COALESCE(?, (SELECT COALESCE(MAX(${key}), '') FROM ${table})) ORDER BY ${key} LIMIT ${BATCH}`,
-          );
-          const statement = statements[phase]!;
-          const rows = statement.all<Row>(cursor.through, cursor.high);
+            );
+          const rows =
+            statements[phase]?.all<Row>(cursor.through, cursor.high) ?? [];
           for (const row of rows) {
             const source = JSON.parse(row.source);
             switch (phase) {
@@ -147,12 +149,6 @@ export function reconcileSessionRelationships(
                     ? resolveId(source.forkedFromSessionId)
                     : undefined,
                 } as SessionMetadata);
-                break;
-              case 2:
-                writer.receiptWithinTransaction(
-                  source as ReceiptRelationshipSource,
-                  resolveId,
-                );
                 break;
               case 3:
                 writer.outboundWithinTransaction({

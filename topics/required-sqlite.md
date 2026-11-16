@@ -264,6 +264,12 @@ Version 38 drops the version 35 and 36 tables: the Claude transcript index
 moved to the [rebuildable cache database](#rebuildable-cache-database). The
 freed pages stay in the file for reuse; the migration does not vacuum.
 
+Version 39 drops `agent_api_receipts`: v0 API receipts are now held in server
+memory for the life of the process
+([HTTP v0](http-api-v0.md#creation-and-retry-receipts)). Creator relationships
+recorded from those receipts stay in the relationship tables, and
+`agent_api_session_aliases` stays because historical alias rows are still read.
+
 Version 36 adds rebuildable Claude node/tool ownership, source-offset lookup,
 pending queues and a semantic task-reducer checkpoint. The profile-owned writer
 updates affected rows and its source header in one transaction; ordinary appends

@@ -29,8 +29,9 @@ durable nonblocking path below; plan 176 tracks the remaining adapters.
 
 Meanwhile, durable relationships already have several owners:
 
-- `ApiReceiptStore.relationships` reads SQLite creation and initiated-command
-  receipts. The v0 route already answers who initiated an API operation.
+- `ApiReceiptStore.relationships` reads the current server process's creation
+  and initiated-command receipts, which are not persisted. The v0 route answers
+  who initiated an API operation in this process.
 - Common creation admission saves intent, source, ownership and copy context
   before native effects. `CreationCopySnapshot.kind` distinguishes fork/clone.
 - Metadata distinguishes `/btw` parenting from `forkedFromSessionId`.
@@ -191,8 +192,10 @@ session references produce no graph fact and do not block unrelated metadata.
 V0 materializes `created_session` when its trusted receipt has a known
 destination, including common admission's exact server-owned receipt/input
 correlation before the later receipt callback. The admission and graph commit
-together; subsequent receipt/graph updates also share their source transaction.
-Notifications follow commit. Operator calls without a source session and sends
+together. Receipts are process memory rather than SQL rows, so a later receipt
+update commits its creator fact first and changes the receipt only after that
+commit; a failed graph write leaves the receipt unchanged. The creator fact
+outlives the receipt across restart. Notifications follow commit. Operator calls without a source session and sends
 to existing sessions retain receipts without acquiring creator edges. Incoming
 peer evidence preserves its source-attested trust and both server namespaces;
 source-side intent gains a graph destination only after a correlated confirmed
@@ -208,7 +211,12 @@ Each batch reads current source fields and commits its durable checkpoint in
 the same synchronous transaction. New writes already participate in their
 owner transaction, so a frozen per-table key frontier does not miss concurrent
 admissions. Interruption resumes the saved frontier on restart; completion
-ends the job. Only relationship fields are selected, excluding prompts,
+ends the job. Reconciliation only adds or refreshes facts from rows it reads; a
+missing source row retracts nothing. Its former receipts phase read the table
+migration 39 dropped and is now empty, so creator facts recorded from those
+receipts stay. A profile whose reconciliation had not finished that phase
+before it reached migration 39, such as one upgrading directly from before
+migration 26, gains no creator facts for those old receipts. Only relationship fields are selected, excluding prompts,
 credential ids, peer proof payloads and native file paths. Historical local API
 aliases resolve through the existing receipt owner, never against a peer's
 session namespace. Required database connection ownership shares one lazy SQL

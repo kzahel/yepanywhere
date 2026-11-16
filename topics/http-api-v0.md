@@ -406,7 +406,7 @@ context and native launch ownership/admission remain shared with existing YA
 sessions. V0 asks for settled native identity before reporting an accepted
 canonical session id. Fork and /btw parenting remain separate from creator facts.
 
-The response is `202` with a durable receipt before native launch completion.
+The response is `202` with a receipt before native launch completion.
 Use a caller-generated 8–128 character retry key and repeat the identical body
 after response loss. Scoped retry identity includes authenticated principal,
 origin server/session, operation, target project/session and request id; a new
@@ -420,28 +420,47 @@ replay, provider restart or fallback routing.
 `GET /v0/servers/{serverId}/receipts/{receiptId}` observes `dispatching`,
 `queued`, `accepted`, `failed` or `uncertain`. These describe admission evidence,
 not successful response completion. Native capacity rejection is recorded as a
-known failure. An exception after reservation, queued startup failure, or an
-unfinished reservation recovered after restart is uncertain; never generate a
-new retry key merely to escape that uncertainty. Unique live-owner API-input
+known failure. An exception after reservation or a queued startup failure is uncertain; never
+generate a new retry key merely to escape that uncertainty. Unique live-owner API-input
 admission/consumption evidence can reconcile a target binding without launching
 again. Inherited transcript UUIDs and optimistic user echoes are not admission
 proof. Missing, evicted or ambiguous evidence remains uncertain. Cancellation
 after reservation cannot assert that a provider was never launched.
 
-Receipts persist in the profile discovery SQLite database, separately from
-native transcripts and existing client creation hints. They contain no prompt
-bodies or credentials. The implementation retains at most **10,000 receipts**,
-with no silent expiry or deletion; further new requests fail capacity rather
-than forgetting retry identity. Replays and reads remain available at capacity.
-At most 16 native admission promises run concurrently, and native Supervisor
-queues retain their existing limits. No new background poller or workflow queue
-is added. Creation provenance and retry keys survive profile restart. Alias
-reconciliation is bounded to 32 hops and updates both relationship ends. Future
-retention/export/pruning needs its own explicit idempotency-window contract.
+Receipts and their retry identity last for the server process only. They are
+held in memory, separately from native transcripts and existing client creation
+hints, and contain no prompt bodies or credentials. After a YA restart every
+earlier receipt id returns `404 receipt_not_found`, and a retried key is a new
+request: it is admitted, and can launch or deliver again. A caller that lost a
+response across a restart must inspect existing sessions and their
+conversations before retrying. Nothing is resent automatically, and an
+unfinished operation is not reported as uncertain after the restart, because
+its receipt no longer exists.
+
+Each process retains at most **10,000 receipts**. At capacity a new request
+evicts the oldest receipt that is no longer in flight; its id then returns 404
+and its key becomes a new request. Receipts still in flight (dispatching,
+queued, or accepted input awaiting delivery or compaction evidence) are never
+evicted; only when all 10,000 are in flight does a new request fail
+`503 receipt_capacity`. Replays and reads of retained receipts remain available
+at capacity. There is no expiry timer.
+
+The trusted creator of a v0-created session is not a receipt: it is committed
+to the [relationship graph](session-relationships.md) as a `created_session`
+fact before the receipt records the session id, and survives restart. Migration
+39 dropped the former `agent_api_receipts` table; creator relationships
+recorded from it remain. At most 16 native admission promises run
+concurrently, and native Supervisor queues retain their existing limits. No new
+background poller or workflow queue is added. Public session ids remapped by
+builds before 2026-11-03 still resolve through their recorded aliases, bounded
+to 32 hops; nothing writes new aliases.
 
 `GET /v0/servers/{serverId}/sessions/{sessionId}/relationships` returns the
-first recorded v0 creation receipt and a bounded page of initiated command
-receipts. `creation=null` does not prove that an older session was human-created.
+session's v0 creation receipt and a bounded page of initiated command receipts
+retained by the current server process. After a restart `creation` is null and
+`initiated` lists only newer commands; the durable creator remains readable as
+a `created_session` relationship with `includeRelated=true`. `creation=null`
+does not prove that a session was human-created.
 
 The [durable relationship design](session-relationships.md) proposes a shared
 application read model for these trusted creator facts, provider children and
@@ -467,8 +486,8 @@ no oversized request may reserve or launch work.
 `POST /v0/servers/{serverId}/sessions/{sessionId}/inputs` (`createInput`)
 accepts strict JSON `{type:"prompt",text,delivery?}` or
 `{type:"compact",instructions?,delivery?}` and an `Idempotency-Key` header.
-It uses the same explicit management opt-in, trusted origin and durable scoped
-retry rules as creation. `text` is nonblank exact text, at most 100,000
+It uses the same explicit management opt-in, trusted origin and process-lifetime
+scoped retry rules as creation. `text` is nonblank exact text, at most 100,000
 characters; slash text is not translated. Only the incumbent active native
 owner can accept a new input; otherwise return `409 session_not_running`.
 There is no implicit resume, interruption, mode/model change or provider
@@ -524,8 +543,8 @@ ends). Prompt `completion=unknown` remains explicit; idle or an unrelated reply
 does not complete it. Follow the session's compact prose to interpret the response.
 
 When an owner completes, aborts or detaches, or existing session controls remove
-unconsumed input, `delivery=uncertain` is explicit. Restart conservatively marks admitted but
-unconfirmed delivery uncertain. Receipt reads/follow can reattach to a uniquely
+unconsumed input, `delivery=uncertain` is explicit. A YA restart forgets the
+receipt instead; inspect the session's pending inputs and conversation. Receipt reads/follow can reattach to a uniquely
 identified incumbent owner and reconcile positive admission/consumption evidence;
 they never automatically requeue input. Queue status is observed only while the
 admitting command owner runs. Each process/queue retains at most 512
@@ -768,15 +787,18 @@ Before sending a mutation, the source reserves a bounded durable outbound
 record keyed by source server/session, destination server, operation/resource
 and request ID, with a payload hash. Prompts and credentials are excluded.
 A missing response leaves `uncertain`, including after restart. A matching
-retry reaches the target's durable receipt scope; changed payloads conflict.
+retry reaches the target's receipt scope while the target process retains it;
+after a target restart it is admitted there as a new request. Changed payloads
+conflict.
 Even confirmed retries reauthorize at the target, including conflicts before
 revealing a payload mismatch. Message command responses carry the submitted
 `requestedSessionId` separately from canonical target `sessionId`, so a target
 alias remap can recover the original submission without repeating input. Source relationships include
 a separately paged `outbound` collection; its `nextCursor` uses the ordinary
 cursor parameter and the consumer treats that collection independently of
-`initiated`. Ledger and receipt stores each cap at 10,000 records and refuse
-new reservations at capacity without discarding retry identity.
+`initiated`. The outbound ledger caps at 10,000 records and refuses new
+reservations at capacity; the target's receipts follow the per-process
+eviction rule above.
 
 Target receipt creators identify the authenticated immediate server and mark
 any source session as `source-attested`. The source retains its current local
@@ -1250,7 +1272,7 @@ Combined approval/mode changes and question answers are unsupported.
 `cancel` and `stop` accept `{}`. All three control mutations require existing
 management authority and their peer operation grants, with session/project
 access rechecked at the target. Authority revoked while the target session is
-being resolved refuses the control before it reaches the provider. They return durable receipts; inspect receipt
+being resolved refuses the control before it reaches the provider. They return receipts; inspect receipt
 state, `result` and `failure` to learn the actual control outcome. `cancel`
 uses existing YA interruption and queue behavior and reports
 `{interrupted,supported,aborted}`; it can hard-abort and does not automatically
@@ -1261,10 +1283,9 @@ after termination even without native transcript content.
 
 Control retries resolve the existing receipt before acquiring an incumbent
 again, so a lost reply cannot make the same command interrupt a later turn or
-stop a resumed process. An interrupted/restarted unfinished reservation is
-uncertain and is never automatically repeated. A control that recorded its
-outcome before the restart keeps that receipt unchanged: it delivers no input,
-so restart adds no delivery uncertainty or failure. Idle activity, accepted control
+stop a resumed process. An interrupted unfinished reservation is uncertain and
+is never automatically repeated. After a YA restart the receipt is gone, and the
+same key would run the control again against the current incumbent. Idle activity, accepted control
 and consumed input do not establish successful completion of a particular
 prompt. Mode/model/effort changes, richer updates and ACP conformance remain
 outside this slice. The [blocking-question gap](../gaps/v0-blocking-questions-need-a-launch-policy.md)

@@ -221,8 +221,7 @@ it("records actual hard-abort and stop outcomes and never repeats them against a
     expect((await (await f.post(operation, request)).json()).id).toBe(
       receipt.id,
     );
-    // A restart keeps the recorded outcome; a control delivers no input.
-    f.store.recoverInterrupted();
+    // A replaced controller keeps the recorded outcome.
     expect(
       await (
         await f.app.request(`/v0/servers/self/receipts/${receipt.id}`)

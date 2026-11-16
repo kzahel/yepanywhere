@@ -3,7 +3,7 @@ import { isYaSessionId } from "@yep-anywhere/shared";
 import type { ApiOutbound, ApiReceipt } from "../core-api/command-contracts.js";
 import { readServerIdentity } from "../core-api/server-identity.js";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
-import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
+import type { SqliteDatabase } from "../storage/sqlite.js";
 import {
   SessionRelationshipStore,
   type RelationshipFact,
@@ -49,17 +49,6 @@ export type OutboundRelationshipSource = Pick<
   | "createdAt"
 > & { receipt?: { id: string } | null };
 
-/** Only durable relationship fields, without credential/proof payloads. */
-export const receiptRelationshipJson = `json_object('id', id, 'kind', kind, 'sessionId', session_id,
-  'destinationServerId', json_extract(receipt_json, '$.destinationServerId'),
-  'createdAt', json_extract(receipt_json, '$.createdAt'),
-  'creator', json_object('serverId', json_extract(receipt_json, '$.creator.serverId'),
-    'sessionId', json_extract(receipt_json, '$.creator.sessionId'),
-    'launchId', json_extract(receipt_json, '$.creator.launchId'),
-    'principal', json_extract(receipt_json, '$.creator.principal'),
-    'authentication', CASE WHEN json_extract(receipt_json, '$.creator.authentication.sessionAttribution') = 'source-attested'
-      THEN json_object('sessionAttribution', 'source-attested') ELSE NULL END))`;
-
 // Connection ownership only, never a cache of facts or session identities.
 // The required profile database finalizes all statements on close. Weak keys
 // let standalone source owners compose without preparing another graph store.
@@ -84,7 +73,7 @@ export function profileSessionRelationships(
  */
 export class SessionRelationshipWriter {
   private store?: SessionRelationshipStore;
-  private admissionReceipt?: SqliteStatement;
+  private receiptLookup?: (id: string) => ReceiptRelationshipSource | undefined;
   readonly serverId: string;
 
   constructor(
@@ -173,14 +162,10 @@ export class SessionRelationshipWriter {
         facts,
       );
     if (source.nativeReceiptId) {
-      this.admissionReceipt ??= this.database.prepare(
-        `SELECT ${receiptRelationshipJson} AS source FROM agent_api_receipts WHERE id = ? AND kind = 'createSession'`,
-      );
-      const row = this.admissionReceipt.get<{ source: string }>(
-        source.nativeReceiptId,
-      );
-      if (row) {
-        const receipt: ReceiptRelationshipSource = JSON.parse(row.source);
+      // Receipts live only in the server process that admitted them; a
+      // creation replayed after a restart finds none and records no creator.
+      const receipt = this.receiptLookup?.(source.nativeReceiptId);
+      if (receipt?.kind === "createSession") {
         if (
           receipt.sessionId &&
           resolveId(receipt.sessionId) !== resolveId(source.sessionId)
@@ -192,6 +177,15 @@ export class SessionRelationshipWriter {
         );
       }
     }
+  }
+  /** The process's receipt owner; returns its detach. */
+  attachReceiptLookup(
+    lookup: (id: string) => ReceiptRelationshipSource | undefined,
+  ): () => void {
+    this.receiptLookup = lookup;
+    return () => {
+      if (this.receiptLookup === lookup) this.receiptLookup = undefined;
+    };
   }
   metadataWithinTransaction(
     sessionId: string,
@@ -354,7 +348,6 @@ export class SessionRelationshipWriter {
     });
   }
   dispose(): void {
-    this.admissionReceipt?.finalize();
     this.store?.dispose();
     if (owners.get(this.database) === this) owners.delete(this.database);
   }

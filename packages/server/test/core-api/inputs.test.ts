@@ -295,8 +295,6 @@ it("cancels queued prompts, refuses unknown ids and unsupported compaction befor
   // Owner loss after cancellation does not turn it into uncertain delivery.
   await f.process.abort();
   expect(f.store.get(queued.id)?.delivery).toBe("cancelled");
-  f.store.recoverInterrupted();
-  expect(f.store.get(queued.id)?.delivery).toBe("cancelled");
 });
 
 it("marks a cancelled unconsumed steer cancelled, and an interrupted compaction uncertain", async () => {
