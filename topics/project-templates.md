@@ -72,7 +72,15 @@ before submission.
 
 Operations persist beneath `dataDir/project-template-operations`. Repeating an
 identical UUID returns its existing outcome; changing its request is refused.
-The tab retains its pending request across reloads. Existing and partial
+The tab retains its pending request across reloads. Reopening the form reads
+that operation and never submits it again. When the read fails, the form
+restores the name, intent, selection and its own staged files, states the
+reason, and offers both **Create & prepare**, which retries the identical
+request, and **Start fresh and edit details**, which forgets the saved request
+and unlocks every field, including an enclosing New Session form. A 400, 403
+or 409 refusal releases it without that step. A saved request the running
+build cannot read is discarded, and a browser that cannot save one still
+creates the project. Existing and partial
 directories are never overwritten. A server restart reports unfinished work as
 interrupted rather than replaying side effects. Graceful shutdown stops owned
 setup process trees. `started` means preparation was durably accepted with a

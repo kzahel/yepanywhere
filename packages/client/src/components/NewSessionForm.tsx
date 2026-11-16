@@ -4,8 +4,9 @@ import { FileDropZone } from "./FileDropZone";
 import {
   getSessionCreation,
   settleSessionCreation,
-  pendingSessionCreation,
+  pendingSessionCreationPrompt,
 } from "../lib/sessionCreation";
+import { SessionCreationRecovery } from "./SessionCreationRecovery";
 import { DraftSyncNotice } from "./DraftSyncNotice";
 import { draftStorage } from "../lib/draftSyncStorage";
 import { useRendezCompose } from "../hooks/useRendezCompose";
@@ -406,20 +407,6 @@ export function NewSessionForm({
   const { principal, resolved: principalResolved } = useActingPrincipal();
   const { backgroundSessionCreation } = useBackgroundSessionCreation();
   creationViewOwner.current.accountKey = principal.username;
-  const pendingCreation = useMemo(
-    () =>
-      isStarting
-        ? null
-        : pendingSessionCreation(
-            `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`,
-          ),
-    [
-      clientSummarySourceKey,
-      principal.username,
-      newSessionDraftKey,
-      isStarting,
-    ],
-  );
   const historyScope = principalResolved
     ? JSON.stringify([clientSummarySourceKey, principal.username])
     : null;
@@ -2441,67 +2428,55 @@ export function NewSessionForm({
             </Button>
           </div>
         )}
-      {pendingCreation && (
-        <div role="status" className={styles.creationRecovery}>
-          <span>
-            {t(
-              pendingCreation.receipt
-                ? "sessionCreationSavedWhileAway"
-                : "sessionCreationUnconfirmedRequest",
-            )}
-          </span>
-          <Button
-            onClick={async () => {
-              const key = `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`;
-              const pending = pendingSessionCreation(key);
-              if (!pending) return;
-              try {
-                const receipt = await getSessionCreation(
-                  sourceTransport,
-                  pending.requestId,
-                );
-                if (
-                  !creationViewOwner.current.active ||
-                  creationViewOwner.current.sourceKey !==
-                    clientSummarySourceKey ||
-                  creationViewOwner.current.accountKey !== principal.username
-                )
-                  return;
-                const draftFilesUnchanged =
-                  pendingUploadsRef.current.size === 0 &&
-                  sameAttachmentIds(
-                    attachmentsRef.current,
-                    (pending.draftFileIds ?? []).map((id) => ({ id })),
-                  );
-                const cleared =
-                  pending.draftText !== undefined &&
-                  draftFilesUnchanged &&
-                  draftControls.getDraft() === pending.draftText &&
-                  JSON.stringify(draftControls.getAttachmentState()) ===
-                    (pending.draftAttachments ?? "null")
-                    ? draftControls.captureSubmission?.().confirm()
-                    : false;
-                if (
-                  cleared ||
-                  !draftFilesUnchanged ||
-                  (pending.draftText !== undefined &&
-                    (draftControls.getDraft() !== pending.draftText ||
-                      JSON.stringify(draftControls.getAttachmentState()) !==
-                        (pending.draftAttachments ?? "null")))
-                )
-                  settleSessionCreation(key, receipt.requestId);
-                navigate(
-                  `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
-                );
-              } catch {
-                showToast(t("sessionCreationStillUnconfirmed"), "error");
-              }
-            }}
-          >
-            {t("sessionCreationCheckSaved")}
-          </Button>
-        </div>
-      )}
+      <SessionCreationRecovery
+        hidden={isStarting}
+        storageKey={`ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`}
+        checkLabel={t("sessionCreationCheckSaved")}
+        onStartFresh={(pending) => {
+          const saved = pendingSessionCreationPrompt(pending);
+          if (!draftControls.getDraft() && saved) draftControls.setDraft(saved);
+          textareaRef.current?.focus();
+        }}
+        onCheck={async (pending) => {
+          const key = `ya-text-creation:${clientSummarySourceKey}:${principal.username}:${newSessionDraftKey}`;
+          const receipt = await getSessionCreation(
+            sourceTransport,
+            pending.requestId,
+          );
+          if (
+            !creationViewOwner.current.active ||
+            creationViewOwner.current.sourceKey !== clientSummarySourceKey ||
+            creationViewOwner.current.accountKey !== principal.username
+          )
+            return;
+          const draftFilesUnchanged =
+            pendingUploadsRef.current.size === 0 &&
+            sameAttachmentIds(
+              attachmentsRef.current,
+              (pending.draftFileIds ?? []).map((id) => ({ id })),
+            );
+          const cleared =
+            pending.draftText !== undefined &&
+            draftFilesUnchanged &&
+            draftControls.getDraft() === pending.draftText &&
+            JSON.stringify(draftControls.getAttachmentState()) ===
+              (pending.draftAttachments ?? "null")
+              ? draftControls.captureSubmission?.().confirm()
+              : false;
+          if (
+            cleared ||
+            !draftFilesUnchanged ||
+            (pending.draftText !== undefined &&
+              (draftControls.getDraft() !== pending.draftText ||
+                JSON.stringify(draftControls.getAttachmentState()) !==
+                  (pending.draftAttachments ?? "null")))
+          )
+            settleSessionCreation(key, receipt.requestId);
+          navigate(
+            `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
+          );
+        }}
+      />
     </>
   );
 

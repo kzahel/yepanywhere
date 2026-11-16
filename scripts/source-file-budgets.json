@@ -28,7 +28,7 @@
       }
     },
     "packages/client/src/components/NewSessionForm.tsx": {
-      "maxLines": 2686
+      "maxLines": 2661
     },
     "packages/client/src/components/Sidebar.tsx": {
       "maxLines": 1590

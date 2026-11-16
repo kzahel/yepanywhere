@@ -511,7 +511,7 @@ test("retiring the form before acceptance preserves recovery and never creates t
     await expect(composer).toHaveValue(prompt);
     await expect(
       page.getByText(
-        "A session was saved while you were away. Check it before submitting again.",
+        "A session was saved while you were away. Open it, or start fresh to send something new.",
         { exact: true },
       ),
     ).toBeVisible();

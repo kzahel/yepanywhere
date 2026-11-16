@@ -82,6 +82,24 @@ The recovery identity and accepted receipt remain stored until the owning view
 settles its captured draft; returning after retirement recovers the same session.
 Draft acknowledgement checks the physical account-scoped storage value through
 the sync coordinator, including when a sibling storage event has not arrived.
+
+That saved identity exists to help recovery and never prevents independent
+work. While one is unresolved, its form shows when it was sent and its prompt
+beside two actions, the read-only check and **Start fresh**, from the moment
+the notice appears. A different request is refused locally without sending and
+names both actions. Start fresh forgets only that saved identity: nothing is
+sent, the earlier request is neither replayed nor deleted, text and attached
+files stay, and an empty composer receives the saved prompt. The next
+submission is an independent request with a new identity. A failed check
+states why (the server has no record, the session was deleted, or the transport
+error) and keeps both actions. Resubmitting unchanged input retries the frozen
+original payload under its original identity; build provenance is outside that
+comparison, so a client update cannot turn the retry into a different request.
+A saved record the running build cannot read counts as absent, and storage
+that refuses the write does not stop the request: recovery state is best
+effort. The notice follows the saved record, including a sibling tab's release.
+A Session-page check that finds nothing releases its draft capture, so later
+typing is an ordinary unsent draft.
 Normal startup, including queued work, renders no creation notice, saved-prompt
 panel, reserved space or completion animation. Failed, uncertain or
 still-unconfirmed startup after the bounded check window exposes the saved prompt
@@ -1171,7 +1189,8 @@ conflicting payloads refuse. A definitive pre-admission refusal carries HTTP 400
 and `reason: "creation-not-accepted"`, after checking for a committed result.
 Clients retire that rejected recovery key while preserving text/files, allowing
 corrected input. Generic failures or a recovery GET 404 alone never establish
-non-acceptance. Draft acknowledgement checks the captured live file selection,
+non-acceptance, so the client neither clears nor replays on them; the user's
+Start fresh is the release. Draft acknowledgement checks the captured live file selection,
 including unfinished uploads, in addition to persisted text/attachment state;
 a newer paste stays on the form and continues uploading. Retain
 claimed bytes until explicit deletion or a documented confirmed-delivery release

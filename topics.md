@@ -511,3 +511,5 @@
 - timer-ownership - A lint check and per-file ledger that bound repeating, zero-delay and dropped-handle timers, plus the fixes that shrink the ledger.
 
 - client-test-diagnostics - Client unit suite gate that fails tests emitting unasserted React or jsdom diagnostics, its shrink-only allowlist, and the fixture fixes that shrink it.
+
+- creation-recovery-never-blocks - Saved creation recovery state (New Session, Session-page Start, template creation) always offers Start fresh; the November 2026 stale-request lock investigation and repair.

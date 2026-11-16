@@ -171,14 +171,6 @@
   }
 }
 
-.creationRecovery {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.5rem;
-}
-
 .notFoundSessionId {
   font-size: var(--font-size-sm);
   color: #888;

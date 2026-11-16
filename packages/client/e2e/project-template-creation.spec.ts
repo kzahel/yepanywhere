@@ -137,6 +137,82 @@ test("template palette preserves sequential input and inline state at desktop an
   }
 });
 
+// A creation that never reached the server once held the whole New Session
+// form busy after reload, with no control that released it.
+test("unconfirmed template creation reopens with Start fresh and releases New Session at desktop and phone widths", async ({
+  page,
+  baseURL,
+}) => {
+  await page.route("**/api/project-templates/choices", (route) =>
+    route.fulfill({ json: { enabled: true, templates } }),
+  );
+  let creations = 0;
+  await page.route("**/api/project-templates/operations", (route) => {
+    creations++;
+    return route.abort("failed");
+  });
+  for (const viewport of [
+    { width: 1000, height: 600 },
+    { width: 375, height: 812 },
+  ]) {
+    creations = 0;
+    await page.setViewportSize(viewport);
+    await page.goto(`${baseURL}/new-session`);
+    const toggle = page.getByRole("button", {
+      name: "New project",
+      exact: true,
+    });
+    await toggle.click();
+    const inline = page.getByRole("region", {
+      name: "New project",
+      exact: true,
+    });
+    const entry = inline.getByRole("textbox", {
+      name: "Name or path",
+      exact: true,
+    });
+    await entry.fill("My story");
+    await inline.getByRole("radio", { name: /Web page/ }).check();
+    const prompt = page.locator("textarea[data-new-session-form-textarea]");
+    await prompt.fill("");
+    await prompt.pressSequentially("A page about tide pools");
+    const prepare = page.getByRole("button", {
+      name: "Create & prepare",
+      exact: true,
+    });
+    await prepare.click();
+    await expect.poll(() => creations).toBe(1);
+    await expect(prepare).toBeEnabled();
+
+    await page.reload();
+    const fresh = page.getByRole("button", {
+      name: "Start fresh and edit details",
+      exact: true,
+    });
+    await expect(fresh).toBeVisible();
+    await expect(page.getByText(/no record of it/)).toBeVisible();
+    await expect(prompt).toHaveValue("A page about tide pools");
+    await expect(toggle).toBeDisabled();
+    // Reopening only reads; it does not create the project by itself.
+    expect(creations).toBe(1);
+    await fresh.scrollIntoViewIfNeeded();
+    await recordUiCapture(page, `template-start-fresh-${viewport.width}`);
+
+    await fresh.click();
+    await expect(fresh).toHaveCount(0);
+    await expect(toggle).toBeEnabled();
+    // Recovery restores the saved request's path as the project entry.
+    await expect(entry).toHaveValue("~/my-story");
+    await expect(entry).toBeEnabled();
+    await expect(prompt).toHaveValue("A page about tide pools");
+    await page.reload();
+    await expect(prompt).toHaveValue("A page about tide pools");
+    await expect(fresh).toHaveCount(0);
+    await expect(toggle).toBeEnabled();
+    await prompt.fill("");
+  }
+});
+
 for (const limited of [false, true]) {
   test(`creates a fresh template project as ${limited ? "a limited user" : "the superuser"} through the real UI and retains the operation after reload`, async ({
     page,

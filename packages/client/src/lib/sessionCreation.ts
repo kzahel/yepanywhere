@@ -15,7 +15,7 @@ export function getSessionCreation(
     `/session-creations/${encodeURIComponent(requestId)}`,
   );
 }
-interface PendingCreation {
+export interface PendingCreation {
   requestId: string;
   payload: string;
   clientTimestamp: number;
@@ -24,9 +24,82 @@ interface PendingCreation {
   draftFileIds?: string[];
   receipt?: SessionCreationReceipt;
 }
+
+const listeners = new Set<() => void>();
+/** Observe saved creation records, including a sibling tab's changes. */
+export function subscribeSessionCreations(listener: () => void): () => void {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+function published(): void {
+  for (const listener of [...listeners]) listener();
+}
+export function readSessionCreation(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+// The saved record only helps recovery. A browser that cannot store it (full
+// or unavailable storage) must still be able to send, so writes never throw.
+function saveSessionCreation(key: string, pending: PendingCreation): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(pending));
+  } catch {
+    return;
+  }
+  published();
+}
+/**
+ * A record this build cannot read, from damage or another client version, is
+ * no record: it never blocks sending and the next request replaces it.
+ */
+export function parseSessionCreation(
+  saved: string | null,
+): PendingCreation | null {
+  try {
+    const value = JSON.parse(saved ?? "null");
+    if (
+      !value ||
+      typeof value.requestId !== "string" ||
+      typeof value.payload !== "string" ||
+      typeof value.clientTimestamp !== "number"
+    )
+      return null;
+    const request = JSON.parse(value.payload);
+    return request && typeof request.message === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+export function pendingSessionCreation(key: string): PendingCreation | null {
+  return parseSessionCreation(readSessionCreation(key));
+}
+/** The prompt a saved record was sent with, for showing what is unresolved. */
+export function pendingSessionCreationPrompt(pending: PendingCreation): string {
+  return pending.draftText ?? JSON.parse(pending.payload).message;
+}
 export function settleSessionCreation(key: string, requestId: string): void {
   if (pendingSessionCreation(key)?.requestId === requestId)
+    forgetSessionCreation(key);
+}
+/**
+ * Start fresh: drop whatever is saved under this key, readable or not, so the
+ * next request is independent. Nothing is sent and the earlier request is
+ * left as it was; if the server did save it, its session is still listed.
+ */
+export function forgetSessionCreation(key: string): void {
+  try {
     localStorage.removeItem(key);
+  } catch {
+    // Storage that cannot be changed held no readable record to block on.
+  }
+  published();
 }
 function rememberReceipt(
   key: string,
@@ -34,21 +107,8 @@ function rememberReceipt(
   receipt: SessionCreationReceipt,
 ) {
   if (pendingSessionCreation(key)?.requestId === pending.requestId)
-    localStorage.setItem(key, JSON.stringify({ ...pending, receipt }));
+    saveSessionCreation(key, { ...pending, receipt });
   return receipt;
-}
-export function pendingSessionCreation(key: string): PendingCreation | null {
-  try {
-    const value = JSON.parse(localStorage.getItem(key) ?? "null");
-    return value &&
-      typeof value.requestId === "string" &&
-      typeof value.payload === "string" &&
-      typeof value.clientTimestamp === "number"
-      ? value
-      : null;
-  } catch {
-    return null;
-  }
 }
 function creationIntent(payload: string): string {
   const request = JSON.parse(payload);
@@ -59,7 +119,10 @@ function creationIntent(payload: string): string {
     speech: _speech,
     ...choices
   } = request.metadata ?? {};
-  return JSON.stringify({ ...request, metadata: choices });
+  // Build provenance changes with every client update, which would otherwise
+  // turn an unchanged retry into a different request the user cannot recreate.
+  const { creationProvenance: _provenance, ...options } = request.options ?? {};
+  return JSON.stringify({ ...request, options, metadata: choices });
 }
 
 export async function acceptSessionCreation(
@@ -83,9 +146,13 @@ export async function acceptSessionCreation(
     stagedAttachments,
   });
   const previous = pendingSessionCreation(key);
+  // Refused rather than replaced so a different request is never sent by
+  // accident while an earlier one may have been saved. Every caller must offer
+  // forgetSessionCreation beside this refusal: it is the only way out when the
+  // earlier request can no longer be confirmed.
   if (previous && creationIntent(previous.payload) !== creationIntent(payload))
     throw new Error(
-      "Check the earlier unconfirmed creation before submitting another request.",
+      "An earlier request is still unconfirmed. Check it, or choose Start fresh and send again.",
     );
   const pending = previous ?? {
     requestId: generateUUID(),
@@ -95,8 +162,7 @@ export async function acceptSessionCreation(
     ...(draftAttachments !== undefined ? { draftAttachments } : {}),
     ...(draftFileIds !== undefined ? { draftFileIds } : {}),
   };
-  // Failure to retain the recovery identity refuses the request before sending.
-  localStorage.setItem(key, JSON.stringify(pending));
+  if (!previous) saveSessionCreation(key, pending);
   if (previous?.receipt)
     return rememberReceipt(
       key,

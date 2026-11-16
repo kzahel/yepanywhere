@@ -90,6 +90,28 @@ export function ProjectStartPalette({
 export const templateChoiceKey = (item: ProjectTemplateChoice) =>
   `${item.sourceId}/${item.id}`;
 
+/** A saved request this build can restore; anything else is discarded. */
+function savedTemplateRequest(
+  saved: string | null,
+): TemplateCreationRequest | null {
+  try {
+    const value = JSON.parse(saved ?? "null");
+    return value &&
+      [
+        value.operationId,
+        value.sourceId,
+        value.templateId,
+        value.path,
+        value.name,
+        value.intent,
+      ].every((field) => typeof field === "string")
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 interface Props {
   templates: ProjectTemplateChoice[];
   projects: readonly Project[];
@@ -163,6 +185,13 @@ export function TemplateProjectForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const request = useRef<TemplateCreationRequest | null>(null);
+  // Mirrors `request` for rendering: releasing it must re-enable the form.
+  const [retained, setRetained] = useState(false);
+  const retain = (next: TemplateCreationRequest | null) => {
+    request.current = next;
+    setRetained(next !== null);
+    if (!next) sessionStorage.removeItem(storageKey);
+  };
   const completed = useRef(false);
   const recovered = useRef(false);
   const selected =
@@ -175,10 +204,12 @@ export function TemplateProjectForm({
     chosen?.path ??
     pathForProjectName(name, limited ? pathBase : parent, projects, false);
   const effectiveIntent = intent ?? description;
+  const ownsAttachments =
+    intent === undefined && stagedAttachments === undefined;
   const running =
     operation !== null &&
     !["started", "failed", "interrupted"].includes(operation.phase);
-  const locked = pending || operation !== null || request.current !== null;
+  const locked = pending || operation !== null || retained;
   const attachFiles = async (files: File[]) => {
     if (!resolved || locked || !attachmentsSupported) return;
     setUploading((count) => count + files.length);
@@ -206,32 +237,61 @@ export function TemplateProjectForm({
   };
 
   useEffect(() => {
-    onBusyChange?.(
-      pending || running || (request.current !== null && operation === null),
-    );
-  }, [pending, running, operation, onBusyChange]);
+    onBusyChange?.(pending || running || (retained && operation === null));
+  }, [pending, running, retained, operation, onBusyChange]);
 
   useEffect(() => {
     if (!resolved || recovered.current) return;
     recovered.current = true;
-    const saved = sessionStorage.getItem(storageKey);
-    if (!saved) return;
-    const retained = JSON.parse(saved) as TemplateCreationRequest;
-    request.current = retained;
-    setName(retained.name);
+    const saved = savedTemplateRequest(sessionStorage.getItem(storageKey));
+    if (!saved) {
+      sessionStorage.removeItem(storageKey);
+      return;
+    }
+    request.current = saved;
+    setRetained(true);
+    setName(saved.name);
     setNameEdited(true);
-    setDescription(retained.intent);
-    setSelection(`${retained.sourceId}/${retained.templateId}`);
-    onRecovered?.(retained);
+    setDescription(saved.intent);
+    setSelection(`${saved.sourceId}/${saved.templateId}`);
+    onRecovered?.(saved);
+    const files = saved.stagedAttachments;
+    if (
+      ownsAttachments &&
+      typeof files?.batchId === "string" &&
+      Array.isArray(files.refs) &&
+      files.refs.every(
+        (file) =>
+          typeof file?.id === "string" && typeof file.originalName === "string",
+      )
+    ) {
+      // Shown again so starting fresh keeps the files with the text.
+      attachmentBatch.current = files.batchId;
+      setLocalAttachments(files.refs);
+    }
     setPending(true);
+    // Read only: reopening the form must not start a creation by itself. An
+    // unconfirmed request stays available to retry or to start fresh from.
     void projectTemplatesApi
-      .create(retained)
+      .operation(saved.operationId)
       .then(setOperation)
       .catch((caught: unknown) => {
-        setError(caught instanceof Error ? caught.message : String(caught));
+        const absent =
+          caught &&
+          typeof caught === "object" &&
+          "status" in caught &&
+          Number(caught.status) === 404;
+        setError(
+          absent
+            ? t("templateUnconfirmed")
+            : t("templateCheckFailed", {
+                error:
+                  caught instanceof Error ? caught.message : String(caught),
+              }),
+        );
       })
       .finally(() => setPending(false));
-  }, [storageKey, resolved, onRecovered]);
+  }, [storageKey, resolved, onRecovered, ownsAttachments, t]);
 
   useEffect(() => {
     if (!nameEdited && !request.current) setName(initialName);
@@ -288,7 +348,7 @@ export function TemplateProjectForm({
       !path
     )
       return;
-    request.current ??= {
+    const sending = request.current ?? {
       operationId: generateUUID(),
       sourceId: selected.sourceId,
       templateId: selected.id,
@@ -305,6 +365,7 @@ export function TemplateProjectForm({
           }
         : {}),
     };
+    retain(sending);
     setPending(true);
     setError(null);
     if (historyScope)
@@ -316,18 +377,20 @@ export function TemplateProjectForm({
           ),
       );
     try {
-      sessionStorage.setItem(storageKey, JSON.stringify(request.current));
-      setOperation(await projectTemplatesApi.create(request.current));
+      // The saved copy only lets a reload find this creation again; a browser
+      // that cannot store it still creates the project.
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(sending));
+      } catch {}
+      setOperation(await projectTemplatesApi.create(sending));
     } catch (caught) {
       if (
         caught &&
         typeof caught === "object" &&
         "status" in caught &&
         [400, 403, 409].includes(Number(caught.status))
-      ) {
-        request.current = null;
-        sessionStorage.removeItem(storageKey);
-      }
+      )
+        retain(null);
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
       setPending(false);
@@ -515,16 +578,17 @@ export function TemplateProjectForm({
         <TemplateCreationProgress operation={operation} />
       )}
       {error && <Banner tone="error">{error}</Banner>}
-      {operation && ["failed", "interrupted"].includes(operation.phase) && (
+      {(operation
+        ? ["failed", "interrupted"].includes(operation.phase)
+        : retained && !pending) && (
         <Button
           onClick={() => {
-            sessionStorage.removeItem(storageKey);
-            request.current = null;
+            retain(null);
             setOperation(null);
             setError(null);
           }}
         >
-          {t("templateReset")}
+          {t(operation ? "templateReset" : "templateStartFresh")}
         </Button>
       )}
     </section>

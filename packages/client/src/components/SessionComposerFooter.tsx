@@ -2,20 +2,19 @@ import chromeSessionComposerFooterStyles from "./SessionComposerFooter.module.cs
 import { type ComponentProps, lazy, Suspense } from "react";
 import { loadMessageInputModule } from "../lib/sessionRouteModules";
 import { SessionRouteModuleFallback } from "./SessionRouteModuleFallback";
-import { useToastContext } from "../contexts/ToastContext";
 import { useI18n } from "../i18n";
 import {
   getSessionCreation,
-  pendingSessionCreation,
+  pendingSessionCreationPrompt,
   settleSessionCreation,
 } from "../lib/sessionCreation";
+import { SessionCreationRecovery } from "./SessionCreationRecovery";
 import styles from "../pages/SessionPage.module.css";
 import { BtwAsideStickyCards } from "./BtwAsideStickyCards";
 import { MessageInputToolbar } from "./MessageInputToolbar";
 import { QuestionAnswerPanel } from "./QuestionAnswerPanel";
 import { QuestionAsideCard } from "./QuestionAsideCard";
 import { ToolApprovalPanel } from "./ToolApprovalPanel";
-import { Button } from "./ui/Button";
 import { isSessionCreationPending } from "@yep-anywhere/shared";
 import type { useBtwAsides } from "../hooks/useBtwAsides";
 import type { DraftControls } from "../hooks/useDraftPersistence";
@@ -383,78 +382,72 @@ export function SessionComposerFooter({
   uploadProgress,
 }: SessionComposerFooterProps) {
   const { t } = useI18n();
-  const { showToast } = useToastContext();
   return (
     <footer
       className={`${styles.input} ${chromeSessionComposerFooterStyles["session-input"]}`}
       data-session-input
     >
       {creationRecovery?.key === creationKey && (
-        <div role="status" className={styles.creationRecovery}>
-          <span>
-            {t(
-              creationRecovery.accepted
-                ? "sessionCreationSavedWhileAway"
-                : "sessionCreationUnconfirmedRequest",
-            )}
-          </span>
-          <Button
-            variant="ghost"
-            size="small"
-            onClick={async () => {
-              const view = captureCreationView();
-              const pending = pendingSessionCreation(creationKey);
-              if (!pending) return;
-              const controls = draftControlsRef.current;
-              const filesMatch =
-                !pendingUploadsRef.current.size &&
-                attachmentsRef.current.map((file) => file.id).join("\0") ===
-                  (pending.draftFileIds ?? []).join("\0");
-              const draftMatches =
-                filesMatch &&
-                controls?.getDraft() === pending.draftText &&
-                JSON.stringify(controls?.getAttachmentState()?.refs ?? []) ===
-                  (pending.draftAttachments ?? "[]");
-              const captured = draftMatches
-                ? controls?.captureSubmission?.()
-                : undefined;
-              try {
-                const receipt = await getSessionCreation(
-                  sourceTransport,
-                  creationRecovery.requestId,
-                );
-                if (!ownsCreationView(view)) return;
-                const stillMatches =
-                  !pendingUploadsRef.current.size &&
-                  attachmentsRef.current.map((file) => file.id).join("\0") ===
-                    (pending.draftFileIds ?? []).join("\0") &&
-                  controls?.getDraft() === pending.draftText &&
-                  JSON.stringify(controls?.getAttachmentState()?.refs ?? []) ===
-                    (pending.draftAttachments ?? "[]");
-                const cleared = stillMatches && (captured?.confirm() ?? false);
-                if (cleared)
-                  setComposerAttachments([], {
-                    persistDraft: false,
-                    revokeRemovedPreviewUrls: true,
-                  });
-                if (cleared || !stillMatches) {
-                  settleSessionCreation(creationKey, receipt.requestId);
-                  setCreationRecovery(null);
-                }
-                navigate(
-                  `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
-                );
-              } catch (error) {
-                showToast(
-                  error instanceof Error ? error.message : String(error),
-                  "error",
-                );
-              }
-            }}
-          >
-            {t("sessionCreationOpenSaved")}
-          </Button>
-        </div>
+        <SessionCreationRecovery
+          storageKey={creationKey}
+          className={
+            chromeSessionComposerFooterStyles["session-creation-recovery"]
+          }
+          checkLabel={t("sessionCreationOpenSaved")}
+          onStartFresh={(pending) => {
+            setCreationRecovery(null);
+            const controls = draftControlsRef.current;
+            const saved = pendingSessionCreationPrompt(pending);
+            if (controls && !controls.getDraft() && saved)
+              controls.setDraft(saved);
+          }}
+          onCheck={async (pending) => {
+            const view = captureCreationView();
+            const controls = draftControlsRef.current;
+            const filesMatch =
+              !pendingUploadsRef.current.size &&
+              attachmentsRef.current.map((file) => file.id).join("\0") ===
+                (pending.draftFileIds ?? []).join("\0");
+            const draftMatches =
+              filesMatch &&
+              controls?.getDraft() === pending.draftText &&
+              JSON.stringify(controls?.getAttachmentState()?.refs ?? []) ===
+                (pending.draftAttachments ?? "[]");
+            const captured = draftMatches
+              ? controls?.captureSubmission?.()
+              : undefined;
+            // A check that finds nothing must leave the draft as an ordinary
+            // unsent draft, not as a copy awaiting delivery.
+            const receipt = await getSessionCreation(
+              sourceTransport,
+              pending.requestId,
+            ).catch((error: unknown) => {
+              captured?.cancel();
+              throw error;
+            });
+            if (!ownsCreationView(view)) return;
+            const stillMatches =
+              !pendingUploadsRef.current.size &&
+              attachmentsRef.current.map((file) => file.id).join("\0") ===
+                (pending.draftFileIds ?? []).join("\0") &&
+              controls?.getDraft() === pending.draftText &&
+              JSON.stringify(controls?.getAttachmentState()?.refs ?? []) ===
+                (pending.draftAttachments ?? "[]");
+            const cleared = stillMatches && (captured?.confirm() ?? false);
+            if (cleared)
+              setComposerAttachments([], {
+                persistDraft: false,
+                revokeRemovedPreviewUrls: true,
+              });
+            if (cleared || !stillMatches) {
+              settleSessionCreation(creationKey, receipt.requestId);
+              setCreationRecovery(null);
+            }
+            navigate(
+              `${basePath}/projects/${receipt.projectId}/sessions/${receipt.sessionId}`,
+            );
+          }}
+        />
       )}
       <div
         className={`${chromeSessionComposerFooterStyles["session-connection-bar"]} ${{ connected: chromeSessionComposerFooterStyles["session-connection-connected"], connecting: chromeSessionComposerFooterStyles["session-connection-connecting"], disconnected: chromeSessionComposerFooterStyles["session-connection-disconnected"], idle: chromeSessionComposerFooterStyles["session-connection-idle"] }[sessionConnectionStatus]}`}

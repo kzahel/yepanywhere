@@ -7,6 +7,10 @@
 .session-input-inner {
   position: relative;
 }
+
+.session-creation-recovery {
+  margin-bottom: 0.75rem;
+}
 @media (width <= 600px) {
   .session-input {
     padding: 0.5rem 0.375rem;
