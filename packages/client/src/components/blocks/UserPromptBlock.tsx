@@ -682,7 +682,7 @@ export const UserPromptBlock = memo(function UserPromptBlock({
           className={`${listStyles.message} ${styles.messageUserPrompt} ${onCorrect ? styles.userPromptCorrectable : ""} ${unconfirmedClass}`}
           data-message
           data-message-user-prompt
-          data-user-prompt-correctable={onCorrect || undefined}
+          data-user-prompt-correctable={onCorrect ? true : undefined}
           data-user-prompt-unconfirmed={deliveryState === "sent" || undefined}
         >
           <div className={styles.messageContent} data-message-content>
@@ -759,7 +759,7 @@ export const UserPromptBlock = memo(function UserPromptBlock({
         className={`${listStyles.message} ${styles.messageUserPrompt} ${onCorrect ? styles.userPromptCorrectable : ""} ${unconfirmedClass}`}
         data-message
         data-message-user-prompt
-        data-user-prompt-correctable={onCorrect || undefined}
+        data-user-prompt-correctable={onCorrect ? true : undefined}
         data-user-prompt-unconfirmed={deliveryState === "sent" || undefined}
       >
         <div className={styles.messageContent} data-message-content>
