@@ -191,6 +191,19 @@ publication does not close them. Final source/artifact gates and one-platform
 desktop upgrade qualification remain in progress. Public Android promotion
 and iOS publication are outside this cut.
 
+The November 16 desktop-only release published
+[Stable 0.12.1](https://github.com/kzahel/yepanywhere/releases/tag/desktop-v0.12.1),
+overtaking Latest 0.11.7401. Both signed/notarized Mac builds and the signed
+Windows NSIS installer passed the complete release finalizer. Public Stable
+feeds offer the release from 0.10.0 and 0.11.7401 on all three platforms, and
+all installer routes resolve correctly. The initial 0.12.0 candidate was
+canceled before asset publication to repair input loss during first account
+binding; its tag is retained. All 26 source CI and nine runtime jobs pass on
+the released source, with reviewed retry evidence retained in the
+[Desktop QA record](../testing/desktop-release-qa-log.md#2026-11-16--signed-stable-0121-publication).
+Fresh native install/upgrade and long-idle qualification remain open, and
+desktop remains beta. This cut does not publish another product.
+
 ## 1. Publish the desktop and mobile apps with continuous delivery
 
 The npm release workflow now requires clean installed-package acceptance before

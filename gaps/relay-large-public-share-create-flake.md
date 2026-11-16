@@ -31,3 +31,8 @@ full-suite runs with four workers (2026-11-14).
 
 Found 2026-11-14 while fixing a red `main` CI.
 Contributing-model: fable-5.2
+
+Desktop 0.12.1 source `de811d52b` reproduced the same retryable frozen-boundary
+409 in [CI 43903987109, shard 2](https://github.com/kzahel/yepanywhere/actions/runs/43903987109/job/133427778906).
+The retry and complete local browser suite passed. No capture-boundary guard
+or assertion was relaxed for the release.

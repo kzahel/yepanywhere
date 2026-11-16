@@ -20,3 +20,9 @@ its own diagnosis. Next step: record a trace of a failing repeat
 that moves the container upward before the dialog opens.
 
 Found 2026-11-09 while verifying the menu and popover family (plan 182).
+
+The Desktop 0.12.1 source `de811d52b` reproduced the missing streamed row in
+[CI 43903987109, shard 4](https://github.com/kzahel/yepanywhere/actions/runs/43903987109/job/133427778929),
+at the current line 398. The sequential rename text, selection and per-key
+100 ms assertions before the transcript assertion passed. The retry and full
+local browser suite passed; this does not close the follow finding.

@@ -13,6 +13,63 @@ Result meanings:
   action that was not available during the run.
 - **NOT RUN** — the check was outside the completed scope; the reason is noted.
 
+## 2026-11-16 — signed Stable 0.12.1 publication
+
+[Desktop CI 43909798230](https://github.com/kzahel/yepanywhere/actions/runs/43909798230)
+published [Stable 0.12.1](https://github.com/kzahel/yepanywhere/releases/tag/desktop-v0.12.1)
+from `de811d52b2d3b3eab5c821f7e247741191d3ee82`. Both Mac architectures passed
+signing and notarization; Windows passed its packaged-runtime smoke and signed
+per-user NSIS build. The finalizer verified the complete immutable asset set
+and updater signatures before publication. All five release jobs passed.
+Stable 0.12.1 is newer than both Stable 0.10.0 and Latest 0.11.7401.
+
+| Check | Result |
+| --- | --- |
+| Exact-source general CI | PASS: all 26 [jobs](https://github.com/kzahel/yepanywhere/actions/runs/43903987109); unit job required one rerun after fixture removal failed |
+| Runtime/SQLite matrix | PASS: all nine [jobs](https://github.com/kzahel/yepanywhere/actions/runs/43903987148); macOS Node 26 rerun after GitHub failed to acquire a runner |
+| Local lint, formatting, typecheck and console budget | PASS; existing console budget unchanged |
+| Local full workspace tests | PASS: includes 7,569 server and 7,430 client tests |
+| Local full browser suite | PASS: 618 passed, 14 skipped, no retries |
+| Hosted browser shards | PASS: 620 cases passed, 12 skipped; three cases required a retry, reviewed below |
+| Initial account-binding sequential typing | PASS: desktop and phone, held account lookup released during real typing, every prefix retained within 100 ms with focus and input identity preserved |
+| Apple Silicon and Intel Mac source/signing/notarization | PASS |
+| Windows source/signing/packaged-runtime smoke | PASS |
+| Complete immutable asset set and updater signatures | PASS: nine assets, both DMGs, Windows NSIS, updater archives/signatures and latest.json; no MSI |
+| Public latest.json | PASS: 0.12.1 with all four signed updater targets and immutable release URLs |
+| Stable feeds from 0.10.0 and Latest 0.11.7401 | PASS: HTTP 200 offering 0.12.1 for Apple Silicon, Intel Mac and Windows, with matching signatures/URLs and Stable channel confirmation |
+| Stable feeds from current 0.12.1 | PASS: HTTP 204 for all three platforms |
+| Public installer routes | PASS: all three redirect to the matching 0.12.1 installer |
+| Fresh native install/update/relaunch and long-idle acceptance | NOT RUN: this exercise qualifies hosted packaging and public distribution; existing native acceptance remains open |
+
+The initial `desktop-v0.12.0` candidate was canceled before any installer assets
+were uploaded or published. Failed-attempt review found that the first acting
+account lookup could erase input already typed into New Session. The tag is
+retained and its empty private draft is marked canceled/prerelease. Version
+0.12.1 preserves fresh editor text and staged files during initial account
+binding, while retaining isolation for legacy and already-owned account drafts.
+The deterministic hook regression failed before the repair; the desktop/phone
+browser cases also qualify the forced race and exact submitted prompt/files.
+The clean local full run observed maximum acknowledgements of 13.6/17.4 ms in
+those two cases. These are gate observations, not a comparative host benchmark.
+Both viewport captures were inspected and presented through the repository
+artifact capture facility.
+
+Failed-attempt review retains the existing
+[frozen-share boundary](../../gaps/relay-large-public-share-create-flake.md) and
+[phone transcript follow](../../gaps/session-header-responsive-follow-flake.md)
+findings. The third retry missed the
+[sibling attachment durable-publication check](../../gaps/queue-sibling-attachment-draft-publication-timeout.md)
+before queue acknowledgement; ten focused local repetitions passed without
+retries. The unit rerun follows a
+[reload-fixture ENOTEMPTY cleanup failure](../../gaps/dev-reload-fixture-enotempty.md),
+not a relaxed process-ownership assertion. No typing threshold or failure
+assertion was weakened for publication.
+
+Publication does not close
+[packaged provider CLI qualification](../../gaps/provider-cli-packaged-launch-qualification.md)
+or [manual-update/long-idle acceptance](../../gaps/desktop-manual-update-long-idle.md).
+Desktop remains beta.
+
 ## 2026-10-24 — coordinated Stable 0.6.0 publication
 
 [Desktop CI 40109396596](https://github.com/kzahel/yepanywhere/actions/runs/40109396596)
