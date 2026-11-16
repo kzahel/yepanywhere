@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-16
+
+### Added
+- Select and verify provider CLI installations, including managed overrides
+  and discovery of the default fnm installation.
+- Pair with a hosted Agent Auth Router using a browser code, and use current
+  peer session controls and bounded conversation history through the agent API.
+- Stable 0.12.0 overtakes the 0.11.x Latest series, allowing those users to
+  select Stable and upgrade through the signed updater.
+
+### Changed
+- Reduce repeated provider-history reads and move the Claude transcript index
+  into a rebuildable cache.
+- Improve Settings navigation, sidebar menus and session status controls.
+
+### Fixed
+- Preserve queued work through orderly server reloads and improve session
+  catalog identity and project-path handling.
+- Keep composer drafts and sent markers contained during session navigation,
+  and preserve correctable user-prompt output.
+- Recover from malformed legacy API receipts without blocking server startup.
+
 ## [0.10.0] - 2026-11-12
 
 ### Added
