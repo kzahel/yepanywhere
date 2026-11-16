@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { SqliteDatabase, SqliteStatement } from "../storage/sqlite.js";
+import { getLogger } from "../logging/logger.js";
 import { CoreApiError } from "./errors.js";
 import { profileSessionRelationships } from "../sessions/SessionRelationshipWriter.js";
 import {
@@ -54,16 +55,19 @@ export class ApiReceiptStore {
       "SELECT receipt_json FROM agent_api_receipts WHERE kind = 'createSession' AND json_extract(receipt_json, '$.creator.principal.kind') = 'peer' AND json_extract(receipt_json, '$.creator.serverId') = ? ORDER BY json_extract(receipt_json, '$.createdAt') DESC, id DESC LIMIT 20",
     )
       .all<{ receipt_json: string }>(serverId)
-      .map((row) => {
-        const record = receiptSchema.parse(JSON.parse(row.receipt_json));
-        return {
-          id: record.id,
-          sessionId: record.sessionId,
-          projectId: record.projectId,
-          createdAt: record.createdAt,
-          state: record.state,
-          sourceSessionId: record.creator.sessionId,
-        };
+      .flatMap((row) => {
+        const record = this.decodeReadable(row);
+        if (!record) return [];
+        return [
+          {
+            id: record.id,
+            sessionId: record.sessionId,
+            projectId: record.projectId,
+            createdAt: record.createdAt,
+            state: record.state,
+            sourceSessionId: record.creator.sessionId,
+          },
+        ];
       });
   }
   constructor(
@@ -82,6 +86,22 @@ export class ApiReceiptStore {
   }
   private decode(row: { receipt_json: string } | undefined) {
     return row ? receiptSchema.parse(JSON.parse(row.receipt_json)) : undefined;
+  }
+  /**
+   * Bulk reads and startup recovery must not fail on one receipt this build
+   * cannot parse (for example, written by an older or newer build). The row is
+   * left untouched, so a build that understands it can still read it.
+   */
+  private decodeReadable(row: { receipt_json: string }) {
+    try {
+      return this.decode(row);
+    } catch (error) {
+      getLogger().warn(
+        { error },
+        "Skipping API receipt this build cannot parse",
+      );
+      return undefined;
+    }
   }
   get(id: string) {
     return this.decode(
@@ -286,7 +306,8 @@ export class ApiReceiptStore {
         "SELECT receipt_json FROM agent_api_receipts WHERE state IN ('dispatching', 'queued', 'accepted') LIMIT 10000",
       ).all<{ receipt_json: string }>();
       for (const row of rows) {
-        const receipt = this.decode(row)!;
+        const receipt = this.decodeReadable(row);
+        if (!receipt) continue;
         // Accepted input still awaits consumption evidence. An accepted
         // control already recorded its outcome and delivers no input.
         if (
@@ -327,7 +348,9 @@ export class ApiReceiptStore {
     return {
       sessionId,
       creation,
-      initiated: rows.slice(0, limit).map((row) => this.decode(row)!),
+      initiated: rows
+        .slice(0, limit)
+        .flatMap((row) => this.decodeReadable(row) ?? []),
       nextCursor: rows.length > limit ? String(offset + limit) : null,
     };
   }

@@ -496,3 +496,39 @@ it("rechecks a queued peer creation's actual grant before native dispatch withou
     f.close();
   }
 });
+
+it("starts and lists around a receipt this build cannot parse", () => {
+  const database = openSqliteOrThrow(":memory:");
+  migrateDiscoveryDatabase(database);
+  const store = new ApiReceiptStore(database);
+  const { receipt } = store.reserve({
+    requestId: "readable-0001",
+    kind: "prompt",
+    projectId: "p",
+    sessionId: "s",
+    creator: {
+      serverId: "A",
+      sessionId: "parent",
+      launchId: "launch-1",
+      principal: { kind: "superuser" },
+    },
+    destinationServerId: "A",
+    payload: {},
+  });
+  const legacy = JSON.stringify({ ...receipt, kind: "sendMessage" });
+  database
+    .prepare(
+      "INSERT INTO agent_api_receipts (id, scope_key, payload_hash, kind, project_id, session_id, source_session_id, state, receipt_json) VALUES ('legacy', 'legacy', 'h', 'sendMessage', 'p', 's', 'parent', 'accepted', ?)",
+    )
+    .run(legacy);
+  expect(() => store.recoverInterrupted()).not.toThrow();
+  expect(store.get(receipt.id)?.state).toBe("uncertain");
+  expect(store.relationships("parent", 0, 10).initiated).toHaveLength(1);
+  expect(
+    database
+      .prepare(
+        "SELECT receipt_json FROM agent_api_receipts WHERE id = 'legacy'",
+      )
+      .get<{ receipt_json: string }>()?.receipt_json,
+  ).toBe(legacy);
+});
