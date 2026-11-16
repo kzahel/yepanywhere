@@ -102,13 +102,21 @@ function TestWrapper({
   );
 }
 
-function LoadAgentContentButton({ agentId }: { agentId: string }) {
+function LoadAgentContentButton({
+  agentId,
+  onResult,
+}: {
+  agentId: string;
+  onResult?: (content: AgentContent) => void;
+}) {
   const context = useAgentContent();
   return (
     <button
       type="button"
       onClick={() => {
-        void context.loadAgentContent("proj-1", "session-1", agentId);
+        void context
+          .loadAgentContent("proj-1", "session-1", agentId)
+          .then(onResult);
       }}
     >
       Load agent
@@ -209,6 +217,48 @@ describe("AgentContentProvider", () => {
       "session-1",
       "agent-abc123",
     );
+  });
+
+  it("shares one request between concurrent loads and retries after a failure", async () => {
+    let rejectLoad: (error: Error) => void = () => {};
+    apiMocks.getAgentSession.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        rejectLoad = reject;
+      }),
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const results: AgentContent[] = [];
+
+    render(
+      <TestWrapper>
+        <LoadAgentContentButton
+          agentId="agent-abc123"
+          onResult={(content) => results.push(content)}
+        />
+      </TestWrapper>,
+    );
+    const loadButton = screen.getByRole("button", { name: "Load agent" });
+
+    fireEvent.click(loadButton);
+    fireEvent.click(loadButton);
+    expect(apiMocks.getAgentSession).toHaveBeenCalledTimes(1);
+
+    rejectLoad(new Error("offline"));
+    const failed: AgentContent = { messages: [], status: "failed" };
+    await waitFor(() => expect(results).toEqual([failed, failed]));
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+
+    const loadedContent: AgentContent = {
+      messages: sampleAgentMessages,
+      status: "completed",
+    };
+    apiMocks.getAgentSession.mockResolvedValueOnce(loadedContent);
+    fireEvent.click(loadButton);
+    await waitFor(() => expect(results[2]).toEqual(loadedContent));
+    expect(apiMocks.getAgentSession).toHaveBeenCalledTimes(2);
   });
 });
 

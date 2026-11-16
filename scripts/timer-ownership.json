@@ -1,6 +1,6 @@
 {
   "$comment": "Per-file counts of repeating, zero-delay and dropped-handle timers in production source, checked by scripts/check-timer-ownership.mjs. Owned by topics/architecture-mandates.md#timer-ownership. Lower with `pnpm timers:check --record`; a new entry or a higher count needs maintainer approval.",
-  "updated": "2026-11-15",
+  "updated": "2026-11-16",
   "recurring": {
     "packages/client/src/components/EmulatorStream.tsx": {
       "count": 2,
@@ -51,11 +51,6 @@
       "count": 1,
       "kind": "clock",
       "stops": "Elapsed counter while template creation is active; the effect cleanup clears it. gaps/one-second-clocks-have-private-intervals.md"
-    },
-    "packages/client/src/contexts/AgentContentContext.tsx": {
-      "count": 1,
-      "kind": "poll",
-      "stops": "Polls a ref every 100 ms for another caller's load; cleared when that load lands or after 30 s. gaps/agent-content-duplicate-load-polls-a-ref.md"
     },
     "packages/client/src/extension/sidepanel/SidePanel.tsx": {
       "count": 1,

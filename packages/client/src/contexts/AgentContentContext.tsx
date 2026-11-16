@@ -5,7 +5,6 @@ import {
   useContext,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { api } from "../api/client";
 import type { AgentContent, AgentContentMap } from "../hooks/useSession";
@@ -21,8 +20,6 @@ interface AgentContentContextValue {
     sessionId: string,
     agentId: string,
   ) => Promise<AgentContent>;
-  /** Check if content is currently being loaded for an agent */
-  isLoading: (agentId: string) => boolean;
   /** The current project ID */
   projectId: string;
 }
@@ -49,77 +46,51 @@ export function AgentContentProvider({
   toolUseToAgent,
   projectId,
 }: AgentContentProviderProps) {
-  const [loadingAgents, setLoadingAgents] = useState<Set<string>>(new Set());
-  // Track which agents have had their JSONL loaded (separate from SSE content)
+  // Agents whose JSONL has been loaded, as distinct from content that only
+  // arrived over the stream.
   const loadedAgentsRef = useRef<Set<string>>(new Set());
+  const inFlightLoadsRef = useRef<Map<string, Promise<AgentContent>>>(
+    new Map(),
+  );
 
   const loadAgentContent = useCallback(
-    async (
+    (
       loadProjectId: string,
       loadSessionId: string,
       agentId: string,
     ): Promise<AgentContent> => {
-      // Check if JSONL has already been loaded for this agent
       if (loadedAgentsRef.current.has(agentId)) {
-        return agentContent[agentId] ?? { messages: [], status: "pending" };
-      }
-
-      // Check if already loading
-      if (loadingAgents.has(agentId)) {
-        // Wait for existing load to complete
-        return new Promise((resolve) => {
-          const checkInterval = setInterval(() => {
-            if (loadedAgentsRef.current.has(agentId)) {
-              clearInterval(checkInterval);
-              resolve(
-                agentContent[agentId] ?? { messages: [], status: "pending" },
-              );
-            }
-          }, 100);
-          // Timeout after 30 seconds
-          setTimeout(() => {
-            clearInterval(checkInterval);
-            resolve({ messages: [], status: "pending" });
-          }, 30000);
-        });
-      }
-
-      // Start loading
-      setLoadingAgents((prev) => new Set(prev).add(agentId));
-
-      try {
-        const data = await api.getAgentSession(
-          loadProjectId,
-          loadSessionId,
-          agentId,
+        return Promise.resolve(
+          agentContent[agentId] ?? { messages: [], status: "pending" },
         );
-
-        // Mark as loaded before merging
-        loadedAgentsRef.current.add(agentId);
-
-        mergeLoadedAgentContent(agentId, data);
-
-        return {
-          messages: data.messages,
-          status: data.status,
-        };
-      } catch (error) {
-        console.error(`Failed to load agent content for ${agentId}:`, error);
-        return { messages: [], status: "failed" };
-      } finally {
-        setLoadingAgents((prev) => {
-          const next = new Set(prev);
-          next.delete(agentId);
-          return next;
-        });
       }
-    },
-    [agentContent, loadingAgents, mergeLoadedAgentContent],
-  );
 
-  const isLoading = useCallback(
-    (agentId: string) => loadingAgents.has(agentId),
-    [loadingAgents],
+      const inFlight = inFlightLoadsRef.current.get(agentId);
+      if (inFlight) return inFlight;
+
+      const fetchAndMerge = async (): Promise<AgentContent> => {
+        try {
+          const data = await api.getAgentSession(
+            loadProjectId,
+            loadSessionId,
+            agentId,
+          );
+          loadedAgentsRef.current.add(agentId);
+          mergeLoadedAgentContent(agentId, data);
+          return { messages: data.messages, status: data.status };
+        } catch (error) {
+          console.error(`Failed to load agent content for ${agentId}:`, error);
+          return { messages: [], status: "failed" };
+        }
+      };
+      // A failed load leaves the agent unloaded, so the next request retries.
+      const load = fetchAndMerge().finally(() => {
+        inFlightLoadsRef.current.delete(agentId);
+      });
+      inFlightLoadsRef.current.set(agentId, load);
+      return load;
+    },
+    [agentContent, mergeLoadedAgentContent],
   );
 
   // Memoize so the context value only changes when its contents actually
@@ -132,10 +103,9 @@ export function AgentContentProvider({
       agentContent,
       toolUseToAgent,
       loadAgentContent,
-      isLoading,
       projectId,
     }),
-    [agentContent, toolUseToAgent, loadAgentContent, isLoading, projectId],
+    [agentContent, toolUseToAgent, loadAgentContent, projectId],
   );
 
   return (
@@ -157,28 +127,4 @@ export function useAgentContent() {
     );
   }
   return context;
-}
-
-/**
- * Hook to get agent content for a specific agentId.
- * Returns null if context is not available (graceful degradation).
- */
-export function useAgentContentOptional(agentId: string | undefined): {
-  content: AgentContent | undefined;
-  isLoading: boolean;
-  load: () => Promise<void>;
-} | null {
-  const context = useContext(AgentContentContext);
-  if (!context || !agentId) {
-    return null;
-  }
-
-  return {
-    content: context.agentContent[agentId],
-    isLoading: context.isLoading(agentId),
-    load: async () => {
-      // Note: projectId and sessionId are captured from provider
-      // This is a simplified interface for components
-    },
-  };
 }
