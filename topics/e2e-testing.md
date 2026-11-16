@@ -276,6 +276,12 @@ to the UI and must not be relaxed for a cross-origin fixture import.
 Creation fixtures register their owned project before exercising launch, so
 project admission does not depend on a transient discovery/virtual-project
 cache entry or on source compilation delaying the first interaction.
+The controlled Codex creation peer has a preverified installation record in
+its private profile, fingerprinted through the production installation service
+and that profile's installation coordinator. It cannot execute the native
+shell probe. These cases qualify creation and protocol-fault recovery;
+`test/native-provider/native-cli-installation.test.ts` independently exercises
+the real executable, failed installation and successful command-output gate.
 Multi-browser creation tests establish initial draft publication through the
 real draft read API before opening an auto-focused second editor. The normal
 draft quiet debounce can publish an intermediate prefix while typing continues;

@@ -2,6 +2,7 @@ import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { InstallService } from "../../server/src/services/InstallService.js";
+import { preverifyOwnedCodexFixture } from "./support/preverify-owned-codex-fixture.js";
 import { toUrlProjectId } from "../../shared/src/index.js";
 import {
   startYaServerProcess,
@@ -74,6 +75,7 @@ for (const hosted of [false, true])
             `#!${process.execPath}\n${await readFile(new URL("./support/fixtures/creation-codex.mjs", import.meta.url), "utf8")}`,
             { mode: 0o755 },
           );
+          await preverifyOwnedCodexFixture(paths, cli);
           const install = new InstallService({ dataDir: paths.dataDir });
           await install.initialize();
           await install.recordSuccessfulProviders(["codex"]);

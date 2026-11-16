@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { attachOrStartProviderHost } from "../../../../scripts/attach-or-start-provider-host.mjs";
 import { InstallService } from "../../../server/src/services/InstallService.js";
 import { toUrlProjectId } from "../../../shared/src/index.js";
+import { preverifyOwnedCodexFixture } from "./preverify-owned-codex-fixture.js";
 import { stopProviderHostRuntime } from "./provider-host-runtime.js";
 import {
   startYaServerProcess,
@@ -56,6 +57,7 @@ export async function createCodexCreationFixture(
         `#!${process.execPath}\n${await readFile(new URL("./fixtures/creation-codex.mjs", import.meta.url), "utf8")}`,
         { mode: 0o755 },
       );
+      await preverifyOwnedCodexFixture(paths, cli);
       const install = new InstallService({ dataDir: paths.dataDir });
       await install.initialize();
       await install.recordSuccessfulProviders(["codex"]);
