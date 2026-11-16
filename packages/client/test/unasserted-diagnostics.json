@@ -1,0 +1,74 @@
+{
+  "$comment": "Client unit test files that emit an unasserted React or jsdom diagnostic, checked by packages/client/test/unassertedDiagnostics.ts. Owned by docs/development/code-quality.md#zero-warning-commits. Seeded from four measured full-suite runs on 2026-11-16. Remove a kind once its file stops emitting it (the suite fails until you do); a new entry or kind needs maintainer approval.",
+  "updated": "2026-11-16",
+  "files": {
+    "packages/client/src/components/__tests__/ArtifactPreview.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Copy public URL capability check without a project file or share creation."
+    },
+    "packages/client/src/components/__tests__/FileViewerEmbeddedMedia.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "PDF viewer selection: unaddressable server origin and pdf.js fallback."
+    },
+    "packages/client/src/components/__tests__/LocalResourceContextMenuPublicUrl.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Public URL capability and project-app link reads resolving after the menu renders."
+    },
+    "packages/client/src/components/__tests__/MessageList.queue.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Idle-tick message age refresh case."
+    },
+    "packages/client/src/components/__tests__/MessageList.scroll.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "ParagraphQuoteRail publication in held-press and wheel pending-follow, remembered-anchor growth and parked tail-reveal cases."
+    },
+    "packages/client/src/components/__tests__/MessageList.search.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Search match held after Escape or click dismissal once Follow re-enabled."
+    },
+    "packages/client/src/components/__tests__/SessionViewerToolbarController.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Vhost dismissal install and busy close-action updates."
+    },
+    "packages/client/src/components/__tests__/TemplateProjectForm.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Progress shown before the creation request returns."
+    },
+    "packages/client/src/contexts/__tests__/RemoteConnection.recovery.test.tsx": {
+      "diagnostics": ["render-update"],
+      "note": "ClientSummarySourceBinding updates Probe while rendering, in the temporary relay scope credentials case."
+    },
+    "packages/client/src/hooks/__tests__/useCollectionUpdates.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Old stream fenced around REST pagination before resuming."
+    },
+    "packages/client/src/hooks/__tests__/useSessionRightPane.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "History, App activation, cross-tab publication and stored-entry decay updates."
+    },
+    "packages/client/src/pages/__tests__/IssuesPage.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Expanded-row mention loading across refreshes and issue switches."
+    },
+    "packages/client/src/pages/settings/__tests__/AppearanceSettings.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Preference updates and live specimens."
+    },
+    "packages/client/src/pages/settings/__tests__/ArtifactSettings.linkIcon.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Saved artifact service rows: links, context menu and expansion."
+    },
+    "packages/client/src/pages/settings/__tests__/ArtifactSettings.linkedFiles.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Served-path sorting case."
+    },
+    "packages/client/src/pages/settings/__tests__/LocalAccessSettings.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Session API access offered once a password is required."
+    },
+    "packages/client/src/pages/settings/__tests__/UsersSettings.test.tsx": {
+      "diagnostics": ["act"],
+      "note": "Expanding granted projects."
+    }
+  }
+}

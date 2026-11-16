@@ -1,6 +1,7 @@
 import { beforeEach } from "vitest";
 import { invalidateLocalStorageValues } from "./src/lib/localStorageValue";
 import { invalidateSessionApps } from "./src/lib/sessionApps";
+import { installUnassertedDiagnosticsGate } from "./test/unassertedDiagnostics";
 
 function createTestStorage(): Storage {
   const storage = new Map<string, string>();
@@ -109,6 +110,8 @@ if (realFetch && !realFetch[unansweredFetch]) {
   testFetch[unansweredFetch] = true;
   globalThis.fetch = testFetch;
 }
+
+installUnassertedDiagnosticsGate();
 
 beforeEach(() => {
   if (typeof window !== "undefined") {

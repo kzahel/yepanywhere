@@ -509,3 +509,5 @@
 - provider-cli-installations - Shared target-server CLI selection and cached offline execution verification.
 
 - timer-ownership - A lint check and per-file ledger that bound repeating, zero-delay and dropped-handle timers, plus the fixes that shrink the ledger.
+
+- client-test-diagnostics - Client unit suite gate that fails tests emitting unasserted React or jsdom diagnostics, its shrink-only allowlist, and the fixture fixes that shrink it.

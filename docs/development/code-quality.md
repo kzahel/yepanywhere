@@ -17,6 +17,16 @@ rendering", "not wrapped in act(...)", and similar). Fix the cause rather
 than suppressing the report; a warning that must stand needs an inline
 justification.
 
+The client unit suite enforces this for React diagnostics (`act`,
+render-phase updates, invalid DOM props, missing keys) and jsdom
+`Not implemented:` errors: `packages/client/vitest.setup.ts` fails the
+emitting test by name. A test that produces one on purpose spies on
+`console.error` and asserts it. Files that already emit are listed in
+`packages/client/test/unasserted-diagnostics.json`, which only shrinks: once
+a fixed file runs completely without its recorded kind, the suite fails until
+that kind (and then the empty entry) is removed. A new entry or kind needs
+maintainer approval.
+
 “Pre-existing” is provenance, not an exemption. When a task's checks expose
 warnings or source-format debt that can be safely isolated, clear them in a
 separate cleanup commit instead of carrying them forward or folding them into

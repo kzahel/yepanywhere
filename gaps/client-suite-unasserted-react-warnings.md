@@ -1,61 +1,36 @@
-# Passing client suite still emits unasserted React act warnings
+# Allowlisted client fixtures still emit unasserted React diagnostics
 
-[CI 36712930735](https://github.com/kzahel/yepanywhere/actions/runs/36712930735)
-passes all 6,536 client tests but emits React's “not wrapped in act(...)”
-diagnostic in these fixtures:
-
-- `MessageList.scroll.test.tsx`: parked scroll events before tail reveal.
-- `MessageList.rendering.test.tsx`: image-gallery loading and swipe cases.
-- `GlobalSessionsPage.test.tsx`: collection-query and filter fixtures.
-- `UsersSettings.test.tsx`: expanding granted projects.
-- `AppearanceSettings.test.tsx`: preference updates and live specimens.
-- `LocalAccessSettings.test.tsx`: enabling session API access.
-- `useSessionRightPane.test.tsx`: history, activation and persistence updates.
-- `IssuesPage.test.tsx`: asynchronous mention loading and refresh.
-- `TemplateProjectForm.test.tsx`: progress before creation completes.
-- `FileViewerEmbeddedMedia.test.tsx`: PDF loading and fallback.
-- `SessionViewerToolbarController.test.tsx`: close-action updates.
+The client unit suite now fails a test that emits an unasserted React or jsdom
+diagnostic ([zero-warning commits](../docs/development/code-quality.md#zero-warning-commits)).
+Seventeen files that already emitted are recorded in
+`packages/client/test/unasserted-diagnostics.json`, which names each file's
+diagnostic kind and emitting cases. Sixteen emit React's "not wrapped in
+act(...)" warning, among them `MessageList.scroll.test.tsx`
+(ParagraphQuoteRail publication), `IssuesPage.test.tsx`,
+`useSessionRightPane.test.tsx` and the settings pages.
+`RemoteConnection.recovery.test.tsx` emits "Cannot update a component
+(`Probe`) while rendering a different component
+(`ClientSummarySourceBinding`)".
 
 These are independent component, query, store and timer fixture boundaries;
 changing them together or wrapping a whole test in act could hide unresolved
 asynchronous work. Audit each producer and join the intended update through
 React's test boundary, with explicit assertions for any deliberately emitted
 diagnostic. Do not suppress console output or change production behavior just
-to silence passing fixtures. The touched native-module test's separate Vite
-dynamic-import warning is repaired with explicit entry paths.
+to silence passing fixtures. The suite fails until a fixed file's kind is
+removed from the list; delete this gap with the last entry.
 
-Found 2026-09-30 while verifying the CI reliability repairs remotely.
+The jsdom `Not implemented: navigation (except hash changes)` diagnostics
+were `SessionIssuesLink.test.tsx` and `FileViewer.path-breadcrumbs.test.tsx`
+clicking real links: jsdom queues the navigation on a zero-delay timer, so it
+reported during the next test, and its default virtual console writes to the
+worker's original console, so Vitest never attributed it to a test. Both
+fixtures now cancel the navigation after the component's handlers and assert
+whether it would have been followed.
 
-The November 6 CI repair's complete client run passed 7,119 tests but also
-emitted two unattributed jsdom `Not implemented: navigation (except hash
-changes)` diagnostics from `HTMLHyperlinkElementUtils-impl.js`. The workspace's
-summary reporter did not identify their fixture; changing or suppressing its
-global navigation handling without that attribution could hide a real link
-regression. Retained diagnostics: `tasks/ci-recovery-2026-11-06/unit.log`.
-The focused creation/router browser checks are separate from those jsdom
-fixtures.
+Measured 2026-11-16: four full client runs emitted identically per file and
+case, and gated runs at 3 and 12 workers found every listed file still
+emitting.
 
-Reconfirmed in [CI 36970258142](https://github.com/kzahel/yepanywhere/actions/runs/36970258142)
-on 2026-10-02: `MessageList.scroll.test.tsx` emits "An update to
-ParagraphQuoteRail inside a test was not wrapped in act(...)" in the held-press
-and wheel pending-follow cases, remembered-anchor growth, and parked scroll
-before tail reveal. This is separate from the repaired thinking-toggle frame
-leak: the quote rail's asynchronous publication needs its own joined fixture
-boundary. Changing those producers or globally wrapping/suppressing their
-callbacks is outside the bounded scroll-restoration lifetime repair and could
-hide the intent/scroll ordering those cases assert. Audit each publication and
-join it explicitly; retain the scroll and held-selection assertions.
-
-The November 11 delivery-flag verification passed all 7,390 client tests but
-again emitted five unattributed `Not implemented: navigation (except hash
-changes)` diagnostics from `HTMLHyperlinkElementUtils-impl.js`. This change
-touches no client runtime or component tests, and its focused route/browser
-checks emit no such warnings. The fixture attribution remains unresolved;
-globally suppressing navigation diagnostics would hide unrelated link failures.
-
-The 2026-11-15 provider CLI verification pass again observes unattributed jsdom
-`Not implemented: navigation (except hash changes)` diagnostics in the complete
-client unit command. The new installation controls are verified through the
-real browser with no such diagnostics. The summary reporter still does not name
-these existing link fixtures; changing global navigation handling here would
-risk hiding their behavior, so that diagnostic remains in this bounded audit.
+Found 2026-09-30 while verifying the CI reliability repairs remotely; reduced
+2026-11-16 when the gate landed.
