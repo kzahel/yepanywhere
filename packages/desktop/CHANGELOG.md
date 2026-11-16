@@ -2,14 +2,14 @@
 
 ## [Unreleased]
 
-## [0.12.0] - 2026-11-16
+## [0.12.1] - 2026-11-16
 
 ### Added
 - Select and verify provider CLI installations, including managed overrides
   and discovery of the default fnm installation.
 - Pair with a hosted Agent Auth Router using a browser code, and use current
   peer session controls and bounded conversation history through the agent API.
-- Stable 0.12.0 overtakes the 0.11.x Latest series, allowing those users to
+- Stable 0.12.1 overtakes the 0.11.x Latest series, allowing those users to
   select Stable and upgrade through the signed updater.
 
 ### Changed
@@ -18,11 +18,18 @@
 - Improve Settings navigation, sidebar menus and session status controls.
 
 ### Fixed
+- Preserve freshly typed prompts and staged files when the initial acting
+  account lookup finishes, while keeping existing account drafts isolated.
 - Preserve queued work through orderly server reloads and improve session
   catalog identity and project-path handling.
 - Keep composer drafts and sent markers contained during session navigation,
   and preserve correctable user-prompt output.
 - Recover from malformed legacy API receipts without blocking server startup.
+
+## [0.12.0] - 2026-11-16
+
+- Canceled before installer publication after failed-attempt CI review exposed
+  an initial account-binding input-loss race. Superseded by 0.12.1.
 
 ## [0.10.0] - 2026-11-12
 
