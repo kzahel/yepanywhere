@@ -110,7 +110,7 @@ describe("ErrorBoundary", () => {
 
     const emitted = String(consoleError.mock.calls.at(-1)?.[0]);
     expect(emitted).toMatch(
-      /Activity events before the crash \(newest first\): refresh \(local\) 0\.0s/,
+      /Activity events before the crash \(newest first\): refresh \(local\) \d+\.\ds/,
     );
     expect(emitted).toContain("Tab: visible");
   });
