@@ -120,7 +120,7 @@ for (const hosted of [false, true])
     }
   });
 
-test("native v0 creation retains the trusted receipt/input identity and public id through restart", async () => {
+test("native v0 creation forgets its receipt but retains the public session through restart", async () => {
   const owned = await createCodexCreationFixture(false);
   try {
     const settings = await fetch(`${owned.server.baseUrl}/api/settings`, {
@@ -144,8 +144,6 @@ test("native v0 creation retains the trusted receipt/input identity and public i
       model: "gpt-6.1-sol",
       prompt: "OWNED_NATIVE_CREATION",
     };
-    // v0 takes the request identity from this header; the replay after
-    // restart reuses it.
     const creation = { ...headers, "Idempotency-Key": randomUUID() };
     const create = () =>
       fetch(`${owned.server.baseUrl}${path}/sessions`, {
@@ -191,7 +189,6 @@ test("native v0 creation retains the trusted receipt/input identity and public i
       )
       .toBe("consumed");
     expect((await read()).creator.principal.kind).toBe("superuser");
-    await owned.restart();
     const replay = await create();
     expect(replay.status).toBe(202);
     expect(await replay.json()).toMatchObject({
@@ -199,6 +196,20 @@ test("native v0 creation retains the trusted receipt/input identity and public i
       sessionId: publicId,
       creator: receipt.creator,
     });
+    await owned.restart();
+    const forgotten = await fetch(
+      `${owned.server.baseUrl}${path}/receipts/${receipt.id}`,
+      { headers },
+    );
+    expect(forgotten.status).toBe(404);
+    expect(await forgotten.json()).toMatchObject({
+      error: { code: "receipt_not_found" },
+    });
+    const restored = await (await owned.request(detailPath)).json();
+    expect(restored.session.id).toBe(publicId);
+    expect(JSON.stringify(restored.messages)).toContain(
+      "OWNED_CODEX_CREATION_REPLY",
+    );
     expect(
       (await owned.requests()).filter((r) => r.method === "thread/start"),
     ).toHaveLength(1);
