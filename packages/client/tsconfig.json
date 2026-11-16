@@ -5,6 +5,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "design/**/*"],
+  "include": ["src/**/*", "design/**/*", "test/**/*", "vitest.setup.ts"],
   "exclude": ["node_modules", "dist"]
 }

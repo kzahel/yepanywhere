@@ -18,7 +18,8 @@ than suppressing the report; a warning that must stand needs an inline
 justification.
 
 The client unit suite enforces this for React diagnostics (`act`,
-render-phase updates, invalid DOM props, missing keys) and jsdom
+render-phase updates, invalid DOM, ARIA and style props, DOM nesting,
+read-only or mode-switching form fields, missing keys) and jsdom
 `Not implemented:` errors: `packages/client/vitest.setup.ts` fails the
 emitting test by name. A test that produces one on purpose spies on
 `console.error` and asserts it. Files that already emit are listed in

@@ -16,7 +16,10 @@ const REACT_DIAGNOSTICS = {
   "render-update":
     /^Cannot update a component .* while rendering a different component/,
   "dom-prop":
-    /^(?:Invalid value for prop |React does not recognize the |Received `[^`]*` for a non-boolean attribute|Unknown event handler property )/,
+    /^(?:Invalid value for prop |Invalid DOM property |Invalid event handler property |Unknown event handler property |React does not recognize the |Received `[^`]*` for a non-boolean attribute|Received NaN for the |Invalid ARIA attribute |Unknown ARIA attribute |Invalid aria props? |Unsupported style property |`NaN` is an invalid value for the )/,
+  "dom-nesting": /^In HTML, /,
+  "form-field":
+    /^You provided a `(?:value|checked)` prop to a form field without an `onChange` handler|^A component is changing an? (?:un)?controlled /,
   key: /^Each child in a list should have a unique "key" prop|^Encountered two children with the same key/,
 };
 const JSDOM_NOT_IMPLEMENTED = "jsdom-not-implemented";
