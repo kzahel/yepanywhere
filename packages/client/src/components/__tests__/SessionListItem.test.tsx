@@ -1474,18 +1474,11 @@ describe("SessionListItem links", () => {
     });
 
     expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
-    // The project name opens the same session as the title, but sits beside
-    // the title area rather than inside it: the hover ... overlay fills the
-    // right edge of that area and would otherwise cover the name and the
-    // status letter next to it.
+    // The project name is its own link to the same session as the title, so
+    // it stays a click target wherever the hover ... overlay leaves it bare.
     const projectLink = project.closest("a");
     expect(projectLink?.getAttribute("href")).toBe(
       sessionLink.getAttribute("href"),
     );
-    const overlayHost = document.querySelector(
-      "[data-session-menu]",
-    )?.parentElement;
-    expect(overlayHost).not.toBeNull();
-    expect(overlayHost?.contains(project)).toBe(false);
   });
 });

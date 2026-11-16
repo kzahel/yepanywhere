@@ -24,6 +24,10 @@
       "count": 1,
       "reason": "Retitle Accept has an armed-countdown accent and fractional disabled opacity. The caller-owned chevron transform and binary reveal no longer count."
     },
+    "components/SessionMenu.tsx": {
+      "count": 1,
+      "reason": "The session-row ... trigger appears on a row already washed in --bg-hover, the shared ghost and elevated hover colour, so it draws its own raised chip and a darker hover/open state to stay visible against that wash."
+    },
     "components/ViewerWindowActions.tsx": {
       "count": 1,
       "reason": "One-shot reload watch uses a dashed accent border; continuous watch uses an inset accent ring. Both newer-content reloads now share attention-outline with Force start."

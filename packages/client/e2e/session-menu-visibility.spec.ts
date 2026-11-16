@@ -60,7 +60,7 @@ for (const touch of [false, true]) {
       const firstMenu = first.locator("[data-session-menu]");
       const secondMenu = rows.nth(1).locator("[data-session-menu]");
       if (touch) {
-        // Exercise touch focus without relying on emulated mouse hover.
+        // Keyboard-style focus reveals the row's menu without emulated hover.
         await first.locator("[data-session-list-item__link]").focus();
       } else {
         await first.hover();
@@ -83,12 +83,13 @@ for (const touch of [false, true]) {
       await expect(page.getByLabel("Opened session")).toHaveText(
         "/projects/project/sessions/session-1",
       );
-      const cardLink = rows.last().locator("[data-session-list-item__link]");
-      // Establish keyboard modality after the pointer navigation above.
-      // WebKit's default Tab traversal skips links; focus the same link in both engines.
-      if (!touch) await page.keyboard.press("Tab");
-      await cardLink.focus();
-      await expect(cardLink).toBeFocused();
+      // Focus on the card's own trigger keeps it revealed. (WebKit's default
+      // Tab traversal skips links and buttons, and it does not treat a
+      // programmatic link focus after a pointer press as focus-visible, so
+      // focus the trigger directly in both engines.)
+      const cardTrigger = rows.last().locator("[data-session-menu-trigger]");
+      await cardTrigger.focus();
+      await expect(cardTrigger).toBeFocused();
       await expect(rows.last().locator("[data-session-menu]")).toHaveCSS(
         "opacity",
         "1",
@@ -99,3 +100,68 @@ for (const touch of [false, true]) {
     }
   });
 }
+
+test("session menus share one x position and open on touch long press", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 812 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  await page.route("**/api/version**", (route) =>
+    route.fulfill({ json: { version: "0.9.3", capabilities: [] } }),
+  );
+  try {
+    await page.goto(`${base}e2e/fixtures/session-menu.html`);
+    const rows = page.locator("[data-session-list-item--compact]");
+    // Rows alternate project names of different widths; the trigger must
+    // not follow the project name's left edge.
+    const rights = await rows
+      .locator("[data-session-menu-trigger]")
+      .evaluateAll((triggers) =>
+        triggers.slice(0, 2).map((t) => t.getBoundingClientRect().right),
+      );
+    expect(rights[0]).toBe(rights[1]);
+
+    // A hidden trigger takes no tap: tapping its spot opens the session.
+    const trigger = rows.nth(1).locator("[data-session-menu-trigger]");
+    const box = (await trigger.boundingBox())!;
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.getByLabel("Opened session")).toHaveText(
+      "/projects/project/sessions/session-1",
+    );
+
+    // Hold a touch on the third row: its menu opens and the release does
+    // not navigate.
+    const link = rows.nth(2).locator("[data-session-list-item__link]");
+    await link.evaluate(async (element) => {
+      const rect = element.getBoundingClientRect();
+      const init = {
+        bubbles: true,
+        cancelable: true,
+        pointerType: "touch",
+        isPrimary: true,
+        pointerId: 7,
+        button: 0,
+        clientX: rect.left + 40,
+        clientY: rect.top + rect.height / 2,
+      };
+      element.dispatchEvent(new PointerEvent("pointerdown", init));
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      element.dispatchEvent(new PointerEvent("pointerup", init));
+      element.dispatchEvent(new MouseEvent("click", init));
+    });
+    await expect(rows.nth(2).locator("[data-session-menu]")).toHaveAttribute(
+      "data-session-menu-open",
+      "true",
+    );
+    await expect(page.getByRole("menu")).toBeVisible();
+    await expect(page.getByLabel("Opened session")).toHaveText(
+      "/projects/project/sessions/session-1",
+    );
+  } finally {
+    await context.close();
+  }
+});

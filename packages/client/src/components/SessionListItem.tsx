@@ -21,6 +21,7 @@ import { useNonHumanUserTurn } from "../hooks/useNonHumanUserTurn";
 import attentionStyles from "./SessionNonHumanUserTurn.module.css";
 import type { AgentActivity } from "../hooks/useFileActivity";
 import { useHoverCardSettings } from "../hooks/useHoverCardAppearance";
+import { useLongPress } from "../hooks/useLongPress";
 import { useSessionHoverCardController } from "../hooks/useSessionHoverCardController";
 import {
   useTooltipMode,
@@ -61,7 +62,7 @@ import { ContextUsageIndicator } from "./ContextUsageIndicator";
 import { ProviderBadge } from "./ProviderBadge";
 import { SessionHoverCard } from "./SessionHoverCard";
 import { PublicShareManagerModal } from "./PublicShareManagerModal";
-import { SessionMenu } from "./SessionMenu";
+import { SessionMenu, type SessionMenuHandle } from "./SessionMenu";
 import { LegacySessionShareModal } from "./SessionShareModal";
 import { SessionStatusBadge } from "./StatusBadge";
 import { ClearloopRemainingBadge } from "./ClearloopRemainingBadge";
@@ -528,9 +529,9 @@ export const SessionListItem = memo(function SessionListItem({
     return null;
   };
 
-  // Project name and status letter close a compact row. They sit outside the
-  // title area so the hover ... overlay covers only title text, and they stay
-  // their own navigation target rather than disappearing under that overlay.
+  // Project name and status letter close a compact row's title area. The
+  // hover ... overlay pins to that area's right edge and covers them, so the
+  // trigger sits at the same x on every row whatever the project name's width.
   const compactActivityIndicator =
     mode === "compact" ? getCompactActivityIndicator() : null;
   const compactTrailing =
@@ -794,6 +795,46 @@ export const SessionListItem = memo(function SessionListItem({
     [showHoverCard],
   );
 
+  // A touch long press on the row opens its ... menu. Mouse presses keep the
+  // ordinary click and right-click behaviour.
+  const menuControlRef = useRef<SessionMenuHandle>(null);
+  const lastPointerTypeRef = useRef("");
+  const menuLongPress = useLongPress(() => menuControlRef.current?.open());
+  const menuAvailable = !!provider && showMenu;
+  const rowPressHandlers = menuAvailable
+    ? {
+        onPointerDown: (event: React.PointerEvent<HTMLAnchorElement>) => {
+          lastPointerTypeRef.current = event.pointerType;
+          if (event.pointerType === "touch") {
+            menuLongPress.handlers.onPointerDown(event);
+          }
+        },
+        onPointerMove: menuLongPress.handlers.onPointerMove,
+        onPointerUp: menuLongPress.handlers.onPointerUp,
+        onPointerLeave: menuLongPress.handlers.onPointerLeave,
+        onPointerCancel: menuLongPress.handlers.onPointerCancel,
+        onContextMenu: (event: React.MouseEvent<HTMLAnchorElement>) => {
+          if (lastPointerTypeRef.current === "touch") {
+            menuLongPress.handlers.onContextMenu(event);
+          } else {
+            handleSessionContextMenu(event);
+          }
+        },
+      }
+    : { onContextMenu: handleSessionContextMenu };
+  const handleRowClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    let longPressed = true;
+    menuLongPress.click(() => {
+      longPressed = false;
+    })();
+    if (longPressed) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    handleSessionClick(event);
+  };
+
   const handleSessionAuxClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>) => {
       if (e.button !== 1) return;
@@ -917,10 +958,10 @@ export const SessionListItem = memo(function SessionListItem({
         ) : (
           <Link
             to={sessionHref}
-            onClick={handleSessionClick}
+            {...rowPressHandlers}
+            onClick={handleRowClick}
             onMouseDown={handleSessionMouseDown}
             onAuxClick={handleSessionAuxClick}
-            onContextMenu={handleSessionContextMenu}
             className={`${styles.sessionListItemLink} ${
               mode === "compact" ? styles.compactLink : ""
             }`}
@@ -1162,9 +1203,24 @@ export const SessionListItem = memo(function SessionListItem({
           </Link>
         )}
 
+        {compactTrailing && (
+          <Link
+            to={sessionHref}
+            tabIndex={-1}
+            className={styles.compactTrailing}
+            {...rowPressHandlers}
+            onClick={handleRowClick}
+            onMouseDown={handleSessionMouseDown}
+            onAuxClick={handleSessionAuxClick}
+          >
+            {compactTrailing}
+          </Link>
+        )}
+
         {/* Only show menu when provider is available (required for clone) */}
         {provider && showMenu && (
           <SessionMenu
+            controlRef={menuControlRef}
             sessionId={sessionId}
             projectId={projectId}
             isStarred={isStarred ?? false}
@@ -1197,19 +1253,6 @@ export const SessionListItem = memo(function SessionListItem({
       </div>
       {searchPreviews !== undefined && (
         <div className={styles.searchPreviews}>{searchPreviews}</div>
-      )}
-      {compactTrailing && (
-        <Link
-          to={sessionHref}
-          tabIndex={-1}
-          className={styles.compactTrailing}
-          onClick={handleSessionClick}
-          onMouseDown={handleSessionMouseDown}
-          onAuxClick={handleSessionAuxClick}
-          onContextMenu={handleSessionContextMenu}
-        >
-          {compactTrailing}
-        </Link>
       )}
       <span className={styles.questions}>
         {nonHumanUserTurn && (

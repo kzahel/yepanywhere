@@ -334,8 +334,9 @@ masquerade as a known zero.
 Session-row question counts sit outside the title area's hover-menu overlay.
 The menu and count retain separate, non-overlapping click targets on desktop
 and touch layouts, including compact sidebar rows. A compact row's trailing
-project name and status letter share that protection: the overlay may cover
-title text only, and they remain visible and clickable while it is shown.
+project name and status letter sit inside the title area, so the overlay
+covers them and its trigger keeps one horizontal position on every row; they
+reappear when the overlay hides and stay a link to the same session.
 
 Click or right-click a count to open previews directly. Aggregate menus group
 questions by session, with the most recently updated session last; questions

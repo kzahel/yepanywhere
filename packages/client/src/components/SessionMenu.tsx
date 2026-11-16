@@ -5,7 +5,9 @@ import {
 } from "@yep-anywhere/shared";
 import {
   type ReactNode,
+  type Ref,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
   useState,
@@ -95,6 +97,12 @@ export interface SessionMenuProps {
   overlayTrigger?: boolean;
   /** Notified when the menu opens/closes so callers can react to open state. */
   onOpenChange?: (open: boolean) => void;
+  /** Lets the caller open the menu, e.g. from a long press on its row. */
+  controlRef?: Ref<SessionMenuHandle>;
+}
+
+export interface SessionMenuHandle {
+  open: () => void;
 }
 
 export function SessionMenu({
@@ -139,6 +147,7 @@ export function SessionMenu({
   className = "",
   overlayTrigger = false,
   onOpenChange,
+  controlRef,
 }: SessionMenuProps) {
   const { t } = useI18n();
   // Notifies the caller of every open/close (toggle, outside press, Escape,
@@ -146,6 +155,10 @@ export function SessionMenu({
   const menu = useMenuTrigger({ onOpenChange });
   const isOpen = menu.open;
   const closeMenu = menu.close;
+  const setMenuOpen = menu.setOpen;
+  useImperativeHandle(controlRef, () => ({ open: () => setMenuOpen(true) }), [
+    setMenuOpen,
+  ]);
   const [isTerminating, setIsTerminating] = useState(false);
   const [isRestartingProvider, setIsRestartingProvider] = useState(false);
   const [isSharing, setIsSharing] = useState(false);

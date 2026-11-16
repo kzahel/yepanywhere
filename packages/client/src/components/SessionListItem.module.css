@@ -160,18 +160,25 @@
   transform: translateY(-50%);
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  /* A hidden trigger must not take a tap meant for the row beneath it. It
+     keeps taking input briefly after it hides, so a press that moves focus
+     away (WebKit does not focus a pressed button) still lands on it. */
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    pointer-events 0s allow-discrete 0.3s;
   z-index: 2;
   display: flex;
   align-items: center;
-  /* Gradient fade to blend with background */
+  /* Fade in across the left padding, then solid so text under the trigger
+     does not show through. */
   padding-left: 1rem;
   padding-right: var(--space-2);
-  background: linear-gradient(to right, transparent, var(--bg-secondary) 60%);
+  background: linear-gradient(to right, transparent, var(--bg-secondary) 1rem);
 }
 
 .sessionListItemCompact .sessionListItemMenu {
-  background: linear-gradient(to right, transparent, var(--bg-surface) 60%);
+  background: linear-gradient(to right, transparent, var(--bg-surface) 1rem);
 }
 .compactWithProviderChildren .sessionListItemMenu {
   top: 0;
@@ -179,18 +186,51 @@
   transform: none;
 }
 .sessionListItemLink:focus-visible ~ .sessionListItemMenu,
-.sessionListItemMenu:has(:focus-visible),
+/* Any focus inside the menu, not only keyboard focus: pressing the trigger
+   moves focus to it, and the press must not hide its own target. */
+.sessionListItemMenu:focus-within,
 .sessionListItemMenu[data-session-menu-open] {
   opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.15s ease;
 }
 
+/* Touch rows reveal the menu through a long press, not row focus: a tap
+   focuses the row mid-gesture, and a trigger revealed then would swallow
+   the tap at the row's right edge. */
 @media (hover: none), (pointer: coarse) {
-  .sessionListItem:focus-within .sessionListItemMenu {
-    opacity: 1;
+  /* A long press opens the row menu; keep iOS's link callout and text
+     selection from claiming the same press. */
+  .sessionListItemLink,
+  .compactTrailing {
+    -webkit-touch-callout: none;
+    user-select: none;
   }
 }
 .sessionListItemCard:hover .sessionListItemMenu {
-  background: linear-gradient(to right, transparent, var(--bg-hover) 60%);
+  background: linear-gradient(to right, transparent, var(--bg-hover) 1rem);
+}
+/* The fade must end in the row's own wash, or a hovered row shows a pale
+   block behind the trigger. */
+.compactRow:hover .sessionListItemMenu,
+.compactRow.current .sessionListItemMenu {
+  background: linear-gradient(to right, transparent, var(--bg-hover) 1rem);
+}
+/* Once revealed the trigger is a solid raised chip, not bare dots on the
+   row's hover wash (the shared ghost hover is that same colour). */
+.sessionListItemMenu [data-session-menu-trigger] {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+  color: var(--text-primary);
+}
+.sessionListItem .sessionListItemMenu [data-session-menu-trigger]:hover,
+.sessionListItem
+  .sessionListItemMenu
+  [data-session-menu-trigger][aria-expanded="true"] {
+  background: color-mix(in srgb, var(--text-primary) 16%, var(--bg-elevated));
+  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
 .sessionListItemProviderBadge {
   flex-shrink: 0;
@@ -291,10 +331,11 @@
 }
 
 /*
- * A compact row's project name and status letter close the row beside the
- * overlay rather than beneath it. They repeat the title link's destination, so
- * they stay a click target for the same session while keeping their own
- * keyboard focus out of the tab order.
+ * A compact row's project name and status letter close the title area, under
+ * the hover ... overlay, so the trigger keeps one x position on every row.
+ * They repeat the title link's destination, so they stay a click target for
+ * the same session while keeping their own keyboard focus out of the tab
+ * order.
  */
 .compactTrailing {
   display: flex;
@@ -303,7 +344,8 @@
   gap: var(--space-2);
   min-height: var(--sidebar-row-min-height, 34px);
   padding-block: var(--sidebar-row-padding-block, var(--space-1));
-  padding-inline: 0 0.75ch;
+  /* Inside the title area there is no row gap to separate it from the title. */
+  padding-inline: var(--space-2) 0.75ch;
   color: var(--text-primary);
   text-decoration: none;
 }
@@ -353,12 +395,6 @@
 
 .compactWithProviderChildren .compactLink {
   min-width: 0;
-}
-
-/* This row drops the flex gap so its outline wraps flush; restore the space
- * the trailing furniture would otherwise lose against the title. */
-.compactWithProviderChildren .compactTrailing {
-  padding-inline-start: var(--space-2);
 }
 
 /*
@@ -518,5 +554,7 @@
 @media (hover: hover) and (pointer: fine) {
   .sessionListItem:hover .body > .sessionListItemMenu {
     opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0.15s ease;
   }
 }
