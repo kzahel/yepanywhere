@@ -31,6 +31,10 @@ import {
 import { publishDraftPresenceChange } from "../lib/draftPresenceEvents";
 import { getServerClockTimestamp } from "../lib/serverClock";
 import {
+  adoptInitialAccountDraft,
+  readDraftAccountState,
+} from "../lib/initialDraftAccount";
+import {
   createSessionDraftStorageKey,
   markSessionDraftPendingSend,
   removeSessionDraft,
@@ -277,7 +281,13 @@ export function useDraftPersistence(
   key: string,
   options?: UseDraftPersistenceOptions,
 ): [string, (value: string) => void, DraftControls] {
-  const [value, setValueInternal] = useState(() => readStorageText(key));
+  const [initialDraft] = useState(() => readStorageDraft(key));
+  const [value, setValueInternal] = useState(() => initialDraft?.text ?? "");
+  const hydratedEmptyRef = useRef(!hasDraftEnvelopeContent(initialDraft));
+  const accountRef = useRef<ReturnType<typeof readDraftAccountState> | null>(
+    null,
+  );
+  accountRef.current ??= readDraftAccountState(key);
   const preserveValueOnKeyChange = options?.preserveValueOnKeyChange ?? false;
   const sessionDraftSourceKey = options?.sessionDraft?.sourceKey;
   const sessionDraftSessionId = options?.sessionDraft?.sessionId;
@@ -346,10 +356,12 @@ export function useDraftPersistence(
       return;
     keyRef.current = key;
     sessionDraftRef.current = sessionDraft;
+    accountRef.current = readDraftAccountState(key);
     composerEditedSinceHydrationRef.current = false;
 
     try {
       const stored = readStorageDraft(key);
+      hydratedEmptyRef.current = !hasDraftEnvelopeContent(stored);
       if (
         (keyChanged || sessionDraftChanged) &&
         preserveValueOnKeyChange &&
@@ -378,8 +390,27 @@ export function useDraftPersistence(
   useEffect(
     () =>
       subscribeDraftStorage(key, () => {
+        const nextAccount = readDraftAccountState(key);
+        const previousAccount = accountRef.current;
+        const adopted =
+          hydratedEmptyRef.current &&
+          composerEditedSinceHydrationRef.current &&
+          previousAccount !== null &&
+          (previousAccount.owner === undefined ||
+            previousAccount.owner === null) &&
+          nextAccount.owner !== undefined &&
+          previousAccount.physicalKey !== nextAccount.physicalKey
+            ? adoptInitialAccountDraft(
+                key,
+                previousAccount.physicalKey,
+                valueRef.current,
+              )
+            : undefined;
+        accountRef.current = nextAccount;
         const stored = readStorageDraft(key);
-        valueRef.current = stored?.text ?? "";
+        if (adopted === undefined && stored?.text !== valueRef.current)
+          hydratedEmptyRef.current = false;
+        valueRef.current = adopted ?? stored?.text ?? "";
         pendingSendRef.current = stored?.pendingSendAt !== undefined;
         setValueInternal(valueRef.current);
         updateStoredSessionDraftIndex(sessionDraftRef.current);

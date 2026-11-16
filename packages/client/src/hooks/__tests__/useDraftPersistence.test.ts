@@ -7,6 +7,7 @@ import { asClientSummarySourceKey } from "../../lib/clientSummaryStore";
 import { draftTextIsAccountedFor } from "../../lib/draftSendReconcile";
 import type { Message } from "../../types";
 import { useDraftPersistence } from "../useDraftPersistence";
+import { setDraftAccount } from "../../lib/draftSyncStorage";
 
 function readStoredText(key: string): string | null {
   const raw = window.localStorage.getItem(key);
@@ -63,6 +64,67 @@ describe("useDraftPersistence", () => {
   afterEach(() => {
     vi.useRealTimers();
     store.clear();
+  });
+
+  it("keeps fresh typing when the first acting account resolves", () => {
+    const key = "draft-new-session:initial-account-test";
+    const { result } = renderHook(() => useDraftPersistence(key));
+    act(() => result.current[1]("Typed before identity arrived"));
+    act(() =>
+      result.current[2].setAttachmentState({
+        batchId: "fresh-batch",
+        updatedAt: "2026-11-16T00:00:00.000Z",
+        refs: [
+          {
+            id: "fresh-file",
+            batchId: "fresh-batch",
+            originalName: "fresh.txt",
+            name: "fresh.txt",
+            size: 1,
+            mimeType: "text/plain",
+            createdAt: "2026-11-16T00:00:00.000Z",
+            updatedAt: "2026-11-16T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    act(() => setDraftAccount("initial-account-test", "alice"));
+    expect(result.current[0]).toBe("Typed before identity arrived");
+    expect(result.current[2].getDraft()).toBe("Typed before identity arrived");
+    expect(readStoredText(`draft-account:alice:${key}`)).toBe(
+      "Typed before identity arrived",
+    );
+    expect(store.has(key)).toBe(false);
+    expect(result.current[2].getAttachmentState()?.refs[0]?.id).toBe(
+      "fresh-file",
+    );
+  });
+
+  it.each(["legacy", "known"])(
+    "does not move %s operator text into a newly bound limited account",
+    (kind) => {
+      const source = `operator-account-test-${kind}`;
+      const key = `draft-new-session:${source}`;
+      if (kind === "known") setDraftAccount(source, "");
+      store.set(key, JSON.stringify({ version: 1, text: "operator private" }));
+      const { result } = renderHook(() => useDraftPersistence(key));
+      act(() => result.current[1]("operator private edit"));
+      act(() => setDraftAccount(source, "alice"));
+      expect(result.current[0]).toBe("");
+      expect(store.has(`draft-account:alice:${key}`)).toBe(false);
+    },
+  );
+
+  it("merges fresh initial typing with the resolved account's own cached draft", () => {
+    const key = "draft-new-session:initial-account-merge";
+    store.set(
+      `draft-account:alice:${key}`,
+      JSON.stringify({ version: 1, text: "saved" }),
+    );
+    const { result } = renderHook(() => useDraftPersistence(key));
+    act(() => result.current[1]("fresh"));
+    act(() => setDraftAccount("initial-account-merge", "alice"));
+    expect(result.current[0]).toBe("saved\n\nfresh");
   });
 
   it("keeps a leading space adopted before passive draft hydration", () => {

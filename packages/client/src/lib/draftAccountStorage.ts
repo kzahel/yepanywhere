@@ -8,6 +8,14 @@ export function accountDraftStorageKey(
 
 export const draftAccountOwners = new Map<string, string>();
 
+export function draftAccountOwner(source: string): string | undefined {
+  return (
+    draftAccountOwners.get(source) ??
+    localStorage.getItem(`draft-owner:${encodeURIComponent(source)}`) ??
+    undefined
+  );
+}
+
 export function draftPhysicalStorageKey(
   key: string,
   address: { source: string; slot: { kind: string } },

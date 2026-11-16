@@ -28,6 +28,13 @@ reads/writes validate the current principal and resource access, independently
 of client keys. Missing or inaccessible contexts return no draft contents.
 Sharing a session does not share the owner's personal drafts.
 
+When the first acting-account lookup settles after a fresh empty composer has
+received input, that new text and its staged files follow the resolved account
+without replacing its own cached draft. Existing operator/legacy contents and
+edits under an already known account never migrate into a different account.
+Account resolution must not clear typed prefixes, replace the input, or delay
+per-key acknowledgement beyond the controlled-host 100 ms target.
+
 Each accepted edit writes localStorage immediately. No request, transcript
 render, or reconciliation blocks input. The client retains its local copy after
 an acknowledgement. A reload while the server is unreachable restores that copy.
