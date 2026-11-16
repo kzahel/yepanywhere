@@ -19,7 +19,7 @@ import {
   type StagedAttachmentRef,
 } from "@yep-anywhere/shared";
 import { readDraftEnvelopeValue } from "./draftEnvelope";
-import { accountDraftStorageKey } from "./draftAccountStorage";
+import { draftPhysicalStorageKey } from "./draftAccountStorage";
 import type { SourceTransport } from "./transport/types";
 import { generateUUID } from "./uuid";
 
@@ -280,16 +280,9 @@ function storageAddress(key: string): Address | null {
   }
   return null;
 }
-function physical(key: string, address: Address): string {
-  const owner =
-    owners.get(address.source) ??
-    localStorage.getItem(`draft-owner:${encodeURIComponent(address.source)}`);
-  const sourceKey =
-    address.slot.kind === "handoff" && address.source !== "local"
-      ? `draft-source:${encodeURIComponent(address.source)}:${key}`
-      : key;
-  return accountDraftStorageKey(sourceKey, owner);
-}
+const physical = (key: string, address: Address) =>
+  draftPhysicalStorageKey(key, address, owners);
+
 function notify(key: string): void {
   for (const listener of listeners.get(key) ?? []) listener();
   window.dispatchEvent(

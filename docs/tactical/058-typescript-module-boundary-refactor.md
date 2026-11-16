@@ -5319,6 +5319,15 @@ function body is unchanged; the class calls the named function. The move-only
 slice lowers the hub budget from 1,615 to 1,580 lines. Its subsequent installation
 wiring remains within that lower budget.
 
+## 2026-11-16 — Draft account storage address
+
+Move the physical draft-key calculation from `draftSyncStorage.ts` into the
+existing `draftAccountStorage.ts` owner. The private helper's captured owner
+map becomes an explicit read-only parameter; its calculation is unchanged.
+This prerequisite leaves space for initial account-binding input preservation.
+Tier 1: shared build, client typecheck, 98 draft storage/persistence checks,
+exact-file lint/format and diff review. Tier 2 follows with the repair.
+
 Tier 1 verification: shared build, server TypeScript checking, focused Codex,
 Codex OSS and runtime-snapshot checks, exact-file Biome lint and staged diff
 review. The combined work also passes full workspace tests (7,561 server cases,
