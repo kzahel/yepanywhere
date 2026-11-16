@@ -6,13 +6,14 @@ export function accountDraftStorageKey(
   return owner ? `draft-account:${encodeURIComponent(owner)}:${key}` : key;
 }
 
+export const draftAccountOwners = new Map<string, string>();
+
 export function draftPhysicalStorageKey(
   key: string,
   address: { source: string; slot: { kind: string } },
-  owners: ReadonlyMap<string, string>,
 ): string {
   const owner =
-    owners.get(address.source) ??
+    draftAccountOwners.get(address.source) ??
     localStorage.getItem(`draft-owner:${encodeURIComponent(address.source)}`);
   const sourceKey =
     address.slot.kind === "handoff" && address.source !== "local"

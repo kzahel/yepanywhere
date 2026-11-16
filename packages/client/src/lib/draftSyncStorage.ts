@@ -19,7 +19,10 @@ import {
   type StagedAttachmentRef,
 } from "@yep-anywhere/shared";
 import { readDraftEnvelopeValue } from "./draftEnvelope";
-import { draftPhysicalStorageKey } from "./draftAccountStorage";
+import {
+  draftAccountOwners as owners,
+  draftPhysicalStorageKey as physical,
+} from "./draftAccountStorage";
 import type { SourceTransport } from "./transport/types";
 import { generateUUID } from "./uuid";
 
@@ -69,7 +72,6 @@ interface Entry {
 const SIBLING_EDIT_MS = 15_000;
 const FOREGROUND_KEY = "draft-sync-foreground";
 const TAB_ID = generateUUID();
-const owners = new Map<string, string>();
 const clients = new Map<string, DraftSyncClient>();
 let currentSource = "local";
 const listeners = new Map<string, Set<() => void>>();
@@ -280,8 +282,6 @@ function storageAddress(key: string): Address | null {
   }
   return null;
 }
-const physical = (key: string, address: Address) =>
-  draftPhysicalStorageKey(key, address, owners);
 
 function notify(key: string): void {
   for (const listener of listeners.get(key) ?? []) listener();

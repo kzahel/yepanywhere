@@ -5328,6 +5328,11 @@ This prerequisite leaves space for initial account-binding input preservation.
 Tier 1: shared build, client typecheck, 98 draft storage/persistence checks,
 exact-file lint/format and diff review. Tier 2 follows with the repair.
 
+The follow-up move places the existing owner map beside that address calculation,
+with the same empty initial value and one shared instance. The sync facade
+imports both symbols directly; no account-binding behavior changes. Existing
+draft-sync checks and client typechecking qualify this move.
+
 Tier 1 verification: shared build, server TypeScript checking, focused Codex,
 Codex OSS and runtime-snapshot checks, exact-file Biome lint and staged diff
 review. The combined work also passes full workspace tests (7,561 server cases,
