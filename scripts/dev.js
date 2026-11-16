@@ -376,7 +376,19 @@ async function stopManagedChild(child, name, firstWaitMs = 3_000) {
     }
     return;
   }
-  signalManagedChild(child, "SIGTERM");
+  // pnpm/tsx can terminate their descendants when signaled. Let the known
+  // backend finish its own shutdown before reclaiming its launcher group.
+  // Watch mode must stop its launcher so it cannot restart that backend.
+  if (
+    !backendWatch &&
+    Number.isInteger(child?.backendPid) &&
+    child.backendPid > 1 &&
+    processTargetAlive(child.backendPid)
+  ) {
+    signalRuntimeProcessGroup(child.backendPid, "SIGTERM");
+  } else {
+    signalManagedChild(child, "SIGTERM");
+  }
   if (await waitForProcessTargetsExit(targets, firstWaitMs)) return;
   console.warn(`[Shutdown] ${name} did not stop after SIGTERM; forcing it`);
   for (const target of targets) {

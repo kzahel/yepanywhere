@@ -261,6 +261,13 @@ and provider descendant. A separately started foreground host may survive a
 wrapper that merely attached to it, but it is not a machine daemon and ends
 with its own terminal owner.
 
+On POSIX, an ordinary non-watch wrapper stop gives its registered Hono process the
+graceful shutdown window before reclaiming the launcher tree. A package-manager
+or tsx launcher must not interrupt Hono's cleanup or queue handoff by exiting
+first. Watch launchers, unregistered backends and children that outlive the
+existing deadline retain bounded process-group cleanup; forced termination
+confers no handoff.
+
 Only the wrapper ends its lifetime. A Hono exit the wrapper did not request,
 whether a crash, a clean exit, or a signal from another process, starts a
 replacement Hono generation after 500 ms; Vite and the provider host keep
