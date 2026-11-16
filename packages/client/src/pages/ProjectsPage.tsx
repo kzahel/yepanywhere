@@ -31,6 +31,7 @@ import { useActingPrincipal } from "../hooks/useActingPrincipal";
 import { useProjectCodeNamePreferences } from "../hooks/useProjectCodeNamePreferences";
 import { useProjectQueues } from "../hooks/useProjectQueues";
 import { useProjects } from "../hooks/useProjects";
+import { useProjectsWithApps } from "../hooks/useProjectsWithApps";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
@@ -101,6 +102,10 @@ export function ProjectsPage() {
     [projects],
   );
   const projectQueueProjectIds = projectIds;
+  const projectsWithApps = useProjectsWithApps(
+    projectIds,
+    serverHasCapability(version, SERVER_CAPABILITIES.projectService.name),
+  );
   const projectQueues = useProjectQueues(projectQueueProjectIds);
   const queueStateByProject = useMemo(() => {
     const queueState = new Map<string, { count: number; hasFailed: boolean }>();
@@ -537,10 +542,7 @@ export function ProjectsPage() {
             <ul className={styles.projectListCards} data-project-list-cards>
               {sortedProjects.map((project) => (
                 <ProjectCard
-                  appEnabled={serverHasCapability(
-                    version,
-                    SERVER_CAPABILITIES.projectService.name,
-                  )}
+                  appEnabled={projectsWithApps.has(project.id)}
                   key={project.id}
                   project={project}
                   needsAttentionCount={
