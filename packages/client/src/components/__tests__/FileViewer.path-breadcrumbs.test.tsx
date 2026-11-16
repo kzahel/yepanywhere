@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { FolderListingResponse } from "@yep-anywhere/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { clickLink } from "../../../test/linkNavigation";
 import { I18nProvider } from "../../i18n";
 import { FileViewer, type FileViewerSource } from "../FileViewer";
 
@@ -138,10 +139,10 @@ describe("FileViewer path segments", () => {
     expect(segmentUrl.searchParams.get("folder")).toBe("paper/sections");
 
     // A modified click is the browser's: no list opens in this tab.
-    expect(fireEvent.click(segment, { ctrlKey: true })).toBe(true);
+    expect(clickLink(segment, { ctrlKey: true })).toBe(true);
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    fireEvent.click(segment);
+    expect(clickLink(segment)).toBe(false);
     const dialog = await screen.findByRole("dialog");
     const results = [...dialog.querySelectorAll("a")].find((row) =>
       row.textContent?.includes("_30-results.qmd"),
@@ -151,9 +152,9 @@ describe("FileViewer path segments", () => {
         "path",
       ),
     ).toBe("paper/sections/_30-results.qmd");
-    expect(fireEvent.click(results!, { metaKey: true })).toBe(true);
+    expect(clickLink(results!, { metaKey: true })).toBe(true);
     expect(onNavigateFile).not.toHaveBeenCalled();
-    fireEvent.click(results!);
+    expect(clickLink(results!)).toBe(false);
     expect(onNavigateFile).toHaveBeenCalledWith(
       "paper/sections/_30-results.qmd",
     );

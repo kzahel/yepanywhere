@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clickLink } from "../../../test/linkNavigation";
 import { I18nProvider } from "../../i18n";
 import { SessionIssuesLink, SessionIssuesProvider } from "../SessionIssuesLink";
 import { UserPromptLinkedTextContent } from "../blocks/UserPromptLinkedText";
@@ -188,10 +189,10 @@ describe("SessionIssuesLink", () => {
     renderLink();
     await openMenu("2 issues and pull requests associated with this session");
     const row = () => screen.getAllByRole("menuitem")[0]!;
-    fireEvent.click(row(), { metaKey: true });
-    fireEvent.click(row(), { ctrlKey: true });
+    expect(clickLink(row(), { metaKey: true })).toBe(true);
+    expect(clickLink(row(), { ctrlKey: true })).toBe(true);
     expect(screen.getByRole("menu")).toBeTruthy();
-    fireEvent.click(row());
+    expect(clickLink(row())).toBe(true);
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
