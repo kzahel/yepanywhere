@@ -113,7 +113,7 @@ const promptInput = z
       .max(100000)
       .refine((value) => value.trim().length > 0)
       .describe(
-        "Exact input text for the incumbent session. Slash text is not translated; queue compaction with type=compact.",
+        "Exact input text for the incumbent session, delivered unchanged without YA command emulation. Claude Code runs a leading native slash command itself; Codex receives it as text. Queue compaction with type=compact so its receipt reports the outcome and later input waits for it.",
       ),
     delivery: z
       .enum(["deferred", "patient", "steer"])
@@ -139,7 +139,7 @@ const compactInput = z
       .enum(["deferred", "patient"])
       .default("deferred")
       .describe(
-        "When compaction starts: deferred at the next turn boundary, patient after verified idle. Later input waits until compaction succeeds; a failure holds it visibly until the compaction is cancelled.",
+        "When compaction starts, as for a prompt: deferred at the next turn boundary even while background tasks run, patient after verified idle. Later input waits until compaction succeeds; a failure holds it visibly until the compaction is cancelled.",
       ),
   })
   .strict();

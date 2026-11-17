@@ -112,8 +112,14 @@ through the v0 [`createInput`](http-api-v0.md#attributed-queued-input-and-consum
 `type:"compact"`, which shares the composer's admission code and reports the
 outcome on its receipt.
 
-Compaction waits for provider-retained background work to end. Claude's
-fallback also ignores results until its exact command input has been consumed.
+Compaction uses its boundary exactly as a message would. A regular compaction
+starts at turn end, or at once when idle, even while provider-retained
+background work continues; only a patient compaction waits for that work to
+end. Regular input never overtakes a regular compaction that has not started.
+A Claude background-task notification that arrives during compaction stays in
+Claude's own queue and runs after it (live Claude Haiku runs, 2026-11-17).
+Claude's fallback ignores results until its exact command input has been
+consumed.
 After compact reserves execution, later input is held in YA, including an
 ordinary Send; sending cannot restart the compacting provider. The composer keeps Queue
 available while compaction is running. A compact boundary alone is insufficient:

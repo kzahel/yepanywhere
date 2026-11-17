@@ -4310,6 +4310,12 @@ export class Process {
       // queue so the Supervisor can evaluate usage before it is sent.
       !acceptedMessage.queuedCompact &&
       !this.queuedCompactionBlocksInput &&
+      // Deferred input never overtakes a deferred compaction that has not
+      // started yet; patient compactions keep their own, later boundary.
+      !this.deferredQueue.some(
+        (entry) =>
+          entry.compact && !usesPatientDeliveryPath(entry, this.provider),
+      ) &&
       !compactionGateFor(acceptedMessage) &&
       this._state.type === "idle"
     );
@@ -6012,7 +6018,6 @@ export class Process {
   private startQueuedCompaction(entry: DeferredQueueEntry): boolean {
     if (
       this.queueDepth > 0 ||
-      this.getProviderRetentionSnapshot().retained ||
       this.queuedCompactionBlocksInput ||
       this.inputRejectionError()
     )

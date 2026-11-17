@@ -72,19 +72,32 @@ async function fixture(retainedInitially = false) {
 }
 
 describe("supervisor queued compact ownership", () => {
-  it("waits for provider-retained work and wakes the same queue when retention clears", async () => {
+  // Deferred compaction keeps deferred timing: provider-retained background
+  // work holds patient input, not a deferred compact or the input behind it.
+  it("starts a deferred compact at turn end while background work is retained", async () => {
     const f = await fixture(true);
-    f.retain(true);
     f.p.deferMessage(compact);
     f.p.deferMessage({ text: "NEXT", tempId: "next" });
     f.runs[0]!.c.push({ type: "result", session_id: "existing" });
-    await waitFor(() => expect(f.p.state.type).toBe("idle"));
-    expect(f.runs[0]!.compact).not.toHaveBeenCalled();
-    expect(f.p.getDeferredQueueSummary()).toHaveLength(2);
-    f.retain(false);
     await waitFor(() => expect(f.runs[0]!.queue.depth).toBe(1));
     expect(f.runs[0]!.compact).toHaveBeenCalledOnce();
-    expect(f.runs[0]!.queue.drain()[0]?.text).toBe("NEXT");
+    expect(f.runs[0]!.queue.drain().map((m) => m.text)).toEqual(["NEXT"]);
+    expect(f.p.getDeferredQueueSummary()).toHaveLength(0);
+  });
+
+  it("starts a deferred compact on an idle retained session before later input", async () => {
+    const f = await fixture(true);
+    f.runs[0]!.c.push({ type: "result", session_id: "existing" });
+    await waitFor(() => expect(f.p.state.type).toBe("idle"));
+    f.p.deferMessage(compact, { promoteIfReady: true });
+    f.p.deferMessage(
+      { text: "NEXT", tempId: "next" },
+      { promoteIfReady: true },
+    );
+    expect(f.runs[0]!.queue.depth).toBe(0);
+    await waitFor(() => expect(f.runs[0]!.compact).toHaveBeenCalledOnce());
+    await waitFor(() => expect(f.runs[0]!.queue.depth).toBe(1));
+    expect(f.runs[0]!.queue.drain().map((m) => m.text)).toEqual(["NEXT"]);
   });
 
   it("hard-abort recovery restores a pending compact before later messages without a launch prompt", async () => {

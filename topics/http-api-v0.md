@@ -488,7 +488,11 @@ accepts strict JSON `{type:"prompt",text,delivery?}` or
 `{type:"compact",instructions?,delivery?}` and an `Idempotency-Key` header.
 It uses the same explicit management opt-in, trusted origin and process-lifetime
 scoped retry rules as creation. `text` is nonblank exact text, at most 100,000
-characters; slash text is not translated. Only the incumbent active native
+characters. YA does not translate slash text: it applies no YA command
+emulation and reaches the provider unchanged. Claude Code itself runs a leading
+native command such as `/compact`; Codex receives it as plain text. A prompt
+`/compact` is not YA queued compaction, so its receipt reports no compaction
+outcome and YA holds no later input for it. Only the incumbent active native
 owner can accept a new input; otherwise return `409 session_not_running`.
 There is no implicit resume, interruption, mode/model change or provider
 restart. An authorized identical retry resolves the original receipt before
@@ -508,7 +512,9 @@ native input queue is not exposed (no `direct` delivery):
   after it. An idle session receives deferred and steer input at once.
 - `type:"compact"` is [explicit queued compaction](queued-messages.md#explicit-queued-compaction),
   never parsed from text. Claude receives `/compact <instructions>`; Codex uses
-  its native compaction RPC and ignores instructions. Later input waits until
+  its native compaction RPC and ignores instructions. Its `deferred` or
+  `patient` boundary is the same as a prompt's: deferred compaction does not
+  wait for background tasks. Later input waits until
   compaction succeeds; a failure holds it until the compaction is cancelled.
   A session that cannot queue compaction returns
   `409 compaction_unsupported` before any receipt exists. Provider descriptors
@@ -1296,6 +1302,12 @@ remains open.
 Status: implemented as `createInput`, `inputs` and `cancelInput` (revision
 `2026-11-14.2`); the contract is in
 [attributed queued input](#attributed-queued-input-and-consumption).
+
+Revision `2026-11-17.1` gives deferred compaction a prompt's deferred
+boundary. Before it, Claude compaction also waited for retained background
+work, so an agent holding a background wait could not compact itself. The help
+also corrects slash-text wording: Claude Code runs a leading native command
+from prompt text.
 
 Maintainer direction: YA's provider-agnostic queue is the main thing YA adds
 over a raw provider, so agents need it through v0. Queueing is required,
