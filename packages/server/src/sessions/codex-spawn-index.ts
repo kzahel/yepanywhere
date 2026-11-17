@@ -1,10 +1,4 @@
-import { realpath, stat } from "node:fs/promises";
-import {
-  loadSqliteDriver,
-  type SqliteDatabase,
-  type SqliteStatement,
-} from "../storage/sqlite.js";
-import { codexStateDatabasePath } from "./codex-thread-index.js";
+import { openCodexStateQuery } from "./codex-thread-index.js";
 
 /** Positive locators only. Native child headers still prove scoped parentage. */
 export interface CodexSpawnLocator {
@@ -31,68 +25,25 @@ const QUERY = `SELECT p.id AS parentId, p.rollout_path AS parentPath,
   LEFT JOIN threads AS c ON c.id = e.child_thread_id
   WHERE p.id = ? ORDER BY e.child_thread_id`;
 
-/**
- * No directory enumeration, native row writes, migrations or checkpoints.
- * SQLite may create WAL/SHM reader sidecars even on a read-only connection.
- */
+/** A missing database, driver or unsupported schema returns undefined. */
 export async function openCodexSpawnIndex(
   sessionsDir: string,
   databasePath?: string,
 ): Promise<CodexSpawnIndexLease | undefined> {
-  // An explicit locator belongs to the caller's native profile. Never borrow
-  // a process-wide CODEX_SQLITE_HOME for a different private session scope.
-  const path = databasePath ?? codexStateDatabasePath(sessionsDir);
-  if (!path) return undefined;
-  let database: SqliteDatabase | undefined;
-  let query: SqliteStatement | undefined;
-  try {
-    const physical = await realpath(path),
-      before = await stat(physical);
-    if (!before.isFile()) return undefined;
-    const driver = loadSqliteDriver();
-    if (!driver) return undefined;
-    database = driver.open(physical, { readOnly: true });
-    query = database.prepare(QUERY);
-    const openedDatabase = database,
-      openedQuery = query;
-    let closed = false;
-    const isCurrent = async () => {
-      if (closed) return false;
-      try {
-        if ((await realpath(path)) !== physical) return false;
-        const current = await stat(physical);
-        return (
-          current.isFile() &&
-          current.dev === before.dev &&
-          current.ino === before.ino
-        );
-      } catch {
-        return false;
-      }
-    };
-    if (!(await isCurrent())) {
-      openedQuery.finalize();
-      openedDatabase.close();
-      return undefined;
-    }
-    return {
-      read(parentId) {
-        if (closed) throw new Error("Codex native spawn index retired");
-        // A missing parent, missing child locator or unsupported schema is
-        // unavailable/partial evidence, never an authoritative empty set.
-        return openedQuery.all<CodexSpawnLocator>(parentId);
-      },
-      isCurrent,
-      close() {
-        if (closed) return;
-        closed = true;
-        openedQuery.finalize();
-        openedDatabase.close();
-      },
-    };
-  } catch {
-    query?.finalize();
-    database?.close();
-    return undefined;
-  }
+  const lease = await openCodexStateQuery(sessionsDir, QUERY, databasePath);
+  if (!lease) return undefined;
+  let closed = false;
+  return {
+    read(parentId) {
+      if (closed) throw new Error("Codex native spawn index retired");
+      // A missing parent, missing child locator or unsupported schema is
+      // unavailable/partial evidence, never an authoritative empty set.
+      return lease.query.all<CodexSpawnLocator>(parentId);
+    },
+    isCurrent: lease.isCurrent,
+    close() {
+      closed = true;
+      lease.close();
+    },
+  };
 }

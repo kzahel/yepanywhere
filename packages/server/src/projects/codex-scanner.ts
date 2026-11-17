@@ -26,6 +26,7 @@ import {
   createCodexRolloutDiscoveryStats,
   readCodexRolloutMetadata,
 } from "../sessions/codex-discovery.js";
+import { locateCodexThread } from "../sessions/codex-thread-locator.js";
 import type { Project } from "../supervisor/types.js";
 import {
   codexRolloutRepresentation,
@@ -268,11 +269,22 @@ export class CodexSessionScanner {
       .sort((a, b) => b.mtime - a.mtime);
   }
 
+  /** The shared native point locator first; enumerate only on its fallback. */
   async getSessionProjectPath(sessionId: string): Promise<string | null> {
-    const session = (await this.scanAllSessions()).find(
-      (candidate) => !candidate.isSubagent && candidate.id === sessionId,
-    );
-    return session ? canonicalizeProjectPath(session.cwd) : null;
+    const located = await locateCodexThread({
+      sessionsDir: this.sessionsDir,
+      threadId: sessionId,
+      ...(this.discoveryIndex ? { discoveryIndex: this.discoveryIndex } : {}),
+    });
+    if (located.kind === "retry") return this.getSessionProjectPath(sessionId);
+    const session =
+      (located.kind === "found" ? located.session : null) ??
+      (await this.scanAllSessions()).find(
+        (candidate) => !candidate.isSubagent && candidate.id === sessionId,
+      );
+    return session && !session.isSubagent
+      ? canonicalizeProjectPath(session.cwd)
+      : null;
   }
 
   /**

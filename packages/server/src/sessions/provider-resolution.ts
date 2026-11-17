@@ -3,7 +3,6 @@ import { realpath } from "node:fs/promises";
 import { basename } from "node:path";
 import {
   isClaudeProviderName,
-  isYaSessionId,
   fromUrlProjectId,
   parseNativeSessionId,
   nativeSessionFamily,
@@ -14,6 +13,7 @@ import {
 } from "@yep-anywhere/shared";
 import {
   resolveNativeSessionRef,
+  selectStoredIdentity,
   type SessionIdentityStore,
   type SessionIdentityLookup,
   type DiscoveredSessionIdentity,
@@ -199,14 +199,9 @@ export function boundSessionSource(
   | null
   | undefined {
   if (deps.signal?.aborted) return null;
-  const identity =
-    lookup?.kind === "stored"
-      ? lookup.identity
-      : lookup?.kind === "legacy"
-        ? undefined
-        : isYaSessionId(sessionId)
-          ? deps.identities?.resolveYa(sessionId)
-          : undefined;
+  const identity = selectStoredIdentity(sessionId, lookup, (id) =>
+    deps.identities?.resolveYa(id),
+  );
   if (identity && identity.sessionId !== sessionId)
     throw new Error("Resolved identity does not match the public session");
   if (!identity) return undefined;

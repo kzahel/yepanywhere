@@ -1,7 +1,8 @@
 # Codex's native thread index and cold session data
 
 Research and proposal, 2026-11-06, with a follow-up audit and partial
-adoption on 2026-11-08. Steps marked adopted are implemented and their
+adoption on 2026-11-08, and point lookups of one thread adopted on
+2026-11-17. Steps marked adopted are implemented and their
 contracts live in the owning topics; everything else remains a proposal.
 Current behavior is owned by
 [Codex metadata scanner](../../topics/codex-metadata-scanner.md),
@@ -78,6 +79,16 @@ roughly five seconds of staleness:
   idle tick measured 0.05 ms against this database.
   Because the index reports writes but not removals, a hinted watch keeps a
   full walk at least every 10 minutes (review finding, 2026-11-08).
+
+**Adopted 2026-11-17: point lookups.** A known thread on a cold root is
+found from its validated `threads.rollout_path` row and one head read,
+before falling back to enumeration, as upstream
+`find_thread_path_by_id_str_in_subdir` does
+([contract](../../topics/codex-metadata-scanner.md#thread-point-lookups),
+[plan 194](../tactical/194-session-point-resolution.md)). On this host a cold
+reader hit read one header in 0.5–1.6 ms; the enumeration it replaces visited
+245 directories and 3,826 rollouts in 78–115 ms with a warm discovery index.
+Listing from the table is still deferred.
 
 Steps 2 and 4 are deferred: with the warm discovery index, cold enumeration
 costs about 130 ms once per watcher epoch, so listing from the table would

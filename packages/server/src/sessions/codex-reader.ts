@@ -48,7 +48,7 @@ import {
   truncateSessionTitle,
 } from "@yep-anywhere/shared";
 import type { SessionDiscoveryIndex } from "../indexes/SessionDiscoveryIndex.js";
-import { getForkedSessionFile } from "./fork-discovery.js";
+import { locateCodexThread } from "./codex-thread-locator.js";
 import {
   codexRootFileIndex,
   type CodexRootFileIndex,
@@ -99,7 +99,7 @@ import {
   type CodexRolloutDiscoveryStats,
   createCodexSessionDiscoveryIndex,
   createCodexRolloutDiscoveryStats,
-  readCodexRolloutMetadata,
+  readCodexSessionFile,
 } from "./codex-discovery.js";
 import {
   type CodexUserResponseEntry,
@@ -2289,42 +2289,20 @@ export class CodexSessionReader implements ISessionReader {
       }));
   }
 
-  /**
-   * Find a session file by ID.
-   */
+  /** Root index, fork hint, native `threads` row, then enumeration. */
   private async findSessionFile(
     sessionId: string,
   ): Promise<CodexSessionFile | null> {
-    // Check cache first
-    const fileIndex = codexRootFileIndex(this.sessionsDir);
-    const lookupRead = fileIndex.readVersion();
-    const cached = fileIndex.getSession(sessionId);
-    if (cached) return cached;
-
-    // Fork completion supplies an exact path before the scan cache catches up.
-    // Read only that file; an older in-flight scan cannot erase this hint.
-    const forkPath = await getForkedSessionFile(
-      "codex",
-      sessionId,
-      this.sessionsDir,
-    );
-    if (forkPath) {
-      const session = await this.readSessionMeta(forkPath);
-      if (
-        session?.id === sessionId &&
-        !session.isSubagent &&
-        (!this.projectIdentityKey ||
-          getProjectIdentityKey(session.cwd) === this.projectIdentityKey)
-      ) {
-        if (!fileIndex.accepts(lookupRead))
-          return this.findSessionFile(sessionId);
-        fileIndex.observePoints([session], lookupRead);
-        return fileIndex.getSession(sessionId) ?? null;
-      }
-      if (session) return null;
-    }
-
-    // Scan if cache miss
+    const located = await locateCodexThread({
+      sessionsDir: this.sessionsDir,
+      threadId: sessionId,
+      readMeta: (path) => this.readSessionMeta(path),
+      projectIdentityKey: this.projectIdentityKey,
+      isRetired: () => this.retired,
+    });
+    if (located.kind === "retry") return this.findSessionFile(sessionId);
+    if (located.kind === "found") return located.session;
+    if (located.kind === "retired") return null;
     await this.scanSessions();
     return codexRootFileIndex(this.sessionsDir).getSession(sessionId) ?? null;
   }
@@ -3489,41 +3467,23 @@ export class CodexSessionReader implements ISessionReader {
   /**
    * Read session metadata from the first line of a file.
    */
-  private async readSessionMeta(
+  private readSessionMeta(
     filePath: string,
     options?: CodexScanOptions,
     metrics?: CodexSessionReaderScanMetrics,
     freshHeader = false,
   ): Promise<CodexSessionFile | null> {
-    try {
-      const session = await readCodexRolloutMetadata({
-        sessionsDir: this.sessionsDir,
-        filePath,
-        ...(!freshHeader && this.discoveryIndex
-          ? { discoveryIndex: this.discoveryIndex }
-          : {}),
-        ...(options?.activeAfterMs !== undefined
-          ? { activeAfterMs: options.activeAfterMs }
-          : {}),
-        ...(metrics ? { metrics: metrics.discovery } : {}),
-      });
-      if (!session) return null;
-      return {
-        id: session.id,
-        filePath,
-        cwd: session.cwd,
-        timestamp: session.timestamp,
-        mtime: session.mtime,
-        size: session.size,
-        isSubagent: session.isSubagent,
-        parentThreadId: session.parentThreadId ?? null,
-        agentNickname: session.agentNickname,
-        agentRole: session.agentRole,
-        spawnDepth: session.spawnDepth,
-      };
-    } catch {
-      return null;
-    }
+    return readCodexSessionFile({
+      sessionsDir: this.sessionsDir,
+      filePath,
+      ...(!freshHeader && this.discoveryIndex
+        ? { discoveryIndex: this.discoveryIndex }
+        : {}),
+      ...(options?.activeAfterMs !== undefined
+        ? { activeAfterMs: options.activeAfterMs }
+        : {}),
+      ...(metrics ? { metrics: metrics.discovery } : {}),
+    });
   }
 
   /**

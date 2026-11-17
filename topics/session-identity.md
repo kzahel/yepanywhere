@@ -441,6 +441,12 @@ fork/clone migration step. The [roadmap](../docs/roadmap/README.md) owns priorit
   and immutable released assets; it makes no live external Codex/model claim.
   This extends the existing non-owned focused-watch qualification. It does not
   qualify other provider launches, new receipt APIs or future draft handling.
+- A request's carried `SessionIdentityLookup` selects the stored identity
+  through one function, `selectStoredIdentity`: a stored lookup yields its
+  identity, a legacy lookup none, and an absent lookup resolves only an
+  explicit YA id. Provider source binding, existing-session resolution and
+  detail loading share it. Their legacy ladders, project routing and
+  provider-specific native proofs remain separate adapters.
 - Retained fork/clone source resolution uses an operation-scoped stored/legacy
   lookup and passes the native id, actual file and original transcript project
   across the provider boundary. Provider fork inputs/results explicitly name

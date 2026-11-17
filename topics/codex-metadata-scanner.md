@@ -20,8 +20,8 @@ Research:
 [Codex's native thread index](../docs/research/codex-native-thread-index.md)
 records how Codex maintains its `state_5.sqlite` `threads` table, the audit
 showing it matches the rollout tree, and the proposed further steps. The
-watcher's use of it as a change signal (below) is adopted; listing from it is
-still a proposal.
+watcher's use of it as a change signal and point lookups of one thread
+(below) are adopted; listing from it is still a proposal.
 
 ## Why It Exists
 
@@ -223,6 +223,8 @@ full-tree walk:
   the platform drops is repaired by that floor rather than within seconds.
 - Codex records canonical paths. A sessions root reached through an alias is
   also matched by its real path and mapped back under the watched root. A
+  row whose file lies physically outside the root through a symlink below it
+  is skipped, as enumeration would skip it. A
   changed row naming a rollout outside both roots (other than
   `archived_sessions/`) means the index describes another tree, and that tick
   falls back to a full rescan.
@@ -244,6 +246,88 @@ events, with the 10-minute floor as backstop.
 Inactive rollouts stay in the enumeration because the session lists show all
 Codex history (no hidden sessions by default; see Non-Goals). The cost
 removed is re-proving that unchanged history is unchanged.
+
+## Thread Point Lookups
+
+A known Codex thread is located without enumerating its root.
+`locateCodexThread` (`sessions/codex-thread-locator.ts`) serves both
+`CodexSessionReader.findSessionFile`, which every reader point method uses,
+and `CodexSessionScanner.getSessionProjectPath`, which serves legacy
+native-address project resolution. Its order:
+
+1. The accepted root index (`codexRootFileIndex`) for this root string.
+2. The YA fork hint, validated and project-filtered as before.
+3. Codex's own `threads` row, through one finite read-only statement
+   (`SELECT rollout_path ... WHERE id = ?`, the same order as upstream
+   `find_thread_path_by_id_str_in_subdir` at `rust-v0.169.0`).
+4. Otherwise the existing enumeration, with today's result.
+
+The row is trusted only after validation:
+
+- The thread id must be a UUID.
+- The row path must map under the configured root or its realpath, with
+  plain preferred over `.zst`. Archived and outside paths are not active hits.
+- The candidate's canonical path must equal the canonical root plus the same
+  suffix. A symlinked directory or file below the root is physically
+  elsewhere, and enumeration follows neither, so it is `escaped`. A
+  configured root that is itself an alias (a symlink, or macOS `/var`) still
+  resolves.
+- The filename thread id and the head `session_meta.id` must name the
+  thread. The head may come from a discovery record proven by file stamp.
+
+The database is `state_5.sqlite` beside a conventional `sessions/` root,
+never `CODEX_SQLITE_HOME`, opened through the same lease helper as the child
+locator. There is no busy timeout, because the adapter is synchronous. The
+watcher's change hints share the path mapping. They skip an escaped row
+rather than report it or declare the index foreign.
+
+Every other outcome falls back to enumeration: no database, unsupported
+schema, busy/locked, missing row, stale path, escaped, filename or head
+mismatch, archived, outside, or a non-UUID id. SQL absence is never native
+absence. A debug event `codex_thread_locator` records the outcome without
+ids or paths.
+
+A closed reader is fenced. It opens no SQL, does not publish a fork-hint or
+row result read before it closed, and does not fall back to enumeration; its
+lookup returns no session. Root-index hits still answer it, as before.
+
+A validated row is published through the exact-point boundary. The root's
+read version is captured before SQL; a lookup that crosses an invalidation
+or authoritative enumeration retries instead of publishing. Because points
+merge under `isNewerCodexSessionFile`, a row cannot displace a newer file the
+root already knows. The result is root-wide and includes subagents. The
+scanner reports none for a subagent, and physical ancestor lookup by rollout
+id (`findRolloutPathById`) never uses the row. Listing,
+`getNativeSessionRefs` and the watcher's enumeration are unchanged.
+
+Limits of a point-only root:
+
+- **A lagging row.** The row cannot prove that no filename-newer rollout of
+  the same thread exists. Before this locator, a cold root always enumerated
+  and chose the newest file. Now a row that lags (during a revert's window,
+  after a crash between persisting a replacement and swapping the row, or
+  from a stale `state_5.sqlite` left beside the root while Codex keeps its
+  database elsewhere) is published and served from the root index.
+- **Convergence.** A lagging row is corrected only by a complete enumeration
+  or invalidation of the same root key, for example a listing through a
+  reader with that key. A key that only ever receives point lookups can serve
+  the row-named rollout until then.
+- **Separate root keys.** Bound readers key the root by `native.storageScope`
+  (a realpath) while catalog readers use the configured `sessionDir`. Where
+  those strings differ, the bound key may never be enumerated. On the
+  maintainer's host they are equal.
+- **The scanner.** `getSessionProjectPath` now consults the shared root index
+  before its own scan cache, so it inherits that index's staleness (for
+  example a deleted rollout) until a reader re-enumerates.
+- **Cost of a miss.** A thread absent from the index (a `codex exec` thread
+  with no row, a new thread before its row persists, or another provider's
+  UUID probed for legacy project resolution) now pays one short SQL read,
+  about a millisecond, before the existing scan answers.
+
+Canonicalizing root keys, which would let one enumeration converge every
+reader of a store, is a recorded follow-up rather than part of this slice.
+See [plan 194](../docs/tactical/194-session-point-resolution.md) for the
+review disposition and diagnostic counts.
 
 ## Compression Gate
 

@@ -14,6 +14,7 @@ import {
   getCodexRolloutDiscoveryIdentity,
 } from "../utils/codexRolloutFiles.js";
 import { isZstdJsonlSupported, readFirstLine } from "../utils/jsonl.js";
+import type { CodexSessionFile } from "./codex-shared-scan-cache.js";
 
 export const CODEX_META_READ_MAX_BYTES = 1024 * 1024;
 
@@ -205,6 +206,31 @@ export async function readCodexRolloutMetadata(
   });
 
   return toDiscoveredSession(metadata, options.filePath, stats);
+}
+
+/** One rollout head as a root-index locator; null when unreadable or skipped. */
+export async function readCodexSessionFile(
+  options: ReadCodexRolloutMetadataOptions,
+): Promise<CodexSessionFile | null> {
+  try {
+    const session = await readCodexRolloutMetadata(options);
+    if (!session) return null;
+    return {
+      id: session.id,
+      filePath: options.filePath,
+      cwd: session.cwd,
+      timestamp: session.timestamp,
+      mtime: session.mtime,
+      size: session.size,
+      isSubagent: session.isSubagent,
+      parentThreadId: session.parentThreadId ?? null,
+      agentNickname: session.agentNickname,
+      agentRole: session.agentRole,
+      spawnDepth: session.spawnDepth,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function isCachedRecordUsable(

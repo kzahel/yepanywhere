@@ -1,12 +1,14 @@
 import {
-  isYaSessionId,
   nativeSessionFamily,
   type ProviderName,
   type UrlProjectId,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
-import type { SessionIdentityLookup } from "../sessions/SessionIdentityStore.js";
+import {
+  selectStoredIdentity,
+  type SessionIdentityLookup,
+} from "../sessions/SessionIdentityStore.js";
 import { encodeProjectId } from "../projects/paths.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import {
@@ -58,14 +60,11 @@ export async function resolveExistingSessionIdentity(options: {
   if (providerDeps.signal?.aborted) return null;
   const providerPreference = preferredProvider ?? metadata?.provider;
 
-  const storedIdentity =
-    options.identityLookup?.kind === "stored"
-      ? options.identityLookup.identity
-      : options.identityLookup?.kind === "legacy"
-        ? undefined
-        : isYaSessionId(sessionId)
-          ? providerDeps.identities?.resolveYa(sessionId)
-          : undefined;
+  const storedIdentity = selectStoredIdentity(
+    sessionId,
+    options.identityLookup,
+    (id) => providerDeps.identities?.resolveYa(id),
+  );
   if (storedIdentity) {
     const identity = storedIdentity;
     if (identity.sessionId !== sessionId || !identity.native) return null;

@@ -1,7 +1,12 @@
 import { realpath, stat } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { getLogger } from "../logging/logger.js";
-import { loadSqliteDriver } from "../storage/sqlite.js";
+import {
+  loadSqliteDriver,
+  type SqliteDatabase,
+  type SqliteStatement,
+} from "../storage/sqlite.js";
+import { findCodexRolloutRepresentation } from "../utils/codexRolloutFiles.js";
 import type { FileWatcherChangeHints } from "../watcher/FileWatcher.js";
 import type { ProviderSessionWatcherSpec } from "../watcher/ProviderSessionWatcherRegistry.js";
 
@@ -15,6 +20,131 @@ export function codexStateDatabasePath(
   return basename(sessionsDir).toLowerCase() === "sessions"
     ? join(dirname(sessionsDir), "state_5.sqlite")
     : undefined;
+}
+
+/** One finite acquisition owns this read-only connection and its statement. */
+export interface CodexStateQueryLease {
+  readonly query: SqliteStatement;
+  /** The opened file is still the database the native path names. */
+  isCurrent(): Promise<boolean>;
+  close(): void;
+}
+
+/**
+ * Open one read-only statement on Codex's state database. No directory
+ * enumeration, native row writes, migrations, checkpoints or busy timeout: the
+ * adapter is synchronous, so busy/locked fails the read and callers fall back.
+ * A missing database, driver or unsupported schema (a failed prepare) returns
+ * undefined. SQLite may create WAL/SHM reader sidecars on a read-only open.
+ */
+export async function openCodexStateQuery(
+  sessionsDir: string,
+  sql: string,
+  databasePath?: string,
+): Promise<CodexStateQueryLease | undefined> {
+  // An explicit locator belongs to the caller's native profile. Never borrow
+  // a process-wide CODEX_SQLITE_HOME for a different private session scope.
+  const path = databasePath ?? codexStateDatabasePath(sessionsDir);
+  if (!path) return undefined;
+  let database: SqliteDatabase | undefined;
+  let query: SqliteStatement | undefined;
+  try {
+    const physical = await realpath(path),
+      before = await stat(physical);
+    if (!before.isFile()) return undefined;
+    const driver = loadSqliteDriver();
+    if (!driver) return undefined;
+    database = driver.open(physical, { readOnly: true });
+    query = database.prepare(sql);
+    const openedDatabase = database,
+      openedQuery = query;
+    let closed = false;
+    const isCurrent = async () => {
+      if (closed) return false;
+      try {
+        if ((await realpath(path)) !== physical) return false;
+        const current = await stat(physical);
+        return (
+          current.isFile() &&
+          current.dev === before.dev &&
+          current.ino === before.ino
+        );
+      } catch {
+        return false;
+      }
+    };
+    if (!(await isCurrent())) {
+      openedQuery.finalize();
+      openedDatabase.close();
+      return undefined;
+    }
+    return {
+      query: openedQuery,
+      isCurrent,
+      close() {
+        if (closed) return;
+        closed = true;
+        openedQuery.finalize();
+        openedDatabase.close();
+      },
+    };
+  } catch {
+    query?.finalize();
+    database?.close();
+    return undefined;
+  }
+}
+
+/** Where a native row's rollout path lies relative to one configured root. */
+export type CodexRolloutRowLocation =
+  | { kind: "active"; path: string }
+  | { kind: "missing" | "archived" | "outside" | "escaped" };
+
+/**
+ * Codex records canonical paths, so a sessions root reached through an alias
+ * is matched by its real path too and mapped back under the configured root,
+ * preferring the plain rollout over its `.zst` (Codex keeps naming the plain
+ * rollout after compressing it). Archived rollouts lie outside the active
+ * tree by design; any other outside path means the index describes a
+ * different tree. A lexically contained path that is physically elsewhere
+ * (a symlinked directory or file below the root) is `escaped`: enumeration
+ * follows neither, so it is not a rollout of this root.
+ */
+export function createCodexRolloutPathMapper(
+  sessionsDir: string,
+): (rolloutPath: string) => Promise<CodexRolloutRowLocation> {
+  let roots: Promise<{ real: string; archived: string[] }> | undefined;
+  return async (rolloutPath) => {
+    roots ??= realpath(sessionsDir)
+      .catch(() => sessionsDir)
+      .then((real) => ({
+        real,
+        archived: [sessionsDir, real].map((root) =>
+          join(dirname(root), "archived_sessions"),
+        ),
+      }));
+    const known = await roots;
+    const suffix =
+      suffixWithin(sessionsDir, rolloutPath) ??
+      suffixWithin(known.real, rolloutPath);
+    if (!suffix)
+      return {
+        kind: known.archived.some((root) => suffixWithin(root, rolloutPath))
+          ? "archived"
+          : "outside",
+      };
+    const path = await findCodexRolloutRepresentation(
+      join(sessionsDir, suffix),
+    );
+    if (!path) return { kind: "missing" };
+    // Only the canonical root plus the same suffix is inside this store; an
+    // aliased configured root still resolves to exactly that path.
+    const physical = await realpath(path).catch(() => undefined);
+    if (!physical) return { kind: "missing" };
+    return physical === join(known.real, relative(sessionsDir, path))
+      ? { kind: "active", path }
+      : { kind: "escaped" };
+  };
 }
 
 // Pinned rust-v0.167.0 state/migrations: 0025 adds updated_at_ms, which
@@ -71,10 +201,11 @@ export function createCodexThreadChangeHints(
   let identity: string | undefined;
   let stamp: string | undefined;
   let highWaterMs: number | undefined;
-  let roots: { real: string; archived: string[] } | undefined;
+  let locate = createCodexRolloutPathMapper(sessionsDir);
   const seen = new Map<string, number>();
   const reset = () => {
-    identity = stamp = highWaterMs = roots = undefined;
+    identity = stamp = highWaterMs = undefined;
+    locate = createCodexRolloutPathMapper(sessionsDir);
     seen.clear();
   };
   let reported: string | undefined;
@@ -109,39 +240,6 @@ export function createCodexThreadChangeHints(
     }
   };
 
-  /**
-   * Codex records canonical paths, so a sessions root reached through an
-   * alias is matched by its real path too and mapped back under the watched
-   * root. Archived rollouts lie outside the watched tree by design; any other
-   * outside path means this index describes a different tree.
-   */
-  const locate = async (
-    rolloutPath: string,
-  ): Promise<string | "outside" | undefined> => {
-    if (!roots) {
-      const real = await realpath(sessionsDir).catch(() => sessionsDir);
-      roots = {
-        real,
-        archived: [sessionsDir, real].map((root) =>
-          join(dirname(root), "archived_sessions"),
-        ),
-      };
-    }
-    const known = roots;
-    const suffix =
-      suffixWithin(sessionsDir, rolloutPath) ??
-      suffixWithin(known.real, rolloutPath);
-    if (!suffix)
-      return known.archived.some((root) => suffixWithin(root, rolloutPath))
-        ? undefined
-        : "outside";
-    // Codex keeps naming the plain rollout after compressing it.
-    const plain = join(sessionsDir, suffix);
-    for (const candidate of [plain, `${plain}.zst`])
-      if (await fileStamp(candidate)) return candidate;
-    return undefined;
-  };
-
   return {
     async changedPaths() {
       if (!databasePath) return null;
@@ -172,9 +270,10 @@ export function createCodexThreadChangeHints(
           if (seen.get(row.id) === row.updatedAtMs) continue;
           seen.set(row.id, row.updatedAtMs);
           if (!baseline) {
-            const path = await locate(row.rolloutPath);
-            if (path === "outside") foreign = true;
-            else if (path) changed.push(path);
+            const located = await locate(row.rolloutPath);
+            // An escaped row names no file enumeration would visit; skip it.
+            if (located.kind === "outside") foreign = true;
+            else if (located.kind === "active") changed.push(located.path);
           }
         }
         // A row stamped by a fast clock must not hide later rows for as long

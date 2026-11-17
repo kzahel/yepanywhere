@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, realpathSync } from "node:fs";
+import { realpathSync } from "node:fs";
 import { EventEmitter } from "node:events";
 import { mkdir, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,43 +7,16 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodexSessionMap } from "../../src/sessions/codex-shared-scan-cache.js";
 import { createCodexThreadChangeHints } from "../../src/sessions/codex-thread-index.js";
-import { loadSqliteDriver } from "../../src/storage/sqlite.js";
+import {
+  CODEX_THREADS_SCHEMA as SCHEMA,
+  codexStateDriver,
+  createCodexHome,
+} from "./codex-state-fixture.js";
 import { EventBus, type FileChangeEvent } from "../../src/watcher/EventBus.js";
 import { FileWatcher } from "../../src/watcher/FileWatcher.js";
 import * as sharedDirectoryWatcher from "../../src/watcher/SharedDirectoryWatcher.js";
 
-// The subset of Codex rust-v0.167.0's threads schema the hints read.
-const SCHEMA = `PRAGMA journal_mode=WAL;
-CREATE TABLE threads (id TEXT PRIMARY KEY, rollout_path TEXT NOT NULL,
-  updated_at INTEGER NOT NULL, updated_at_ms INTEGER);
-CREATE INDEX idx_threads_updated_at ON threads(updated_at DESC, id DESC);`;
-
-const driver = loadSqliteDriver();
-
-function createCodexHome(root: string, schema = SCHEMA) {
-  const sessionsDir = join(root, "sessions");
-  const databasePath = join(root, "state_5.sqlite");
-  mkdirSync(root, { recursive: true });
-  const database = driver!.open(databasePath);
-  database.exec(schema);
-  const upsert = database.prepare(
-    `INSERT INTO threads (id, rollout_path, updated_at, updated_at_ms)
-     VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET
-     rollout_path = excluded.rollout_path, updated_at = excluded.updated_at,
-     updated_at_ms = excluded.updated_at_ms`,
-  );
-  return {
-    sessionsDir,
-    databasePath,
-    write(id: string, rolloutPath: string, updatedAtMs = Date.now()) {
-      upsert.run(id, rolloutPath, Math.floor(updatedAtMs / 1000), updatedAtMs);
-    },
-    close() {
-      upsert.finalize();
-      database.close();
-    },
-  };
-}
+const driver = codexStateDriver;
 
 async function rollout(sessionsDir: string, name: string): Promise<string> {
   const dir = join(sessionsDir, "2026", "11", "08");

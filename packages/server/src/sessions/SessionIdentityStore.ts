@@ -4,6 +4,7 @@ import {
   ALL_PROVIDERS,
   NATIVE_SESSION_FAMILIES,
   assertUrlProjectId,
+  isYaSessionId,
   nativeSessionFamily,
   nativeSessionRef,
   nativeViewerFields,
@@ -32,6 +33,19 @@ export interface SessionIdentity {
 export type SessionIdentityLookup =
   | { kind: "stored"; identity: SessionIdentity }
   | { kind: "legacy" };
+
+/**
+ * The stored identity a request selects: its carried lookup when present,
+ * otherwise only an explicit YA id. A native string is never guessed as YA.
+ */
+export function selectStoredIdentity(
+  sessionId: string,
+  lookup: SessionIdentityLookup | undefined,
+  resolveYa: (sessionId: YaSessionId) => SessionIdentity | undefined,
+): SessionIdentity | undefined {
+  if (lookup) return lookup.kind === "stored" ? lookup.identity : undefined;
+  return isYaSessionId(sessionId) ? resolveYa(sessionId) : undefined;
+}
 
 export interface DiscoveredSessionIdentity {
   native: NativeSessionRef;

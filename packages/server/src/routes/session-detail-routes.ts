@@ -77,9 +77,10 @@ import {
   savedCreationView,
 } from "../sessions/session-creation-view.js";
 import { sessionOwnershipFromProcess } from "../sessions/session-runtime-overlay.js";
-import type {
-  SessionIdentity,
-  SessionIdentityLookup,
+import {
+  selectStoredIdentity,
+  type SessionIdentity,
+  type SessionIdentityLookup,
 } from "../sessions/SessionIdentityStore.js";
 import type {
   GetSessionOptions,
@@ -347,12 +348,7 @@ export function registerSessionDetailRoute(
     };
   }> => {
     if (deps.signal?.aborted) return { session: null };
-    const identity =
-      lookup?.kind === "stored"
-        ? lookup.identity
-        : lookup?.kind === "legacy"
-          ? undefined
-          : storedIdentityFor(sessionId);
+    const identity = selectStoredIdentity(sessionId, lookup, storedIdentityFor);
     if (identity) {
       const resolved = await resolveExistingSessionIdentity({
         sessionId,
