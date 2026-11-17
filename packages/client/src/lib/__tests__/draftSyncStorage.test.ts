@@ -9,6 +9,7 @@ import {
   type DraftWriteResult,
 } from "@yep-anywhere/shared";
 import {
+  DRAFT_SYNC_STATUS_EVENT,
   DraftSyncClient,
   acceptPendingDraft,
   draftAddress,
@@ -280,6 +281,49 @@ it("discards recovery durably while offline and clears the server on reconnect",
   expect(
     JSON.parse(localStorage.getItem(metadataKey(key))!),
   ).not.toHaveProperty("submitted");
+});
+it("dropping a recovery copy keeps the composer text and resumes its sync", async () => {
+  const s = server();
+  localStorage.setItem(key, raw("Composer paragraph"));
+  localStorage.setItem(
+    metadataKey(key),
+    JSON.stringify({
+      raw: raw("Composer paragraph"),
+      base: null,
+      submitted: {
+        payload: { fields: { text: "Sent earlier" }, attachments: [] },
+        revision: null,
+      },
+    }),
+  );
+  const c = client(s);
+  const entry = c.register(key)!;
+  expect(entry.needsRecovery).toBe(true);
+  c.accept(entry, false);
+  expect(localStorage.getItem(key)).toBe(raw("Composer paragraph"));
+  expect(entry.needsRecovery).toBe(false);
+  expect(entry.saved.submitted).toBeUndefined();
+  await c.sync(entry);
+  expect(s.get().payload.fields.text).toBe("Composer paragraph");
+});
+it("typing under a sync notice refreshes the text it previews", () => {
+  const c = client(server());
+  c.start();
+  c.edit(key, raw(""));
+  const entry = c.register(key)!;
+  entry.error = "sync";
+  const seen: string[] = [];
+  const listener = () =>
+    seen.push(
+      draftSyncPending().find((d) => d.key === key)?.local.fields.text ?? "",
+    );
+  window.addEventListener(DRAFT_SYNC_STATUS_EVENT, listener);
+  try {
+    c.edit(key, raw("Typed paragraph"));
+  } finally {
+    window.removeEventListener(DRAFT_SYNC_STATUS_EVENT, listener);
+  }
+  expect(seen.at(-1)).toBe("Typed paragraph");
 });
 it("does not resurrect a discarded draft when an in-flight save finishes", async () => {
   const s = server();

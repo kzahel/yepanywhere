@@ -201,29 +201,26 @@ test("older servers keep local drafts and receive no draft-sync requests", async
   expect(requests).toBe(0);
 });
 
-test("discard clears a waiting draft across offline reload and reconnect", async ({
+test("a waiting-sync notice dismisses and reviews without touching the composer", async ({
   page,
 }) => {
   api.store.deleteOwner("");
   await page.route("**/api/drafts/read", (route) => route.abort());
   await page.goto(`${base}e2e/fixtures/draft-sync.html`);
   const input = page.getByRole("textbox", { name: "Prompt" });
-  await input.pressSequentially("Discard this draft", { delay: 20 });
+  await input.pressSequentially("Keep this paragraph", { delay: 20 });
   await expect(page.getByRole("status")).toContainText("Sync is waiting");
-  await page.setViewportSize({ width: 1000, height: 600 });
-  await recordUiCapture(page, "draft-sync-discard-desktop");
-  await page.setViewportSize({ width: 375, height: 812 });
-  await recordUiCapture(page, "draft-sync-discard-phone");
   await page.getByRole("button", { name: "Review draft changes" }).click();
-  await page
-    .getByRole("button", { name: "Discard draft", exact: true })
-    .click();
+  // The preview follows typing; it once read "Empty draft" over typed text.
+  await expect(page.getByRole("status")).toContainText("Keep this paragraph");
+  await expect(page.getByRole("button", { name: /discard/i })).toHaveCount(0);
+  await page.setViewportSize({ width: 1000, height: 600 });
+  await recordUiCapture(page, "draft-sync-waiting-desktop");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await recordUiCapture(page, "draft-sync-waiting-phone");
+  await page.getByRole("button", { name: "Dismiss draft notice" }).click();
   await expect(page.getByRole("status")).toHaveCount(0);
-  await expect(input).toHaveValue("");
-  await page.reload();
-  await expect(input).toHaveValue("");
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(input).toHaveValue("Keep this paragraph");
   await page.unroute("**/api/drafts/read");
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect
@@ -233,22 +230,11 @@ test("discard clears a waiting draft across offline reload and reconnect", async
           .text,
       { timeout: 15000 },
     )
-    .toBeUndefined();
-  await page.reload();
-  await expect(input).toHaveValue("");
-  await expect(page.getByRole("status")).toHaveCount(0);
-  await input.pressSequentially("New draft", { delay: 20 });
-  await expect
-    .poll(
-      () =>
-        api.store.read("", { kind: "new-session" }).snapshot.payload.fields
-          .text,
-      { timeout: 15000 },
-    )
-    .toBe("New draft");
+    .toBe("Keep this paragraph");
+  await expect(input).toHaveValue("Keep this paragraph");
 });
 
-test("discard clears crash recovery in sibling tabs and after reload", async ({
+test("discarding a recovery copy keeps the composer in sibling tabs and after reload", async ({
   page,
   context,
 }) => {
@@ -278,14 +264,13 @@ test("discard clears crash recovery in sibling tabs and after reload", async ({
   await expect(page.getByRole("status")).toContainText("needs recovery");
   await expect(sibling.getByRole("status")).toContainText("needs recovery");
   await page.getByRole("button", { name: "Review draft changes" }).click();
-  await page
-    .getByRole("button", { name: "Discard draft", exact: true })
-    .click();
-  await expect(sibling.getByRole("textbox")).toHaveValue("");
-  await expect(sibling.getByRole("status")).toHaveCount(0);
+  await page.getByRole("button", { name: "Discard recovery copy" }).click();
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveValue("Stale crash draft");
+  await expect(sibling.getByRole("textbox")).toHaveValue("Stale crash draft");
   await page.reload();
   await sibling.reload();
-  await expect(page.getByRole("textbox")).toHaveValue("");
+  await expect(page.getByRole("textbox")).toHaveValue("Stale crash draft");
   await expect(page.getByRole("status")).toHaveCount(0);
   await expect(sibling.getByRole("status")).toHaveCount(0);
 });

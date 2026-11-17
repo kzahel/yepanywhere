@@ -19,7 +19,6 @@ function render(node: ReactNode) {
 const state = vi.hoisted(() => ({
   drafts: [] as PendingDraft[],
   resolve: vi.fn(),
-  discard: vi.fn(),
   retry: vi.fn(),
   recover: vi.fn(),
 }));
@@ -27,7 +26,6 @@ vi.mock("../../lib/draftSyncStorage", async (original) => ({
   ...(await original<typeof import("../../lib/draftSyncStorage")>()),
   draftSyncPending: () => state.drafts,
   resolvePendingDraft: state.resolve,
-  discardPendingDraft: state.discard,
   retryPendingDraft: state.retry,
   acceptPendingDraft: state.recover,
 }));
@@ -113,22 +111,54 @@ describe("DraftSyncNotice", () => {
     });
     expect(screen.queryByRole("status")).toBeNull();
   });
-  it("closing a review preserves drafts; discard explicitly targets one", () => {
+  it("a sync-waiting notice offers no way to erase the composer", () => {
     state.drafts[0]!.error = "sync";
     render(<DraftSyncNotice draftKey="draft-message-one" />);
     fireEvent.click(
       screen.getByRole("button", { name: "Review draft changes" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Close review" }));
-    expect(state.discard).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Review draft changes" }),
-    );
+    expect(screen.queryByRole("button", { name: /discard/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(state.retry).toHaveBeenCalledWith("draft-message-one");
     expect(state.recover).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
-    expect(state.discard).toHaveBeenCalledWith("draft-message-one");
-    expect(state.discard).toHaveBeenCalledTimes(1);
+  });
+  it("dismissing hides only this condition and touches no draft", () => {
+    state.drafts[0]!.error = "local";
+    const { rerender } = render(
+      <DraftSyncNotice draftKey="draft-message-one" />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss draft notice" }),
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(state.retry).not.toHaveBeenCalled();
+    expect(state.recover).not.toHaveBeenCalled();
+    // A different condition for the same draft is shown again.
+    state.drafts[0]!.error = undefined;
+    state.drafts[0]!.recovery = true;
+    rerender(<DraftSyncNotice draftKey="draft-message-one" key="again" />);
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+  });
+  it("conflicting edits cannot be dismissed without a choice", () => {
+    render(<DraftSyncNotice draftKey="draft-message-one" />);
+    expect(
+      screen.queryByRole("button", { name: "Dismiss draft notice" }),
+    ).toBeNull();
+  });
+  it("recovery drops only the submission copy, keeping the composer", () => {
+    state.drafts[0] = {
+      ...state.drafts[0]!,
+      recovery: true,
+      remote: undefined,
+      submitted: { fields: { text: "sent copy" }, attachments: [] },
+    };
+    render(<DraftSyncNotice draftKey="draft-message-one" />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review draft changes" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Discard recovery copy" }),
+    );
+    expect(state.recover).toHaveBeenCalledWith("draft-message-one", false);
   });
 });

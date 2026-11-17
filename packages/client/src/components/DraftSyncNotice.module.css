@@ -8,6 +8,11 @@
   justify-content: space-between;
   gap: 0.75rem;
 }
+.summaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 .review {
   margin-top: 0.75rem;
   max-height: 40vh;

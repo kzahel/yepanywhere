@@ -4,7 +4,6 @@ import { useI18n } from "../i18n";
 import {
   DRAFT_SYNC_STATUS_EVENT,
   acceptPendingDraft,
-  discardPendingDraft,
   draftAddress,
   draftSyncPending,
   resolvePendingDraft,
@@ -42,11 +41,35 @@ function DraftPreview({ value }: { value: DraftPayload }) {
   );
 }
 
+/**
+ * Notices this tab's user dismissed, by draft and condition, so navigating
+ * back does not resurrect them; a different condition shows again.
+ */
+const dismissedNotices = new Set<string>();
+function noticeCondition(draft: PendingDraft): string | null {
+  if (draft.error) return `${draft.key}|error:${draft.error}`;
+  if (draft.recovery) return `${draft.key}|recovery`;
+  // Overlapping edits still require an explicit review choice.
+  return null;
+}
+
+/**
+ * No action here erases the composer's text: the composer itself is where
+ * text is deleted. Actions resolve sync state or drop a separate copy.
+ */
 function DraftNotice({ draft }: { draft: PendingDraft }) {
   const { t } = useI18n();
   const [reviewing, setReviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [changed, setChanged] = useState(false);
+  const condition = noticeCondition(draft);
+  const [, rerender] = useState(0);
+  if (condition && dismissedNotices.has(condition)) return null;
+  const dismiss = () => {
+    if (!condition) return;
+    dismissedNotices.add(condition);
+    rerender((n) => n + 1);
+  };
   const resolve = async (choice: DraftResolution) => {
     setBusy(true);
     const applied = await resolvePendingDraft(
@@ -76,12 +99,19 @@ function DraftNotice({ draft }: { draft: PendingDraft }) {
                 ? t("draftSyncRecovery")
                 : t("draftSyncPending")}
         </span>
-        <Button
-          onClick={() => setReviewing(!reviewing)}
-          aria-expanded={reviewing}
-        >
-          {t("draftSyncReview")}
-        </Button>
+        <div className={styles.summaryActions}>
+          <Button
+            onClick={() => setReviewing(!reviewing)}
+            aria-expanded={reviewing}
+          >
+            {t("draftSyncReview")}
+          </Button>
+          {condition && (
+            <Button onClick={dismiss} aria-label={t("draftSyncDismiss")}>
+              {t("draftSyncDismissShort")}
+            </Button>
+          )}
+        </div>
       </div>
       {reviewing && (
         <div className={styles.review}>
@@ -115,12 +145,14 @@ function DraftNotice({ draft }: { draft: PendingDraft }) {
                 >
                   {draft.error ? t("draftSyncRetry") : t("draftSyncRecover")}
                 </Button>
-                <Button
-                  variant="danger-outline"
-                  onClick={() => discardPendingDraft(draft.key)}
-                >
-                  {t("draftSyncDiscard")}
-                </Button>
+                {!draft.error && draft.submitted && (
+                  <Button
+                    variant="danger-outline"
+                    onClick={() => acceptPendingDraft(draft.key, false)}
+                  >
+                    {t("draftSyncDiscardRecoveryCopy")}
+                  </Button>
+                )}
               </>
             ) : (
               <>

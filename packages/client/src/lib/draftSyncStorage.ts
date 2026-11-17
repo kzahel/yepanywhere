@@ -534,23 +534,17 @@ export function draftSyncPending(source?: string): PendingDraft[] {
         })),
     );
 }
-export function acceptPendingDraft(key: string): void {
+export function acceptPendingDraft(key: string, restoreSubmitted = true): void {
   const address = draftAddress(key);
   const client = address && clients.get(address.source);
   const entry = client?.entries.get(key);
-  if (entry && client) client.accept(entry);
+  if (entry && client) client.accept(entry, restoreSubmitted);
 }
 export function retryPendingDraft(key: string): void {
   const address = draftAddress(key);
   const client = address && clients.get(address.source);
   const entry = client?.entries.get(key);
   if (entry && client) client.retryEntry(entry);
-}
-export function discardPendingDraft(key: string): void {
-  const address = draftAddress(key);
-  const client = address && clients.get(address.source);
-  const entry = client?.entries.get(key);
-  if (entry && client) client.discard(entry);
 }
 export type DraftResolution = "local" | "remote" | "combine";
 export async function resolvePendingDraft(
@@ -727,7 +721,8 @@ export class DraftSyncClient {
         ),
     );
     this.schedule(e, raw === null || rendezDraft ? 0 : 3000);
-    if (e.remote) status();
+    // A visible notice previews this text; keep that preview current.
+    if (e.remote || e.error || e.needsRecovery) status();
   }
   private schedule(e: Entry, delay: number): void {
     if (this.stopped || e.needsRecovery || e.rejectedStatus) return;
@@ -1040,11 +1035,16 @@ export class DraftSyncClient {
     this.schedule(e, 0);
     status();
   }
-  accept(e: Entry): void {
+  /**
+   * Resume syncing the composer's current text. `restoreSubmitted` merges an
+   * unresolved submission copy back in; without it that copy is dropped and
+   * the composer is left exactly as it is.
+   */
+  accept(e: Entry, restoreSubmitted = true): void {
     e.rejectedStatus = undefined;
     if (e.error === "local") this.retryLocal(e);
     if (e.needsRecovery) {
-      if (e.saved.submitted)
+      if (e.saved.submitted && restoreSubmitted)
         this.apply(
           e,
           mergeDrafts(

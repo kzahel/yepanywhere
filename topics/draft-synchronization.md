@@ -199,15 +199,26 @@ Editing a payload rejected with 400, 413 or 422 permits another save and does
 not replay the rejected immutable operation. Network errors, rate limits and
 server failures retain automatic retries. No draft contents are discarded merely
 because its server context is unavailable.
-Unresolved submissions offer an explicit **Recover draft** action. Failure and
-recovery reviews offer **Discard draft**, which clears only that slot, including
-local recovery/submission copies and queued writes. It clears its editor and
-persists the discard before retrying server cleanup. Reloads, reconnects, and
-sibling tabs retain that decision. Unaffected draft slots remain unchanged.
-A conditional server clear retries in the background while offline; it does not
-resurrect discarded text or repeatedly show its sync error. New text entered
-after discard survives the clear and then synchronizes. An in-flight save cannot
-restore metadata replaced by an explicit discard.
+**No notice action erases the composer's text.** The composer is where text is
+deleted; a notice only resolves sync state or drops a separate copy. Until
+2026-11-17 failure and recovery reviews offered **Discard draft**, which
+cleared the live editor. A user dismissing a "Sync is waiting" blurb on a new
+session lost a typed paragraph while the review preview still read "Empty
+draft", because typing refreshed the preview only when a server version was
+held. Typing now refreshes any visible notice's preview.
+
+Failure and recovery notices offer **Dismiss**, which hides that notice in
+this tab until the draft's condition changes and touches no draft. Conflicting
+edits cannot be dismissed; they still need a review choice.
+Unresolved submissions offer an explicit **Recover draft** action, which merges
+the submission copy into the composer, and **Discard recovery copy**, which
+drops only that copy and resumes syncing the composer exactly as it is.
+Sibling tabs and reloads retain either choice.
+
+A persisted discard record (written by older tabs) is still honored: a
+conditional server clear retries in the background while offline, does not
+resurrect discarded text, and new text entered after it survives and then
+synchronizes.
 A successful server read clears a previous sync error, so a pending review or
 recovery is described as such instead of remaining labeled “Sync is waiting.”
 Failed reads of empty slots do not claim that a draft is saved locally. An empty
@@ -369,10 +380,14 @@ existing send request gained mandatory fields or changed meaning.
 
 ## Design decisions
 
-- **Persist a draft discard** rather than a hidden-notice preference: explicit
-  discard means clearing the unwanted draft. Closing review is nondestructive. A durable
-  cleanup record prevents offline reload from importing the old server copy.
-  The server clear uses a revision check so a concurrent edit survives.
+- **Notices never clear the composer** (2026-11-17, user-directed, reversing
+  the earlier "persist a draft discard" action). A notice shown beside the
+  composer reads as being about the notice; a destructive action there
+  erased visible work. Dismissal is a per-tab hidden-notice state keyed by
+  draft and condition. The persisted-discard protocol remains for records
+  older tabs write: its durable cleanup record prevents offline reload from
+  importing the old server copy, and its revision-checked server clear lets
+  a concurrent edit survive.
 
 ## Verification
 
@@ -407,8 +422,8 @@ Sequential key events under 1,000-row concurrent activity
 assert every input acknowledgement stays below 100 ms. The phone-send sequence
 checks quiet focus protection, clearing after blur, and persistence through reload.
 State-machine checks cover latest pending snapshots, stale review choices and
-per-draft resolution; component checks cover session isolation, previews and
-explicit discard. Desktop 1000×600 and phone 375×812 captures exercise inline
+per-draft resolution; component checks cover session isolation, previews,
+dismissal and the absence of any composer-clearing action. Desktop 1000×600 and phone 375×812 captures exercise inline
 conflict review. Local verification
 uses macOS, Node 24 and bundled Chromium; Linux/Windows runtime validation remains
 with the existing portable-runtime CI matrix. Native mobile upload suspension

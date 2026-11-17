@@ -108,7 +108,7 @@
   "draftSyncUseOther": "Use other version",
   "draftSyncCombine": "Combine drafts",
   "draftSyncRecover": "Recover draft",
-  "draftSyncDiscard": "Discard draft",
+  "draftSyncDiscardRecoveryCopy": "Discard recovery copy",
   "draftSyncClose": "Close review",
   "usersInstructionsEmpty": "No additional instructions.",
   "usersInstructionLabel": "Instruction {number}",
