@@ -1,5 +1,6 @@
 import type {
   ProjectQueueItemSummary,
+  ProviderRuntimeStatus,
   UrlProjectId,
 } from "@yep-anywhere/shared";
 import type { Hono } from "hono";
@@ -112,6 +113,7 @@ describe("Inbox Routes", () => {
       appliedEffort?: Process["appliedEffort"];
     }
   >;
+  let runtimeStatusMap: Map<string, ProviderRuntimeStatus>;
   let unreadMap: Map<string, boolean>;
 
   beforeEach(() => {
@@ -120,6 +122,7 @@ describe("Inbox Routes", () => {
     metadataMap = new Map();
     projectQueueItems = [];
     processMap = new Map();
+    runtimeStatusMap = new Map();
     unreadMap = new Map();
 
     // Mock scanner
@@ -140,6 +143,9 @@ describe("Inbox Routes", () => {
     mockSupervisor = {
       getProcessForSession: vi.fn((sessionId: string) =>
         processMap.get(sessionId),
+      ),
+      getProviderRuntimeStatusForSession: vi.fn(
+        (sessionId: string) => runtimeStatusMap.get(sessionId) ?? null,
       ),
     } as unknown as Supervisor;
 
@@ -1208,6 +1214,69 @@ describe("Inbox Routes", () => {
 
       // One more walk for the new generation, not twenty, and not zero.
       expect(walks()).toBe(2);
+    });
+
+    it("projects provider runtime status live outside the retained walk", async () => {
+      const routes = setUpOneSession();
+      const before = await readInbox(routes);
+      expect(before.recentActivity[0]).not.toHaveProperty(
+        "providerRuntimeStatus",
+      );
+
+      const retryAtMs = Math.floor(Date.now() / 60_000) * 60_000 + 120_000;
+      const retryAt = new Date(retryAtMs).toISOString();
+      const startedAt = minutesAgo(1);
+      const retrying = (attempt: number): ProviderRuntimeStatus => ({
+        kind: "retrying",
+        provider: "claude",
+        reason: "rate_limit",
+        httpStatus: 429,
+        startedAt,
+        lastSeenAt: new Date(Date.now() + attempt).toISOString(),
+        // Backoff moves the retry time within the displayed minute.
+        retryAt: new Date(retryAtMs + attempt * 1_000).toISOString(),
+        attempt,
+        maxRetries: "unbounded",
+        eventCount: attempt,
+        source: "api_retry",
+        details: "x".repeat(10_000),
+      });
+      runtimeStatusMap.set("sess1", retrying(1));
+      const limited = (await readInbox(routes)).recentActivity[0];
+      expect(limited?.providerRuntimeStatus).toEqual({
+        kind: "retrying",
+        provider: "claude",
+        reason: "rate_limit",
+        httpStatus: 429,
+        startedAt,
+        retryAt,
+        source: "api_retry",
+      });
+      // Another attempt at the same reset time must not change the row.
+      runtimeStatusMap.set("sess1", retrying(2));
+      expect((await readInbox(routes)).recentActivity[0]).toEqual(limited);
+
+      // A terminal failure the Supervisor retains after reaping still shows,
+      // with its diagnostic message bounded.
+      runtimeStatusMap.set("sess1", {
+        kind: "terminal",
+        provider: "claude",
+        reason: "server_error",
+        message: "m".repeat(5_000),
+        occurredAt: minutesAgo(0),
+        source: "result",
+      });
+      const terminal = (await readInbox(routes)).recentActivity[0]
+        ?.providerRuntimeStatus;
+      expect(terminal?.kind).toBe("terminal");
+      expect(terminal?.message?.length).toBe(240);
+
+      runtimeStatusMap.delete("sess1");
+      const cleared = await readInbox(routes);
+      expect(cleared.recentActivity[0]).not.toHaveProperty(
+        "providerRuntimeStatus",
+      );
+      expect(walks()).toBe(1);
     });
 
     it("re-tiers a retained walk against the current clock", async () => {

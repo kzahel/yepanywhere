@@ -157,10 +157,17 @@ export interface ProjectQueueCountSource {
   snapshotObservedAt?: number;
 }
 
-export type InboxRowDetails = Pick<InboxItem, "providerPhase" | "modelConfig">;
+export type InboxRowDetails = Pick<
+  InboxItem,
+  "providerPhase" | "modelConfig" | "providerRuntimeStatus"
+>;
 
 export function inboxRowDetails(item: InboxItem): InboxRowDetails {
-  return { providerPhase: item.providerPhase, modelConfig: item.modelConfig };
+  return {
+    providerPhase: item.providerPhase,
+    modelConfig: item.modelConfig,
+    providerRuntimeStatus: item.providerRuntimeStatus,
+  };
 }
 
 export interface InboxCollectionState {
@@ -205,6 +212,10 @@ export function acceptInboxRows(
     rowDetails.set(id, {
       providerPhase: details?.providerPhase ?? old?.providerPhase,
       modelConfig: details?.modelConfig ?? old?.modelConfig,
+      // Absence on an observed row means the status cleared.
+      providerRuntimeStatus: details
+        ? details.providerRuntimeStatus
+        : old?.providerRuntimeStatus,
     });
   }
   return { tiers, rowDetails };

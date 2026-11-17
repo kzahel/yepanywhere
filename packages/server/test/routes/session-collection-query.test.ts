@@ -119,6 +119,7 @@ async function fixture(count = 256, days = 0) {
     },
     supervisor: {
       getProcessForSession: (id: string) => processes.get(id),
+      getProviderRuntimeStatusForSession: () => null,
       getAllProcesses: () =>
         [...processes].map(([sessionId, p]) => ({
           ...(p as object),

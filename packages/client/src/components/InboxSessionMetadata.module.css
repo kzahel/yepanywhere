@@ -30,6 +30,12 @@
   flex-shrink: 0;
 }
 
+.runtime {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .activity {
   display: flex;
   flex: 1;

@@ -124,6 +124,16 @@ phases from the latest complete inbox response only; session-list snapshots
 neither carry nor clear them. The phase contract is in
 [provider waits](provider-wait-and-background-work.md#contracts).
 
+`providerRuntimeStatus` is likewise read per request, from the Supervisor's
+session getter, so terminal failures it retains after reaping still show. It is
+present only while a status exists and is an inbox projection, not the full
+status: per-attempt counters, `details` and request ids are omitted, `message`
+is capped, and `retryAt` is truncated to the minute the chip displays, so a
+retry that leaves the chip unchanged leaves the row unchanged. Rows render it
+as a "rate limited - retry at" (warning) or "stopped" (danger) chip. Older
+servers omit it. The status contract is in
+[provider runtime status](provider-runtime-status.md#inbox-rows).
+
 `pendingInputType` is live process state, not durable session-summary state.
 Inbox uses pending input as an attention reason only when the owned process is
 currently in `waiting-input` with an actionable request. A stale provider

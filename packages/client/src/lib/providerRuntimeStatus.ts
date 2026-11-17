@@ -1,5 +1,6 @@
 import type { useI18n } from "../i18n";
 import { getProvider } from "../providers/registry";
+import type { InboxProviderRuntimeStatus } from "../api/inbox";
 import type { ProviderRuntimeStatus } from "../types";
 import { parseTimestampMs } from "./messageAge";
 
@@ -16,7 +17,7 @@ export interface ProviderRuntimeDisplay {
 }
 
 export function getProviderRuntimeReasonLabel(
-  status: Exclude<ProviderRuntimeStatus, null>,
+  status: Pick<Exclude<ProviderRuntimeStatus, null>, "reason">,
   t: Translate,
 ): string {
   switch (status.reason) {
@@ -40,8 +41,9 @@ function formatRetryClockTime(timestampMs: number): string {
   });
 }
 
+/** Accepts a full status or the inbox row summary, which omits diagnostics. */
 export function describeProviderRuntimeStatus(
-  status: ProviderRuntimeStatus,
+  status: ProviderRuntimeStatus | InboxProviderRuntimeStatus,
   t: Translate,
 ): ProviderRuntimeDisplay | null {
   if (!status) {
@@ -78,11 +80,11 @@ export function describeProviderRuntimeStatus(
       reason,
     }),
     status.message ?? null,
-    status.details ?? null,
+    "details" in status ? (status.details ?? null) : null,
     status.kind === "retrying" && status.httpStatus !== undefined
       ? t("providerRuntimeHttpStatusTitle", { status: status.httpStatus })
       : null,
-    status.kind === "retrying" && status.lastSeenAt
+    status.kind === "retrying" && "lastSeenAt" in status
       ? t("providerRuntimeLastSeenTitle", { time: status.lastSeenAt })
       : null,
     status.kind === "terminal"

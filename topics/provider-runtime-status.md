@@ -363,6 +363,13 @@ visible while the user is deciding whether to retry or change models.
 The status is available through session REST snapshots, live subscription
 snapshots, and activity events so reconnecting clients converge.
 
+### Inbox rows
+
+Inbox rows carry a compact projection of the status, so a session paused by a
+rate limit, or stopped by a terminal error, is visible without opening it. The
+projection and its republish rules are in
+[Inbox](inbox.md).
+
 ### Live transcript
 
 A provider error may also appear at the live transcript tail, where it explains

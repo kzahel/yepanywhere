@@ -21,6 +21,7 @@ import { getSessionDisplayTitle } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import { nonHumanUserTurnField } from "../metadata/SessionMetadataService.js";
 import type {
+  ProviderRuntimeStatus,
   RetainedSessionCollectionState,
   SessionProviderPhase,
 } from "@yep-anywhere/shared";
@@ -96,6 +97,43 @@ export interface InboxDeps {
   externalTracker?: GlobalSessionsDeps["externalTracker"];
 }
 
+type RetryingProviderRuntimeStatus = Extract<
+  Exclude<ProviderRuntimeStatus, null>,
+  { kind: "retrying" }
+>;
+type TerminalProviderRuntimeStatus = Extract<
+  Exclude<ProviderRuntimeStatus, null>,
+  { kind: "terminal" }
+>;
+
+/**
+ * Inbox row projection of a provider runtime status. It omits per-attempt
+ * counters and diagnostics, so a retry that leaves the row's display unchanged
+ * does not change the row, and the server caps `message`.
+ */
+export type InboxProviderRuntimeStatus =
+  | Pick<
+      RetryingProviderRuntimeStatus,
+      | "kind"
+      | "provider"
+      | "reason"
+      | "httpStatus"
+      | "startedAt"
+      | "retryAt"
+      | "source"
+      | "message"
+    >
+  | Pick<
+      TerminalProviderRuntimeStatus,
+      | "kind"
+      | "provider"
+      | "reason"
+      | "message"
+      | "occurredAt"
+      | "source"
+      | "scope"
+    >;
+
 export interface InboxItem {
   /** Optional known settings; absence requires no capability check or request. */
   modelConfig?: InboxModelConfig;
@@ -114,6 +152,8 @@ export interface InboxItem {
   activity?: AgentActivity;
   /** What an active session's provider is doing; absent on older servers. */
   providerPhase?: SessionProviderPhase;
+  /** Provider retry/stop state (e.g. rate limited); absent when none. */
+  providerRuntimeStatus?: InboxProviderRuntimeStatus;
   hasUnread?: boolean;
 }
 
@@ -150,6 +190,54 @@ interface EnrichedInboxSession {
   hasUnread?: boolean;
   customTitle?: string;
   isStarred?: boolean;
+}
+
+/** Bounds a provider diagnostic repeated in every inbox response and update. */
+const RUNTIME_STATUS_MESSAGE_MAX_CHARS = 240;
+
+/** The row shows the retry clock time to the minute; finer changes are noise. */
+function retryAtToMinute(retryAt: string | undefined): string | undefined {
+  const ms = retryAt ? Date.parse(retryAt) : Number.NaN;
+  if (!Number.isFinite(ms)) return retryAt;
+  return new Date(ms - (ms % 60_000)).toISOString();
+}
+
+/**
+ * Keep only what an inbox row shows. Per-attempt counters (`lastSeenAt`,
+ * `attempt`, `eventCount`) and sub-minute `retryAt` changes would otherwise
+ * republish the row on every retry whose chip text has not changed.
+ */
+function summarizeProviderRuntimeStatus(
+  status: ProviderRuntimeStatus,
+): InboxProviderRuntimeStatus | undefined {
+  if (!status) return undefined;
+  const message =
+    status.message && status.message.length > RUNTIME_STATUS_MESSAGE_MAX_CHARS
+      ? `${status.message.slice(0, RUNTIME_STATUS_MESSAGE_MAX_CHARS - 1)}…`
+      : status.message;
+  if (status.kind === "terminal") {
+    return {
+      kind: "terminal",
+      provider: status.provider,
+      reason: status.reason,
+      message: message ?? "",
+      occurredAt: status.occurredAt,
+      source: status.source,
+      ...(status.scope ? { scope: status.scope } : {}),
+    };
+  }
+  return {
+    kind: "retrying",
+    provider: status.provider,
+    reason: status.reason,
+    startedAt: status.startedAt,
+    source: status.source,
+    ...(status.httpStatus !== undefined
+      ? { httpStatus: status.httpStatus }
+      : {}),
+    ...(status.retryAt ? { retryAt: retryAtToMinute(status.retryAt) } : {}),
+    ...(message ? { message } : {}),
+  };
 }
 
 /** Time thresholds in milliseconds */
@@ -429,40 +517,46 @@ export function createInboxRoutes(deps: InboxDeps): Hono {
       nonHumanUserTurn = item.nonHumanUserTurn !== undefined
         ? item.nonHumanUserTurn
         : nonHumanUserTurnField(deps.sessionMetadataService, item.session.id),
-    ): InboxItem => ({
-      modelConfig:
-        inboxModelConfig(
-          item.session.provider,
-          deps.supervisor?.getProcessForSession(item.session.id),
-          undefined,
-        ) ?? item.modelConfig,
-      nonHumanUserTurn,
-      sessionId: item.session.id,
-      projectId: item.session.projectId,
-      projectName: item.projectName,
-      sessionTitle:
-        retained && item.session.title == null && !item.customTitle
-          ? undefined
-          : getSessionDisplayTitle({
-              customTitle: item.customTitle,
-              title: item.session.title,
-            }),
-      updatedAt: item.session.updatedAt,
-      customTitle: item.customTitle,
-      creationProvenance: item.creationProvenance,
-      creation: item.creation,
-      isStarred: item.isStarred,
-      pendingInputType: item.pendingInputType,
-      activity: item.activity,
-      providerPhase:
-        item.activity === "in-turn"
-          ? sessionProviderPhaseFromProcess(
-              deps.supervisor?.getProcessForSession(item.session.id),
-            )
-          : undefined,
-      hasUnread: item.hasUnread,
-      asyncQuestions: item.session.asyncQuestions,
-    });
+    ): InboxItem => {
+      // Read live per response, outside the retained walk, like the phase.
+      const process = deps.supervisor?.getProcessForSession(item.session.id);
+      // The Supervisor getter also covers terminal failures it retains after
+      // the Process is reaped.
+      const providerRuntimeStatus = summarizeProviderRuntimeStatus(
+        deps.supervisor?.getProviderRuntimeStatusForSession(item.session.id) ??
+          null,
+      );
+      return {
+        modelConfig:
+          inboxModelConfig(item.session.provider, process, undefined) ??
+          item.modelConfig,
+        nonHumanUserTurn,
+        sessionId: item.session.id,
+        projectId: item.session.projectId,
+        projectName: item.projectName,
+        sessionTitle:
+          retained && item.session.title == null && !item.customTitle
+            ? undefined
+            : getSessionDisplayTitle({
+                customTitle: item.customTitle,
+                title: item.session.title,
+              }),
+        updatedAt: item.session.updatedAt,
+        customTitle: item.customTitle,
+        creationProvenance: item.creationProvenance,
+        creation: item.creation,
+        isStarred: item.isStarred,
+        pendingInputType: item.pendingInputType,
+        activity: item.activity,
+        providerPhase:
+          item.activity === "in-turn"
+            ? sessionProviderPhaseFromProcess(process)
+            : undefined,
+        ...(providerRuntimeStatus ? { providerRuntimeStatus } : {}),
+        hasUnread: item.hasUnread,
+        asyncQuestions: item.session.asyncQuestions,
+      };
+    };
 
     // Tier 1: needsAttention - sessions with pending input
     for (const item of allSessions) {

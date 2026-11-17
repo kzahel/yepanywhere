@@ -274,6 +274,7 @@ export function selectInboxTierItems(
             ...item,
             providerPhase: details?.providerPhase,
             modelConfig: details?.modelConfig,
+            providerRuntimeStatus: details?.providerRuntimeStatus,
           },
         ]
       : [];

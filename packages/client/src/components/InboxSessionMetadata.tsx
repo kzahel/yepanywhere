@@ -1,5 +1,6 @@
 import type { InboxItem } from "../api/inbox";
 import { useI18n } from "../i18n";
+import { describeProviderRuntimeStatus } from "../lib/providerRuntimeStatus";
 import { formatSessionRelativeTime } from "../lib/sessionAge";
 import { ProviderBadge } from "./ProviderBadge";
 import { SessionProviderPhasePill } from "./SessionProviderPhase";
@@ -19,6 +20,9 @@ export function InboxSessionMetadata({
 }) {
   const { t } = useI18n();
   const config = item.modelConfig;
+  const runtime = item.providerRuntimeStatus
+    ? describeProviderRuntimeStatus(item.providerRuntimeStatus, t)
+    : null;
   return (
     <span className={styles.root} data-inbox-session-meta>
       <span className={styles.details}>
@@ -30,6 +34,18 @@ export function InboxSessionMetadata({
         <span className={styles.age}>
           {formatSessionRelativeTime(item.updatedAt)}
         </span>
+        {runtime && (
+          <Badge
+            tone={runtime.tone === "danger" ? "danger" : "warning"}
+            size="small"
+            role="status"
+            tooltip={runtime.title}
+            className={styles.runtime}
+            data-testid="inbox-provider-runtime-status"
+          >
+            {runtime.summary}
+          </Badge>
+        )}
         {badge && (
           <Badge tone={badge.tone} size="small">
             {t(badge.label as never)}
