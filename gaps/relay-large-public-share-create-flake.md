@@ -36,3 +36,14 @@ Desktop 0.12.1 source `de811d52b` reproduced the same retryable frozen-boundary
 409 in [CI 43903987109, shard 2](https://github.com/kzahel/yepanywhere/actions/runs/43903987109/job/133427778906).
 The retry and complete local browser suite passed. No capture-boundary guard
 or assertion was relaxed for the release.
+
+The November 13–17 reports contain 22 retry passes across 38 runs with
+reports, including 16 with the explicit frozen-boundary refusal. Session
+detail reads the external tracker's ownership before loading history. A
+catalog read can succeed before that asynchronous tracker sees the write,
+so the two capture reads can disagree on whether to include the pending
+turn. The relay fixture now waits for external ownership through metadata
+and asserts that the public viewer excludes that turn. This preserves the
+chunking assertion and leaves the real transition and capture guard in
+place. Six local repetitions passed with two workers and retries disabled.
+Repeated hosted verification and the user-facing refusal stay open.

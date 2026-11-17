@@ -784,18 +784,27 @@ test.describe("Full Relay Integration", () => {
     await putSettings(baseURL, { publicSharesEnabled: true });
 
     try {
+      // Discovery can read the file before the external tracker sees its write.
+      // Wait for the ownership used by frozen capture to exclude the pending turn.
       await expect
         .poll(
-          async () =>
-            (
-              await fetch(
-                `${baseURL}/api/projects/${projectId}/sessions/${sessionId}?fullHistory=1`,
-                { headers: { "X-Yep-Anywhere": "true" } },
-              )
-            ).status,
+          async () => {
+            const response = await fetch(
+              `${baseURL}/api/projects/${projectId}/sessions/${sessionId}/metadata`,
+              { headers: { "X-Yep-Anywhere": "true" } },
+            );
+            if (!response.ok) {
+              await response.body?.cancel();
+              return `HTTP ${response.status}`;
+            }
+            const body = (await response.json()) as {
+              ownership?: { owner?: string };
+            };
+            return body.ownership?.owner;
+          },
           { timeout: 10_000 },
         )
-        .toBe(200);
+        .toBe("external");
       const createResponse = await fetch(`${baseURL}/api/public-shares`, {
         method: "POST",
         headers: {
@@ -872,6 +881,9 @@ test.describe("Full Relay Integration", () => {
           exact: true,
         }),
       ).toBeVisible({ timeout: 20_000 });
+      await expect(
+        page.getByText("Pending fixture turn", { exact: true }),
+      ).toHaveCount(0);
       expect(chunkSizes.length).toBeGreaterThan(1);
       expect(
         chunkSizes.every(

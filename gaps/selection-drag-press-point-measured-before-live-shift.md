@@ -21,4 +21,9 @@ or an artifact of the fixture emitting `content_block_delta` without
 [browser follow scroll initial activity retry](browser-follow-scroll-initial-activity-retry.md)
 covers the same spec and is plausibly the same early layout shift.
 
+The fixture now checks both endpoint rows are in view and presses the intended
+Reply 20 text before sending live updates. The layout change then occurs during
+the drag. Six local repetitions passed with two workers and retries disabled.
+Hosted verification and the empty live row in the earlier trace remain open.
+
 Found 2026-11-13 while diagnosing first-attempt CI failures.

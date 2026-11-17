@@ -312,8 +312,11 @@ replaces them. Measure before and after on comparable runs:
   Separate product regressions, broken fixtures/builds, and intermittent tests.
   Repeated failures across commits are not a flakiness estimate.
   A retry pass leaves its shard job green, so job results hide these cases.
+  Each browser shard writes retry passes and overall failures to the GitHub
+  Actions summary, with the spec location and each attempt's outcome.
   `node scripts/e2e-flake-report.mjs --since <date>` counts them from the
   shards' JSON reports, and `--case <substring>` lists each failing attempt.
+  Add `--flaky-only --min 2` to rank cases by recurring retry passes.
   The measured typing cases listed in the
   [shared-CI typing policy](ui-testing.md#sequential-typing-latency) also preserve
   `typing-diagnostics-*.json` attachments in the browser evidence artifact,

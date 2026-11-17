@@ -192,46 +192,45 @@ async function openLiveSession(page: Page) {
 
     const emit = emitters[0]!;
     let messages = 0;
-    const startActivity = ({ deltasOnly = false } = {}) => {
-      let sent = 0;
-      if (deltasOnly) {
-        for (const event of [
-          { type: "message_start", message: { id: "msg-live-tail" } },
-          {
-            type: "content_block_start",
+    const emitStreamEvent = (uuid: string, event: object) =>
+      emit({
+        type: "stream_event",
+        uuid,
+        session_id: "sel-a",
+        parent_tool_use_id: null,
+        event,
+        timestamp: new Date().toISOString(),
+      });
+    const startStreaming = () => {
+      emitStreamEvent("se-live-start", {
+        type: "message_start",
+        message: { id: "msg-live-tail" },
+      });
+      emitStreamEvent("se-live-block", {
+        type: "content_block_start",
+        index: 0,
+        content_block: { type: "text", text: "" },
+      });
+      let paragraph = 0;
+      return (count: number) => {
+        for (let index = 0; index < count; index++) {
+          paragraph++;
+          emitStreamEvent(`se-live-${paragraph}`, {
+            type: "content_block_delta",
             index: 0,
-            content_block: { type: "text", text: "" },
-          },
-        ]) {
-          emit({
-            type: "stream_event",
-            uuid: `se-${event.type}`,
-            session_id: "sel-a",
-            parent_tool_use_id: null,
-            event,
-            timestamp: new Date().toISOString(),
+            delta: {
+              type: "text_delta",
+              text: `Streamed paragraph ${paragraph} grows the live tail.\n\n`,
+            },
           });
         }
-      }
+      };
+    };
+    const startActivity = () => {
+      let sent = 0;
       const timer = setInterval(() => {
         sent += 1;
-        if (deltasOnly) {
-          emit({
-            type: "stream_event",
-            uuid: `se-${sent}`,
-            session_id: "sel-a",
-            parent_tool_use_id: null,
-            event: {
-              type: "content_block_delta",
-              index: 0,
-              delta: {
-                type: "text_delta",
-                text: `Streamed paragraph ${sent} grows the live tail.\n\n`,
-              },
-            },
-            timestamp: new Date().toISOString(),
-          });
-        } else if (sent % 10 === 0) {
+        if (sent % 10 === 0) {
           messages += 1;
           emit({
             type: "assistant",
@@ -248,17 +247,10 @@ async function openLiveSession(page: Page) {
             timestamp: new Date().toISOString(),
           });
         } else {
-          emit({
-            type: "stream_event",
-            uuid: `se-${messages}-${sent}`,
-            session_id: "sel-a",
-            parent_tool_use_id: null,
-            event: {
-              type: "content_block_delta",
-              index: 0,
-              delta: { type: "text_delta", text: `token${sent} ` },
-            },
-            timestamp: new Date().toISOString(),
+          emitStreamEvent(`se-${messages}-${sent}`, {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "text_delta", text: `token${sent} ` },
           });
         }
       }, 40);
@@ -269,6 +261,7 @@ async function openLiveSession(page: Page) {
     };
     return {
       startActivity,
+      startStreaming,
       close,
     };
   } catch (error) {
@@ -291,14 +284,15 @@ test("a drag keeps its press point when the browser loses it mid-drag", async ({
   test.setTimeout(180_000);
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   const session = await openLiveSession(page);
-  const activity = session.startActivity();
+  let activity: ReturnType<typeof session.startActivity> | undefined;
   try {
-    await page
-      .locator("[data-message-list]")
-      .getByText("Reply 20 opens here")
-      .scrollIntoViewIfNeeded();
-    await page.mouse.wheel(0, -200);
-    await page.waitForTimeout(400);
+    const transcript = page.locator("[data-message-list]");
+    const startRow = transcript.getByText("Reply 20 opens here");
+    const endRow = transcript.getByText("Reply 21 opens here");
+    await startRow.scrollIntoViewIfNeeded();
+    await endRow.scrollIntoViewIfNeeded();
+    await expect(startRow).toBeInViewport();
+    await expect(endRow).toBeInViewport();
     const start = await textPoint(page, "Reply 20 middle");
     const end = await textPoint(page, "Reply 21 middle");
     const anchor = () =>
@@ -311,9 +305,13 @@ test("a drag keeps its press point when the browser loses it mid-drag", async ({
       });
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
-    await page.waitForTimeout(50);
+    await expect
+      .poll(async () => (await anchor()).text)
+      .toContain("Reply 20 middle");
     const pressed = await anchor();
-    expect(pressed.text).toContain("Reply ");
+    // Start updates after the press so the first layout shift happens during
+    // the drag, when the selection anchor must survive it.
+    activity = session.startActivity();
     for (let step = 1; step <= 6; step++) {
       await page.mouse.move(
         start.x + ((end.x - start.x) * step) / 12,
@@ -378,7 +376,7 @@ test("a drag keeps its press point when the browser loses it mid-drag", async ({
         .slice(0, 40),
     );
   } finally {
-    activity.stop();
+    activity?.stop();
     await session.close();
   }
 });
@@ -392,19 +390,20 @@ test("a held button stops follow scrolling and a click resumes it", async ({
   const metrics = () =>
     scroller.evaluate((node) => ({
       height: node.scrollHeight,
+      scrollTop: node.scrollTop,
       fromBottom: node.scrollHeight - node.clientHeight - node.scrollTop,
     }));
-  const activity = session.startActivity({ deltasOnly: true });
   try {
-    // Precondition: the live tail grows and the view follows it.
+    const appendParagraphs = session.startStreaming();
+    const initial = await metrics();
+    appendParagraphs(10);
+    // Rendering a taller tail and following it can happen on different frames.
     await expect
-      .poll(() => page.getByText("Streamed paragraph 5").count())
-      .toBeGreaterThan(0);
-    const followingFrom = await metrics();
-    await page.waitForTimeout(800);
-    const followingTo = await metrics();
-    expect(followingTo.height).toBeGreaterThan(followingFrom.height);
-    expect(followingTo.fromBottom).toBeLessThan(4);
+      .poll(async () => {
+        const current = await metrics();
+        return current.height > initial.height && current.fromBottom < 4;
+      })
+      .toBe(true);
 
     const box = await scroller.boundingBox();
     if (!box) throw new Error("Missing transcript scroller");
@@ -458,16 +457,25 @@ test("a held button stops follow scrolling and a click resumes it", async ({
     await page.mouse.down();
     const before = await under();
     const heldFrom = await metrics();
-    const seen: string[] = [];
-    for (let sample = 0; sample < 12; sample++) {
-      await page.waitForTimeout(100);
-      seen.push(await under());
+    let heldTo = heldFrom;
+    for (let batch = 0; batch < 3; batch++) {
+      const previousHeight = heldTo.height;
+      appendParagraphs(5);
+      await expect
+        .poll(async () => (await metrics()).height)
+        .toBeGreaterThan(previousHeight);
+      // Give follow-scroll a paint after the new content changes the height.
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      heldTo = await metrics();
+      expect(Math.abs(heldTo.scrollTop - heldFrom.scrollTop)).toBeLessThan(4);
+      expect(await under()).toBe(before);
     }
-    const heldTo = await metrics();
-    // Output kept arriving below, and the text under the button never moved.
-    expect(heldTo.height).toBeGreaterThan(heldFrom.height);
     expect(heldTo.fromBottom).toBeGreaterThan(heldFrom.fromBottom);
-    expect(new Set(seen)).toEqual(new Set([before]));
 
     // Released without moving: a click, so following resumes.
     await page.mouse.up();
@@ -479,7 +487,6 @@ test("a held button stops follow scrolling and a click resumes it", async ({
       )
       .toBeLessThan(4);
   } finally {
-    activity.stop();
     await session.close();
   }
 });

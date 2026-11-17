@@ -9,11 +9,12 @@
  * per case, how many runs were flaky (passed on retry) or failed every attempt.
  *
  *   e2e-flake-report.mjs [--since YYYY-MM-DD] [--branch main] [--min 1]
- *                        [--case <substring>] [--cache <dir>]
+ *                        [--case <substring>] [--flaky-only] [--cache <dir>]
  *
  * --since defaults to seven days ago; artifacts are retained for 14 days.
  * --case prints each failing attempt of matching cases with its error, worker
  * and duration, plus recorded typing-target misses even when the case passed.
+ * --flaky-only ranks cases by how often they passed on retry.
  * Reports are cached by run, so a repeat invocation only
  * downloads new runs. See topics/e2e-testing.md#measuring-value-time-and-instability.
  */
@@ -23,6 +24,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify, stripVTControlCharacters } from "node:util";
+import { e2eReportCases } from "./e2e-report-cases.mjs";
 
 const run = promisify(execFile);
 const options = {
@@ -33,15 +35,21 @@ const options = {
   cache: join(tmpdir(), "yep-e2e-flake-reports"),
 };
 const argv = process.argv.slice(2);
-for (let index = 0; index < argv.length; index += 2) {
+let flakyOnly = false;
+for (let index = 0; index < argv.length; index++) {
+  if (argv[index] === "--flaky-only") {
+    flakyOnly = true;
+    continue;
+  }
   const key = argv[index]?.replace(/^--/, "");
   if (!key || !(key in options) || argv[index + 1] === undefined) {
     console.error(
-      "usage: e2e-flake-report.mjs [--since YYYY-MM-DD] [--branch main] [--min 1] [--case <substring>] [--cache <dir>]",
+      "usage: e2e-flake-report.mjs [--since YYYY-MM-DD] [--branch main] [--min 1] [--case <substring>] [--flaky-only] [--cache <dir>]",
     );
     process.exit(2);
   }
-  options[key] = key === "min" ? Number(argv[index + 1]) : argv[index + 1];
+  const value = argv[++index];
+  options[key] = key === "min" ? Number(value) : value;
 }
 
 async function gh(args) {
@@ -90,63 +98,57 @@ for (let index = 0; index < pending.length; index += 6)
   await Promise.all(pending.slice(index, index + 6).map(download));
 
 const cases = new Map();
-function visit(suite, file, context) {
-  for (const child of suite.suites ?? [])
-    visit(child, child.file ?? file, context);
-  for (const spec of suite.specs ?? []) {
-    for (const test of spec.tests ?? []) {
-      const key = `${spec.file ?? file} :: ${spec.title}`;
-      let entry = cases.get(key);
-      if (!entry) {
-        entry = {
-          executions: 0,
-          flaky: [],
-          failed: [],
-          targetMisses: [],
-          errors: new Map(),
-        };
-        cases.set(key, entry);
-      }
-      entry.executions++;
-      const targetMisses = test.results.flatMap((result) =>
-        (result.annotations ?? [])
-          .filter((annotation) => annotation.type === "typing-target-miss")
-          .map((annotation) => ({
-            retry: result.retry,
-            description: annotation.description,
-          })),
+function countCase({ spec, test, file }, context) {
+  const key = `${file} :: ${spec.title}`;
+  let entry = cases.get(key);
+  if (!entry) {
+    entry = {
+      executions: 0,
+      flaky: [],
+      failed: [],
+      targetMisses: [],
+      errors: new Map(),
+    };
+    cases.set(key, entry);
+  }
+  entry.executions++;
+  const targetMisses = test.results.flatMap((result) =>
+    (result.annotations ?? [])
+      .filter((annotation) => annotation.type === "typing-target-miss")
+      .map((annotation) => ({
+        retry: result.retry,
+        description: annotation.description,
+      })),
+  );
+  if (targetMisses.length) {
+    entry.targetMisses.push(context);
+    if (options.case && key.includes(options.case)) {
+      for (const miss of targetMisses)
+        console.log(
+          `${context.createdAt} run ${context.run} ${context.sha} ${file}:${spec.line} ` +
+            `retry ${miss.retry} typing target exceeded: ${miss.description}`,
+        );
+    }
+  }
+  if (test.status !== "flaky" && test.status !== "unexpected") return;
+  (test.status === "flaky" ? entry.flaky : entry.failed).push(context);
+  for (const result of test.results) {
+    if (result.status === "passed" || result.status === "skipped") continue;
+    const message = stripVTControlCharacters(
+      result.error?.message ?? result.status,
+    )
+      .split("\n")
+      .filter((line) => line.trim())
+      .slice(0, 3)
+      .join(" | ")
+      .slice(0, 200);
+    entry.errors.set(message, (entry.errors.get(message) ?? 0) + 1);
+    if (options.case && key.includes(options.case)) {
+      console.log(
+        `${context.createdAt} run ${context.run} ${context.sha} ${file}:${spec.line} ` +
+          `retry ${result.retry} ${result.status} ${result.duration}ms ` +
+          `worker ${result.workerIndex}/${result.parallelIndex}\n  ${message}`,
       );
-      if (targetMisses.length) {
-        entry.targetMisses.push(context);
-        if (options.case && key.includes(options.case)) {
-          for (const miss of targetMisses)
-            console.log(
-              `${context.createdAt} run ${context.run} ${context.sha} ${spec.file}:${spec.line} ` +
-                `retry ${miss.retry} typing target exceeded: ${miss.description}`,
-            );
-        }
-      }
-      if (test.status !== "flaky" && test.status !== "unexpected") continue;
-      (test.status === "flaky" ? entry.flaky : entry.failed).push(context);
-      for (const result of test.results) {
-        if (result.status === "passed" || result.status === "skipped") continue;
-        const message = stripVTControlCharacters(
-          result.error?.message ?? result.status,
-        )
-          .split("\n")
-          .filter((line) => line.trim())
-          .slice(0, 3)
-          .join(" | ")
-          .slice(0, 200);
-        entry.errors.set(message, (entry.errors.get(message) ?? 0) + 1);
-        if (options.case && key.includes(options.case)) {
-          console.log(
-            `${context.createdAt} run ${context.run} ${context.sha} ${spec.file}:${spec.line} ` +
-              `retry ${result.retry} ${result.status} ${result.duration}ms ` +
-              `worker ${result.workerIndex}/${result.parallelIndex}\n  ${message}`,
-          );
-        }
-      }
     }
   }
 }
@@ -170,24 +172,24 @@ for (const entry of runs) {
       sha: entry.headSha.slice(0, 9),
       createdAt: entry.createdAt,
     };
-    for (const suite of JSON.parse(readFileSync(path, "utf8")).suites ?? [])
-      visit(suite, suite.file, context);
+    const report = JSON.parse(readFileSync(path, "utf8"));
+    for (const entry of e2eReportCases(report.suites))
+      countCase(entry, context);
   }
 }
 
 console.log(
   `${reported} CI runs with browser reports on ${options.branch} since ${options.since}`,
 );
+const relevantFailures = (entry) =>
+  entry.flaky.length + (flakyOnly ? 0 : entry.failed.length);
 const rows = [...cases]
   .filter(
     ([, entry]) =>
-      entry.flaky.length + entry.failed.length >= options.min ||
-      entry.targetMisses.length >= options.min,
+      relevantFailures(entry) >= options.min ||
+      (!flakyOnly && entry.targetMisses.length >= options.min),
   )
-  .sort(
-    ([, a], [, b]) =>
-      b.flaky.length + b.failed.length - (a.flaky.length + a.failed.length),
-  );
+  .sort(([, a], [, b]) => relevantFailures(b) - relevantFailures(a));
 for (const [key, entry] of rows) {
   const last = [...entry.flaky, ...entry.failed, ...entry.targetMisses]
     .map((context) => context.createdAt)

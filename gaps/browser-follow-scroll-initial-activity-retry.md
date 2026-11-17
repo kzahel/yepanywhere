@@ -18,4 +18,12 @@ run passed without retries. The recurrence remains unresolved.
 [CI 37691081022](https://github.com/kzahel/yepanywhere/actions/runs/37691081022)
 also required a retry, with a 294 px initial gap.
 
+The November 16–17 reports show five more retry passes in 13 runs with
+reports. The held-button case now sends controlled batches, waits for a
+grown tail to reach the bottom before pressing, and checks both scroll
+position and the text under the pointer after each batch while held.
+Releasing the button must still return to the tail. Hosted verification of
+the fixture change is pending after six passing local repetitions with two
+workers and retries disabled.
+
 Found 2026-10-01 while checking hosted iOS and main CI results.

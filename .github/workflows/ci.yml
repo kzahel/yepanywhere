@@ -443,6 +443,9 @@ jobs:
           E2E_WORKERS: ${{ inputs.e2e_workers || '2' }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/e2e-report.json
         run: pnpm test:e2e --reporter=list,github,json --max-failures=5 --workers="$E2E_WORKERS" --test-list "$RUNNER_TEMP/e2e-shard-files.txt"
+      - name: Summarize first-attempt browser results
+        if: ${{ !cancelled() }}
+        run: node scripts/e2e-shard-summary.mjs "$RUNNER_TEMP/e2e-report.json" "${{ matrix.shard }}/${{ inputs.e2e_shards || '4' }}"
       # `node scripts/e2e-shard-plan.mjs record <reports...>` refreshes the
       # plan's durations from a green run's reports.
       - name: Preserve shard timing report
