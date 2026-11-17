@@ -262,25 +262,23 @@ there is no silent WASM fallback), `@firebase/util` (bakes
 
 Advisories triaged as unreachable are suppressed via
 `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`; that list and this
-table must stay in sync — every ignored GHSA needs a row here, and removing a
-row means removing the ignore. As of 2026-11-04 three advisories are triaged as
-unreachable with no fix compatible with YA's current dependency and runtime
-constraints. Re-check when the listed trigger fires rather than re-deriving the
-analysis:
+table must stay in sync. Every ignored GHSA needs a row here, and removing a
+row means removing the ignore. Re-check when the listed trigger fires.
 
 | Advisory | Why unreachable | Revisit when |
 |---|---|---|
 | `minimatch` globparts amplification ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) | Production audit reaches only push broker `firebase-admin -> firestore -> google-gax@5.0.8 -> rimraf@5 -> glob@10 -> minimatch@9`. The affected preprocessing requires attacker patterns and optimization level 2. The installed Google GAX published `build/` imports neither rimraf nor glob; rimraf is unused cleanup tooling carried as a production dependency. Push broker never invokes it or the glob CLI | GAX begins invoking that dependency at runtime, YA adds a glob/minimatch consumer, or the parent declares a compatible patched range (currently patch requires minimatch 11) |
 | `glob` traversal continuing after cancellation ([GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)) | Same unused GAX/rimraf chain. No production push-broker path starts this traversal, with an attacker pattern or otherwise. Patched glob 14 is outside rimraf 5's declared glob 10 range; a forced major replacement is unnecessary for build-only code | GAX/YA starts using glob traversal at runtime, or the dependency chain accepts the patched major |
 | `uuid` buffer bounds (GHSA-w5hq-g745-h8pq) | Only path is `firebase-admin -> @google-cloud/storage -> gaxios@6`, which calls `uuid.v4()` with no arguments; the defect needs v3/v5/v6 with a caller-supplied `buf`. Patched only in `>=11.1.1`, outside gaxios 6's `^9` range | `firebase-admin`/`gaxios` declare uuid `>=11`, or a 9.x patch release appears |
+| `picomatch` denial of service ([GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)) | Workspace Vite tooling and website Astro/Vite tooling use repository-controlled patterns. The production workspace graph contains no `picomatch`, and deployed clients and Pages serve static assets. The website audit uses `scripts/audit-site-dependencies.mjs` to allow this advisory and its npm parent findings. | Update both lockfiles and remove both exceptions when a compatible patched release ships. Reassess if request-controlled patterns reach the tooling or the deployment uses a Node site runtime. |
 
 Anything not on this list is untriaged — treat a new advisory as actionable.
 
 The development graph also includes minimatch 10 through Pi. Its package
 manager calls minimatch with default options, without the affected optimization
 level 2. Revisit that assessment when upgrading Pi or changing its matching
-options. The audit metadata counts affected package versions, so these three
-exceptions currently account for four moderate findings.
+options. The first three exceptions currently account for four moderate
+findings because the audit metadata counts affected package versions.
 
 `ignoreGhsas` only quiets `pnpm audit`. GitHub's Dependabot alerts for the
 same advisories are dismissed per alert, as "vulnerable code not used", with

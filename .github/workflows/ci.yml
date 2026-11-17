@@ -253,7 +253,8 @@ jobs:
       # behind a workspace one until the workspace was repaired.
       # Standalone npm manifests are outside the pnpm workspace. Include dev
       # dependencies: the sharing worker's Wrangler/Miniflare edge is dev-only.
-      - run: npm audit --package-lock-only
+      - name: Audit website dependencies
+        run: node ../scripts/audit-site-dependencies.mjs
         if: ${{ !cancelled() }}
         working-directory: site
       - name: Verify sharing worker frozen install

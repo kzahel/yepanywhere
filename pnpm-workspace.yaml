@@ -40,6 +40,7 @@ auditConfig:
     - GHSA-w5hq-g745-h8pq
     - GHSA-g3hv-75wg-m249
     - GHSA-3g3m-2fjr-6pw4
+    - GHSA-fc5q-39xc-vjpf
 
 patchedDependencies:
   "@hono/node-server@2.1.6": patches/@hono__node-server@2.1.6.patch
