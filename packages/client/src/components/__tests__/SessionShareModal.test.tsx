@@ -761,19 +761,27 @@ describe("SessionShareModal", () => {
         name: "Create and copy Frozen link",
       }),
     );
-    expect(
-      await screen.findByText("Public share link copied to clipboard."),
-    ).toBeTruthy();
+    // Creating clears the inventory in the same update as the notice, so a
+    // visible row means the follow-up reload has landed too; waiting for the
+    // notice alone lets that reload's updates escape React's test boundary.
+    await waitFor(() => {
+      expect(
+        screen.getByText("Public share link copied to clipboard."),
+      ).toBeTruthy();
+      expect(screen.getByRole("listitem")).toBeTruthy();
+    });
     expect(writeText).toHaveBeenCalledTimes(2);
 
-    staleCopy.resolve(undefined);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => {
+      staleCopy.resolve(undefined);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
 
     expect(
       screen.getByText("Public share link copied to clipboard."),
     ).toBeTruthy();
     expect(screen.queryByText("Public link copied to clipboard.")).toBeNull();
-    expect((await screen.findByRole("listitem")).className).not.toContain(
+    expect(screen.getByRole("listitem").className).not.toContain(
       inventoryStyles.rowHighlighted,
     );
   });
