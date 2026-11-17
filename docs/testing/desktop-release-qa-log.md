@@ -56,7 +56,7 @@ artifact capture facility.
 
 Failed-attempt review retains the existing
 [frozen-share boundary](../../gaps/relay-large-public-share-create-flake.md) and
-[phone transcript follow](../../gaps/session-header-responsive-follow-flake.md)
+[phone transcript follow](../../topics/scrollback-view-stability.md#what-the-implementation-does-today)
 findings. The third retry missed the
 [sibling attachment durable-publication check](../../gaps/queue-sibling-attachment-draft-publication-timeout.md)
 before queue acknowledgement; ten focused local repetitions passed without

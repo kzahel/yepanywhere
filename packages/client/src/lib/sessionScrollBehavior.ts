@@ -17,6 +17,37 @@ export type SessionScrollRestoreDecision =
   | "follow-bottom"
   | "restore-position";
 
+export type FollowScrollPosition = {
+  top: number;
+  width: number;
+  height: number;
+};
+
+// Rounding tolerance for bottom visibility and scroll direction.
+export const FOLLOW_BOTTOM_TOLERANCE_PX = 4;
+
+export function readFollowScrollPosition(
+  viewport: HTMLElement,
+  top = viewport.scrollTop,
+): FollowScrollPosition {
+  return { top, width: viewport.clientWidth, height: viewport.clientHeight };
+}
+
+export function movedUpFromFollowPosition(
+  viewport: HTMLElement,
+  previous: FollowScrollPosition | null,
+): boolean {
+  // A reflow can move scrollTop before the resize observer re-pins the tail.
+  // Compare positions only in the same viewport geometry. Explicit gestures
+  // release follow through their own input handlers.
+  return (
+    previous !== null &&
+    viewport.clientWidth === previous.width &&
+    viewport.clientHeight === previous.height &&
+    viewport.scrollTop < previous.top - FOLLOW_BOTTOM_TOLERANCE_PX
+  );
+}
+
 export function parseSessionScrollBehaviorMode(
   value: string | null | undefined,
 ): SessionScrollBehaviorMode {

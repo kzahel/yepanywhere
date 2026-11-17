@@ -260,7 +260,9 @@ test("header preserves identity, overflow actions and rename typing during live 
   ).toHaveCount(0);
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(input).toBeFocused();
-  expect((await input.boundingBox())!.width).toBeGreaterThan(180);
+  await expect
+    .poll(async () => (await input.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(180);
   await page.setViewportSize({ width: 1000, height: 600 });
   await input.pressSequentially(desktopTitle);
   await input.press("Enter");
@@ -322,6 +324,9 @@ test("header preserves identity, overflow actions and rename typing during live 
   ).toBe(true);
   await expect(header.locator("[data-provider-badge]")).toHaveText("So 6.1H");
   await expect(header.locator("[data-session-title-text]")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Follow latest session output" }),
+  ).toHaveCount(0);
   await expect(
     header.getByRole("button", {
       name: "1 issue or pull request associated with this session",

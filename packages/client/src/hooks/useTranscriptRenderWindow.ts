@@ -187,6 +187,7 @@ export function useTranscriptRenderWindow<TRow extends KeyedTranscriptRow>({
   const rowStartsRef = useRef(new Map<string, HTMLSpanElement>());
   const rowEndsRef = useRef(new Map<string, HTMLSpanElement>());
   const listStartRef = useRef<HTMLSpanElement | null>(null);
+  const followTailRef = useRef(followTail);
   const pendingAnchorRef = useRef<VisibleRenderAnchor | null>(null);
   const revealingRef = useRef(false);
   const viewportFrameRef = useRef<number | null>(null);
@@ -286,6 +287,7 @@ export function useTranscriptRenderWindow<TRow extends KeyedTranscriptRow>({
     model.totalHeightPx - (selectedRows[selectedRows.length - 1]?.endPx ?? 0);
 
   const captureVisibleAnchor = useCallback(() => {
+    if (followTailRef.current) return;
     const messageList = containerRef.current;
     const scrollContainer = messageList?.parentElement;
     if (!messageList || !scrollContainer) return;
@@ -382,9 +384,11 @@ export function useTranscriptRenderWindow<TRow extends KeyedTranscriptRow>({
   );
 
   useLayoutEffect(() => {
+    followTailRef.current = followTail;
     const pendingAnchor = pendingAnchorRef.current;
     pendingAnchorRef.current = null;
-    if (!pendingAnchor) return;
+    // The transcript's live-tail owner can re-pin between capture and commit.
+    if (!pendingAnchor || followTail) return;
     const messageList = containerRef.current;
     const scrollContainer = messageList?.parentElement;
     const anchorRow = findRenderRow(messageList, pendingAnchor.id);

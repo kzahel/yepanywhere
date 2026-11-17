@@ -21,7 +21,7 @@
       "maxLines": 3776
     },
     "packages/client/src/components/MessageList.tsx": {
-      "maxLines": 5542,
+      "maxLines": 5537,
       "raise": {
         "from": 5702,
         "reason": "Removing the export-star renderSelectors barrel splits its one import into per-module imports from the owning sessionDetail concern modules. Maintainer-approved 2026-11-06."

@@ -103,6 +103,10 @@ import {
 import {
   decideSessionScrollRestore,
   DEFAULT_SESSION_SCROLL_BEHAVIOR_MODE,
+  FOLLOW_BOTTOM_TOLERANCE_PX,
+  type FollowScrollPosition,
+  movedUpFromFollowPosition,
+  readFollowScrollPosition,
   type SessionScrollBehaviorMode,
 } from "../lib/sessionScrollBehavior";
 import {
@@ -345,9 +349,6 @@ function isNearScrollBottom(container: HTMLElement): boolean {
   );
 }
 
-// Tolerance for "the last line is in view" — sub-pixel / zoom / high-DPI
-// rounding only, not a behavioural band.
-const FOLLOW_BOTTOM_TOLERANCE_PX = 4;
 // Scroll snapshots are warm-restore hints, not live state: capture involves a
 // full anchor walk (rect reads), so per-tick publishes coalesce to a trailing
 // capture; leave/settle paths still publish immediately.
@@ -1530,7 +1531,7 @@ export const MessageList = memo(function MessageList({
   const isProgrammaticScrollRef = useRef(false);
   const lastHeightRef = useRef(0);
   const disclosureHeightChangeRestoreRef = useRef<(() => void) | null>(null);
-  const lastFollowScrollTopRef = useRef(0);
+  const followPositionRef = useRef<FollowScrollPosition | null>(null);
   // Lowest scrollTop since the reader released follow, or null when follow was
   // last engaged. Bottom geometry re-acquires follow only after the reader moves
   // back down from it, so a slow upward scroll that is still inside the bottom
@@ -1746,7 +1747,7 @@ export const MessageList = memo(function MessageList({
         container.scrollTo({ top, behavior });
       }
       lastHeightRef.current = container.scrollHeight;
-      lastFollowScrollTopRef.current = top;
+      followPositionRef.current = readFollowScrollPosition(container, top);
       readerReleaseLowScrollTopRef.current = null;
       setIsScrolledToBottom(true);
       reportFollowingBottom(true);
@@ -4197,24 +4198,18 @@ export const MessageList = memo(function MessageList({
 
     const atBottom = isAtScrollBottom(container, content);
     if (shouldAutoScrollRef.current) {
-      // Layout can grow between a bottom write and its scroll event. Unchanged
-      // scrollTop is stale follow geometry and should re-pin; movement upward
-      // from the last follow write is reader intent even when an input precursor
-      // was unavailable or lost amid animated layout work.
-      const movedUpFromFollowWrite =
-        !atBottom &&
-        container.scrollTop <
-          lastFollowScrollTopRef.current - FOLLOW_BOTTOM_TOLERANCE_PX;
-      if (movedUpFromFollowWrite) {
-        stopFollowingForUpwardScroll(container);
-      } else if (!atBottom) {
-        scrollToBottom(container);
-      } else {
-        lastFollowScrollTopRef.current = container.scrollTop;
+      if (atBottom) {
+        followPositionRef.current = readFollowScrollPosition(container);
         thinkingDeltaFollowAllowedRef.current = true;
         setNewOutputBelowVisible(false);
         setIsScrolledToBottom(true);
         reportFollowingBottom(true);
+      } else if (
+        movedUpFromFollowPosition(container, followPositionRef.current)
+      ) {
+        stopFollowingForUpwardScroll(container);
+      } else {
+        scrollToBottom(container);
       }
       scheduleSettledScrollState();
       return;
@@ -4237,7 +4232,7 @@ export const MessageList = memo(function MessageList({
     thinkingDeltaFollowAllowedRef.current = follow;
     if (follow) {
       readerReleaseLowScrollTopRef.current = null;
-      lastFollowScrollTopRef.current = container.scrollTop;
+      followPositionRef.current = readFollowScrollPosition(container);
       setNewOutputBelowVisible(false);
     } else {
       clearForcedCurrentScrollTimers();

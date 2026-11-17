@@ -132,7 +132,7 @@ No Android device is attached; native instrumentation remains unqualified.
   mode boundaries that preserve the same appearance without React/document
   ancestor hooks; external KaTeX/Pandoc recognition separately keeps six
   class-string exceptions.
-- Existing native select popup/prose-font, [transcript-follow flake](../../gaps/session-header-responsive-follow-flake.md)
+- Existing native select popup/prose-font, [transcript follow](../../topics/scrollback-view-stability.md#what-the-implementation-does-today)
   and browser/fixture diagnostics remain separate work; native-device instrumentation and
   Linux/Windows execution were not performed by this CSS campaign.
 

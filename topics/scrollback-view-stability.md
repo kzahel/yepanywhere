@@ -157,11 +157,14 @@ Consequences:
   before restoring composer geometry. While that intent is active, a scroll
   event at the latest follow-written `scrollTop` whose geometry has temporarily
   fallen behind transcript growth re-pins rather than canceling follow. A
-  `scrollTop` movement upward from that write releases follow even if no wheel,
-  touch, scrollbar, or keyboard precursor was observed. Ordinary bottom geometry
-  can still acquire follow when it was already off. Follow also publishes its
-  live-tail route snapshot synchronously; programmatic scroll events are
-  suppressed and cannot be the persistence trigger.
+  `scrollTop` movement upward from that write releases follow within the same
+  viewport dimensions even without a recognized input event. When viewport
+  dimensions change, the browser can shift `scrollTop` before the resize
+  observer runs. An active follower stays at the live tail through that reflow,
+  and render-window measurement restores a reader anchor only while scrolled
+  back. Explicit scroll gestures still release follow. Ordinary bottom
+  geometry can acquire follow when it was already off. Follow also publishes
+  its live-tail route snapshot synchronously.
 - **`RENDERING_PERFORMANCE.md` "Transcript Layout Stability"** is the
   kzahel-side statement of the invariant (no timers/visibility/stream-status
   effects changing historical row height; tidy only via explicit user control).

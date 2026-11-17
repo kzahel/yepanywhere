@@ -2145,7 +2145,16 @@ describe("MessageList scroll and follow", () => {
     expect(onFollowingBottomChange).toHaveBeenCalledWith(false);
   });
 
-  it("lets an upward scroll movement cancel live follow", async () => {
+  it.each([
+    {
+      name: "lets an upward scroll movement cancel live follow",
+      resize: false,
+    },
+    {
+      name: "keeps following when viewport reflow moves the scroll position up",
+      resize: true,
+    },
+  ])("$name", async ({ resize }) => {
     const animationFrames: FrameRequestCallback[] = [];
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       animationFrames.push(callback);
@@ -2172,6 +2181,11 @@ describe("MessageList scroll and follow", () => {
       configurable: true,
       value: 500,
     });
+    let viewportWidth = 650;
+    Object.defineProperty(container, "clientWidth", {
+      configurable: true,
+      get: () => viewportWidth,
+    });
     const messageList = container.querySelector<HTMLElement>(
       "[data-message-list]",
     );
@@ -2195,16 +2209,18 @@ describe("MessageList scroll and follow", () => {
         callback(0);
       }
     });
-    fireEvent.scroll(container);
-    container.scrollTop = 300;
-    fireEvent.scroll(container);
+    await act(async () => fireEvent.scroll(container));
+    await act(async () => {
+      if (resize) viewportWidth = 375;
+      container.scrollTop = 300;
+      fireEvent.scroll(container);
+    });
 
-    expect(container.scrollTop).toBe(300);
-    expect(
-      await screen.findByRole("button", {
-        name: "Follow latest session output",
-      }),
-    ).toBeDefined();
+    expect(container.scrollTop).toBe(resize ? 500 : 300);
+    const follow = screen.queryByRole("button", {
+      name: "Follow latest session output",
+    });
+    expect(Boolean(follow)).toBe(!resize);
   });
 
   it("ignores unanchored top snapshots on initial restore", () => {
