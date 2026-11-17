@@ -4,6 +4,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { once } from "node:events";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { IncomingMessage } from "node:http";
+import { Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
@@ -129,6 +131,22 @@ async function ownerProfile(runtimeControl?: { envOverride?: boolean }) {
   };
 }
 const guard = () => {};
+
+it("declines peer upgrades after the manager shuts down", async () => {
+  const profile = await protectedProfile(cleanup);
+  await profile.manager.close();
+  const socket = new Socket();
+  const request = new IncomingMessage(socket);
+  request.url = "/peer/ws";
+  try {
+    expect(
+      profile.manager.handleUpgrade(request, socket, Buffer.alloc(0)),
+    ).toBe(false);
+  } finally {
+    socket.destroy();
+  }
+});
+
 it("pairs through real ordinary SRP, verifies both directions and preserves peer access across owner-password changes", async () => {
   const a = await ownerProfile({}),
     b = await ownerProfile({}),

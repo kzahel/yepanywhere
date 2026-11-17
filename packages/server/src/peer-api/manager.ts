@@ -369,6 +369,8 @@ export class PeerAccessManager {
   }
   handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer) {
     return (
+      !this.closed &&
+      !this.faulted &&
       this.isEnabled() &&
       (this.runtime?.handleUpgrade(request, socket, head) ?? false)
     );

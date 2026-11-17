@@ -210,11 +210,12 @@ already submitted requests, keeping their own lifetime origin before setup.
 Credential expiry still independently bounds request authority. There are no keepalive pings or
 reconnect loops. Subsequent demand can open a new channel. Source policy
 replacement/removal, target revocation/rotation, route retirement, disablement
-and profile shutdown close the affected channels. Credential/generation
-validity is checked at admission and again before replies. Revoking a warm
-channel can surface `peer_unavailable`; a subsequent fresh handshake cannot
-authenticate the revoked credential. Already accepted native work remains
-accepted.
+and profile shutdown close the affected channels. A peer manager that has
+shut down or faulted declines a new direct upgrade before reading policy.
+Credential and generation validity are checked at admission and again before
+replies. Revoking a warm channel can surface `peer_unavailable`. A subsequent
+fresh handshake cannot authenticate the revoked credential. Already accepted
+native work remains accepted.
 
 Up to eight concurrent requests share a reusable channel. Responses correlate
 by request UUID and may finish out of order; encrypted sequence numbers start
