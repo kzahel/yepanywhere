@@ -1561,9 +1561,6 @@ export class Process {
     }, Process.BUCKET_SWAP_INTERVAL_MS);
   }
 
-  /**
-   * Stop the bucket swap timer.
-   */
   private stopBucketSwapTimer(): void {
     if (this.bucketSwapTimer) {
       clearInterval(this.bucketSwapTimer);
@@ -5500,7 +5497,6 @@ export class Process {
         this.observeQueuedCompaction(message);
         this.promoteIdleForProviderWork(message, receivedAt);
 
-        // Emit to SSE subscribers
         // See shouldEmitMessage() for why we never filter provider-stream
         // messages by content. Skip only a same-uuid user re-yield: sending
         // that copy again lets the client replace the optimistic echo and
@@ -5528,7 +5524,6 @@ export class Process {
           return;
         }
 
-        // Handle special message types
         const claudeSessionState = getClaudeSessionStateChange(message);
         if (claudeSessionState) {
           const effortUpdate =
