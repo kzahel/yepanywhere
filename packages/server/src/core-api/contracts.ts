@@ -26,7 +26,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-11-17.1";
+export const API_REVISION = "2026-11-17.2";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -174,7 +174,7 @@ export const sessionSchema = z.object({
   state: z
     .string()
     .describe(
-      "Observed runtime/catalog state, for example idle, in-turn, waiting-input, compacting (a YA-queued compaction is running) or not-running; not a guarantee that a turn has completed. This resource is a summary, not a transcript.",
+      "Observed session state. A reserved v0 creation may report launching in session detail. Other examples include idle, in-turn, waiting-input, compacting (a YA-queued compaction is running) and not-running. Use the conversation to verify a turn has completed.",
     ),
 });
 export type ApiProject = z.infer<typeof projectSchema>;
@@ -600,21 +600,21 @@ export const operationDocumentation: Record<
   followConversation: {
     summary: "Follow compact conversation over bounded HTTP",
     description:
-      "Without after, returns initial compact state. Reissue using the returned cursor and the same window to wait for prose, failures, pending attention, activity or coverage changes. waitMs is 0–4000 (default4000). Unchanged waits return changed=false, conversation=null. Changed results have reset=true and full replacement state; reconnects, compaction and foreign cursors never claim event replay. Tool-count-only updates do not wake the wait. Initial acquisition has a separate four-second deadline; total request lifetime is at most eight seconds. Finalized prose is sufficient; token streaming is not promised.",
+      "Without after, returns initial compact state. Reissue using the returned cursor and the same window to wait for prose, failures, pending attention, activity or coverage changes. waitMs is 0–4000 (default4000). Unchanged waits return changed=false, conversation=null. Changed results have reset=true and full replacement state; reconnects, compaction and foreign cursors never claim event replay. Tool-count-only updates do not wake the wait. Initial acquisition has a separate four-second deadline; total request lifetime is at most eight seconds. Finalized prose is sufficient; token streaming is not promised. A launching session returns 409 session_not_ready.",
     example:
       "/v0/servers/{serverId}/sessions/{sessionId}/conversation/follow?waitMs=4000",
   },
   conversation: {
     summary: "Read compact conversation and activity",
     description:
-      "Read exact user prose and agent Markdown, stable message ids, observed activity, bounded failure/media references and pending attention as one JSON object. Routine tool payloads, thinking and HTML are excluded. Defaults to maxMessages=20 within tailCompactions=2; applied ceilings are 100 messages and 20 compactions. Larger valid counts return 200 with requested/applied counts and serverLimit coverage. Byte-limited reads return partial history with coverage and truncated flags. idle is not proof of successful completion. Unsupported or unreadable history returns 503 conversation_unavailable; missing anchors return 404 anchor_unavailable. Session detail exposes backingStore locations on the owning server.",
+      "Read exact user prose and agent Markdown, stable message ids, observed activity, bounded failure/media references and pending attention as one JSON object. Routine tool payloads, thinking and HTML are excluded. Defaults to maxMessages=20 within tailCompactions=2; applied ceilings are 100 messages and 20 compactions. Larger valid counts return 200 with requested/applied counts and serverLimit coverage. Byte-limited reads return partial history with coverage and truncated flags. idle is not proof of successful completion. Unsupported or unreadable history returns 503 conversation_unavailable; missing anchors return 404 anchor_unavailable. Session detail exposes backingStore locations on the owning server. A launching session returns 409 session_not_ready.",
     example:
       "/v0/servers/{serverId}/sessions/{sessionId}/conversation?maxMessages=20",
   },
   session: {
     summary: "Inspect one session summary",
     description:
-      "Read canonical YA session detail with settings and routing. settings.source distinguishes live last-applied controls, saved launch settings and unavailable evidence; model is a best-known live model and may still be an alias. Nulls with source=unavailable are unknown, not defaults. routing labels are saved observations. Older peers may omit these fields. Missing/inaccessible/ambiguous sessions return 404 in a complete catalog, or 503 catalog_not_ready if absence is uncertain. Hidden list preferences do not revoke direct access. No transcript or messages are returned.",
+      "Read canonical YA session detail. A reserved id on a dispatching or queued v0 creation receipt returns 200 with state=launching. Local operators and the originating peer with session access to the project can read this response. It omits settings, routing and backingStore. For an established session, settings.source distinguishes live last-applied controls, saved launch settings and unavailable evidence. The live model may still be an alias. Routing labels are saved observations. Older peers may omit these fields. Missing, inaccessible or ambiguous sessions return 404 in a complete catalog, or 503 catalog_not_ready if absence is uncertain. Hidden list preferences do not revoke direct access.",
     example: "/v0/servers/{serverId}/sessions/{sessionId}",
   },
 };
@@ -624,7 +624,7 @@ export const errorDescriptions = {
   401: "Authentication missing, invalid or expired. Host authentication may return its existing error format.",
   403: "Request denied by host, origin, custom-header or principal policy. The hosting security layer may use its existing error format.",
   404: "Unknown resource/server, or session absent/inaccessible/ambiguous in a complete catalog; anchor_unavailable means choose another history window explicitly. No target fallback.",
-  409: "request_id_conflict: retry key names a different payload; identity_pending: owning session is not bound yet; session_not_running: input requires the incumbent active owner; compaction_unsupported: this session cannot queue compaction; input_not_pending/input_not_cancellable: the queued input can no longer be removed.",
+  409: "request_id_conflict: retry key names a different payload; identity_pending: owning session is not bound yet; session_not_ready: the target session is launching, follow the creation receipt; session_not_running: input requires the incumbent active owner; compaction_unsupported: this session cannot queue compaction; input_not_pending/input_not_cancellable: the queued input can no longer be removed.",
   500: "internal_error: unexpected read failure; private exception details are not returned.",
   503: "catalog_not_ready: session absence is uncertain in an incomplete catalog; controller_unavailable: the catalog owner is detached/reloading. Retry reads later; neither means the session was deleted. conversation_unavailable means history could not be acquired or projected, including unsupported/unreadable sources or the acquisition deadline. Usable size-limited windows return partial coverage instead; do not infer successful completion.",
 };
@@ -693,7 +693,7 @@ export function apiHelp(selected?: Operation, targetServerId?: string) {
     "",
     "After inspecting the chosen server's access/capabilities, GET /v0/servers/{serverId}/projects for projectId and /providers for configured harness ids. POST /v0/servers/{serverId}/sessions with JSON {projectId,provider,prompt,permissionMode?,model?,thinking?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Only claude/codex are qualified. permissionMode defaults to default. Supply Idempotency-Key as an 8–128 character header; reuse identical key/body after response loss. thinking accepts off, auto or on:low/on:medium/on:high/on:xhigh/on:max. Query selection?provider=codex for AAR pools and their catalogs, or add routing=direct for the host provider catalog. Use ids from those responses.",
     "",
-    "Creation returns 202 with a receipt {id,sessionId,state,delivery,completion,...} that lasts until the server restarts; sessionId can be null until admission settles. GET /v0/servers/{serverId}/receipts/{id}/follow?waitMs=4000 to observe it. Reissue with after={cursor}; changed replies replace the receipt. Admission and delivery=consumed are not completion. When the task requires verifying launch controls, read /sessions/{sessionId} for effective settings and routing. Read /sessions/{sessionId}/conversation or /conversation/follow for the actual answer.",
+    "Creation returns 202 with a receipt {id,sessionId,state,delivery,completion,...} that lasts until the server restarts. A receipt can name a reserved sessionId during dispatching or queued. Session detail can report state=launching during that window. GET /v0/servers/{serverId}/receipts/{receiptId}/follow?waitMs=4000 to observe admission. Reissue with after={cursor}; changed replies replace the receipt. Once accepted, read /sessions/{sessionId} for effective settings and routing. Read /sessions/{sessionId}/conversation or /conversation/follow for the actual answer.",
     "",
     'POST /v0/servers/{serverId}/sessions/{sessionId}/inputs with Idempotency-Key and JSON {type:"prompt",text,delivery?:"deferred"|"patient"|"steer"} or {type:"compact",instructions?,delivery?:"deferred"|"patient"}. Input uses YA\'s queue on an active owner and changes no settings. Repeat the identical key/body to recover the same receipt. GET the same path for pending input, and POST .../inputs/{inputId}/cancel to remove one. Follow the receipt for input.status, delivery=consumed and compaction completion, and the conversation for the reply. To compact yourself and continue, queue a deferred compact, then your continuation prompt, then end your turn; compaction starts at your turn end even while your background tasks run. GET /sessions/{sessionId}/relationships under the same server prefix for trusted creator session/server and initiated receipts. Prompt completion remains unknown; inspect the requested result in the conversation.',
     "",

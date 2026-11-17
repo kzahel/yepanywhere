@@ -139,6 +139,7 @@ export class SessionCommands {
       creator: this.creator(launch, authenticated),
       destinationServerId: this.serverId,
       payload: request,
+      launchProvider: request.provider,
     });
     if (!reserved.created) return reserved.receipt;
     if (this.active.size >= 16) {

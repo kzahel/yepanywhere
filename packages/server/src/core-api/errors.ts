@@ -12,6 +12,7 @@ const statuses = {
   peer_response_too_large: 502,
   forbidden: 403,
   session_not_running: 409,
+  session_not_ready: 409,
   identity_pending: 409,
   project_not_found: 404,
   receipt_not_found: 404,

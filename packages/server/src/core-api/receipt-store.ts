@@ -6,6 +6,7 @@ import {
   receiptSchema,
   type ApiReceipt,
   type ApiCreator,
+  type CreateSessionRequest,
 } from "./command-contracts.js";
 
 /** Receipts retained per process; only completed ones are evicted. */
@@ -28,7 +29,12 @@ interface Entry {
   receipt: ApiReceipt;
   scope: string;
   hash: string;
+  launchProvider?: CreateSessionRequest["provider"];
 }
+type LaunchingSession = {
+  receipt: ApiReceipt;
+  provider: CreateSessionRequest["provider"];
+};
 
 /**
  * A receipt can still change while its admission is unresolved, its input
@@ -59,6 +65,8 @@ export class ApiReceiptStore {
   /** Insertion order is creation order, which eviction and paging follow. */
   private readonly receipts = new Map<string, Entry>();
   private readonly scopes = new Map<string, string>();
+  /** Indexed only while a retained creation receipt is dispatching or queued. */
+  private readonly launchingSessions = new Map<string, LaunchingSession>();
   private readonly listeners = new Map<
     string,
     Set<(receipt: ApiReceipt) => void>
@@ -148,6 +156,10 @@ export class ApiReceiptStore {
     const entry = this.receipts.get(id);
     return entry ? structuredClone(entry.receipt) : undefined;
   }
+  launchingSession(sessionId: string): LaunchingSession | undefined {
+    const launch = this.launchingSessions.get(sessionId);
+    return launch && structuredClone(launch);
+  }
   /**
    * Public session ids remapped by builds before 2026-11-03 still resolve
    * through their recorded aliases. Nothing writes this table now.
@@ -216,6 +228,7 @@ export class ApiReceiptStore {
     creator: ApiCreator;
     destinationServerId: string;
     payload: unknown;
+    launchProvider?: CreateSessionRequest["provider"];
   }) {
     input = {
       ...input,
@@ -252,6 +265,7 @@ export class ApiReceiptStore {
       receipt,
       scope,
       hash: payloadHash(input.payload),
+      launchProvider: input.launchProvider,
     });
     this.scopes.set(scope, receipt.id);
     return { created: true, receipt: structuredClone(receipt) };
@@ -301,6 +315,20 @@ export class ApiReceiptStore {
     next.updatedAt = new Date().toISOString();
     this.recordCreator(next);
     entry.receipt = next;
+    if (
+      previous.sessionId &&
+      this.launchingSessions.get(previous.sessionId)?.receipt.id === id
+    )
+      this.launchingSessions.delete(previous.sessionId);
+    if (
+      entry.launchProvider &&
+      next.sessionId &&
+      (next.state === "dispatching" || next.state === "queued")
+    )
+      this.launchingSessions.set(next.sessionId, {
+        receipt: next,
+        provider: entry.launchProvider,
+      });
     this.publish(next);
     return structuredClone(next);
   }
@@ -341,6 +369,7 @@ export class ApiReceiptStore {
   close() {
     this.detachLookup();
     this.listeners.clear();
+    this.launchingSessions.clear();
     for (const statement of this.statements.values()) statement.finalize();
     this.statements.clear();
   }

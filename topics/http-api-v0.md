@@ -427,6 +427,17 @@ again. Inherited transcript UUIDs and optimistic user echoes are not admission
 proof. Missing, evicted or ambiguous evidence remains uncertain. Cancellation
 after reservation cannot assert that a provider was never launched.
 
+Revision `2026-11-17.2` makes a reserved YA id readable during startup. While
+the creation receipt is `dispatching` or `queued`, single-session detail
+returns 200 with `state: "launching"`. The response has the reserved id,
+project, provider and receipt update time, with a null title. Ordinary detail
+provides settings, routing and backing store once available. Local operators
+and the originating peer with current session and project grants can read the
+launch status. Session collections use the ordinary catalog. Subresources that
+require ordinary detail return `409 session_not_ready` while detail reports
+`launching`. Follow the creation receipt for admission and the conversation
+for the actual reply.
+
 Receipts and their retry identity last for the server process only. They are
 held in memory, separately from native transcripts and existing client creation
 hints, and contain no prompt bodies or credentials. After a YA restart every
