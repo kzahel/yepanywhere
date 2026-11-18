@@ -1378,14 +1378,6 @@ pub(crate) mod tests {
         mutation: &str,
         held: Option<mpsc::Sender<()>>,
     ) -> (SessionOptions, tokio::task::JoinHandle<()>) {
-        peer_paused(version, mutation, held, None).await
-    }
-    async fn peer_paused(
-        version: u64,
-        mutation: &str,
-        held: Option<mpsc::Sender<()>>,
-        read_gate: Option<oneshot::Receiver<()>>,
-    ) -> (SessionOptions, tokio::task::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("ws://{}/api/ws", listener.local_addr().unwrap());
         let mutation = mutation.to_owned();
@@ -1428,9 +1420,6 @@ pub(crate) mod tests {
             // No application data precedes native client capabilities.
             if !matches!(socket.next().await, Some(Ok(Message::Binary(_)))) {
                 return;
-            }
-            if let Some(gate) = read_gate {
-                let _ = gate.await;
             }
             let key = transport_key(&credential().base_key, &[9; 24]).unwrap();
             let mut seq = 0u64;
@@ -1974,50 +1963,49 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn abandoning_a_backpressured_request_does_not_replace_the_secure_socket() {
-        let (release, gate) = oneshot::channel();
-        let (options, peer) = peer_paused(3, "", None, Some(gate)).await;
-        let session = resume(options, &fixture_credential_data(), None)
+        let (held, mut received) = mpsc::channel(1);
+        let (options, peer) = peer_observed(3, "", Some(held)).await;
+        let mut credential = credential();
+        let mut secure = resume_secure(&options, &mut credential, &None)
             .await
             .unwrap();
-        let mut requests = Vec::new();
-        for _ in 0..40 {
+        // Pause after buffering a real encrypted frame so kernel buffer sizes
+        // and the time needed to fill the actor's queue cannot affect setup.
+        let (buffered, release) = secure.wire.pause_next_flush();
+        let session = NativeSession::start(
+            options,
+            credential,
+            secure,
+            None,
+            None,
+            Arc::new(Mutex::new(())),
+        );
+        let request = tokio::spawn({
             let session = session.clone();
-            requests.push(tokio::spawn(async move {
+            async move {
                 session
                     .dispatch(
                         "request".into(),
-                        json!({"method":"POST","path":"/large","body":"x".repeat(500_000)})
-                            .to_string(),
+                        json!({"method":"POST","path":"/held"}).to_string(),
                     )
                     .await
-            }));
-        }
-        // The peer does not read: filling the actor's bounded command queue
-        // establishes a blocked writer without relying on a timing sleep.
-        timeout(Duration::from_secs(2), async {
-            let mut previous = usize::MAX;
-            let mut stable = 0;
-            loop {
-                tokio::task::yield_now().await;
-                let capacity = session.commands.capacity();
-                stable = if capacity <= 16 && capacity == previous {
-                    stable + 1
-                } else {
-                    0
-                };
-                previous = capacity;
-                if stable >= 32 {
-                    break;
-                }
             }
-        })
-        .await
-        .unwrap();
-        for request in requests {
-            request.abort();
-            let _ = request.await;
-        }
-        let _ = release.send(());
+        });
+        // The old backpressure setup exhausted its 2 s guard on CI.
+        timeout(Duration::from_secs(6), buffered)
+            .await
+            .expect("actor did not buffer the request")
+            .unwrap();
+        assert!(matches!(
+            received.try_recv(),
+            Err(mpsc::error::TryRecvError::Empty)
+        ));
+        request.abort();
+        assert!(request.await.unwrap_err().is_cancelled());
+        tokio::task::yield_now().await;
+        release
+            .send(())
+            .expect("actor abandoned the buffered frame");
         let response = timeout(
             Duration::from_secs(3),
             session.dispatch(
@@ -2029,8 +2017,12 @@ pub(crate) mod tests {
         .unwrap()
         .unwrap();
         assert!(response.contains("fixture"));
+        received
+            .try_recv()
+            .expect("peer did not receive the abandoned request");
         session.shutdown();
         peer.abort();
+        let _ = peer.await;
     }
 
     #[tokio::test]

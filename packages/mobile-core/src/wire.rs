@@ -3,6 +3,8 @@ use futures_util::{SinkExt, StreamExt};
 use rustls_platform_verifier::BuilderVerifierExt;
 use serde_json::{Value, json};
 use std::{sync::Arc, time::Duration};
+#[cfg(test)]
+use tokio::sync::oneshot;
 use tokio::{net::TcpStream, time::timeout};
 use tokio_tungstenite::{
     Connector, MaybeTlsStream, WebSocketStream, connect_async_tls_with_config,
@@ -14,6 +16,8 @@ pub type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 pub struct Wire {
     socket: Option<Socket>,
     circuit: Option<crate::mux::Circuit>,
+    #[cfg(test)]
+    flush_gate: Option<(oneshot::Sender<()>, oneshot::Receiver<()>)>,
 }
 fn tls() -> Result<Arc<rustls::ClientConfig>> {
     let builder = rustls::ClientConfig::builder_with_provider(Arc::new(
@@ -33,6 +37,8 @@ impl Wire {
         Ok(Self {
             socket: Some(open_socket(url, 65536).await?),
             circuit: None,
+            #[cfg(test)]
+            flush_gate: None,
         })
     }
     pub async fn authenticated(mut self) -> Self {
@@ -76,6 +82,8 @@ impl Wire {
                 return Ok(Self {
                     socket: None,
                     circuit: Some(wire),
+                    #[cfg(test)]
+                    flush_gate: None,
                 });
             }
             let mut wire = Self::open(&url).await?;
@@ -135,13 +143,27 @@ impl Wire {
                     .into(),
             )
         };
-        timeout(
-            Duration::from_secs(30),
-            self.socket.as_mut().ok_or(Error::Closed)?.send(message),
-        )
+        let socket = self.socket.as_mut().ok_or(Error::Closed)?;
+        timeout(Duration::from_secs(30), async {
+            #[cfg(test)]
+            if let Some((buffered, release)) = self.flush_gate.take() {
+                socket.feed(message).await?;
+                let _ = buffered.send(());
+                let _ = release.await;
+                return socket.flush().await;
+            }
+            socket.send(message).await
+        })
         .await
         .map_err(|_| Error::Timeout)?
         .map_err(|_| Error::Unavailable)
+    }
+    #[cfg(test)]
+    pub(crate) fn pause_next_flush(&mut self) -> (oneshot::Receiver<()>, oneshot::Sender<()>) {
+        let (buffered, wait_for_buffer) = oneshot::channel();
+        let (release, wait_for_release) = oneshot::channel();
+        self.flush_gate = Some((buffered, wait_for_release));
+        (wait_for_buffer, release)
     }
     async fn receive(&mut self) -> Result<(Vec<u8>, bool)> {
         if let Some(circuit) = &mut self.circuit {
