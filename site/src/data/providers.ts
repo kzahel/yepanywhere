@@ -99,7 +99,7 @@ export const providers = [
     name: "Antigravity",
     status: "experimental",
     summary:
-      "Start and resume Antigravity sessions through its opt-in Agent Client Protocol integration.",
+      "Start and resume Antigravity sessions through agy acp, available by default when the agy CLI is installed.",
     notes:
       "Text, file references, approvals, streaming, and native history are supported; macOS is live-qualified, Linux remains unqualified, and Windows is unavailable.",
     runtimeIds: ["antigravity"],

@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-18
+
+### Added
+- Pair a server with a hosted Agent Auth Router over HTTPS, with durable code
+  pairing, restart recovery and revocation, from Settings.
+- Detect, verify and select provider CLI installations per server, with
+  rescan and test controls.
+- Offer an installed Machine Control app to agents through one default-off
+  setting, linking to its download when missing.
+- Copy selected Markdown with public project links in place of local paths
+  and viewer links.
+- Show rate-limited and stopped sessions on Inbox rows, question ages in the
+  Inbox question menu, and pool quota in the session Account pane.
+- Expose YA's queue to agents through v0 inputs and queued compaction, plus
+  bounded v0 history, native session controls and launching sessions.
+- Let `--setup-auth` read the password from a file, stdin or the environment,
+  and opt out of update checks with `YEP_UPDATE_CHECK=false`.
+
+### Changed
+- Run Antigravity through `agy acp` and list it by default when installed.
+- Default Response Streaming to off for browsers that never changed it.
+- Continue queued work and Project Queue dispatch after orderly server reloads.
+- Let trusted Server Connections pairings cover every current operation, so
+  existing pairings no longer need re-pairing after each release.
+- Treat a project as the real folder its path names rather than a symbolic
+  link's spelling, removing duplicate cards and history misses.
+- Move the Claude transcript index to a rebuildable cache database, and stop
+  repeated whole-file Codex rollout scans and reads.
+- Update Claude Agent SDK compatibility to 0.3.325 / Claude Code 2.1.325 and
+  Codex to 0.169.0.
+
+### Fixed
+- Never erase composer text from a draft notice, and preserve fresh drafts
+  through initial account binding.
+- Never let saved creation recovery state block new sessions; offer Start
+  fresh instead.
+- Start deferred compaction at turn end like a queued prompt.
+- Keep the transcript following through viewport reflow, and keep localhost
+  session lists usable across browser tabs.
+- Skip unparseable API receipts instead of failing server startup.
+- Retire stale question reminders in idle sessions.
+
+### Security
+- Throttle failed password logins at `/api/auth/login`.
+- Disconnect the relay when Remote Access is disabled, and keep the
+  `--setup-remote-access` password off the command line.
+- Update Hono to 4.13.18 for five audit advisories.
+
 ## [0.12.0] - 2026-11-12
 
 ### Added
