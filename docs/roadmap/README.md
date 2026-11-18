@@ -204,6 +204,13 @@ the released source, with reviewed retry evidence retained in the
 Fresh native install/upgrade and long-idle qualification remain open, and
 desktop remains beta. This cut does not publish another product.
 
+The November 18 release published
+[npm 0.13.0](https://github.com/kzahel/yepanywhere/releases/tag/v0.13.0)
+and website/remote client 1.16.0 from one source commit. The npm workflow
+passed validation and installed-package acceptance before publishing the
+accepted tarball with provenance; the Pages deploy passed. Desktop,
+extension and mobile were not part of this cut.
+
 ## 1. Publish the desktop and mobile apps with continuous delivery
 
 The npm release workflow now requires clean installed-package acceptance before
