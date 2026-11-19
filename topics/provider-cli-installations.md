@@ -66,8 +66,9 @@ Its isolated execution policy is `danger-full-access` with approvals `never`.
 Each execution attempt has a 20-second abort bound plus joined shutdown and
 temporary-file cleanup. Auto also stops admitting candidates after a 60-second
 selection window. Timeout/failure paths reap owned processes; Windows temporary
-file deletion has bounded retries for delayed handle release. Cleanup failures
-remain failures, rather than publishing a healthy installation.
+file deletion uses explicit bounded retries for delayed handle release,
+including under Desktop's bundled Bun. Persistent cleanup failures still
+reject verification.
 
 ## Verification cache
 

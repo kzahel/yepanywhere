@@ -3,9 +3,31 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type { CliCandidate } from "../services/CliInstallationService.js";
 import { CodexAppServerClient } from "./providers/codex-app-server-client.js";
 import { scriptedResponse } from "./scripted-responses.js";
+
+async function removeProbeDirectory(root: string): Promise<void> {
+  // Bun 1.3.14 ignores recursive rm retry options even while Windows is
+  // releasing handles from a process that has just exited.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rm(root, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (
+        attempt === 5 ||
+        !code ||
+        !["EBUSY", "EPERM", "ENOTEMPTY", "EMFILE", "ENFILE"].includes(code)
+      ) {
+        throw error;
+      }
+      await delay(100 * (attempt + 1));
+    }
+  }
+}
 
 /** Real app-server, code-mode host and shell; only model responses are scripted. */
 export async function probeCodexExecution(
@@ -252,12 +274,7 @@ export async function probeCodexExecution(
     } finally {
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      await rm(root, {
-        recursive: true,
-        force: true,
-        maxRetries: 5,
-        retryDelay: 100,
-      });
+      await removeProbeDirectory(root);
     }
   }
 }
