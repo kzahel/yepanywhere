@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-11-19
+
+### Fixed
+- Retry temporary-file cleanup when Windows briefly locks the Codex startup
+  check's files, so the desktop app can start the session.
+
 ## [0.12.1] - 2026-11-16
 
 ### Added
