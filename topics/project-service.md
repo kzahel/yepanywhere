@@ -705,11 +705,15 @@ service status. A stopped app still shows its reserved address. With none,
 offer **Reserve address** to an authorized principal, prefilled with an
 available-looking `username-project` suggestion but validated atomically by
 the server. Never silently replace an existing association or take over a
-name. Reservation alone neither starts the app nor publishes it.
+name. Reservation never starts the app. When the reserving principal may serve
+addresses, the new reservation serves at once behind its private link, in the
+same store write; otherwise it stays reserved until a separate Serve
+(graehl, 2026-11-19: adding an address should not need a second **Serve at
+this address**). Re-reserving an existing name changes nothing.
 
-**Serve at this address** is an explicit separate operation, gated by the
-superuser or the limited user's **Allow public apps** permission (default off),
-with Start sessions access. Name-prefix restrictions and the **Private apps only**
+**Serve at this address** and **Stop serving** remain the explicit serving
+controls, gated by the superuser or the limited user's **Allow public apps**
+permission (default off), with Start sessions access. Name-prefix restrictions and the **Private apps only**
 ceiling apply server-side. A private link remains a transferable app bearer,
 so label it “Private link required”, not “Only me”. Public access is a separate
 unchecked choice where allowed. A reservation grant does not imply publishing

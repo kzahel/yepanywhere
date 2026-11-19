@@ -36,8 +36,8 @@ A project's app and its reserved address have separate controls:
 | --- | --- |
 | Start or Retry | Starts the project's declared process service. Static apps do not need this. |
 | Stop | Stops that process. It retains the reserved address and project files. |
-| Reserve address | Claims an available name. It does not start or publish the app. |
-| Serve at this address | Enables the reserved hostname for the app. A process service must also be running. |
+| Reserve address | Claims an available name. If you may serve app addresses, the address serves at once and still requires its private link. It does not start the app. |
+| Serve at this address | Enables the reserved hostname for the app, when reserving did not already. A process service must also be running. |
 | Stop serving | Disables the hostname while retaining its reservation. |
 | Public and Save access | Changes whether the hostname requires a private link, without changing whether it is serving. |
 | Release address | Frees the name and invalidates its address token. It does not delete the project or stop its process. |

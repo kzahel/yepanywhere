@@ -172,8 +172,10 @@ it("offers static public file links without launching and honors viewing and dis
   expect(
     (await post("open", { target: "app", audience: "local" })).status,
   ).toBe(409);
-  await post("address/reserve", { name: "archer-browser" });
-  await post("address/serve", { serving: true, public: false });
+  // A reserver allowed to serve gets an address that serves without a separate Serve.
+  expect(
+    await (await post("address/reserve", { name: "archer-browser" })).json(),
+  ).toMatchObject({ serving: true, public: false });
   const links = (await get()).fileLinks;
   expect(links.pathTemplate).toBe("/{path}");
   expect(new URL(links.baseUrl).hostname).toBe("archer-browser.apps.example");

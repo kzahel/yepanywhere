@@ -496,14 +496,18 @@ export function createProjectAppRoutes(deps: {
     return c.json({ restored: true });
   });
   const namespace = () => deps.artifacts.config.vhostPublicRoot ?? null;
+  /** Whether the caller may serve an address: the superuser, or a limited user allowed public apps. */
+  const mayServeAddress = (c: Context) => {
+    const principal = principalFor(c);
+    return (
+      principal.kind === "superuser" ||
+      deps.activeGrants(principal.username)?.allowPublicApps === true
+    );
+  };
   const publisher = async (c: Context, release = false) => {
     await authorize(c, "new-session");
     const principal = principalFor(c);
-    if (
-      principal.kind !== "superuser" &&
-      (release ||
-        deps.activeGrants(principal.username)?.allowPublicApps !== true)
-    )
+    if (principal.kind !== "superuser" && (release || !mayServeAddress(c)))
       throw new HTTPException(403, {
         message: "Only the administrator can publish or release an app address",
       });
@@ -606,6 +610,9 @@ export function createProjectAppRoutes(deps: {
       );
     if (configuredVhostNames(deps.artifacts.config).includes(name))
       return c.json({ error: "App address is already configured" }, 409);
+    // A caller who may serve an address gets one that serves at once, behind
+    // its private link; anyone else reserves and needs a separate Serve.
+    const serving = mayServeAddress(c);
     try {
       const reservation = await deps.store.reserve(
         {
@@ -615,9 +622,14 @@ export function createProjectAppRoutes(deps: {
           owner:
             principal.kind === "limited" ? principal.username : "superuser",
           privateOnly: principal.kind === "limited" || !!project.ownerUsername,
+          serving,
         },
         async () => {
           await authorize(c, "new-session");
+          if (serving && !mayServeAddress(c))
+            throw new HTTPException(403, {
+              message: "App serving permission changed",
+            });
           if (
             namespace() !== current ||
             configuredVhostNames(deps.artifacts.config).includes(name)

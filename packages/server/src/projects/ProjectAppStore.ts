@@ -220,7 +220,7 @@ export class ProjectAppStore {
     input: Pick<
       ProjectAppReservation,
       "namespace" | "name" | "projectId" | "owner"
-    > & { privateOnly?: boolean },
+    > & { privateOnly?: boolean; serving?: boolean },
     authorize: () => Promise<void>,
   ): Promise<ProjectAppReservation> {
     return this.change(async (state) => {
@@ -228,7 +228,7 @@ export class ProjectAppStore {
       const reservation = reservationSchema.parse({
         ...input,
         reservedAt: new Date().toISOString(),
-        serving: false,
+        serving: input.serving ?? false,
         public: false,
         superuserPublic: false,
       });
