@@ -1,4 +1,8 @@
-import { ARTIFACT_SANDBOX } from "@yep-anywhere/shared";
+import {
+  ARTIFACT_SANDBOX,
+  SERVED_APP_FRAME_ALLOW,
+  SERVED_APP_SANDBOX,
+} from "@yep-anywhere/shared";
 import {
   type Ref,
   type ReactNode,
@@ -345,7 +349,12 @@ function SessionRightPaneContent({
                 sandbox={
                   pane.selected.artifactToken
                     ? ARTIFACT_SANDBOX
-                    : "allow-scripts allow-same-origin allow-forms allow-downloads"
+                    : SERVED_APP_SANDBOX
+                }
+                allow={
+                  pane.selected.artifactToken
+                    ? undefined
+                    : SERVED_APP_FRAME_ALLOW
                 }
                 className={styles.frame}
               />

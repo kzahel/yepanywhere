@@ -13,6 +13,23 @@ export const ARTIFACT_SANDBOX =
   "allow-scripts allow-same-origin allow-downloads";
 
 /**
+ * Sandbox for a running project or session app's frame. Beyond
+ * `ARTIFACT_SANDBOX` it allows forms and popups that escape the sandbox: the
+ * app is the operator's own and is meant to work in the pane as in a tab,
+ * including "open in a new tab" links, at the cost that such a popup could
+ * navigate the YA tab through its opener.
+ */
+export const SERVED_APP_SANDBOX =
+  "allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox";
+
+/**
+ * Permissions delegated to a running app's frame through its `allow`
+ * attribute, so an app that records audio can do so inside the pane. The
+ * app's own `Permissions-Policy` still decides whether it may use them.
+ */
+export const SERVED_APP_FRAME_ALLOW = "microphone";
+
+/**
  * A framed artifact page asks the YA viewer to open one URL of its own grant in
  * a new tab, for a document such as a PDF that a sandboxed frame cannot
  * display. The viewer accepts it only from its own frame and opens it without

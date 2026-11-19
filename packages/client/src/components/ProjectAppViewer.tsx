@@ -1,5 +1,7 @@
 import {
   ARTIFACT_SANDBOX,
+  SERVED_APP_FRAME_ALLOW,
+  SERVED_APP_SANDBOX,
   SERVER_CAPABILITIES,
   serverHasCapability,
   type ProjectAppInfo,
@@ -1442,10 +1444,9 @@ export function ProjectAppViewer({
           title={view.label}
           src={frameSrc ?? view.url}
           sandbox={
-            view.kind === "service"
-              ? "allow-scripts allow-same-origin allow-forms allow-downloads"
-              : ARTIFACT_SANDBOX
+            view.kind === "service" ? SERVED_APP_SANDBOX : ARTIFACT_SANDBOX
           }
+          allow={view.kind === "service" ? SERVED_APP_FRAME_ALLOW : undefined}
           referrerPolicy="no-referrer"
         />
       )}

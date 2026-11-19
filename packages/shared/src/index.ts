@@ -37,6 +37,8 @@ export {
   MANAGED_ARTIFACT_READ_IDLE_MS,
   ARTIFACT_TAB_PROTOCOL,
   isArtifactTabRequest,
+  SERVED_APP_FRAME_ALLOW,
+  SERVED_APP_SANDBOX,
 } from "./artifact-viewer.js";
 export type {
   RecentSessionsResponse,
