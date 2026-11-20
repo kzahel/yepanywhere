@@ -256,7 +256,8 @@ no performance fallback: `esbuild` (native binary ships via
 `@esbuild/*` optional deps; the postinstall only swaps the bin shim, and
 there is no silent WASM fallback), `@firebase/util` (bakes
 `FIREBASE_WEBAPP_CONFIG` into web-SDK defaults; unset here), `protobufjs`
-(prints a version-scheme warning).
+(prints a version-scheme warning), and `@google/genai` (Pi 1.6.0's test
+dependency reaches 2.32.0, whose preinstall only prints a no-op message).
 
 ### Known-unreachable advisories
 
