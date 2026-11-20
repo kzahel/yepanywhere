@@ -40,8 +40,11 @@ for (const provider of providers) {
       `No verified ${provider} test artifact for ${platform}; select a supported provider/platform explicitly`,
     );
   const destination = join(root, platform, provider, entry.version);
-  const stamp = join(destination, "artifact.sha256");
-  if ((await readFile(stamp, "utf8").catch(() => "")) === artifact.sha256) {
+  const algorithm = artifact.sha512 ? "sha512" : "sha256";
+  const checksum = artifact[algorithm];
+  const stampName = `artifact.${algorithm}`;
+  const stamp = join(destination, stampName);
+  if ((await readFile(stamp, "utf8").catch(() => "")) === checksum) {
     console.log(`${provider} ${entry.version}: cached ${platform}`);
     continue;
   }
@@ -54,24 +57,23 @@ for (const provider of providers) {
     if (!response.ok)
       throw Error(`Download ${provider}: HTTP ${response.status}`);
     const archive = Buffer.from(await response.arrayBuffer());
-    const digest = createHash("sha256").update(archive).digest("hex");
-    if (digest !== artifact.sha256)
+    const digest = createHash(algorithm).update(archive).digest("hex");
+    if (digest !== checksum)
       throw Error(
         `Integrity mismatch for ${provider} ${entry.version} ${platform}`,
       );
-    if (artifact.url.endsWith(".gz")) {
-      await writeFile(join(staging, provider), gunzipSync(archive));
-      await chmod(join(staging, provider), 0o755);
-    } else {
-      const archivePath = join(staging, "runtime.zip.download");
+    const executable = join(staging, entry.executable);
+    if (artifact.url.endsWith(".tar.gz")) {
+      const archivePath = join(staging, "runtime.tar.gz.download");
       await writeFile(archivePath, archive);
-      // The fixed official distribution is authenticated above; extract into staging only.
-      await exec("unzip", ["-q", archivePath, "-d", staging]);
+      await exec("tar", ["-xzf", archivePath, "-C", staging, "antigravity"]);
+      await rename(join(staging, "antigravity"), executable);
       await rm(archivePath);
-      for (const name of ["agy_acp_server.par", "localharness_external"])
-        await chmod(join(staging, name), 0o755);
+    } else {
+      await writeFile(executable, gunzipSync(archive));
     }
-    await writeFile(join(staging, "artifact.sha256"), digest);
+    await chmod(executable, 0o755);
+    await writeFile(join(staging, stampName), digest);
     await rm(destination, { recursive: true, force: true });
     await rename(staging, destination);
     console.log(

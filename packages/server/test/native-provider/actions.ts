@@ -16,11 +16,7 @@ export function readOwnedFile(
       `const result = await tools.exec_command({cmd: ${JSON.stringify(process.platform === "win32" ? "type notes.txt" : "cat notes.txt")}, workdir: ${JSON.stringify(project)}, max_output_tokens: 100}); text(result.output);`,
     );
   else if (provider === "antigravity")
-    request.tool("view_file", {
-      AbsolutePath: path,
-      toolSummary: "Read fixture",
-      toolAction: "Reading fixture",
-    });
+    request.tool("read_file", { Path: path });
   else if (provider === "pi") request.tool("read", { path });
   else if (provider === "opencode") request.tool("read", { filePath: path });
   else if (provider === "grok")

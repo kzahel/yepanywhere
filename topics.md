@@ -478,6 +478,7 @@
 - managed-viewer-publication - Separate viewer content from lifecycle updates.
 
 - antigravity-discovery — native ACP provider and shared catalog/project discovery.
+- antigravity-everyday-control — qualify native CLI turns, steering, background work and queued compaction.
 
 - native-provider-integration — actual provider executables with scripted local model APIs.
 

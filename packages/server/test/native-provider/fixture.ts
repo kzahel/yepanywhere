@@ -128,8 +128,14 @@ export async function nativeFixture(
       "api.github.com:443",
       "ab.chatgpt.com:443",
       ...(provider === "opencode" ? ["registry.npmjs.org:443"] : []),
+      ...(provider === "antigravity" ? ["play.googleapis.com:443"] : []),
     ],
     auxiliary(body, path) {
+      if (
+        provider === "antigravity" &&
+        path.endsWith("/gemini-3.1-flash-lite-preview:streamGenerateContent")
+      )
+        return "antigravity-title";
       if (
         isClaude(provider) &&
         path.startsWith("/v1/messages") &&
@@ -205,7 +211,12 @@ export async function nativeFixture(
       ...(isClaude(provider) ? { CLAUDE_CODE_EXECUTABLE: executable } : {}),
       ...(provider === "pi" ? { PI_EXECUTABLE: executable } : {}),
       ...(provider === "antigravity"
-        ? { ANTIGRAVITY_ACP_PATH: executable }
+        ? {
+            ANTIGRAVITY_ACP_PATH: executable,
+            AGY_CLI_DISABLE_AUTO_UPDATE: "1",
+            AGY_ACP_FORCE_FILE_STORAGE: "1",
+            SSH_CONNECTION: "127.0.0.1 0 127.0.0.1 0",
+          }
         : {}),
     },
   );
@@ -383,9 +394,6 @@ export async function nativeFixture(
     await mkdir(project, { recursive: true });
     await mkdir(environment.CODEX_HOME!, { recursive: true });
     await mkdir(environment.PI_CODING_AGENT_DIR!, { recursive: true });
-    await mkdir(join(environment.GEMINI_HOME!, "antigravity-acp"), {
-      recursive: true,
-    });
     await writeFile(join(project, "notes.txt"), "OWNED_TOOL_CONTENT\n");
     if (options.gitProject !== false)
       await exec("git", ["init", "--quiet"], {
@@ -464,10 +472,17 @@ export async function nativeFixture(
       join(environment.GROK_HOME!, "config.toml"),
       `[models]\ndefault = "owned"\n[model.owned]\nmodel = "m1"\nname = "Owned stub"\nbase_url = "${model.url}/v1"\nenv_key = "FIXTURE_MODEL_KEY"\napi_backend = "responses"\n[compat.cursor]\nagents = false\nrules = false\nskills = false\nhooks = false\nmcps = false\nsessions = false\n[compat.claude]\nagents = false\nrules = false\nskills = false\nhooks = false\nmcps = false\nsessions = false\n[compat.codex]\nhooks = false\nskills = false\nsessions = false\n`,
     );
-    await writeFile(
-      join(environment.GEMINI_HOME!, "antigravity-acp", "settings.json"),
-      JSON.stringify({ auth: { type: "gemini-api-key" } }),
-    );
+    if (provider === "antigravity") {
+      const directory = join(environment.GEMINI_HOME!, "antigravity-cli");
+      await mkdir(directory, { recursive: true });
+      await writeFile(
+        join(directory, "settings.json"),
+        JSON.stringify({
+          modelProvider: "gemini",
+          auth: { type: "gemini-api-key" },
+        }),
+      );
+    }
     const script = provider === "pi";
     const version = (
       await exec(

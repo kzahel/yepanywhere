@@ -148,7 +148,11 @@ describe.each(providers)("real native provider: %s", (provider) => {
     const persisted = JSON.stringify(await f.history());
     expect(persisted).toContain("QUEUE_ALPHA");
     expect(persisted).toContain("QUEUE_BRAVO");
-    expect(persisted.includes("OWNED_TOOL_CONTENT")).toBe(true);
+    // agy 1.5 omits read output from ACP replay; the model request above
+    // verifies actual tool bytes and replay verifies the tool's location.
+    expect(persisted).toContain(
+      provider === "antigravity" ? "notes.txt" : "OWNED_TOOL_CONTENT",
+    );
     await f.close();
     expect(f.model.failures).toEqual([]);
     expect(f.errors).toEqual([]);

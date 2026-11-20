@@ -50,10 +50,7 @@ export async function historyReader(
       dataDir: env.YEP_DATA_DIR!,
     });
   if (provider === "antigravity")
-    return new AntigravitySessionReader({
-      sessionsDir: join(env.GEMINI_HOME!, "antigravity-acp", "conversations"),
-      projectPath: project,
-    });
+    return new AntigravitySessionReader({ projectPath: project });
   if (provider === "pi")
     return new PiSessionReader({
       sessionsDir: env.PI_SESSIONS_DIR!,

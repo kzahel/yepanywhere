@@ -161,9 +161,9 @@ The executable sources are deterministic test dependencies:
   The executable package is an explicit workspace so the full pnpm audit
   includes its dependency graph. Gemini CLI is no longer installed or tested;
   Antigravity owns the maintained Google CLI path.
-- Antigravity ACP 1.4.5 and Grok 1.0.92: official immutable artifacts in
+- Antigravity CLI 1.5.13 (`agy acp`) and Grok 1.0.92: official immutable artifacts in
   `test/native-provider/executables/artifacts.json`. The explicit installer
-  verifies SHA-256 before extracting into `node_modules/.cache/ya-native-provider-tests`.
+  verifies the published checksum before extracting into `node_modules/.cache/ya-native-provider-tests`.
   Runtime tests still check the executable version. No primary install is changed.
 
 The complete artifact set is currently pinned for macOS arm64 and Linux x64.
@@ -886,8 +886,8 @@ qualification.
 
 ## Linux Antigravity bootstrap prerequisite
 
-The native provider qualification runner requires the system group name
-`nobody`. Antigravity ACP 1.4.5's Google native bootstrap resolves it before
+The legacy Antigravity ACP 1.4.5 qualification runner required the system group
+name `nobody`. Its Google native bootstrap resolves it before
 ACP initialization; a missing name aborts with SIGABRT and no model dispatch.
 The Ubuntu job creates only a missing group-name alias using the existing
 `nobody` user's primary GID, preserving that account's numeric permissions. It

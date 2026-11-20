@@ -29,7 +29,7 @@ export const expectedVersions: Record<NativeProvider, string> = {
   "claude-ollama": claudeVersion,
   codex: codexVersion,
   "codex-oss": codexVersion,
-  antigravity: "1.4.5",
+  antigravity: "1.5.13",
   pi: "1.6.0",
   opencode: "1.18.9",
   grok: "1.0.92",
@@ -122,7 +122,7 @@ export function nativeExecutable(provider: NativeProvider): string {
         `${process.platform}-${process.arch}`,
         provider,
         expectedVersions[provider],
-        provider === "antigravity" ? "agy_acp_server.par" : "grok",
+        provider === "antigravity" ? "agy" : "grok",
       );
     if (!existsSync(path))
       throw Error(

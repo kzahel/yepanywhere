@@ -1,8 +1,8 @@
 # Antigravity provider
 
 Status: experimental, available by default when a runtime is installed. The
-current target is the ACP server built into Google's `agy` CLI (1.5.8, run as
-`agy acp`); the standalone ACP runtime 1.4.5 remains supported. The live
+current test target is the ACP server built into Google's `agy` CLI (1.5.13,
+run as `agy acp`); the standalone ACP runtime 1.4.5 remains supported. The live
 qualification used macOS arm64; Linux
 uses the same POSIX process boundary but has not been live-qualified. Windows remains unavailable
 until its native child-tree teardown is qualified. This is a separate provider;
@@ -126,8 +126,9 @@ workspace and title columns, read-only, cached per index file version. When
 several workspace URIs are listed (`/private/tmp/x`, `/tmp/x`), the last is the
 cwd the client supplied and matches YA's project binding. Reading never
 sends a prompt or auth request. Unknown/foreign project files are not adopted.
-The native replay API may update Google's own continuation metadata; YA does
-not treat it as a byte-preserving database export.
+The native replay API may update Google's own continuation metadata. The
+`agy` 1.5.13 ACP stream and replay report file-read tool identity, location and
+status, while the file contents stay in native model context.
 
 The preview uses a local in-process owner, even when the shared provider host
 is enabled. Cold resume uses native `session/load` to restore history before

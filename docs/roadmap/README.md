@@ -648,6 +648,10 @@ summaries index. Live macOS checks fixed duplicated prompts, a catch-up that
 dropped earlier turns, streaming shown with streaming off, and cold resume
 racing a history read. The open items above still apply.
 
+**Antigravity native test target, 2026-11-20:** the checksum-pinned suite now
+exercises `agy acp` 1.5.13 for ordinary turns, tools, queueing, cancellation
+and cold resume. The configured standalone runtime remains supported.
+
 **Scoping direction, 2026-11-03:** use Antigravity discovery and eventual
 legacy Gemini execution retirement to consolidate shared native-store catalog,
 project contribution and exact reader-resolution paths. Preserve read-only
