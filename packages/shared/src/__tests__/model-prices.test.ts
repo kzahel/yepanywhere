@@ -72,6 +72,18 @@ describe("findModelPrices", () => {
       input: 10,
       output: 50,
     });
+    expect(findModelPrices("codex", "gpt-6.2-astra")).toMatchObject({
+      input: 8,
+      output: 40,
+      cacheRead: 0.4,
+      cacheWrite: 10,
+    });
+    expect(findModelPrices("codex", "gpt-6.2-sol")).toMatchObject({
+      input: 2,
+      output: 10,
+      cacheRead: 0.1,
+      cacheWrite: 2.5,
+    });
     expect(findModelPrices("codex", "gpt-6-sol")).toMatchObject({
       input: 2,
       output: 10,

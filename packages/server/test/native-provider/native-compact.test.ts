@@ -97,8 +97,11 @@ if (providers.includes("pi"))
         await summary.cancelled;
         expect(await f.commandResult).toMatchObject({
           handled: true,
-          uncertain: true,
+          error: expect.any(String),
         });
+        expect(f.proc.getDeferredQueueSummary()[0]?.compactionGate?.state).toBe(
+          "failed",
+        );
       } else {
         const failed = new Promise<void>((resolve) => {
           const off = f.proc.subscribe(() => {

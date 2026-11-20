@@ -17,7 +17,7 @@ live in [`grok.evidence.md`](grok.evidence.md).
 
 ## Current contract
 
-The audited-through target is Grok 1.0.70, recorded by
+The audited-through target is Grok 1.0.92, recorded by
 `yepAnywhere.grokCli.compatibleThroughVersion` and the native fixture pin.
 Older dated probes remain evidence for their explicitly named versions.
 
@@ -35,7 +35,7 @@ installation still wins before PATH, and explicit `grokPath` remains
 authoritative. This is discovery compatibility, not support for unrelated npm
 Grok packages.
 
-**Default model is `grok-4.7`** (Grok 1.0.70), alongside
+**Default model is `grok-4.7`** (Grok 1.0.92), alongside
 `grok-4.7-build-fast`, `grok-4.6` and `grok-4.5`, each defaulting to `high`
 effort. `getAvailableModels()` follows `grok models` (`*` / `-` rows) and
 enriches from `GROK_HOME/models_cache.json`. It hardcodes no model, so an

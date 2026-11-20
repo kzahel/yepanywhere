@@ -4,8 +4,8 @@
   "private": true,
   "description": "Keep pinned native test tools off the application development PATH.",
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "1.5.0",
-    "@openai/codex": "0.169.0",
+    "@earendil-works/pi-coding-agent": "1.6.0",
+    "@openai/codex": "0.171.0",
     "opencode-ai": "1.18.9"
   }
 }

@@ -104,7 +104,16 @@ there is nothing new to audit. The installed binary still passes the
 zero-token RPC contract and the effort-retry test, and the pinned
 native scenarios pass (10).
 
-Current refresh, 2026-11-04 (Pi 1.5.0): `pi update --self` moves the
+Current refresh, 2026-11-20 (Pi 1.6.0): the installed RPC contract and
+effort-retry checks pass. Upstream adds GPT-6.2 Sol and Astra to its model
+catalog. The extension rendering break affects extensions that modify
+terminal component output. YA's extension registers a command and does
+not render a component. The native abort scenario checks that an aborted
+compaction leaves the queue gate failed and sends no following input.
+Pi 1.6.0 can return an RPC error before exit, so the assertion accepts
+that error as well as a lost reply. The production adapter is unchanged.
+
+Previous refresh, 2026-11-04 (Pi 1.5.0): `pi update --self` moves the
 managed install from 1.4.0 to 1.5.0; `PI_EXECUTABLE` names that managed
 launcher, not a fork. The installed binary passes the zero-token RPC
 contract and the local-server effort-retry integration test, and the
@@ -284,7 +293,31 @@ possible ([provider-version-support](provider-version-support.md)).
 Recheck, 2026-11-04: installed Codex is still `0.166.0`, npm `latest`, and
 `pnpm codex:protocol:check` reports no drift. Nothing to refresh.
 
-Current source refresh, 2026-11-14 (0.169.0, generated types only):
+Current source refresh, 2026-11-20 (Codex 0.171.0):
+
+- The pinned Rust source is `rust-v0.171.0` (`ccf9be8cc4`).
+  Regenerated protocol types cover recovered-answer presentation,
+  `bioPolicy` errors and optional MCP environment selection. Existing
+  YA requests omit the environment selector as before. YA does not
+  interpret recovered-answer presentation metadata and treats policy
+  errors as terminal failures.
+- A no-turn `model/list` in an isolated profile reports eleven models,
+  with GPT-6.2 Sol as default at low effort and GPT-6.2 Astra also
+  available. Both are ordered with the GPT-6 family. The response omits
+  context windows. YA fills in the bundled catalog's 500K for GPT-6.2
+  Sol and uses the app-server handshake version for GPT-6.1 Sol, whose
+  bundled window increased from 272K to 500K in 0.170.0. GPT-6.2 Astra
+  uses 272K.
+  Explicit model metadata takes precedence. YA's catalog path was
+  exercised against both 0.169.0 and 0.171.0.
+- On Linux, 52 native scenarios pass across Codex, Codex OSS, Claude, Pi
+  and Grok with two skips. The tests use scripted model responses.
+- YA's usage estimates now include GPT-6.2 Sol and Astra and GPT-6.1
+  Sol and Terra at the published standard rates. The long-context
+  multipliers already match these models.
+  [OpenAI API pricing](https://developers.openai.com/api/docs/pricing.md)
+
+Previous source refresh, 2026-11-14 (0.169.0, generated types only):
 
 - The installed CLI already reports `0.169.0`, npm's latest stable release.
   The reference checkout is `rust-v0.169.0` (`d32063f96c`); compatibility
@@ -1408,7 +1441,14 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-11-14 (Claude Code 2.1.325 / SDK 0.3.325):
+Current source refresh, 2026-11-20 (Claude Code 2.1.330 / SDK 0.3.330):
+the standalone CLI matches the SDK's bundled target. No-turn SDK
+handshakes with isolated configuration return identical model metadata
+and slash-command names before and after. The SDK declaration changes add
+a startup failure reason and use the published sandbox settings schema.
+YA keeps its current SDK calls and sandbox configuration.
+
+Previous source refresh, 2026-11-14 (Claude Code 2.1.325 / SDK 0.3.325):
 
 - The SDK and its native packages advance from `0.3.322` to `0.3.325`.
   The standalone CLI already reports `2.1.325`; compatibility markers
@@ -2262,7 +2302,16 @@ Difference detectors:
 - `@agentclientprotocol/sdk` changes enough to alter `ACPClient` request,
   notification, or permission typings.
 
-Current compatibility audit, 2026-11-04 (1.0.70, no adapter change):
+Current compatibility audit, 2026-11-20 (Grok 1.0.92):
+the stable Linux install reports build `b06756fd6256` and matches the
+decompressed official Linux test artifact byte for byte. The macOS ARM64
+test artifact also has a new checksum. The local CLI lists the same four
+models, still defaulting to `grok-4.7`. The public source reports
+`SOURCE_REV` `559751fdce`, which differs from the installed build.
+Native qualification therefore uses the release binary and scripted
+responses. YA's launch and normalization code is unchanged.
+
+Previous compatibility audit, 2026-11-04 (1.0.70, no adapter change):
 
 - Installed Grok is `grok 1.0.70 (f50904eaee6c) [stable]`, already the
   latest stable per `grok update --check`; ACP `initialize` reports agent

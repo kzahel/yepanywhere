@@ -529,8 +529,8 @@ export class CodexProvider implements AgentProvider {
     error?: string;
   }> {
     try {
-      const appServerModels = await this.requestAppServerModelList();
-      return { models: normalizeCodexModelList(appServerModels) };
+      const { models, cliVersion } = await this.requestAppServerModelList();
+      return { models: normalizeCodexModelList(models, cliVersion) };
     } catch (error) {
       log.debug(
         { error },
@@ -540,7 +540,10 @@ export class CodexProvider implements AgentProvider {
     }
   }
 
-  private async requestAppServerModelList(): Promise<AppServerModel[]> {
+  private async requestAppServerModelList(): Promise<{
+    models: AppServerModel[];
+    cliVersion: string | null;
+  }> {
     const codexCommand = await this.resolveCodexCommand();
     return new Promise((resolve, reject) => {
       const child = spawn(
@@ -558,6 +561,7 @@ export class CodexProvider implements AgentProvider {
 
       let settled = false;
       let stdoutBuffer = "";
+      let cliVersion: string | null = null;
       const stderrChunks: string[] = [];
 
       const finish = (handler: () => void) => {
@@ -585,6 +589,12 @@ export class CodexProvider implements AgentProvider {
             return;
           }
 
+          const result = message.result as { userAgent?: unknown } | undefined;
+          if (typeof result?.userAgent === "string") {
+            cliVersion = normalizeSemver(
+              /^[^\s/]+\/([^\s]+)/u.exec(result.userAgent)?.[1],
+            );
+          }
           child.stdin.write(
             `${JSON.stringify({ jsonrpc: "2.0", method: "initialized" })}\n`,
           );
@@ -621,7 +631,7 @@ export class CodexProvider implements AgentProvider {
           models.push(model);
         }
 
-        finish(() => resolve(models));
+        finish(() => resolve({ models, cliVersion }));
       };
 
       const timeoutHandle = setTimeout(() => {

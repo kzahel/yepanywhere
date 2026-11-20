@@ -30,9 +30,9 @@ export const expectedVersions: Record<NativeProvider, string> = {
   codex: codexVersion,
   "codex-oss": codexVersion,
   antigravity: "1.4.5",
-  pi: "1.5.0",
+  pi: "1.6.0",
   opencode: "1.18.9",
-  grok: "1.0.70",
+  grok: "1.0.92",
 };
 export const isClaude = (provider: NativeProvider) =>
   provider.startsWith("claude");

@@ -1,6 +1,7 @@
 import {
   CODEX_GPT6_CONTEXT_WINDOW,
   CODEX_GPT56_CONTEXT_WINDOW,
+  CODEX_SOL_500K_CONTEXT_WINDOW,
   isWithdrawnCodexModel,
   type ModelInfo,
 } from "@yep-anywhere/shared";
@@ -14,6 +15,8 @@ export const CODEX_CLI_GPT56_RESTORED_CATALOG_MIN_VERSION = "0.145.0";
 // Withdrawn models (`CODEX_WITHDRAWN_MODEL_IDS`) are absent here and from
 // every fallback list below, and are dropped from the live catalog.
 const PREFERRED_MODEL_ORDER = [
+  "gpt-6.2-sol",
+  "gpt-6.2-astra",
   "gpt-6.1-sol",
   "gpt-6-astra",
   "gpt-6.1-terra",
@@ -300,7 +303,10 @@ export function getFallbackCodexModelsForCliVersion(
   return FALLBACK_CODEX_MODELS;
 }
 
-export function normalizeCodexModelList(models: AppServerModel[]): ModelInfo[] {
+export function normalizeCodexModelList(
+  models: AppServerModel[],
+  cliVersion: string | null = null,
+): ModelInfo[] {
   const orderLookup = new Map<string, number>(
     PREFERRED_MODEL_ORDER.map((id, idx) => [id, idx]),
   );
@@ -327,7 +333,7 @@ export function normalizeCodexModelList(models: AppServerModel[]): ModelInfo[] {
           : modelId.startsWith("gpt-5.6-")
             ? { contextWindow: CODEX_GPT56_CONTEXT_WINDOW }
             : /^gpt-6(?:\.\d+)?-/u.test(modelId)
-              ? { contextWindow: CODEX_GPT6_CONTEXT_WINDOW }
+              ? { contextWindow: inferGpt6ContextWindow(modelId, cliVersion) }
               : {}),
         ...(typeof model.supportsPersonality === "boolean"
           ? { supportsPersonality: model.supportsPersonality }
@@ -365,6 +371,19 @@ export function normalizeCodexModelList(models: AppServerModel[]): ModelInfo[] {
     }))
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .map((entry) => entry.model);
+}
+
+function inferGpt6ContextWindow(modelId: string, cliVersion: string | null) {
+  // The bundled 0.170.0 catalog raises GPT-6.1 Sol from 272K to 500K.
+  if (
+    modelId === "gpt-6.2-sol" ||
+    (modelId === "gpt-6.1-sol" &&
+      cliVersion &&
+      compareSemver(cliVersion, "0.170.0") >= 0)
+  ) {
+    return CODEX_SOL_500K_CONTEXT_WINDOW;
+  }
+  return CODEX_GPT6_CONTEXT_WINDOW;
 }
 
 function normalizeModelReasoningMetadata(

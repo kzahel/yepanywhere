@@ -58,7 +58,8 @@ const UPSTREAM_PROVIDER_BY_YA_PROVIDER: Readonly<Record<string, string>> = {
  *   this is a per-model table and not a set of per-provider ratios.
  * - `developers.openai.com/api/docs/pricing` — the GPT-5.6 family, GPT-6
  *   Astra/Sol/Luna (standard short-context rates) and the Daybreak alias. `gpt-daybreak-blue` is an alias of `gpt-5.6-sol`
- *   and carries its rates.
+ *   and carries its rates. GPT-6.1 Sol and Terra and GPT-6.2 Sol and
+ *   Astra use the published standard rates read on 2026-11-20.
  *
  * Read before the vendored table, so a model both name resolves to whichever
  * of the two is newer — which is this one until the extract is regenerated.
@@ -127,6 +128,10 @@ const PUBLISHED_MODEL_PRICES: Readonly<
     },
   },
   "openai-codex": {
+    "gpt-6.2-astra": { input: 8, output: 40, cacheRead: 0.4, cacheWrite: 10 },
+    "gpt-6.2-sol": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+    "gpt-6.1-sol": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+    "gpt-6.1-terra": { input: 1, output: 5, cacheRead: 0.05, cacheWrite: 1.25 },
     "gpt-6-astra": { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 },
     "gpt-6-sol": { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
     "gpt-6-luna": {

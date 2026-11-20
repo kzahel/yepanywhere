@@ -368,6 +368,8 @@ export const CODEX_DEFAULT_CONTEXT_WINDOW = 258_000;
 export const CODEX_GPT56_CONTEXT_WINDOW = 272_000;
 /** GPT-6 Astra (Codex 0.153.3+), Sol, and Luna (0.156.1+) context window. */
 export const CODEX_GPT6_CONTEXT_WINDOW = 272_000;
+/** GPT-6.2 Sol and GPT-6.1 Sol in the Codex 0.170.0 bundled catalog. */
+export const CODEX_SOL_500K_CONTEXT_WINDOW = 500_000;
 export const CLAUDE_EXTENDED_CONTEXT_WINDOW = 1_000_000;
 
 /**
@@ -452,6 +454,11 @@ export function getModelContextWindow(
   if (lowerModel.includes("gpt-5.6")) {
     return CODEX_GPT56_CONTEXT_WINDOW;
   }
+
+  if (/(?:^|[./])gpt-6\.2-sol$/u.test(lowerModel))
+    return CODEX_SOL_500K_CONTEXT_WINDOW;
+  if (/(?:^|[./])gpt-6\.2-astra$/u.test(lowerModel))
+    return CODEX_GPT6_CONTEXT_WINDOW;
 
   if (lowerModel.includes("gpt-6-")) {
     return CODEX_GPT6_CONTEXT_WINDOW;

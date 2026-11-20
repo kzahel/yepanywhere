@@ -156,12 +156,12 @@ The executable sources are deterministic test dependencies:
   stays off YA's ordinary development PATH. This pin does not upgrade or select
   the user's installed Codex runtime.
 
-- Pi 1.5.0 and OpenCode 1.18.9: exact nested npm
+- Pi 1.6.0 and OpenCode 1.18.9: exact nested npm
   test dependencies, including platform-native optional binaries where needed.
   The executable package is an explicit workspace so the full pnpm audit
   includes its dependency graph. Gemini CLI is no longer installed or tested;
   Antigravity owns the maintained Google CLI path.
-- Antigravity ACP 1.4.5 and Grok 1.0.70: official immutable artifacts in
+- Antigravity ACP 1.4.5 and Grok 1.0.92: official immutable artifacts in
   `test/native-provider/executables/artifacts.json`. The explicit installer
   verifies SHA-256 before extracting into `node_modules/.cache/ya-native-provider-tests`.
   Runtime tests still check the executable version. No primary install is changed.
@@ -789,14 +789,14 @@ production adapters and readers in private standalone profiles.
 
 | Family/path | Executable / local model route | Additional retained foundation |
 | --- | --- | --- |
-| Claude | Bundled 2.1.312 / SDK 0.3.312; Messages override. | Gentle and immediate steering; durable input UUIDs. |
+| Claude | Bundled 2.1.330 / SDK 0.3.330; Messages override. | Gentle and immediate steering; durable input UUIDs. |
 | Claude Gateway | Same bundled CLI; real Gateway service/catalog/effort probe. | Gentle and immediate steering; actual launch/routing path, not a real upstream Gateway service. |
 | Claude Ollama | Same bundled CLI; adapter URL setter routes Messages locally. | Gentle and immediate steering; qualifies Claude launch, not an actual Ollama server. |
-| Codex | Pinned 0.167.0 app-server; custom Responses endpoint. | Gentle and immediate steering; durable input UUIDs. |
+| Codex | Pinned 0.171.0 app-server; custom Responses endpoint. | Gentle and immediate steering; durable input UUIDs. |
 | Codex OSS | Same CLI, distinct new/resumed exec JSONL path; owned service catalog. | Separate first-exec tool coverage. |
-| Pi | Pinned 1.5.0 RPC; private models.json, Chat Completions. | Real RPC lifecycle and native JSONL reader. |
+| Pi | Pinned 1.6.0 RPC; private models.json, Chat Completions. | Real RPC lifecycle and native JSONL reader. |
 | OpenCode | Pinned 1.18.9 server; private custom provider, Chat Completions. | Actual server tool execution and production SQLite/export reader. |
-| Grok ACP | Official 1.0.70; private TOML Responses endpoint. | Gentle interject; title, title refresh and dashboard requests explicitly recorded/scripted. Compatibility imports of other apps' rules/config are disabled in the owned fixture. |
+| Grok ACP | Official 1.0.92; private TOML Responses endpoint. | Gentle interject; title, title refresh and dashboard requests explicitly recorded/scripted. Compatibility imports of other apps' rules/config are disabled in the owned fixture. |
 | Antigravity ACP | Official 1.4.5; private API-key settings, GenAI override. | Native view_file and actual ACP history load via production reader. |
 
 These scenarios do not qualify provider discovery/subscription authentication,

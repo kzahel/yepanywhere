@@ -278,6 +278,24 @@ describe("Codex model catalog", () => {
     }
   });
 
+  it("uses the installed Codex catalog's Sol window when metadata is absent", () => {
+    const models = [
+      { id: "gpt-6.1-sol" },
+      { id: "gpt-6.2-astra" },
+      { id: "gpt-6.2-sol", isDefault: true },
+    ];
+    expect(normalizeCodexModelList(models, "0.170.0")).toEqual([
+      expect.objectContaining({ id: "gpt-6.2-sol", contextWindow: 500_000 }),
+      expect.objectContaining({ id: "gpt-6.2-astra", contextWindow: 272_000 }),
+      expect.objectContaining({ id: "gpt-6.1-sol", contextWindow: 500_000 }),
+    ]);
+    expect(
+      normalizeCodexModelList(models.slice(0, 1), "0.169.0")[0],
+    ).toMatchObject({
+      contextWindow: 272_000,
+    });
+  });
+
   it("honors a provider default even when a preferred model is available", () => {
     const models = normalizeCodexModelList([
       { id: "gpt-5.4", model: "gpt-5.4", isDefault: true },
