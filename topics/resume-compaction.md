@@ -76,7 +76,8 @@ choice:
   full conversation history.
 - Compact then resume: resume the same provider session, run provider
   compaction first, and submit the user's queued turn only after a compact
-  boundary or equivalent success signal arrives.
+  boundary or equivalent success signal arrives. The same order applies when
+  a stopped session waits in the server's worker queue.
 - Handoff/new session: remain an explicit fallback for providers or states
   that cannot compact the same provider session safely.
 

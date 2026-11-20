@@ -3442,47 +3442,14 @@ export class Supervisor {
         }
       }
 
-      const resolved =
-        await this.activationCoordinator.resolveColdLaunchSettings(
-          projectId,
-          sessionId,
-          permissionMode,
-          modelSettings,
-        );
-      const provider = this.resolveProvider(resolved.modelSettings);
-      const resumeMode = resolved.modelSettings.resumeMode ?? "full";
-
-      let process: Process;
-
-      if (!provider) throw new Error("Requested provider is not available");
-
-      const managed = await this.hostedSavedLaunch(sessionId);
-      if (managed && resumeMode !== "full")
-        throw new Error("Saved hosted creation requires retained-owner resume");
-      if (resumeMode === "compact-first") {
-        process = await this.startCompactFirstProviderResume(
-          projectPath,
-          projectId,
-          message,
-          sessionId,
-          resolved.permissionMode,
-          resolved.modelSettings,
-          provider,
-        );
-      } else {
-        process = await this.startProviderSession(
-          projectPath,
-          projectId,
-          message,
-          sessionId,
-          resolved.permissionMode,
-          resolved.modelSettings,
-          provider,
-          false,
-          false,
-          managed,
-        );
-      }
+      const process = await this.startSessionInternal(
+        projectPath,
+        projectId,
+        message,
+        sessionId,
+        permissionMode,
+        modelSettings,
+      );
 
       if (launchOptions?.requireProviderSessionId) {
         await this.settleProviderSessionId(process, sessionId);
@@ -6830,10 +6797,7 @@ export class Supervisor {
     }
   }
 
-  /**
-   * Internal session start that always starts immediately.
-   * Used by queue processing.
-   */
+  /** Starts a provider after the caller has checked worker capacity. */
   private async startSessionInternal(
     projectPath: string,
     projectId: UrlProjectId,
@@ -6853,14 +6817,18 @@ export class Supervisor {
         )
       : { permissionMode, modelSettings };
     const provider = this.resolveProvider(resolved.modelSettings);
+    if (!provider) throw new Error("Requested provider is not available");
+
     const managed = resumeSessionId
       ? await this.hostedSavedLaunch(resumeSessionId)
       : undefined;
-    if (managed && provider?.runtimeOwner !== "host")
-      throw new Error("Saved creation cannot replace its hosted owner");
-
-    if (provider) {
-      return this.startProviderSession(
+    if (
+      resumeSessionId &&
+      resolved.modelSettings?.resumeMode === "compact-first"
+    ) {
+      if (managed)
+        throw new Error("Saved hosted creation requires retained-owner resume");
+      return this.startCompactFirstProviderResume(
         projectPath,
         projectId,
         message,
@@ -6868,13 +6836,23 @@ export class Supervisor {
         resolved.permissionMode,
         resolved.modelSettings,
         provider,
-        retryProviderStartupFailure,
-        requireProviderSessionId,
-        managed,
       );
     }
+    if (managed && provider.runtimeOwner !== "host")
+      throw new Error("Saved creation cannot replace its hosted owner");
 
-    throw new Error("Requested provider is not available");
+    return this.startProviderSession(
+      projectPath,
+      projectId,
+      message,
+      resumeSessionId,
+      resolved.permissionMode,
+      resolved.modelSettings,
+      provider,
+      retryProviderStartupFailure,
+      requireProviderSessionId,
+      managed,
+    );
   }
 
   // ============ Public Queue Methods ============
