@@ -182,12 +182,17 @@ describe.each(providers)("real native provider: %s", (provider) => {
     });
 
   if (
-    ["claude", "codex", "claude-gateway", "claude-ollama", "grok"].includes(
-      provider,
-    )
+    [
+      "claude",
+      "codex",
+      "claude-gateway",
+      "claude-ollama",
+      "grok",
+      "antigravity",
+    ].includes(provider)
   )
     it.each(
-      provider === "grok"
+      provider === "grok" || provider === "antigravity"
         ? (["gentle"] as const)
         : (["gentle", "immediate"] as const),
     )(
@@ -237,11 +242,21 @@ describe.each(providers)("real native provider: %s", (provider) => {
           original.finish("_ORIGINAL_DONE");
         } else await original.cancelled;
         const correction = await f.model.next();
+        if (provider === "antigravity") {
+          expect(f.proc.state.type).toBe("in-turn");
+          expect(
+            f.events.filter((event) => event.type === "result"),
+          ).toHaveLength(0);
+        }
         expect(JSON.stringify(correction.body)).toContain("NATIVE_CORRECTION");
         correction.finish("CORRECTION_DONE");
         await f.output("CORRECTION_DONE");
         await f.idle();
         expect(f.model.requests).toHaveLength(2);
+        if (provider === "antigravity")
+          expect(
+            f.events.filter((event) => event.type === "result"),
+          ).toHaveLength(1);
         expect(JSON.stringify(f.events)).toContain("CORRECTION_DONE");
         await f.stop();
         expect(

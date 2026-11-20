@@ -9,7 +9,7 @@ import {
   type ModelCatalogStatus,
 } from "@yep-anywhere/shared";
 import { MessageQueue } from "../messageQueue.js";
-import type { SDKMessage } from "../types.js";
+import type { SDKMessage, UserMessage } from "../types.js";
 import type {
   AgentProvider,
   AgentSession,
@@ -28,12 +28,14 @@ import {
   ownAntigravitySessionAfterReads,
   antigravitySessionsDir,
   findAntigravityRuntime,
+  resolveAntigravityRuntime,
   type AntigravitySessionSetup,
 } from "./antigravity-runtime.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
 import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
 
 const DEFAULT_MODEL: ModelInfo = { id: "default", name: "Antigravity default" };
+type Steer = (message: UserMessage) => boolean;
 
 export class AntigravityProvider implements AgentProvider {
   readonly name = "antigravity" as const;
@@ -42,7 +44,9 @@ export class AntigravityProvider implements AgentProvider {
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle = false;
   readonly supportsSlashCommands = false;
-  readonly supportsSteering = false;
+  get supportsSteering(): boolean {
+    return resolveAntigravityRuntime()?.layout === "cli";
+  }
   private catalog?: { at: number; models: ModelInfo[]; error?: string };
   private catalogRead?: Promise<ModelInfo[]>;
   private catalogStatus: ModelCatalogStatus | undefined;
@@ -185,11 +189,24 @@ export class AntigravityProvider implements AgentProvider {
     const runtime = new AntigravityRuntime();
     const controller = new AbortController();
     let sessionId: string | undefined;
+    let steer: Steer | undefined;
     return {
       queue,
-      iterator: this.run(runtime, queue, options, controller.signal, (id) => {
-        sessionId = id;
-      }),
+      iterator: this.run(
+        runtime,
+        queue,
+        options,
+        controller.signal,
+        (id) => {
+          sessionId = id;
+        },
+        (active) => {
+          steer = active;
+        },
+      ),
+      ...(this.supportsSteering
+        ? { steer: async (message: UserMessage) => steer?.(message) ?? false }
+        : {}),
       abort: async () => {
         controller.abort();
         await runtime.close();
@@ -278,6 +295,7 @@ export class AntigravityProvider implements AgentProvider {
     options: StartSessionOptions,
     signal: AbortSignal,
     bind: (id: string) => void,
+    setSteer: (steer?: Steer) => void,
   ): AsyncIterableIterator<SDKMessage> {
     const input = queue[Symbol.asyncIterator]();
     let owner: ReturnType<typeof ownAntigravitySession> | undefined;
@@ -393,20 +411,13 @@ export class AntigravityProvider implements AgentProvider {
                   return block.text;
                 })
                 .join("\n");
-        const prompt = [{ type: "text", text }];
-        const echo: SDKMessage = {
-          type: "user",
-          uuid,
-          session_id: id,
-          timestamp: new Date().toISOString(),
-          message: { role: "user", content: text },
-        };
-        owner.record(echo);
-        yield echo;
         const transcript = new AntigravityTranscript(id, `${id}:${uuid}`, true);
         const updates: SDKMessage[] = [];
         let wake: (() => void) | undefined;
-        let done = false;
+        const changed = () => {
+          wake?.();
+          wake = undefined;
+        };
         const publish = (converted: SDKMessage) => {
           if (
             converted.type === "assistant" &&
@@ -426,26 +437,65 @@ export class AntigravityProvider implements AgentProvider {
           // agy 1.5+ echoes the prompt back; YA already published `echo`.
           if (update.sessionUpdate === "user_message_chunk") return;
           for (const converted of transcript.accept(update)) publish(converted);
-          wake?.();
-          wake = undefined;
+          changed();
         };
-        const request = runtime.call<{ usage?: unknown; stopReason?: string }>(
-          "session/prompt",
-          { sessionId: id, prompt },
-          0,
-        );
-        // Observe rejection immediately, including while yielding streamed output.
+        let pending = 0;
         let failure: unknown;
-        void request
-          .catch((error) => {
-            failure = error;
-          })
-          .finally(() => {
-            done = true;
-            wake?.();
-            wake = undefined;
+        let usage: unknown;
+        const prompt = (text: string, inputId: string, steer?: UserMessage) => {
+          if (steer) {
+            const previous = transcript.close();
+            if (previous) publish(previous);
+          }
+          publish({
+            type: "user",
+            uuid: inputId,
+            session_id: id,
+            timestamp: new Date().toISOString(),
+            message: { role: "user", content: text },
           });
-        while (!done || updates.length) {
+          pending++;
+          void runtime
+            .call<{ usage?: unknown; stopReason?: string }>(
+              "session/prompt",
+              { sessionId: id, prompt: [{ type: "text", text }] },
+              0,
+            )
+            .then((response) => {
+              usage = response.usage ?? usage;
+              if (!signal.aborted && response.stopReason === "end_turn") {
+                options.onNativeInputConsumed?.(id, inputId);
+                if (steer) queue.acknowledgeNativeSteer(steer);
+              }
+            })
+            .catch((error) => {
+              failure ??= error;
+            })
+            .finally(() => {
+              if (--pending === 0) setSteer();
+              changed();
+            });
+          changed();
+        };
+        prompt(text, uuid);
+        const [major, minor] =
+          runtime.agentVersion?.split(".").map(Number) ?? [];
+        if (command.layout === "cli" && major === 1 && minor! >= 5) {
+          setSteer((input) => {
+            if (
+              signal.aborted ||
+              !runtime.alive ||
+              failure ||
+              pending >= 8 ||
+              input.images?.length ||
+              input.documents?.length
+            )
+              return false;
+            prompt(input.text, input.uuid ?? randomUUID(), input);
+            return true;
+          });
+        }
+        while (pending || updates.length) {
           if (updates.length) {
             yield updates.shift()!;
             continue;
@@ -460,10 +510,7 @@ export class AntigravityProvider implements AgentProvider {
           yield updates.shift()!;
         }
         if (failure) throw failure;
-        const response = await request;
-        if (!signal.aborted && response.stopReason === "end_turn")
-          options.onNativeInputConsumed?.(id, uuid);
-        yield { type: "result", session_id: id, usage: response.usage };
+        yield { type: "result", session_id: id, usage };
         runtime.onUpdate = undefined;
       }
     } catch (error) {
@@ -473,6 +520,7 @@ export class AntigravityProvider implements AgentProvider {
           error: error instanceof Error ? error.message : String(error),
         };
     } finally {
+      setSteer();
       signal.removeEventListener("abort", stop);
       await input.return?.();
       await runtime.close();

@@ -177,6 +177,11 @@ different thing and is not marked; see
 
 ## Levels of "soon" (urgency ladder, short of hard interrupt)
 
+Antigravity's `agy acp` 1.5.x accepts a second prompt for the active session.
+YA uses that native interjection without cancelling the current model request
+and waits for both replies before releasing the queue. See the
+[Antigravity contract](antigravity.md#vanilla-execution).
+
 Every lane available for delivering new user input, most to least urgent,
 with the invoking mechanism. Hard interrupts (Claude `query.interrupt()`,
 Codex `turn/interrupt`) bracket the ladder but cancel work; they are not

@@ -187,6 +187,7 @@ export async function findAntigravityRuntime(): Promise<AntigravityRuntimeComman
  * Keep this bounded transport local instead of changing frozen Gemini/Grok.
  */
 export class AntigravityRuntime {
+  agentVersion?: string;
   private child?: ChildProcess;
   private sequence = 0;
   // At most 32 concurrent requests; each leaves on reply, timeout or child exit.
@@ -263,12 +264,16 @@ export class AntigravityRuntime {
         }
       }
     });
-    await this.call("initialize", {
-      protocolVersion: 1,
-      clientInfo: { name: "yepanywhere", version: "1.0.0" },
-      // Google owns tool execution, file access, and its existing configuration.
-      clientCapabilities: {},
-    });
+    const initialized = await this.call<{ agentInfo?: { version?: string } }>(
+      "initialize",
+      {
+        protocolVersion: 1,
+        clientInfo: { name: "yepanywhere", version: "1.0.0" },
+        // Google owns tool execution, file access, and its existing configuration.
+        clientCapabilities: {},
+      },
+    );
+    this.agentVersion = initialized.agentInfo?.version;
   }
 
   private send(value: unknown): void {

@@ -488,6 +488,10 @@ export class MessageQueue
   hasYieldedApiInput(id: string) {
     return this.apiInputs.has(id);
   }
+  /** Report native consumption for a steer delivered outside the iterator. */
+  acknowledgeNativeSteer(message: UserMessage): void {
+    this.emitYielded([message]);
+  }
   private emitYielded(messages: UserMessage[]): void {
     if (messages.length === 0) return;
     for (const message of messages) {

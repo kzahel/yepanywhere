@@ -96,8 +96,11 @@ Missing handlers and interrupted requests cancel. Stop requests native
 `session/cancel`; hard abort closes the owned process group and waits for exit.
 
 Initial support covers text and file references. Inline image/document blocks
-fail explicitly rather than being discarded. Native `/plan` and `/usage` text
-is forwarded normally, but no YA command inventory, steering, manual compact,
+fail explicitly rather than being discarded. On `agy acp` 1.5.x, Steer sends a
+second native prompt to the active session. `agy` applies it at its next model
+boundary, and YA keeps the turn open until both requests settle. Standalone
+ACP and older runtimes use ordinary queued delivery. Native `/plan` and
+`/usage` text is forwarded normally, but no YA command inventory, manual compact,
 rewind, fork, quota dashboard, sandbox or custom instructions are promised.
 Native skills, hooks, MCP configuration and provider-created workspace files
 remain Google's behavior; YA creates no project-local cache or Git exclusions.
