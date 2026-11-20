@@ -36,6 +36,7 @@ import {
 } from "./provider-runtime-turns.mjs";
 import { ProviderProjectServices } from "./provider-project-services.mjs";
 import { getProviderImageSizing } from "../packages/server/src/services/image-preparation.mjs";
+import { ProviderMemoryBudget } from "../packages/server/src/sdk/providers/provider-memory-budget.mjs";
 import {
   parseCreationRuntimeIdentity,
   parseCreationRuntimeEvidence,
@@ -282,6 +283,7 @@ export class ProviderRuntimeHost {
     this.terminateGroup = terminateGroup;
     this.publishDescriptor = publishDescriptor;
     this.runtimes = new Map();
+    this.memoryBudget = new ProviderMemoryBudget();
     this.runtimeIdsBySessionId = new Map();
     this.retainedProcessGroups = new Map();
     this.registeredServers = new Map();
@@ -1057,79 +1059,107 @@ export class ProviderRuntimeHost {
       runtimeConfig: request.runtimeConfig ?? {},
     });
 
-    const child = spawn(
-      process.execPath,
-      ["--import", "tsx", "--conditions", "source", this.workerPath],
-      {
-        cwd: rootDir,
-        detached: true,
-        stdio: ["pipe", "inherit", "inherit", "ipc"],
-        env: {
-          ...agentLaunchEnvironment,
-          YEP_PROVIDER_WORKER_SOCKET: socketPath,
-          YEP_PROVIDER_WORKER_TOKEN: this.token,
-          YEP_PROVIDER_WORKER_RUNTIME_ID: runtimeId,
+    const releaseMemory = await this.memoryBudget.reserve(providerName, () => {
+      const roots = Array.from(this.runtimes.values(), (entry) => ({
+        provider: entry.providerName,
+        pid: entry.pid,
+        processGroupIds: [
+          entry.processGroupId,
+          ...entry.providerProcessGroups.keys(),
+        ],
+      }));
+      if (this.retainedProcessGroups.size)
+        roots.push({ processGroupIds: [...this.retainedProcessGroups.keys()] });
+      return roots;
+    });
+    let child, entry;
+    try {
+      if (
+        this.shuttingDown ||
+        (generation && !this.registeredServers.has(generation))
+      )
+        throw new Error("Provider host no longer accepts this launch");
+      if (sessionId && this.runtimeForSession(sessionId))
+        throw controlError(
+          "ownership-unknown",
+          "Provider session already has a runtime",
+        );
+      child = spawn(
+        process.execPath,
+        ["--import", "tsx", "--conditions", "source", this.workerPath],
+        {
+          cwd: rootDir,
+          detached: true,
+          stdio: ["pipe", "inherit", "inherit", "ipc"],
+          env: {
+            ...agentLaunchEnvironment,
+            YEP_PROVIDER_WORKER_SOCKET: socketPath,
+            YEP_PROVIDER_WORKER_TOKEN: this.token,
+            YEP_PROVIDER_WORKER_RUNTIME_ID: runtimeId,
+          },
+          shell: false,
         },
-        shell: false,
-      },
-    );
-    if (!child.pid || !child.stdin) {
-      child.once("error", () => {});
-      throw new Error("Provider worker launch returned no PID or input pipe");
-    }
+      );
+      if (!child.pid || !child.stdin) {
+        child.once("error", () => {});
+        throw new Error("Provider worker launch returned no PID or input pipe");
+      }
 
-    const startedAt = new Date().toISOString();
-    const entry = {
-      runtimeId,
-      sessionId,
-      binding,
-      creation: creation
-        ? { identity: creation, initialInputConsumed: false }
-        : undefined,
-      harness: agentHarness(providerName),
-      providerSessionId,
-      yaSessionId,
-      providerName,
-      projectPath,
-      socketPath,
-      pid: child.pid,
-      processGroupId: child.pid,
-      processGroup: captureProcessGroup(child.pid),
-      providerProcessGroups: new Map(),
-      child,
-      state: "starting",
-      attachedServerGeneration: generation,
-      auxiliaryOwned,
-      controllerAttached: false,
-      startedAt,
-      unviewedSince: startedAt,
-      viewerAttached: false,
-      detachedAt: undefined,
-      reattach:
-        request.reattach && typeof request.reattach === "object"
-          ? request.reattach
-          : {},
-      workerMetadata: undefined,
-      attachTimer: null,
-      terminationPromise: null,
-      activeSubmissionId: undefined,
-      auxiliaryIdleTimeoutMs:
-        request.auxiliaryIdleTimeoutMs ?? DEFAULT_AUXILIARY_IDLE_TIMEOUT_MS,
-      launchRecipe: {
+      const startedAt = new Date().toISOString();
+      entry = {
+        runtimeId,
+        sessionId,
+        binding,
+        creation: creation
+          ? { identity: creation, initialInputConsumed: false }
+          : undefined,
+        harness: agentHarness(providerName),
+        providerSessionId,
+        yaSessionId,
         providerName,
-        ...(binding ? { binding } : {}),
         projectPath,
-        // A recent recipe can resume the conversation, never an input from
-        // its previous owner. A fresh submission supplies its own text.
-        options: structuredClone(
-          binding ? { ...options, initialMessage: undefined } : options,
-        ),
-        runtimeConfig: structuredClone(request.runtimeConfig ?? {}),
-        reattach: structuredClone(request.reattach ?? {}),
-      },
-    };
-    this.runtimes.set(runtimeId, entry);
-    if (sessionId) this.runtimeIdsBySessionId.set(sessionId, runtimeId);
+        socketPath,
+        pid: child.pid,
+        processGroupId: child.pid,
+        processGroup: captureProcessGroup(child.pid),
+        providerProcessGroups: new Map(),
+        child,
+        state: "starting",
+        attachedServerGeneration: generation,
+        auxiliaryOwned,
+        controllerAttached: false,
+        startedAt,
+        unviewedSince: startedAt,
+        viewerAttached: false,
+        detachedAt: undefined,
+        reattach:
+          request.reattach && typeof request.reattach === "object"
+            ? request.reattach
+            : {},
+        workerMetadata: undefined,
+        attachTimer: null,
+        terminationPromise: null,
+        activeSubmissionId: undefined,
+        auxiliaryIdleTimeoutMs:
+          request.auxiliaryIdleTimeoutMs ?? DEFAULT_AUXILIARY_IDLE_TIMEOUT_MS,
+        launchRecipe: {
+          providerName,
+          ...(binding ? { binding } : {}),
+          projectPath,
+          // A recent recipe can resume the conversation, never an input from
+          // its previous owner. A fresh submission supplies its own text.
+          options: structuredClone(
+            binding ? { ...options, initialMessage: undefined } : options,
+          ),
+          runtimeConfig: structuredClone(request.runtimeConfig ?? {}),
+          reattach: structuredClone(request.reattach ?? {}),
+        },
+      };
+      this.runtimes.set(runtimeId, entry);
+      if (sessionId) this.runtimeIdsBySessionId.set(sessionId, runtimeId);
+    } finally {
+      releaseMemory();
+    }
     this.notifyWrapper({
       type: "runtimeLaunched",
       runtimeId,

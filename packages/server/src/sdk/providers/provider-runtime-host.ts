@@ -55,13 +55,13 @@ import {
   sameBoundRuntimeIdentity,
   type BoundRuntimeIdentity,
 } from "./bound-runtime-identity.mjs";
+import { providerHostRequestError } from "./provider-memory-budget.mjs";
 
 const HOST_REQUEST_TIMEOUT_MS = 15_000;
 const WORKER_RPC_TIMEOUT_MS = 30_000;
 const HOST_PROTOCOL_VERSION = 3;
 const WORKER_PROTOCOL_VERSION = 1;
-// The host's default attach deadline is 30 seconds. Keep launch routing pinned
-// until that owner has either been reclaimed or reaped.
+// Keep launch routing pinned beyond the host's 30-second attach deadline.
 const RUNTIME_OWNER_LOSS_GRACE_MS = 31_000;
 
 interface HostResponse<T> {
@@ -506,7 +506,7 @@ function requestHost<T>(
           return;
         }
         if (!response.ok) {
-          finish(() => reject(new Error(response.error ?? `${op} failed`)));
+          finish(() => reject(providerHostRequestError(response, op)));
           return;
         }
         finish(() => resolve(response.result as T));

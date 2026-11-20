@@ -1067,14 +1067,14 @@ export class SessionCreationStore {
     });
   }
   /**
-   * The router refused the session's account after dispatch began but before
-   * any provider started. The native claim is still this attempt's, so no
+   * A known refusal arrived after dispatch began but before any provider
+   * started. The native claim is still this attempt's, so no
    * native session was bound and no input sent: release the claim and record
    * a known, retryable failure rather than uncertainty.
    */
   failBeforeProvider(
     fence: CreationAttemptFence,
-    failure: "router-login-required" | "router-refused",
+    failure: "router-login-required" | "router-refused" | "launch-refused",
     failureDetail?: string,
   ): CreationAttempt {
     return this.transaction(() => {

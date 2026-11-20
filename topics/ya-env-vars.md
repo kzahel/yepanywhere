@@ -270,6 +270,7 @@ value, because the child has no other way to express one.
 | Var | Meaning |
 |-----|---------|
 | `ENABLED_PROVIDERS` | Comma list of exposed providers (empty = all). |
+| `YEP_PROVIDER_MEMORY_LIMIT_MIB` | [Provider launch memory budget](provider-memory-admission.md) in whole MiB. Automatic by default (half of effective memory). `0` disables it. |
 | `VOICE_INPUT` | `false` disables the mic button server-side. |
 | `PI_EXECUTABLE` | Full path to the pi CLI executable for the pi provider. `PI_PATH` is accepted as a legacy alias when `PI_EXECUTABLE` is unset. |
 | `YEP_VOICE_BACKENDS` | Explicit local/test speech backends (`ya-whisper`, `ya-parakeet`, `ya-nemo`, `ya-granite`, `ya-dummy`). Unioned with Speech settings `speechVoiceBackends`; the env list is copied into that setting on startup and never removes a saved backend. Cloud backends auto-enable on key presence instead. |

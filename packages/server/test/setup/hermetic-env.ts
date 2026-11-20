@@ -27,6 +27,7 @@ import { CONFIG_ENV_VARS } from "./config-env-vars.js";
 for (const name of CONFIG_ENV_VARS) {
   delete process.env[name];
 }
+delete process.env.YEP_PROVIDER_MEMORY_LIMIT_MIB;
 
 /**
  * Give every test file its own data and scratch directories.

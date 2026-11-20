@@ -58,6 +58,8 @@ for (const name of [
   "creation-runtime-record.d.mts",
   "bound-runtime-identity.mjs",
   "bound-runtime-identity.d.mts",
+  "provider-memory-budget.mjs",
+  "provider-memory-budget.d.mts",
 ]) {
   copyFileSync(
     join(serverSourceDir, "sdk/providers", name),

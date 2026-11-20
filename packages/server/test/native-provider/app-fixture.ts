@@ -73,6 +73,7 @@ export async function nativeAppFixture(
     agentApiManagement?: boolean;
     codexDeveloperInstructions?: string;
     additionalProviders?: readonly AppProvider[];
+    providerMemoryLimitMiB?: number;
     signal?: AbortSignal;
   } = {},
 ) {
@@ -245,6 +246,10 @@ export async function nativeAppFixture(
     env.PORT = String(await freePort());
     env.VITE_PORT = String(await freePort());
     env.MAINTENANCE_PORT = "0";
+    if (options.providerMemoryLimitMiB !== undefined)
+      env.YEP_PROVIDER_MEMORY_LIMIT_MIB = String(
+        options.providerMemoryLimitMiB,
+      );
     env.SERVE_FRONTEND = "true";
     env.NODE_ENV = "development";
     env.NODE_OPTIONS = `--import ${pathToFileURL(join(repo, "packages/client/e2e/support/offline-update-check.mjs")).href}`;

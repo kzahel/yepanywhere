@@ -139,7 +139,7 @@
       "maxLines": 6566
     },
     "packages/server/src/supervisor/Supervisor.ts": {
-      "maxLines": 6931
+      "maxLines": 6910
     },
     "packages/shared/src/index.ts": {
       "maxLines": 1918,

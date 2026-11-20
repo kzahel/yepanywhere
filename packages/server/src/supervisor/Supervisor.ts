@@ -10,6 +10,11 @@ import {
   RouterRefusedBeforeProvider,
   RouterUnavailable,
 } from "../services/AgentAuthRouter.js";
+import { ProviderMemoryCapacityError } from "../sdk/providers/provider-memory-budget.mjs";
+import {
+  recordKnownProviderRefusal,
+  reserveLocalMemory,
+} from "./provider-launch-admission.js";
 import { randomUUID } from "node:crypto";
 import {
   boundProcessIdentity,
@@ -452,7 +457,7 @@ export interface SessionLaunchOptions {
    */
   onStarted?: SessionStartedCallback;
   /** One-shot callback when a deferred launch cannot start. */
-  onFailed?: (reason: string) => void | Promise<void>;
+  onFailed?: (reason: string, error?: unknown) => void | Promise<void>;
   /** One-shot callback when transient provider startup should be retried. */
   onRetryableFailure?: (reason: string) => void | Promise<void>;
   /** Classify provider startup rejection as retryable for a durable caller. */
@@ -1527,26 +1532,7 @@ export class Supervisor {
               : "launch-refused",
           );
         else if (
-          error instanceof RouterRefusedBeforeProvider &&
-          current.attempt.state === "dispatching"
-        ) {
-          store.failBeforeProvider(
-            currentFence,
-            error.loginRequired ? "router-login-required" : "router-refused",
-            error.message,
-          );
-          getLogger().warn(
-            {
-              event: "agent_auth_router_refused",
-              sessionId: current.sessionId,
-              routerStatus: error.status,
-              code: error.code,
-              loginRequired: error.loginRequired,
-              error: error.message,
-            },
-            "Agent Auth Router refused a new session before provider start",
-          );
-        } else if (
+          !recordKnownProviderRefusal(store, currentFence, current, error) &&
           ["dispatching", "bound"].includes(current.attempt.state) &&
           current.attempt.delivery !== "consumed" &&
           !(current.request?.intent && current.attempt.state === "bound")
@@ -1972,7 +1958,7 @@ export class Supervisor {
     try {
       return await start;
     } catch (error) {
-      if (required) {
+      if (required && !(error instanceof ProviderMemoryCapacityError)) {
         throw new RetryableSessionLaunchError(error);
       }
       throw error;
@@ -2653,10 +2639,6 @@ export class Supervisor {
     }
   }
 
-  /**
-   * Create a session using the provider interface without an initial message.
-   * The session is created and waits for a message to be queued.
-   */
   /** Compatibility adapter for message-less activation; one provider start engine. */
   private createProviderSession(
     projectPath: string,
@@ -2758,9 +2740,6 @@ export class Supervisor {
     return { source, identity, sessionId, retainedRuntimeOnly: false as const };
   }
 
-  /**
-   * Start a session using the provider interface with full features.
-   */
   private async startProviderSession(
     projectPath: string,
     projectId: UrlProjectId,
@@ -2813,10 +2792,8 @@ export class Supervisor {
         );
     const managedIdentity = managedLaunch?.identity ?? resume?.identity;
 
-    // We need to reference process in the callback before it's assigned
     const processHolder: { process: Process | null } = { process: null };
 
-    // Use provided mode or fall back to default
     const effectiveMode = permissionMode ?? this.defaultPermissionMode;
     const promptSuggestionMode = this.resolvePromptSuggestionMode(
       modelSettings?.promptSuggestionMode,
@@ -2909,7 +2886,9 @@ export class Supervisor {
           : error;
       });
     let startedProviderAbort: (() => void | Promise<void>) | undefined;
+    let releaseMemory: (() => void) | undefined;
     try {
+      releaseMemory = await reserveLocalMemory(this.processes, activeProvider);
       const agentApiEpoch = this.agentApiEpoch;
       const peerApiEpoch = this.peerApiEpoch;
       const instructions = await this.instructionLaunchOptions(
@@ -3173,6 +3152,8 @@ export class Supervisor {
         await this.agentAuthRouter?.cancel(tempSessionId).catch(() => {});
       }
       throw error;
+    } finally {
+      releaseMemory?.();
     }
   }
 
@@ -6645,9 +6626,6 @@ export class Supervisor {
 
   // ============ Worker Pool Methods ============
 
-  /**
-   * Check if we're at worker capacity.
-   */
   private isAtCapacity(): boolean {
     if (this.maxWorkers <= 0) return false; // 0 = unlimited
     return this.processes.size >= this.maxWorkers;
@@ -6737,7 +6715,6 @@ export class Supervisor {
           process = result;
         }
 
-        // Emit queue removed event
         this.eventBus?.emit({
           type: "queue-request-removed",
           queueId: request.id,
@@ -6778,7 +6755,9 @@ export class Supervisor {
             !request.creationFence
               ? request.onRetryableFailure
               : request.onFailed;
-          await failureCallback?.(reason);
+          if (error instanceof ProviderMemoryCapacityError)
+            await failureCallback?.(reason, error);
+          else await failureCallback?.(reason);
         } catch (callbackError) {
           getLogger().warn(
             {

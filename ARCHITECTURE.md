@@ -93,6 +93,9 @@ talks to it through an `AgentSession` proxy. When that host is disabled or
 unavailable, provider ownership remains inside Hono and the ordinary
 safe-restart behavior applies.
 
+The component that spawns a provider owns its
+[memory admission check](topics/provider-memory-admission.md).
+
 `YEP_PROVIDER_HOST_ENABLED` is the operator gate. Linux defaults enabled;
 macOS defaults disabled pending resolution of the observed active-turn
 interruptions tracked in

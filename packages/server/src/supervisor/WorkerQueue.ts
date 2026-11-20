@@ -40,7 +40,7 @@ export interface QueuedRequest {
   /** One-shot association hook after a queued launch receives its YA id. */
   onStarted?: SessionStartedCallback;
   /** One-shot failure hook when deferred launch work cannot start. */
-  onFailed?: (reason: string) => void | Promise<void>;
+  onFailed?: (reason: string, error?: unknown) => void | Promise<void>;
   /** One-shot hook when a transient provider startup failure should retry. */
   onRetryableFailure?: (reason: string) => void | Promise<void>;
   /** Classify provider startup rejection as retryable for a durable caller. */
@@ -120,7 +120,7 @@ export class WorkerQueue {
     permissionMode?: PermissionMode;
     modelSettings?: ModelSettings;
     onStarted?: SessionStartedCallback;
-    onFailed?: (reason: string) => void | Promise<void>;
+    onFailed?: (reason: string, error?: unknown) => void | Promise<void>;
     onRetryableFailure?: (reason: string) => void | Promise<void>;
     retryProviderStartupFailure?: boolean;
     requireProviderSessionId?: boolean;

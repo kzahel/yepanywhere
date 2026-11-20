@@ -420,7 +420,10 @@ replay, provider restart or fallback routing.
 `GET /v0/servers/{serverId}/receipts/{receiptId}` observes `dispatching`,
 `queued`, `accepted`, `failed` or `uncertain`. These describe admission evidence,
 not successful response completion. Native capacity rejection is recorded as a
-known failure. An exception after reservation or a queued startup failure is uncertain; never
+known failure. [Provider memory admission](provider-memory-admission.md)
+reports a verified pre-spawn refusal as `failed` with
+`failure.code: "capacity_unavailable"`. An exception after reservation or a
+queued startup failure without a verified refusal is uncertain. Never
 generate a new retry key merely to escape that uncertainty. Unique live-owner API-input
 admission/consumption evidence can reconcile a target binding without launching
 again. Inherited transcript UUIDs and optimistic user echoes are not admission

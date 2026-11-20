@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { getLogger } from "../logging/logger.js";
 import { RouterUnavailable } from "../services/AgentAuthRouter.js";
+import { ProviderMemoryCapacityError } from "../sdk/providers/provider-memory-budget.mjs";
 
 /**
  * An error that names its own HTTP response status. Throw it from a service
@@ -33,6 +34,8 @@ function redactRequestPath(path: string): string {
 }
 
 export function structuredErrorHandler(error: Error, c: Context): Response {
+  if (error instanceof ProviderMemoryCapacityError)
+    return c.json({ error: error.message, code: error.outcome }, 503);
   // A router refusal is recoverable session feedback, not a YA login failure
   // or an unexpected server fault. Messages are generated locally, never
   // copied from provider responses or socket/filesystem errors; at most they

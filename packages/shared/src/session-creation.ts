@@ -16,7 +16,7 @@ export interface SessionCreationStatus {
   initialInputExpected?: false;
   attemptId: string;
   updatedAt: string;
-  /** Safe router refusal text, saved only before provider startup. Absent on older servers. */
+  /** Safe refusal text recorded before provider startup. Absent on older servers. */
   failureDetail?: string;
   delivery: "not-admitted" | "uncertain" | "consumed";
   /**

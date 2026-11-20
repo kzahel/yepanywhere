@@ -340,7 +340,7 @@ export function nativeSessionCommandOwner(
                 failed();
               }
             },
-            onFailed: failed,
+            onFailed: (reason, error) => failed(error ?? reason),
             onRetryableFailure: failed,
           },
         );
