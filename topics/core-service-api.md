@@ -401,16 +401,35 @@ runner because that runner can use the core service directly.
 
 #### LearnHarness integration
 
-The integration is probably worth declining. LearnHarness already supports
-ChatGPT sign-in in the Windows app and Claude Code on the host running its
-Linux browser build. Those paths cover the initial trial. LearnHarness could
-use D6 through its
-[custom provider setting](https://github.com/amosblomqvist/learnharness/blob/v0.6.1/docs/custom-providers.md)
-if it can keep ownership of lesson history and tools. The adapter would
-need to map the submitted history to a YA session and stream model tool calls
-back to LearnHarness. LearnHarness would execute those calls and submit the
-results on the next request. Revisit if a specific need for YA-managed
-provider access comes up that the built-in paths cannot meet.
+The opt-in local model API serves `/v1/models` and `/v1/chat/completions`
+on `127.0.0.1` in a separate process. It uses an installed Pi SDK for model
+calls and the operator's Pi configuration for provider credentials. The
+service owns its model cache. Pi serializes updates to shared credentials.
+The listener has no access to YA session commands and requires a dedicated
+bearer token. Only models listed in `YA_MODEL_API_MODELS` are served.
+
+LearnHarness's [custom provider setting](https://github.com/amosblomqvist/learnharness/blob/v0.6.1/docs/custom-providers.md)
+uses this endpoint. It sends history, instructions and tool definitions on
+each request. The response streams model output and tool calls. LearnHarness
+runs those tools and sends their results in the next request. There is no
+model API session to map to a YA session. The session-backed experiment
+proposal above still has its own session mapping decision.
+
+To start the service from a YA source checkout, use Node.js and an installed
+`@earendil-works/pi-coding-agent` SDK with `ModelRuntime` (tested with Pi
+1.5.0 and 1.6.0). Set `YA_MODEL_API_PI_MODULE` to its absolute `dist/index.js`
+path, `YA_MODEL_API_TOKEN_FILE` to a private file containing a random bearer
+token, and `YA_MODEL_API_MODELS` to comma-separated `provider/model` IDs.
+Run `pnpm --filter @yep-anywhere/server model-api`. `YA_MODEL_API_PORT`
+overrides port `3410`. In LearnHarness, add a custom provider with base URL
+`http://127.0.0.1:3410/v1` and select **API key**. Enter the dedicated token
+and choose the new provider's models for whichever roles should use them.
+
+The API accepts text, base64 images on vision models, and function tools.
+Streaming and nonstreaming requests use the same model call. It supports
+automatic tool choice and disabling tools. Public URLs for images and tools
+other than functions are outside this interface. Subscriptions and rate
+limits are determined by the configured Pi provider account.
 
 ## Session launch metadata owners
 
