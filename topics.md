@@ -514,3 +514,5 @@
 - client-test-diagnostics - Client unit suite gate that fails tests emitting unasserted React or jsdom diagnostics, its shrink-only allowlist, and the fixture fixes that shrink it.
 
 - creation-recovery-never-blocks - Saved creation recovery state (New Session, Session-page Start, template creation) always offers Start fresh; the November 2026 stale-request lock investigation and repair.
+
+- v0-catalog-read-cost - v0 session operations that read the whole session catalog on the main event loop; single-session lookups moved to the native-id index first, lists and misses remain.

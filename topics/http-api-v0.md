@@ -79,6 +79,14 @@ returned predicates/directions or consult the generated query schema.
   across concurrent catalog changes, not snapshots. Response item count is
   bounded by page size, while filtering/sorting still visits the retained
   projection and the existing catalog owner governs acquisition cost. No new polling or discovery service is created by this API.
+- Session detail and every session-scoped read or command find an established
+  session through the catalog's native-id index, without reading the session
+  population. An id the index cannot establish (missing, inaccessible,
+  ambiguous across projects, or disputed by its live owner) takes the complete
+  catalog read, which alone decides `404 session_not_found` versus
+  `503 catalog_not_ready`. Both paths return the same answer; the
+  [remaining population reads](../gaps/v0-session-lists-and-misses-read-the-whole-catalog.md)
+  are the session list and those misses.
 - Successful route responses are non-cacheable. V0 errors contain
   `{error: {code, message}}`; existing host/auth/limited-user middleware may
   reject earlier with its existing JSON/text errors. Private exception text is

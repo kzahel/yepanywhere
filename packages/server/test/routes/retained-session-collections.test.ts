@@ -205,6 +205,53 @@ it("serves a durable generation through collection routes while one shared refre
   expect((await collections.read()).catalog.refreshing).toBe(false);
 });
 
+it("reads the rows under native ids through the index in complete-read order", async () => {
+  dataDir = await mkdtemp(join(tmpdir(), "retained-collections-"));
+  const projectId = toUrlProjectId("/work/project");
+  const row = (storeKey: string, sessionId: string): SessionCatalogRow => ({
+    catalogFamily: "claude",
+    storeKey,
+    sessionId,
+    projectId,
+    projectPath: "/work/project",
+    projectIdentityKey: "/work/project",
+    updatedAt: "2026-11-20T00:00:00.000Z",
+    fidelity: "head",
+    sourceVersion: "v1",
+    location: { kind: "provider", recordId: sessionId },
+  });
+  // The later store is stored first, so stored order and read order differ.
+  const adapters = ["store-b", "store-a"].map(
+    (storeKey): NativeSessionCatalogAdapter => ({
+      catalogFamily: "claude",
+      storeKey,
+      scan: async () => ({
+        sourceVersion: "v1",
+        rows: [row(storeKey, "shared"), row(storeKey, `only-${storeKey}`)],
+      }),
+    }),
+  );
+  collections = new RetainedSessionCollections({
+    dataDir,
+    database: openTestDiscoveryDatabase(dataDir),
+    eventBus: new EventBus(),
+    adapters: async () => adapters,
+  });
+  await collections.refresh();
+  const complete = (await collections.read()).rows;
+  expect(complete).toHaveLength(4);
+  const ids = ["only-store-b", "shared", "shared", "absent"];
+  const indexed = await collections.readNativeRows(ids);
+  expect(indexed.map((found) => found.storeKey)).toEqual([
+    "store-a",
+    "store-b",
+    "store-b",
+  ]);
+  expect(indexed).toEqual(
+    complete.filter((found) => ids.includes(found.sessionId)),
+  );
+});
+
 it("publishes native heads before questions and refreshes only a modified session", async () => {
   dataDir = await mkdtemp(join(tmpdir(), "retained-native-"));
   const projectPath = join(dataDir, "project");

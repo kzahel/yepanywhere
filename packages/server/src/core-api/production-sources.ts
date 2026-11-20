@@ -14,11 +14,12 @@ import type { AgentProvider } from "../sdk/providers/types.js";
 import type { ApiSession } from "./contracts.js";
 import type { CoreApiSources } from "./service.js";
 import { apiSessionState } from "./owned-sessions.js";
-import { isClaudeProviderName } from "@yep-anywhere/shared";
+import { isClaudeProviderName, isYaSessionId } from "@yep-anywhere/shared";
 
 export function productionApiSources(deps: {
   scanner: Pick<ProjectScanner, "readRetainedProjects">;
-  sessions: Pick<RetainedSessionCollections, "read">;
+  sessions: Pick<RetainedSessionCollections, "read"> &
+    Partial<Pick<RetainedSessionCollections, "readNativeRows">>;
   /**
    * With its identity store, native catalog rows are projected to public ids.
    * Without one a row keeps its native id, which is the public id only for a
@@ -39,7 +40,69 @@ export function productionApiSources(deps: {
   ownedSessions?: () => readonly import("./contracts.js").ApiSession[];
   hiddenProjects: NonNullable<CoreApiSources["hiddenProjects"]>;
 }): CoreApiSources {
+  const summary = (row: Readonly<SessionCatalogRow>): ApiSession => {
+    const metadata = deps.metadata?.getMetadata(row.sessionId);
+    const process = deps.supervisor?.getProcessForSession(row.sessionId);
+    return {
+      id: row.sessionId,
+      projectId: metadata?.workingProjectId ?? row.projectId,
+      provider: metadata?.provider ?? row.provider ?? row.catalogFamily,
+      title: metadata?.customTitle ?? row.title ?? null,
+      updatedAt: row.updatedAt,
+      createdByUser: metadata?.createdByUser,
+      state:
+        deps.sessionState?.(row.sessionId) ??
+        (process ? apiSessionState(process) : "not-running"),
+    };
+  };
   return {
+    async session(id, signal) {
+      const readNativeRows = deps.sessions.readNativeRows;
+      if (!readNativeRows) return undefined;
+      signal?.throwIfAborted();
+      const identities = deps.metadata?.identities;
+      // A row is published under this id either by its own native spelling or
+      // through the one native binding the identity store allows a YA id.
+      const bound =
+        identities && isYaSessionId(id)
+          ? identities.resolveYa(id)?.native
+          : undefined;
+      const projection = await projectCatalogIdentityResult(
+        await readNativeRows.call(deps.sessions, [
+          id,
+          ...(bound ? [String(bound.id)] : []),
+        ]),
+        identities ? (deps.metadata as SessionMetadataService) : undefined,
+        signal,
+      );
+      signal?.throwIfAborted();
+      // A disputed or unlisted id is left to `sessions`, which alone knows
+      // whether the catalog can establish absence.
+      const rows = projection.rows.filter((row) => row.sessionId === id);
+      if (new Set(rows.map((row) => row.projectId)).size > 1) return undefined;
+      let session = rows
+        .filter((row) => !isDetachedProjectPath(row.projectPath))
+        .map(summary)
+        .at(-1);
+      for (const owned of deps.ownedSessions?.() ?? []) {
+        if (owned.id !== id) continue;
+        if (session && session.projectId !== owned.projectId) return undefined;
+        session ??= owned;
+      }
+      if (!session) return undefined;
+      const candidate = rows.length === 1 ? rows[0] : undefined;
+      return {
+        session,
+        backingStore: describeBackingStore(
+          session.provider,
+          candidate &&
+            (deps.metadata?.getMetadata(id)?.workingProjectId ??
+              candidate.projectId) === session.projectId
+            ? candidate
+            : undefined,
+        ),
+      };
+    },
     async backingStore(session, signal) {
       signal?.throwIfAborted();
       const result = await deps.sessions.read();
@@ -160,26 +223,7 @@ export function productionApiSources(deps: {
       const items = rows
         .filter((row) => !ambiguous.has(row.sessionId))
         .filter((r) => !isDetachedProjectPath(r.projectPath))
-        .map((row) => {
-          const metadata = deps.metadata?.getMetadata(row.sessionId);
-          return {
-            id: row.sessionId,
-            projectId: metadata?.workingProjectId ?? row.projectId,
-            provider: metadata?.provider ?? row.provider ?? row.catalogFamily,
-            title: metadata?.customTitle ?? row.title ?? null,
-            updatedAt: row.updatedAt,
-            createdByUser: metadata?.createdByUser,
-            state: (() => {
-              const process = deps.supervisor?.getProcessForSession(
-                row.sessionId,
-              );
-              return (
-                deps.sessionState?.(row.sessionId) ??
-                (process ? apiSessionState(process) : "not-running")
-              );
-            })(),
-          };
-        });
+        .map(summary);
       const byId = new Map<string, ApiSession>(
         items.map((item) => [item.id, item]),
       );

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,7 +25,42 @@ import { productionApiSources } from "../../src/core-api/production-sources.js";
 import { CoreApi } from "../../src/core-api/service.js";
 import { createV0Routes } from "../../src/routes/v0/index.js";
 
-it("keeps shared native store locations out of collection summaries", async () => {
+/**
+ * A published catalog that counts population reads. With `indexed` it also
+ * answers native-id lookups, as the retained collections do; without, every
+ * session read takes the complete path, which must give the same answers.
+ */
+function fixtureCatalog(
+  rows: () => readonly SessionCatalogRow[],
+  indexed: boolean,
+) {
+  const counts = { reads: 0 };
+  return {
+    counts,
+    sessions: {
+      read: async () => {
+        counts.reads++;
+        return {
+          rows: rows(),
+          catalog: {
+            catalogEpoch: "fixture",
+            catalogGeneration: 1,
+            complete: true,
+            refreshing: false,
+          },
+        };
+      },
+      ...(indexed
+        ? {
+            readNativeRows: async (ids: readonly string[]) =>
+              rows().filter((row) => ids.includes(row.sessionId)),
+          }
+        : {}),
+    },
+  };
+}
+
+async function hidesSharedNativeStoreLocations(indexed: boolean) {
   const projectId = toUrlProjectId("/work/visible");
   const locations: SessionCatalogRow["location"][] = [
     { kind: "database", path: "/native/opencode.db", recordId: "ses_native" },
@@ -44,6 +79,9 @@ it("keeps shared native store locations out of collection summaries", async () =
     updatedAt: "2026-11-14T00:00:00Z",
     location,
   }));
+  // Listed under one project while its live owner names another.
+  rows.push({ ...rows[0]!, sessionId: "moved" });
+  const catalog = fixtureCatalog(() => rows, indexed);
   const sources = productionApiSources({
     scanner: {
       readRetainedProjects: async () => ({
@@ -52,17 +90,17 @@ it("keeps shared native store locations out of collection summaries", async () =
         refreshing: false,
       }),
     },
-    sessions: {
-      read: async () => ({
-        rows,
-        catalog: {
-          catalogEpoch: "fixture",
-          catalogGeneration: 1,
-          complete: true,
-          refreshing: false,
-        },
-      }),
-    },
+    sessions: catalog.sessions,
+    ownedSessions: () => [
+      {
+        id: "moved",
+        projectId: toUrlProjectId("/work/elsewhere"),
+        provider: "opencode",
+        title: null,
+        updatedAt: "",
+        state: "in-turn",
+      },
+    ],
     providers: () => [],
     hiddenProjects: async () => new Set(),
   });
@@ -97,9 +135,12 @@ it("keeps shared native store locations out of collection summaries", async () =
     recordId: "provider-handle",
     format: null,
   });
-});
+  // The list is the only population read: neither detail repeats it.
+  if (indexed) expect(catalog.counts.reads).toBe(1);
+  expect((await app.request("/v0/servers/A/sessions/moved")).status).toBe(404);
+}
 
-it("rejects native cross-project collisions before session-wide metadata can hide them", async () => {
+async function rejectsCrossProjectCollisions(indexed: boolean) {
   const visible = toUrlProjectId("/work/visible"),
     privateId = toUrlProjectId("/work/private");
   const rows: SessionCatalogRow[] = [visible, privateId].map(
@@ -117,6 +158,7 @@ it("rejects native cross-project collisions before session-wide metadata can hid
       location: { kind: "file", path: `/unused/${index}` },
     }),
   );
+  const catalog = fixtureCatalog(() => rows, indexed);
   const sources = productionApiSources({
     scanner: {
       readRetainedProjects: async () => ({
@@ -125,17 +167,7 @@ it("rejects native cross-project collisions before session-wide metadata can hid
         refreshing: false,
       }),
     },
-    sessions: {
-      read: async () => ({
-        rows,
-        catalog: {
-          catalogEpoch: "fixture",
-          catalogGeneration: 1,
-          complete: true,
-          refreshing: false,
-        },
-      }),
-    },
+    sessions: catalog.sessions,
     metadata: { getMetadata: () => ({ workingProjectId: visible }) },
     sessionState: () => "not-running",
     ownedSessions: () => [
@@ -188,9 +220,20 @@ it("rejects native cross-project collisions before session-wide metadata can hid
   expect((await app.request("/v0/servers/A/sessions/same-id")).status).toBe(
     404,
   );
-});
+  // An owner the catalog has not listed yet is found without a population
+  // read, and one outside the reader's grant stays indistinguishable from
+  // a missing session.
+  const reads = catalog.counts.reads;
+  expect((await app.request("/v0/servers/A/sessions/new-visible")).status).toBe(
+    200,
+  );
+  if (indexed) expect(catalog.counts.reads).toBe(reads);
+  expect((await app.request("/v0/servers/A/sessions/new-private")).status).toBe(
+    404,
+  );
+}
 
-it("keeps a session under the YA id its creator holds once only its native transcript remains", async () => {
+async function keepsYaIdOnceOnlyNativeTranscriptRemains(indexed: boolean) {
   const dir = await mkdtemp(join(tmpdir(), "ya-v0-identity-"));
   try {
     const database = openTestDiscoveryDatabase(dir);
@@ -228,6 +271,7 @@ it("keeps a session under the YA id its creator holds once only its native trans
     };
     let nativeRows = [row];
     let running = true;
+    const catalog = fixtureCatalog(() => nativeRows, indexed);
     const sources = productionApiSources({
       scanner: {
         readRetainedProjects: async () => ({
@@ -236,17 +280,7 @@ it("keeps a session under the YA id its creator holds once only its native trans
           refreshing: false,
         }),
       },
-      sessions: {
-        read: async () => ({
-          rows: nativeRows,
-          catalog: {
-            catalogEpoch: "fixture",
-            catalogGeneration: 1,
-            complete: true,
-            refreshing: false,
-          },
-        }),
-      },
+      sessions: catalog.sessions,
       metadata,
       sessionState: () => (running ? "idle" : "not-running"),
       // While its process lives, the owner lists the session by its YA id.
@@ -282,8 +316,10 @@ it("keeps a session under the YA id its creator holds once only its native trans
           item.state,
         ]),
       ).toEqual([[publicId, state]]);
+      const reads = catalog.counts.reads;
       const detail = await app.request(`/v0/servers/A/sessions/${publicId}`);
       expect(detail.status).toBe(200);
+      if (indexed) expect(catalog.counts.reads).toBe(reads);
       expect((await detail.json()).backingStore).toMatchObject({
         serverId: "A",
         kind: "file",
@@ -331,4 +367,18 @@ it("keeps a session under the YA id its creator holds once only its native trans
     closeTestDiscoveryDatabases();
     await rm(dir, { recursive: true });
   }
+}
+
+// Each scenario must hold whether one session is found through the native-id
+// index or, as fixtures without that index do, by reading the population.
+describe.each([
+  ["the native-id index", true],
+  ["complete reads", false],
+])("session reads through %s", (_, indexed) => {
+  it("keeps shared native store locations out of collection summaries", () =>
+    hidesSharedNativeStoreLocations(indexed));
+  it("rejects native cross-project collisions before session-wide metadata can hide them", () =>
+    rejectsCrossProjectCollisions(indexed));
+  it("keeps a session under the YA id its creator holds once only its native transcript remains", () =>
+    keepsYaIdOnceOnlyNativeTranscriptRemains(indexed));
 });

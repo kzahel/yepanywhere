@@ -10,10 +10,11 @@ import {
 } from "@yep-anywhere/shared";
 import type { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
 import { catalogFileVersion } from "../sessions/catalog-adapters/row.js";
-import type {
-  NativeSessionCatalogAdapter,
-  CatalogFileLookup,
-  SessionCatalogRow,
+import {
+  sessionCatalogRowKey,
+  type NativeSessionCatalogAdapter,
+  type CatalogFileLookup,
+  type SessionCatalogRow,
 } from "../sessions/catalog-types.js";
 import { readCodexAsyncQuestions } from "../sessions/codex-async-questions.js";
 import type { SqliteDatabase } from "../storage/sqlite.js";
@@ -327,6 +328,26 @@ export class RetainedSessionCollections {
     await this.initialize();
     this.controller.signal.throwIfAborted();
     return this.catalog.readRow(key);
+  }
+
+  /**
+   * Published rows carrying any of these native session ids, in the order a
+   * complete read yields them, through the native-id index and without
+   * discovery.
+   */
+  async readNativeRows(
+    nativeIds: readonly string[],
+  ): Promise<readonly Readonly<SessionCatalogRow>[]> {
+    await this.initialize();
+    this.controller.signal.throwIfAborted();
+    this.schedule();
+    const rows = new Map<string, Readonly<SessionCatalogRow>>();
+    for (const id of new Set(nativeIds))
+      for (const row of this.catalog.readNativeRows(id))
+        rows.set(sessionCatalogRowKey(row), row);
+    return [...rows.entries()]
+      .sort(([left], [right]) => this.catalog.compareRowOrder(left, right))
+      .map(([, row]) => row);
   }
 
   compareRowOrder(left: string, right: string): number {

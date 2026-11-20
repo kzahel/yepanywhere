@@ -68,6 +68,16 @@ export interface CoreApiSources {
   projects(
     signal?: AbortSignal,
   ): Promise<{ items: ApiProject[]; catalog?: CatalogState }>;
+  /**
+   * One session without visiting the population. `undefined` leaves the
+   * answer, including why a session is absent, to `sessions`.
+   */
+  session?(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<
+    { session: ApiSession; backingStore: ApiBackingStore } | undefined
+  >;
   sessions(
     signal?: AbortSignal,
   ): Promise<{ items: ApiSession[]; catalog?: CatalogState }>;
@@ -749,9 +759,35 @@ export class CoreApi {
       }
       case "sessions":
       case "session": {
+        const allowed = (s: ApiSession) =>
+          (visible(s.projectId) ||
+            (caller.kind === "limited" &&
+              s.createdByUser === caller.username)) &&
+          (!query.data.projectId || query.data.projectId === s.projectId);
+        const detail = (item: ApiSession, backingStore?: ApiBackingStore) => {
+          const inspection = this.sources.sessionInspection?.(item.id);
+          return {
+            ...item,
+            ...(inspection ? sessionInspectionSchema.parse(inspection) : {}),
+            ...(backingStore
+              ? {
+                  backingStore: backingStoreSchema.parse({
+                    ...backingStore,
+                    serverId: this.serverId,
+                  }),
+                }
+              : {}),
+          };
+        };
         if (operation === "session" && input.sessionId) {
           const launching = this.launchingSession(caller, input.sessionId);
           if (launching) return launching;
+          const found = await this.sources.session?.(
+            input.sessionId,
+            input.signal,
+          );
+          if (found && allowed(found.session))
+            return detail(found.session, found.backingStore);
         }
         const result = await this.sources.sessions(input.signal);
         const projectsById = new Map<string, string>();
@@ -768,12 +804,7 @@ export class CoreApi {
             : undefined;
         const items = result.items.filter(
           (s) =>
-            !ambiguous.has(s.id) &&
-            (visible(s.projectId) ||
-              (caller.kind === "limited" &&
-                s.createdByUser === caller.username)) &&
-            !hidden?.has(s.projectId) &&
-            (!query.data.projectId || query.data.projectId === s.projectId),
+            !ambiguous.has(s.id) && allowed(s) && !hidden?.has(s.projectId),
         );
         if (operation === "session") {
           const item = items.find((s) => s.id === input.sessionId);
@@ -789,23 +820,10 @@ export class CoreApi {
               "Session not found",
               404,
             );
-          const inspection = this.sources.sessionInspection?.(item.id);
-          const backingStore = await this.sources.backingStore?.(
+          return detail(
             item,
-            input.signal,
+            await this.sources.backingStore?.(item, input.signal),
           );
-          return {
-            ...item,
-            ...(inspection ? sessionInspectionSchema.parse(inspection) : {}),
-            ...(backingStore
-              ? {
-                  backingStore: backingStoreSchema.parse({
-                    ...backingStore,
-                    serverId: this.serverId,
-                  }),
-                }
-              : {}),
-          };
         }
         const unique = [
           ...new Map(items.map((item) => [item.id, item])).values(),
