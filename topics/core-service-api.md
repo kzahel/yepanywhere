@@ -387,10 +387,30 @@ primitive.
 
 ### Step 4 — OpenAI-compatible adapter (D6)
 
-A separate route module (`/v1/chat/completions`, `/v1/models`) translating to/
-from the core. Thin; depends entirely on resolving the stateless-request →
-stateful-session `OPEN:` mapping decision. Ships last because it is the most
-opinionated and the least load-bearing for the primary (experiment) use case.
+If D6 goes ahead, serve `/v1/chat/completions` and `/v1/models` from a Hono
+route module in the YA server process. The adapter authenticates callers,
+lists the models each caller may use, and translates provider output into
+OpenAI streaming responses. Mount authentication explicitly for `/v1`.
+The existing `/api/*` middleware has a different route scope. The core
+service calls the provider runtime, which owns execution, queueing and
+cancellation. A standalone HTTP host could reuse the adapter if a consumer
+needs it without running the full YA server.
+
+D6 depends on resolving the session mapping above. It follows the experiment
+runner because that runner can use the core service directly.
+
+#### LearnHarness integration
+
+The integration is probably worth declining. LearnHarness already supports
+ChatGPT sign-in in the Windows app and Claude Code on the host running its
+Linux browser build. Those paths cover the initial trial. LearnHarness could
+use D6 through its
+[custom provider setting](https://github.com/amosblomqvist/learnharness/blob/v0.6.1/docs/custom-providers.md)
+if it can keep ownership of lesson history and tools. The adapter would
+need to map the submitted history to a YA session and stream model tool calls
+back to LearnHarness. LearnHarness would execute those calls and submit the
+results on the next request. Revisit if a specific need for YA-managed
+provider access comes up that the built-in paths cannot meet.
 
 ## Session launch metadata owners
 
