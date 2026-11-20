@@ -387,7 +387,7 @@ export class CoreApi {
         if (!parsed.success)
           throw new CoreApiError(
             "invalid_request",
-            "Choose provider=claude|codex and routing=aar|direct; inspect the selection schema",
+            "Choose provider=claude|codex|antigravity and routing=aar|direct; inspect the selection schema",
             400,
           );
         if (!this.sources.selection)

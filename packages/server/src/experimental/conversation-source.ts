@@ -24,13 +24,15 @@ export interface ConversationSourceDependencies {
   ): Promise<
     (Readonly<SessionCatalogRow> & { nativeSessionId?: string }) | undefined
   >;
-  getProcess(
-    sessionId: string,
-  ):
+  getProcess(sessionId: string):
     | (Pick<
         Process,
         "state" | "subscribe" | "registerViewer" | "getMessageHistory"
-      > & { provider?: string; sessionId?: string })
+      > & {
+        provider?: string;
+        sessionId?: string;
+        isRetainingProviderWork?: Process["isRetainingProviderWork"];
+      })
     | undefined;
   eventBus?: EventBus;
   watch?(row: Readonly<SessionCatalogRow>, invalidate: () => void): () => void;
@@ -50,6 +52,10 @@ export interface ConversationSourceDependencies {
 export function createConversationSource(
   deps: ConversationSourceDependencies,
 ): OpenConversationSource {
+  const supports = (family?: string) =>
+    family === "claude" ||
+    family === "codex" ||
+    (family === "antigravity" && !!deps.readWindow);
   return async (sessionId, invalidate, signal, compactions = 2) => {
     let row:
       | (Readonly<SessionCatalogRow> & { nativeSessionId?: string })
@@ -148,6 +154,11 @@ export function createConversationSource(
         if (event.type === "message")
           add(event.message as Record<string, unknown>);
         else if (
+          event.type === "liveness-update" &&
+          next.provider === "antigravity"
+        )
+          invalidate();
+        else if (
           ["state-change", "complete", "terminated"].includes(event.type)
         ) {
           dirty = true;
@@ -224,7 +235,7 @@ export function createConversationSource(
             if (
               !process ||
               process.sessionId !== sessionId ||
-              !["claude", "codex"].includes(process.provider ?? "")
+              !supports(process.provider)
             )
               throw new Error("Conversation source not found");
           } else {
@@ -235,8 +246,7 @@ export function createConversationSource(
         }
         if (
           row &&
-          (row.location.kind !== "file" ||
-            !["claude", "codex"].includes(row.catalogFamily))
+          (row.location.kind !== "file" || !supports(row.catalogFamily))
         )
           throw new Error("Unsupported conversation source");
         if (
@@ -323,6 +333,10 @@ export function createConversationSource(
         ];
         const state = process?.state;
         const waiting = state?.type === "waiting-input";
+        const background =
+          state?.type === "idle" &&
+          process?.provider === "antigravity" &&
+          process.isRetainingProviderWork?.();
         const window = deps.readWindow
           ? selectConversationWindow(messages, {
               tailCompactions: compactions,
@@ -335,7 +349,7 @@ export function createConversationSource(
           ...durable,
           messages: window?.messages ?? messages,
           activity:
-            state?.type === "in-turn"
+            state?.type === "in-turn" || background
               ? "working"
               : waiting
                 ? "waiting"

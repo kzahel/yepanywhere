@@ -98,10 +98,34 @@ Missing handlers and interrupted requests cancel. Stop requests native
 Initial support covers text and file references. Inline image/document blocks
 fail explicitly rather than being discarded. On `agy acp` 1.5.x, Steer sends a
 second native prompt to the active session. `agy` applies it at its next model
-boundary, and YA keeps the turn open until both requests settle. Standalone
-ACP and older runtimes use ordinary queued delivery. Native `/plan` and
-`/usage` text is forwarded normally, but no YA command inventory, manual compact,
-rewind, fork, quota dashboard, sandbox or custom instructions are promised.
+boundary, and YA keeps the turn open until all submitted prompts settle.
+Standalone ACP and older runtimes use ordinary queued delivery. The composer
+lists native commands as the runtime advertises them, including `/plan`.
+
+When the current session advertises `/compact`, YA supports manual and queued
+compaction with optional focus instructions. The queue advances only after
+the native command returns and a new completed checkpoint appears in the
+native transcript. A missing checkpoint fails the command. An unreadable
+outcome stays unconfirmed. Both hold later input under the existing
+[queued compaction rules](../docs/tactical/173-queued-compact-delivery.md).
+The live session shows a compaction boundary for a verified command. Cold
+ACP replay does not supply checkpoint boundaries.
+
+Known active root-session shell commands and schedules appear in the shared
+[background-work view](provider-wait-and-background-work.md). Non-daemon
+work that outlives the foreground turn retains the native owner until its
+terminal tool event. Detached output appears in the same conversation,
+including replies to scheduled wakes. ACP does not guarantee a result
+notification for those replies. YA displays them as background output, with
+steering and verified turn completion available on submitted prompts.
+
+The v0 API supports direct model discovery, creation, conversation following,
+steering, background state, queued compaction and verified Stop using the
+existing authority and receipt contracts. Eligible bypass-permissions CLI
+launches receive their own private v0 connection when Agent API discovery is
+enabled. See [HTTP API v0](http-api-v0.md#local-agent-bootstrap).
+Rewind, fork, the quota dashboard and YA-specific instructions remain outside
+the current provider scope.
 Native skills, hooks, MCP configuration and provider-created workspace files
 remain Google's behavior; YA creates no project-local cache or Git exclusions.
 Native-only projects now join the shared retained catalog and project list;

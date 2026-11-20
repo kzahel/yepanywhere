@@ -289,12 +289,13 @@ independent scanner, permanent poll loop or per-token transcript read. A request
 that cannot obtain its first publication within four seconds releases demand
 and returns unavailable, within the private controller bridge's deadline.
 Final-consumer removal cancels source work and releases watches/viewers.
-An exact managed Claude/Codex owner may precede retained catalog materialization:
-its summary and bounded replay are immediately usable, with incomplete history
-coverage. A later catalog row reconciles normal durable history. Unsupported
+An exact managed Claude, Codex or Antigravity owner may precede retained catalog
+materialization. Its summary and bounded replay are immediately usable, with
+incomplete history coverage. A later catalog row reconciles normal durable history. Unsupported
 owners and mismatched/ambiguous identities never supply guessed history.
-Production acquisition reuses the app's native Claude/Codex readers, normalizes
-branch/lineage evidence, then selects a byte/record-bounded normalized window.
+Production acquisition reuses the app's native Claude, Codex and Antigravity
+readers, normalizes branch/lineage evidence, then selects a byte/record-bounded
+normalized window.
 This fixes the experimental reader's retained-input refusal for long sessions;
 it does not promise bounded disk I/O for every history. Reader fallbacks, SQL
 index consolidation and cancellation propagation are deferred in the
@@ -399,7 +400,11 @@ its own capability rather than broadening `agent-api-management`.
 and strict JSON with `projectId`, `provider` and exact initial `prompt`. Optional model,
 thinking/effort, permission mode and service tier map to incumbent native
 launch controls. Permission mode defaults to `default`; bypass must be explicit.
-Only configured local Claude/Codex providers and catalog projects are qualified.
+Configured local Claude, Codex and Antigravity can be started in catalog
+projects. Antigravity uses direct native model IDs from
+`selection?provider=antigravity&routing=direct`. Agent Auth Router selections,
+separate thinking controls, plan mode and service tier are rejected for
+Antigravity creation. Select an effort-suffixed native model ID when offered.
 Blank creation, remote executors, worktree/cloning policy, managed delegation,
 terminal execution and provider upgrades are outside this slice. Global agent
 context and native launch ownership/admission remain shared with existing YA
@@ -654,16 +659,16 @@ this is not native Windows or complete packaged-provider qualification.
 
 **Agent API discovery** in Settings → Local Access is independently configurable
 and default-off. Enabling it gives new eligible local, unrestricted Claude-family
-and Codex bypass-permissions launches a private connection, a launch credential
-and the exact previewable instruction exported by
+and bypass-permissions Codex or Antigravity CLI launches a private connection,
+a launch credential and the exact previewable instruction exported by
 `packages/shared/src/agent-api-bootstrap.ts`. Restricted and remote-executor
 launches receive none. This is the existing v0 read catalog, not a grant to future
 writes or legacy `/api/*`. Turning it off revokes current access; turning it on
 again applies to new launches. Old servers omit the control through the separate
 `agent-api-bootstrap` capability (introduced in the 0.11.1 line).
 
-The bootstrap enters native Claude system context or Codex developer context;
-it never prefixes the submitted user request. Its stable text tells the agent
+The bootstrap enters native Claude or Antigravity system context, or Codex
+developer context. The submitted user request remains exact. The bootstrap tells the agent
 to discover current grants from `/v0/me`. Codex history can expose the exact
 fragment through a collapsed informational disclosure. See
 [placement and resume behavior](agent-context-injection.md#http-v0-bootstrap-placement).
@@ -1322,6 +1327,14 @@ boundary. Before it, Claude compaction also waited for retained background
 work, so an agent holding a background wait could not compact itself. The help
 also corrects slash-text wording: Claude Code runs a leading native command
 from prompt text.
+
+Revision `2026-11-20.1` adds direct Antigravity selection and creation.
+Its native reader backs conversation reads and follows. An active Antigravity
+CLI turn accepts `delivery: "steer"`. Sessions that advertise `/compact`
+accept `type: "compact"`. A compact receipt reaches `compacted` only after the
+native command and its newly written checkpoint are observed. Background
+work appears as `background` in session state. No new access grant is required
+and callers can discover the provider and request shape on the target server.
 
 Maintainer direction: YA's provider-agnostic queue is the main thing YA adds
 over a raw provider, so agents need it through v0. Queueing is required,

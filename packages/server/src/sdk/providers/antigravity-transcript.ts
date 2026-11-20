@@ -107,6 +107,7 @@ export class AntigravityTranscript {
       return out;
     }
     if (update.status !== "completed" && update.status !== "failed") return out;
+    const output = update.rawOutput ?? update.content ?? "";
     const message: SDKMessage = {
       type: "user",
       uuid: `${id}:result`,
@@ -119,9 +120,7 @@ export class AntigravityTranscript {
             type: "tool_result",
             tool_use_id: id,
             content:
-              typeof update.rawOutput === "string"
-                ? update.rawOutput
-                : JSON.stringify(update.rawOutput ?? update.content ?? ""),
+              typeof output === "string" ? output : JSON.stringify(output),
             is_error: update.status === "failed",
           },
         ],

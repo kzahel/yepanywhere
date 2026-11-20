@@ -8,13 +8,20 @@ import type { Process } from "../supervisor/Process.js";
  * provider text is not detected here.
  */
 export function apiSessionState(
-  process: Pick<Process, "state" | "getDeferredQueueSummary">,
+  process: Pick<
+    Process,
+    "state" | "getDeferredQueueSummary" | "provider" | "isRetainingProviderWork"
+  >,
 ): string {
   return process
     .getDeferredQueueSummary()
     .some((entry) => entry.compactionGate?.state === "compacting")
     ? "compacting"
-    : process.state.type;
+    : process.provider === "antigravity" &&
+        process.state.type === "idle" &&
+        process.isRetainingProviderWork()
+      ? "background"
+      : process.state.type;
 }
 
 /** Active native owners that may not yet appear in the retained catalog. */

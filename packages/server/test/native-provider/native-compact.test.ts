@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { nativeFixture } from "./fixture.js";
 import { providers } from "./selection.js";
+import { prepareQueuedCompaction } from "../../src/routes/session-input-admission.js";
 
 let fixture: Awaited<ReturnType<typeof nativeFixture>> | undefined;
 afterEach(async (context) => {
@@ -137,90 +138,101 @@ if (providers.includes("pi"))
     },
   );
 
-describe.each(providers.filter((p) => ["claude", "codex", "pi"].includes(p)))(
-  "native queued compact: %s",
-  (provider) => {
-    it("holds A and B until actual compaction completes, then sends separate turns", async () => {
-      const f = await nativeFixture(provider, "gentle", {
-        piKeepRecentTokens: 0,
-      });
-      fixture = f;
-      const initial = await f.model.next();
+describe.each(
+  providers.filter((p) => ["claude", "codex", "pi", "antigravity"].includes(p)),
+)("native queued compact: %s", (provider) => {
+  it("holds A and B until actual compaction completes, then sends separate turns", async () => {
+    const f = await nativeFixture(provider, "gentle", {
+      piKeepRecentTokens: 0,
+    });
+    fixture = f;
+    const initial = await f.model.next();
+    const compact = {
+      text: "/compact preserve fixture facts",
+      tempId: "compact",
+      queuedCompact: {
+        command: "compact" as const,
+        argument: "preserve fixture facts",
+      },
+    };
+    if (provider === "antigravity")
       expect(
-        f.proc.deferMessage({
-          text: "/compact preserve fixture facts",
-          tempId: "compact",
-          queuedCompact: {
-            command: "compact",
-            argument: "preserve fixture facts",
-          },
-        }).success,
-      ).toBe(true);
-      expect(
-        f.proc.deferMessage({ text: "COMPACT_ALPHA", tempId: "compact-a" })
-          .success,
-      ).toBe(true);
-      expect(
-        f.proc.deferMessage({ text: "COMPACT_BRAVO", tempId: "compact-b" })
-          .success,
-      ).toBe(true);
-      initial.finish("BEFORE_COMPACTION " + "Owned context. ".repeat(200));
-      const summary = await f.model.next();
-      expect(JSON.stringify(summary.body).includes("COMPACT_ALPHA")).toBe(
-        false,
-      );
-      expect(JSON.stringify(summary.body).includes("COMPACT_BRAVO")).toBe(
-        false,
+        await prepareQueuedCompaction(
+          f.proc,
+          compact,
+          compact.queuedCompact.argument,
+        ),
+      ).toBeUndefined();
+    expect(f.proc.deferMessage(compact).success).toBe(true);
+    expect(
+      f.proc.deferMessage({ text: "COMPACT_ALPHA", tempId: "compact-a" })
+        .success,
+    ).toBe(true);
+    expect(
+      f.proc.deferMessage({ text: "COMPACT_BRAVO", tempId: "compact-b" })
+        .success,
+    ).toBe(true);
+    initial.finish("BEFORE_COMPACTION " + "Owned context. ".repeat(200));
+    const summary = await f.model.next();
+    expect(JSON.stringify(summary.body).includes("COMPACT_ALPHA")).toBe(false);
+    expect(JSON.stringify(summary.body).includes("COMPACT_BRAVO")).toBe(false);
+    expect(f.proc.getDeferredQueueSummary()).toHaveLength(3);
+    expect(f.proc.cancelDeferredMessage("compact")).toBe(false);
+    summary.finish(
+      provider === "claude" || provider === "antigravity"
+        ? "<analysis>Preserve fixture facts.</analysis><summary>NATIVE_COMPACTION_SUMMARY</summary>"
+        : "NATIVE_COMPACTION_SUMMARY",
+    );
+    if (provider === "antigravity") {
+      const nativeContinuation = await f.model.next();
+      expect(JSON.stringify(nativeContinuation.body)).toContain(
+        "NATIVE_COMPACTION_SUMMARY",
       );
       expect(f.proc.getDeferredQueueSummary()).toHaveLength(3);
-      expect(f.proc.cancelDeferredMessage("compact")).toBe(false);
-      summary.finish(
-        provider === "claude"
-          ? "<analysis>Preserve fixture facts.</analysis><summary>NATIVE_COMPACTION_SUMMARY</summary>"
-          : "NATIVE_COMPACTION_SUMMARY",
-      );
-      if (provider === "pi") {
-        expect(await f.commandResult).toMatchObject({ handled: true });
-        const source = await f.source();
-        const rows = (await readFile(source.filePath!, "utf8"))
-          .trim()
-          .split("\n")
-          .map((line) => JSON.parse(line));
-        expect(
-          rows.some(
-            (row) =>
-              row.type === "compaction" &&
-              row.summary.includes("NATIVE_COMPACTION_SUMMARY"),
-          ),
-        ).toBe(true);
-      }
-      const a = await f.model.next();
-      expect(JSON.stringify(a.body).includes("COMPACT_ALPHA")).toBe(true);
-      expect(JSON.stringify(a.body).includes("COMPACT_BRAVO")).toBe(false);
-      a.finish("POST_COMPACT_ALPHA_DONE");
-      const b = await f.model.next();
-      expect(JSON.stringify(b.body).includes("COMPACT_BRAVO")).toBe(true);
-      b.finish("POST_COMPACT_BRAVO_DONE");
-      await f.output("POST_COMPACT_BRAVO_DONE");
-      await f.idle();
-      expect(f.proc.getDeferredQueueSummary()).toEqual([]);
-      if (provider !== "pi")
-        expect(
-          f.events.some(
-            (m) => m.type === "system" && m.subtype === "compact_boundary",
-          ),
-        ).toBe(true);
-      if (provider === "pi")
-        expect(JSON.stringify(a.body)).toContain("NATIVE_COMPACTION_SUMMARY");
-      await f.stop();
-      const history = JSON.stringify(await f.history());
-      expect(history.includes("COMPACT_ALPHA")).toBe(true);
-      expect(history.includes("POST_COMPACT_BRAVO_DONE")).toBe(true);
-      await f.close();
-      expect(f.errors).toEqual([]);
-      expect(f.events.filter((m) => m.type === "error")).toEqual([]);
-      expect(f.diagnostics).toEqual([]);
-      expect(f.model.failures).toEqual([]);
-    });
-  },
-);
+      nativeContinuation.finish("NATIVE_COMPACTION_DONE");
+      expect(await f.commandResult).toMatchObject({ completion: "completed" });
+    }
+    if (provider === "pi") {
+      expect(await f.commandResult).toMatchObject({ handled: true });
+      const source = await f.source();
+      const rows = (await readFile(source.filePath!, "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      expect(
+        rows.some(
+          (row) =>
+            row.type === "compaction" &&
+            row.summary.includes("NATIVE_COMPACTION_SUMMARY"),
+        ),
+      ).toBe(true);
+    }
+    const a = await f.model.next();
+    expect(JSON.stringify(a.body).includes("COMPACT_ALPHA")).toBe(true);
+    expect(JSON.stringify(a.body).includes("COMPACT_BRAVO")).toBe(false);
+    a.finish("POST_COMPACT_ALPHA_DONE");
+    const b = await f.model.next();
+    expect(JSON.stringify(b.body).includes("COMPACT_BRAVO")).toBe(true);
+    b.finish("POST_COMPACT_BRAVO_DONE");
+    await f.output("POST_COMPACT_BRAVO_DONE");
+    await f.idle();
+    expect(f.proc.getDeferredQueueSummary()).toEqual([]);
+    if (provider !== "pi")
+      expect(
+        f.events.some(
+          (m) => m.type === "system" && m.subtype === "compact_boundary",
+        ),
+      ).toBe(true);
+    if (provider === "pi" || provider === "antigravity")
+      expect(JSON.stringify(a.body)).toContain("NATIVE_COMPACTION_SUMMARY");
+    await f.stop();
+    const history = JSON.stringify(await f.history());
+    expect(history.includes("COMPACT_ALPHA")).toBe(true);
+    expect(history.includes("POST_COMPACT_BRAVO_DONE")).toBe(true);
+    await f.close();
+    expect(f.errors).toEqual([]);
+    expect(f.events.filter((m) => m.type === "error")).toEqual([]);
+    expect(f.diagnostics).toEqual([]);
+    expect(f.model.failures).toEqual([]);
+  });
+});

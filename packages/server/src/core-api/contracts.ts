@@ -26,7 +26,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-11-17.2";
+export const API_REVISION = "2026-11-20.1";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -174,7 +174,7 @@ export const sessionSchema = z.object({
   state: z
     .string()
     .describe(
-      "Observed session state. A reserved v0 creation may report launching in session detail. Other examples include idle, in-turn, waiting-input, compacting (a YA-queued compaction is running) and not-running. Use the conversation to verify a turn has completed.",
+      "Observed session state. A reserved v0 creation may report launching in session detail. Other examples include idle, in-turn, waiting-input, background (Antigravity reports retained background work), compacting (a YA-queued compaction is running) and not-running. Use the conversation to verify a turn has completed.",
     ),
 });
 export type ApiProject = z.infer<typeof projectSchema>;
@@ -575,13 +575,13 @@ export const operationDocumentation: Record<
   selection: {
     summary: "Discover model and AAR launch choices",
     description:
-      "Operator or explicitly granted peer read. Query provider=claude|codex and routing=aar|direct (default aar). Returns granted pools, accounts, policies and model thinking/effort/service-tier choices, or the direct provider catalog. Discovery is on demand, never allocates an account or launches a turn. available=false means no configured catalog; router failures return 503 selection_unavailable, never direct fallback. Missing model controls mean unknown, not supported. Pool eligibility is rechecked at launch. No administration or credentials are exposed.",
+      "Operator or explicitly granted peer read. Query provider=claude|codex|antigravity and routing=aar|direct (default aar). Antigravity requires routing=direct. Returns granted pools, accounts, policies and model thinking/effort/service-tier choices, or the direct provider catalog. Discovery is on demand, never allocates an account or launches a turn. available=false means no available catalog; router failures return 503 selection_unavailable, never direct fallback. Missing model controls mean unknown, not supported. Pool eligibility is rechecked at launch. No administration or credentials are exposed.",
     example: "/v0/servers/self/selection?provider=codex",
   },
   createSession: {
     summary: "Create a native session with retry identity",
     description:
-      'Requires explicit default-off session-command enablement and operator authority; launch credentials also require management=true and a bound owning session. POST JSON {projectId,provider,prompt,model?,thinking?,permissionMode?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Supply a unique 8–128 character Idempotency-Key header. Example: {"projectId":"<projectId>","provider":"codex","prompt":"Review the change and report findings","thinking":"on:high","permissionMode":"default"}. Returns 202 with a receipt before native launch completes. Reuse the identical request/key after response loss; conflicting payloads return409. Receipts and retry keys last for the server process: after a YA restart the receipt id returns 404 and the same key is a new request, so check existing sessions before retrying. Never resend an uncertain request with a new key unless intentionally accepting duplicate work. Only existing projects and configured local Claude/Codex harnesses are qualified. Use selection to discover model and router ids. Explicit router fields select that pool/account and require a model from its catalog; otherwise a local routed caller inherits its pool/account and omitted model. Native admission owns capacity; no checkout/delegation policy is added.',
+      'Requires explicit default-off session-command enablement and operator authority; launch credentials also require management=true and a bound owning session. POST JSON {projectId,provider,prompt,model?,thinking?,permissionMode?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Supply a unique 8–128 character Idempotency-Key header. Example: {"projectId":"<projectId>","provider":"codex","prompt":"Review the change and report findings","thinking":"on:high","permissionMode":"default"}. Returns 202 with a receipt before native launch completes. Reuse the identical request/key after response loss; conflicting payloads return409. Receipts and retry keys last for the server process: after a YA restart the receipt id returns 404 and the same key is a new request, so check existing sessions before retrying. Never resend an uncertain request with a new key unless intentionally accepting duplicate work. Requires an existing project and a configured local Claude, Codex or Antigravity harness. Antigravity uses its direct native catalog, including model IDs with effort variants. Use selection to discover model and router ids. Explicit router fields select that pool/account and require a model from its catalog; otherwise a local routed caller inherits its pool/account and omitted model. Native admission owns capacity; no checkout/delegation policy is added.',
     example: "/v0/servers/{serverId}/sessions",
   },
   receipt: {
@@ -691,7 +691,7 @@ export function apiHelp(selected?: Operation, targetServerId?: string) {
     "",
     "## Create, send and verify",
     "",
-    "After inspecting the chosen server's access/capabilities, GET /v0/servers/{serverId}/projects for projectId and /providers for configured harness ids. POST /v0/servers/{serverId}/sessions with JSON {projectId,provider,prompt,permissionMode?,model?,thinking?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Only claude/codex are qualified. permissionMode defaults to default. Supply Idempotency-Key as an 8–128 character header; reuse identical key/body after response loss. thinking accepts off, auto or on:low/on:medium/on:high/on:xhigh/on:max. Query selection?provider=codex for AAR pools and their catalogs, or add routing=direct for the host provider catalog. Use ids from those responses.",
+    "After inspecting the chosen server's access/capabilities, GET /v0/servers/{serverId}/projects for projectId and /providers for configured harness ids. POST /v0/servers/{serverId}/sessions with JSON {projectId,provider,prompt,permissionMode?,model?,thinking?,serviceTier?,routerPoolId?,routerAccountId?,routerPolicy?}. Claude, Codex and Antigravity can be started. Antigravity is direct only; use selection?provider=antigravity&routing=direct for native model IDs, including effort variants. Supply Idempotency-Key as an 8–128 character header; reuse identical key/body after response loss. permissionMode defaults to default. Claude or Codex thinking accepts off, auto or on:low/on:medium/on:high/on:xhigh/on:max. Query selection?provider=codex for AAR pools and their catalogs, or add routing=direct for the host provider catalog.",
     "",
     "Creation returns 202 with a receipt {id,sessionId,state,delivery,completion,...} that lasts until the server restarts. A receipt can name a reserved sessionId during dispatching or queued. Session detail can report state=launching during that window. GET /v0/servers/{serverId}/receipts/{receiptId}/follow?waitMs=4000 to observe admission. Reissue with after={cursor}; changed replies replace the receipt. Once accepted, read /sessions/{sessionId} for effective settings and routing. Read /sessions/{sessionId}/conversation or /conversation/follow for the actual answer.",
     "",

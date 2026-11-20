@@ -80,15 +80,24 @@ export function productionApiSources(deps: {
       if (query.routing === "direct") {
         const models = await provider.getAvailableModels?.();
         signal?.throwIfAborted();
+        const catalog = provider.getModelCatalogStatus?.();
         return selectionSchema.parse({
           provider: query.provider,
           routing: "direct",
-          available: !!models,
+          available:
+            !!models &&
+            (query.provider !== "antigravity" || catalog?.source === "live"),
           observedAt,
           models,
-          catalog: provider.getModelCatalogStatus?.(),
+          catalog,
         });
       }
+      if (query.provider === "antigravity")
+        throw new CoreApiError(
+          "invalid_request",
+          "Antigravity selection requires routing=direct",
+          400,
+        );
       const overview = await deps.agentAuthRouter?.selection(query.provider);
       signal?.throwIfAborted();
       return selectionSchema.parse({
@@ -201,8 +210,12 @@ export function productionApiSources(deps: {
         supportsSteering: p.supportsSteering,
         supportsPermissionMode: p.supportsPermissionMode,
         compaction: {
-          supported: p.name === "codex" || isClaudeProviderName(p.name),
-          honorsInstructions: isClaudeProviderName(p.name),
+          supported:
+            p.name === "codex" ||
+            (p.name === "antigravity" && p.supportsSteering) ||
+            isClaudeProviderName(p.name),
+          honorsInstructions:
+            p.name === "antigravity" || isClaudeProviderName(p.name),
         },
       }));
     },

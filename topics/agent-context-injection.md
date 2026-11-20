@@ -402,6 +402,11 @@ capabilities. An instruction or a notice is never evidence of a current grant.
 General global instructions keep their existing provider-specific placement;
 API reachability remains qualified only for the existing eligible launches.
 
+Antigravity CLI uses its advertised ACP system-prompt append extension on
+eligible new and resumed launches. The launch's private connection is
+inherited by native tools. The user prompt stays verbatim and the credential
+values stay out of the instruction fragment.
+
 When a Codex rollout contains the exact native developer fragment, YA exposes
 one collapsed **Agent API instructions added** informational row for that entry.
 Expanding shows the exact fragment as plain text. Unrelated developer instructions
@@ -425,8 +430,8 @@ live input and reopened history/title on pinned Codex 0.167.0 and Claude
 2.1.322 / SDK 0.3.322. Earlier probes also established native instruction
 channels for Codex OSS (`developer_instructions`), Pi (`--append-system-prompt`)
 and OpenCode (message `system`), but YA has not adopted those for general context
-or widened API eligibility. Grok/Antigravity ACP extensions and cross-platform
-acceptance remain separate qualifications.
+or widened API eligibility. Grok ACP and additional-platform acceptance remain
+separate qualifications.
 See [HTTP v0](http-api-v0.md#local-agent-bootstrap).
 
 ## Installed Machine Control placement

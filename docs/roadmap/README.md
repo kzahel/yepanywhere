@@ -651,6 +651,10 @@ racing a history read. The open items above still apply.
 **Antigravity native test target, 2026-11-20:** the checksum-pinned suite now
 exercises `agy acp` 1.5.13 for ordinary turns, tools, queueing, cancellation
 and cold resume. The configured standalone runtime remains supported.
+The CLI integration adds native steering, visible background work and
+checkpoint-verified queued compaction. Direct v0 model discovery, creation,
+control and following use the existing grants and receipts. Child-agent
+projection, inline media and wider platform qualification remain open.
 
 **Scoping direction, 2026-11-03:** use Antigravity discovery and eventual
 legacy Gemini execution retirement to consolidate shared native-store catalog,

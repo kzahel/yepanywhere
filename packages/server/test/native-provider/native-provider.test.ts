@@ -181,6 +181,33 @@ describe.each(providers)("real native provider: %s", (provider) => {
       expect(f.diagnostics).toEqual([]);
     });
 
+  if (provider === "antigravity")
+    it("retains a scheduled wake and publishes its later reply on the same owner", async () => {
+      const f = await nativeFixture(provider);
+      fixtures.push(f);
+      (await f.model.next()).tool("schedule", {
+        DurationSeconds: 2,
+        Prompt: "OWNED_SCHEDULE_WAKE",
+      });
+      const acknowledgement = await f.model.next();
+      acknowledgement.finish("OWNED_SCHEDULE_WAITING");
+      await f.output("OWNED_SCHEDULE_WAITING");
+      await f.idle();
+      expect(f.proc.getProviderRetentionSnapshot()).toMatchObject({
+        retained: true,
+        backgroundWork: [{ kind: "cron", providerType: "schedule" }],
+      });
+      const wake = await f.model.next();
+      expect(JSON.stringify(wake.body)).toContain("OWNED_SCHEDULE_WAKE");
+      wake.finish("OWNED_SCHEDULE_DONE");
+      await f.output("OWNED_SCHEDULE_DONE");
+      expect(f.proc.state.type).toBe("idle");
+      expect(f.proc.getProviderRetentionSnapshot().retained).toBe(false);
+      await f.close();
+      expect(f.model.failures).toEqual([]);
+      expect(f.errors).toEqual([]);
+    });
+
   if (
     [
       "claude",

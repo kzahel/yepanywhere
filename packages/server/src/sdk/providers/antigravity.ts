@@ -7,15 +7,22 @@ import {
   parseNativeSessionId,
   type ModelInfo,
   type ModelCatalogStatus,
+  type SlashCommand,
 } from "@yep-anywhere/shared";
 import { MessageQueue } from "../messageQueue.js";
-import type { SDKMessage, UserMessage } from "../types.js";
+import type {
+  ProviderCommandResult,
+  SDKMessage,
+  UserMessage,
+} from "../types.js";
 import type {
   AgentProvider,
   AgentSession,
   AuthStatus,
   StartSessionOptions,
 } from "./types.js";
+import { agentApiEnvironmentFor } from "./types.js";
+import { startAgentSelfSession } from "./agent-self.js";
 import { nativeStorageScope } from "./native-storage-scope.js";
 import {
   fallbackModelCatalog,
@@ -30,12 +37,21 @@ import {
   findAntigravityRuntime,
   resolveAntigravityRuntime,
   type AntigravitySessionSetup,
+  type AntigravityUpdate,
 } from "./antigravity-runtime.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
+import { AntigravityBackground } from "./antigravity-background.js";
+import { compactAntigravity } from "./antigravity-compaction.js";
 import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
 
 const DEFAULT_MODEL: ModelInfo = { id: "default", name: "Antigravity default" };
 type Steer = (message: UserMessage) => boolean;
+interface AntigravityControls {
+  id?: string;
+  steer?: Steer;
+  commands: SlashCommand[];
+  compact?: (argument: string) => Promise<ProviderCommandResult>;
+}
 
 export class AntigravityProvider implements AgentProvider {
   readonly name = "antigravity" as const;
@@ -43,7 +59,7 @@ export class AntigravityProvider implements AgentProvider {
   readonly supportsNativeResumeSource = true;
   readonly supportsPermissionMode = true;
   readonly supportsThinkingToggle = false;
-  readonly supportsSlashCommands = false;
+  readonly supportsSlashCommands = true;
   get supportsSteering(): boolean {
     return resolveAntigravityRuntime()?.layout === "cli";
   }
@@ -160,6 +176,16 @@ export class AntigravityProvider implements AgentProvider {
   }
 
   async startSession(options: StartSessionOptions): Promise<AgentSession> {
+    if (options.agentApi && this.supportsSteering)
+      return startAgentSelfSession(this.name, options, (resolved) =>
+        this.startSessionInternal(resolved),
+      );
+    return this.startSessionInternal(options);
+  }
+
+  private async startSessionInternal(
+    options: StartSessionOptions,
+  ): Promise<AgentSession> {
     if (options.executor || options.sessionSandbox)
       throw new Error("Antigravity supports ordinary local sessions only");
     if (options.permissionMode === "plan")
@@ -188,8 +214,10 @@ export class AntigravityProvider implements AgentProvider {
     if (options.initialMessage) queue.push(options.initialMessage);
     const runtime = new AntigravityRuntime();
     const controller = new AbortController();
-    let sessionId: string | undefined;
-    let steer: Steer | undefined;
+    const background = new AntigravityBackground(
+      options.onProviderRetentionChange,
+    );
+    const controls: AntigravityControls = { commands: [] };
     return {
       queue,
       iterator: this.run(
@@ -197,23 +225,28 @@ export class AntigravityProvider implements AgentProvider {
         queue,
         options,
         controller.signal,
-        (id) => {
-          sessionId = id;
-        },
-        (active) => {
-          steer = active;
-        },
+        background,
+        controls,
       ),
       ...(this.supportsSteering
-        ? { steer: async (message: UserMessage) => steer?.(message) ?? false }
+        ? {
+            steer: async (message: UserMessage) =>
+              controls.steer?.(message) ?? false,
+          }
         : {}),
+      supportedCommands: async () => controls.commands,
+      runProviderCommand: async (command, argument = "") =>
+        command === "compact" && controls.compact
+          ? controls.compact(argument)
+          : { handled: false },
+      getProviderRetention: () => background.snapshot(),
       abort: async () => {
         controller.abort();
         await runtime.close();
       },
       interrupt: async () => {
-        if (!sessionId || !runtime.alive) return false;
-        runtime.cancel(sessionId);
+        if (!controls.id || !runtime.alive) return false;
+        runtime.cancel(controls.id);
         return true;
       },
       get pid() {
@@ -294,13 +327,23 @@ export class AntigravityProvider implements AgentProvider {
     queue: MessageQueue,
     options: StartSessionOptions,
     signal: AbortSignal,
-    bind: (id: string) => void,
-    setSteer: (steer?: Steer) => void,
+    background: AntigravityBackground,
+    controls: AntigravityControls,
   ): AsyncIterableIterator<SDKMessage> {
     const input = queue[Symbol.asyncIterator]();
     let owner: ReturnType<typeof ownAntigravitySession> | undefined;
+    let wake: (() => void) | undefined;
+    const changed = () => {
+      wake?.();
+      wake = undefined;
+    };
+    const waitForChange = () =>
+      new Promise<void>((resolve) => {
+        wake = resolve;
+      });
     const stop = () => {
       void input.return?.();
+      changed();
     };
     signal.addEventListener("abort", stop, { once: true });
     try {
@@ -322,23 +365,72 @@ export class AntigravityProvider implements AgentProvider {
       const skipPermissions =
         options.permissionMode === "bypassPermissions" &&
         command.layout === "cli";
-      await runtime.connect(command.command, options.cwd, [
-        ...command.args,
-        ...(skipPermissions ? ["--dangerously-skip-permissions"] : []),
-      ]);
+      await runtime.connect(
+        command.command,
+        options.cwd,
+        [
+          ...command.args,
+          ...(skipPermissions ? ["--dangerously-skip-permissions"] : []),
+        ],
+        agentApiEnvironmentFor(options),
+      );
+      const [major, minor] = runtime.agentVersion?.split(".").map(Number) ?? [];
+      const modern =
+        command.layout === "cli" && major === 1 && (minor ?? 0) >= 5;
       void runtime.closed.then(stop);
+      if (options.agentApiInstructions && !runtime.canAppendSystemPrompt)
+        throw new Error(
+          "This agy runtime does not support native Agent API instructions",
+        );
       const replay = options.resumeSessionId
         ? new AntigravityTranscript(options.resumeSessionId)
         : undefined;
-      if (replay)
-        runtime.onUpdate = (update, id) => {
-          if (id === options.resumeSessionId) replay.accept(update);
-        };
+      const observeCommands = (update: AntigravityUpdate) => {
+        if (
+          update.sessionUpdate !== "available_commands_update" ||
+          !Array.isArray(update.availableCommands)
+        )
+          return false;
+        const commands = update.availableCommands
+          .slice(0, 128)
+          .filter(
+            (command) =>
+              typeof command?.name === "string" &&
+              (modern || command.name !== "compact"),
+          )
+          .map(({ name, description, input }) => ({
+            name: name.slice(0, 128),
+            description:
+              typeof description === "string" ? description.slice(0, 1000) : "",
+            argumentHint:
+              typeof input?.hint === "string"
+                ? input.hint.slice(0, 500)
+                : undefined,
+          }));
+        if (JSON.stringify(commands) === JSON.stringify(controls.commands))
+          return false;
+        controls.commands = commands;
+        return true;
+      };
+      runtime.onUpdate = (update, id) => {
+        if (!options.resumeSessionId || id === options.resumeSessionId)
+          observeCommands(update);
+        if (id === options.resumeSessionId) replay?.accept(update);
+      };
       const setup = await runtime.call<AntigravitySessionSetup>(
         options.resumeSessionId ? "session/load" : "session/new",
         {
           cwd: options.cwd,
           mcpServers: [],
+          ...(options.agentApiInstructions
+            ? {
+                _meta: {
+                  antigravity: {
+                    systemPrompt: { append: options.agentApiInstructions },
+                  },
+                },
+              }
+            : {}),
           ...(options.resumeSessionId
             ? { sessionId: options.resumeSessionId }
             : {}),
@@ -350,8 +442,7 @@ export class AntigravityProvider implements AgentProvider {
       );
       owner ??= ownAntigravitySession(namespace.storageScope, id);
       for (const message of replay?.messages ?? []) owner.record(message);
-      runtime.onUpdate = undefined;
-      bind(id);
+      controls.id = id;
       let resolvedModel = setup.models?.currentModelId;
       if (
         options.model &&
@@ -376,9 +467,11 @@ export class AntigravityProvider implements AgentProvider {
       const wanted =
         options.permissionMode === "acceptEdits"
           ? ["accept-edits", "auto_edit"]
-          : options.permissionMode === "bypassPermissions" && !skipPermissions
-            ? ["yolo"]
-            : ["default"];
+          : options.permissionMode === "auto"
+            ? ["auto"]
+            : options.permissionMode === "bypassPermissions" && !skipPermissions
+              ? ["yolo"]
+              : ["default"];
       const mode = wanted.find((entry) => offered.has(entry));
       if (!mode && options.permissionMode)
         throw new Error(
@@ -392,11 +485,117 @@ export class AntigravityProvider implements AgentProvider {
         session_id: id,
         cwd: options.cwd,
         model: resolvedModel,
+        slash_command_inventory: controls.commands,
       };
       for (const message of replay?.messages ?? [])
         yield { ...message, isReplay: true };
-      for await (const message of input) {
-        if (signal.aborted) break;
+      const updates: SDKMessage[] = [];
+      const publish = (converted: SDKMessage) => {
+        if (
+          converted.type === "assistant" &&
+          converted.message &&
+          resolvedModel
+        )
+          converted.message.model = resolvedModel;
+        const { _isStreaming: _partial, ...committed } = converted;
+        owner!.record(committed);
+        if (updates.at(-1)?.uuid === converted.uuid)
+          updates[updates.length - 1] = converted;
+        else updates.push(converted);
+        changed();
+      };
+      let foregroundUpdate: ((update: AntigravityUpdate) => void) | undefined;
+      let passiveTranscript: AntigravityTranscript | undefined;
+      let compacting = false;
+      if (modern)
+        controls.compact = async (argument) => {
+          if (compacting || foregroundUpdate)
+            return {
+              handled: true,
+              error: "Wait for the active Antigravity turn or queue compaction",
+            };
+          if (!controls.commands.some((command) => command.name === "compact"))
+            return {
+              handled: true,
+              error: "This Antigravity session does not advertise compaction",
+            };
+          compacting = true;
+          try {
+            const result = await compactAntigravity(
+              runtime,
+              namespace.storageScope,
+              id,
+              argument,
+            );
+            if (result.completion === "completed")
+              publish({
+                type: "system",
+                subtype: "compact_boundary",
+                uuid: randomUUID(),
+                session_id: id,
+              });
+            return result;
+          } finally {
+            compacting = false;
+            changed();
+          }
+        };
+      runtime.onUpdate = (update, updateSessionId) => {
+        if (
+          updateSessionId !== id ||
+          update.sessionUpdate === "user_message_chunk"
+        )
+          return;
+        if (observeCommands(update))
+          publish({
+            type: "system",
+            subtype: "command_inventory",
+            uuid: randomUUID(),
+            session_id: id,
+            slash_command_inventory: controls.commands,
+          });
+        if (modern) background.observe(update, !!foregroundUpdate);
+        if (foregroundUpdate) {
+          foregroundUpdate(update);
+        } else if (modern && !compacting) {
+          // A detached wake has no prompt result in ACP. Publish each received
+          // snapshot without inventing a foreground turn or completion.
+          passiveTranscript ??= new AntigravityTranscript(
+            id,
+            `${id}:${randomUUID()}`,
+            true,
+          );
+          for (const {
+            _isStreaming: _partial,
+            ...converted
+          } of passiveTranscript.accept(update))
+            publish({ ...converted, _passiveProviderUpdate: true });
+        }
+      };
+      let nextInput: Awaited<ReturnType<typeof input.next>> | undefined;
+      let inputError: unknown;
+      let firstPrompt = !options.resumeSessionId;
+      while (!signal.aborted && runtime.alive) {
+        void input.next().then(
+          (result) => {
+            nextInput = result;
+            changed();
+          },
+          (error) => {
+            inputError = error;
+            changed();
+          },
+        );
+        while (!signal.aborted && runtime.alive) {
+          if (updates.length) yield updates.shift()!;
+          else if (inputError) throw inputError;
+          else if (nextInput && !compacting) break;
+          else await waitForChange();
+        }
+        if (signal.aborted || nextInput?.done || !nextInput) break;
+        const message = nextInput.value;
+        nextInput = undefined;
+        passiveTranscript = undefined;
         const uuid = message.uuid || randomUUID();
         const content = message.message.content;
         const text =
@@ -412,30 +611,24 @@ export class AntigravityProvider implements AgentProvider {
                 })
                 .join("\n");
         const transcript = new AntigravityTranscript(id, `${id}:${uuid}`, true);
-        const updates: SDKMessage[] = [];
-        let wake: (() => void) | undefined;
-        const changed = () => {
-          wake?.();
-          wake = undefined;
+        const creatingSession = firstPrompt;
+        firstPrompt = false;
+        let observedOriginal = false;
+        const acknowledgeOriginal = () => {
+          if (observedOriginal || signal.aborted) return;
+          observedOriginal = true;
+          options.onNativeInputConsumed?.(id, uuid);
         };
-        const publish = (converted: SDKMessage) => {
+        foregroundUpdate = (update) => {
+          // A new owner has no earlier turn that could produce this output.
+          // Confirm startup on native progress so the first turn can be steered.
           if (
-            converted.type === "assistant" &&
-            converted.message &&
-            resolvedModel
+            creatingSession &&
+            (update.sessionUpdate === "agent_message_chunk" ||
+              update.sessionUpdate === "agent_thought_chunk" ||
+              update.sessionUpdate === "tool_call")
           )
-            converted.message.model = resolvedModel;
-          // Detail reads see committed content; only the stream is partial.
-          const { _isStreaming: _partial, ...committed } = converted;
-          owner!.record(committed);
-          if (updates.at(-1)?.uuid === converted.uuid)
-            updates[updates.length - 1] = converted;
-          else updates.push(converted);
-        };
-        runtime.onUpdate = (update, updateSessionId) => {
-          if (updateSessionId !== id) return;
-          // agy 1.5+ echoes the prompt back; YA already published `echo`.
-          if (update.sessionUpdate === "user_message_chunk") return;
+            acknowledgeOriginal();
           for (const converted of transcript.accept(update)) publish(converted);
           changed();
         };
@@ -464,24 +657,26 @@ export class AntigravityProvider implements AgentProvider {
             .then((response) => {
               usage = response.usage ?? usage;
               if (!signal.aborted && response.stopReason === "end_turn") {
-                options.onNativeInputConsumed?.(id, inputId);
-                if (steer) queue.acknowledgeNativeSteer(steer);
+                if (steer) {
+                  options.onNativeInputConsumed?.(id, inputId);
+                  queue.acknowledgeNativeSteer(steer);
+                } else {
+                  acknowledgeOriginal();
+                }
               }
             })
             .catch((error) => {
               failure ??= error;
             })
             .finally(() => {
-              if (--pending === 0) setSteer();
+              if (--pending === 0) controls.steer = undefined;
               changed();
             });
           changed();
         };
         prompt(text, uuid);
-        const [major, minor] =
-          runtime.agentVersion?.split(".").map(Number) ?? [];
-        if (command.layout === "cli" && major === 1 && minor! >= 5) {
-          setSteer((input) => {
+        if (modern) {
+          controls.steer = (input) => {
             if (
               signal.aborted ||
               !runtime.alive ||
@@ -493,17 +688,17 @@ export class AntigravityProvider implements AgentProvider {
               return false;
             prompt(input.text, input.uuid ?? randomUUID(), input);
             return true;
-          });
+          };
         }
         while (pending || updates.length) {
           if (updates.length) {
             yield updates.shift()!;
             continue;
           }
-          await new Promise<void>((resolve) => {
-            wake = resolve;
-          });
+          await waitForChange();
         }
+        foregroundUpdate = undefined;
+        background.foregroundSettled();
         const last = transcript.close();
         if (last) {
           publish(last);
@@ -511,7 +706,6 @@ export class AntigravityProvider implements AgentProvider {
         }
         if (failure) throw failure;
         yield { type: "result", session_id: id, usage };
-        runtime.onUpdate = undefined;
       }
     } catch (error) {
       if (!signal.aborted)
@@ -520,7 +714,9 @@ export class AntigravityProvider implements AgentProvider {
           error: error instanceof Error ? error.message : String(error),
         };
     } finally {
-      setSteer();
+      controls.steer = undefined;
+      controls.compact = undefined;
+      background.clear();
       signal.removeEventListener("abort", stop);
       await input.return?.();
       await runtime.close();

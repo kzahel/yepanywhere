@@ -1,5 +1,6 @@
 import { relationshipGraphPageSchema } from "./relationship-graph-contracts.js";
 import { z } from "zod";
+import { selectableProvider } from "./selection-contracts.js";
 
 export const requestIdSchema = z
   .string()
@@ -19,11 +20,9 @@ export const createSessionRequest = z
       .describe(
         "Existing authorized project id from this server's projects collection. The server owns its path.",
       ),
-    provider: z
-      .enum(["claude", "codex"])
-      .describe(
-        "Configured native harness. Other providers, remote executors and blank-session creation are not qualified in this slice.",
-      ),
+    provider: selectableProvider.describe(
+      "Configured native harness. Other providers, remote executors and blank-session creation are not qualified in this slice.",
+    ),
     prompt: z
       .string()
       .min(1)
@@ -94,6 +93,16 @@ export const createSessionRequest = z
     "routerPolicy requires routerPoolId",
   )
   .refine(
+    (body) =>
+      body.provider !== "antigravity" ||
+      (body.thinking === undefined &&
+        body.serviceTier === undefined &&
+        !body.routerPoolId &&
+        !body.routerAccountId &&
+        body.permissionMode !== "plan"),
+    "Antigravity uses direct launch and native model IDs, with /plan as a session command",
+  )
+  .refine(
     (body) => body.routerPolicy !== "manual" || !!body.routerAccountId,
     "manual policy requires routerAccountId",
   )
@@ -133,7 +142,7 @@ const compactInput = z
       .refine((value) => value.trim().length > 0)
       .optional()
       .describe(
-        "Optional focus instructions. Claude receives them after /compact; Codex's native compaction ignores them.",
+        "Optional focus instructions. Claude and Antigravity receive them after /compact; Codex's native compaction ignores them.",
       ),
     delivery: z
       .enum(["deferred", "patient"])

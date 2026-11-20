@@ -29,7 +29,8 @@ export function describeBackingStore(
     nativeSessionId: row?.nativeSessionId ?? row?.sessionId ?? null,
     path,
     format:
-      location?.kind === "database"
+      location?.kind === "database" ||
+      (provider === "antigravity" && extension === ".db")
         ? "sqlite"
         : extension === ".jsonl"
           ? "jsonl"

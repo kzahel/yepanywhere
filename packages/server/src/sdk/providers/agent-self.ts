@@ -162,7 +162,7 @@ function eligible(
   options: StartSessionOptions,
 ): boolean {
   if (!(options.agentSelf ?? agentSelfEnabled())) return false;
-  return agentApiEligible(provider, options);
+  return provider !== "antigravity" && agentApiEligible(provider, options);
 }
 
 export async function startAgentSelfSession(
@@ -230,7 +230,7 @@ export async function startAgentSelfSession(
         ? agentApiBootstrapInstructions(process.platform === "win32")
         : undefined,
       globalInstructions:
-        apiLease && provider !== "codex"
+        apiLease && provider !== "codex" && provider !== "antigravity"
           ? [
               options.globalInstructions,
               agentApiBootstrapInstructions(process.platform === "win32"),

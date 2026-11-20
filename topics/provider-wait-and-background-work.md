@@ -85,6 +85,11 @@ came from, plus `command`, `startedAt`, `until`, `schedule`, `recurring` or
   once with `thread/backgroundTerminals/list`; an item that ends while that
   request is in flight is not resurrected. A replaced app-server process
   clears the record, because its terminals died with it.
+- Antigravity CLI 1.5.x records the root session's ACP execution and schedule
+  events. Active shell commands move from foreground waits to background
+  work when the prompt settles. Scheduled wakes are background work from
+  their start. Terminal tool events remove the items. Unsolicited replies
+  are visible in the conversation but have no verified native prompt boundary.
 - The Info tab of the session model panel (`ProcessInfoBody`) lists both,
   under **Waiting on** and **Background work**, from the live session
   stream; a liveness update is published on every change.
@@ -101,6 +106,10 @@ came from, plus `command`, `startedAt`, `until`, `schedule`, `recurring` or
   they do not retain the session or defer idle reaping, and reaping ends
   them. A future setting may change that; until then it is deliberate.
   (Decided 2026-10-15.)
+- Antigravity retains its owner while observed non-daemon background work is
+  active. Daemons are visible in the work list without retaining the owner.
+  The v0 session state reports `background` for a retained idle Antigravity
+  owner, and its compact conversation reports `working`.
 - A provider snapshot change that does not flip `retained` refreshes
   liveness only. It must not restart the idle grace, emit row activity or
   rerun idle-boundary work (done finalization, threshold compaction,

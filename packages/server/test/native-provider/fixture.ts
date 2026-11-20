@@ -284,6 +284,9 @@ export async function nativeFixture(
     });
     const startOptions: StartSessionOptions = {
       cwd: project,
+      onProviderRetentionChange: () => {
+        proc?.handleProviderRetentionChanged();
+      },
       model: provider === "grok" ? "owned" : modelId,
       permissionMode: options.permissionMode ?? "bypassPermissions",
       onToolApproval:
@@ -344,6 +347,8 @@ export async function nativeFixture(
         : undefined,
       isProcessAlive: nativeSession.isProcessAlive,
       probeLivenessFn: nativeSession.probeLiveness,
+      getProviderRetentionFn: nativeSession.getProviderRetention,
+      supportedCommandsFn: nativeSession.supportedCommands,
       deferredDelivery: {
         joinWindowSeconds: 0,
         composeAnchors: false,

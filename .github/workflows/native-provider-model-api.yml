@@ -123,6 +123,8 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @yep-anywhere/shared build
+      - name: Install the pinned Antigravity CLI for app qualification
+        run: pnpm test:providers:install antigravity
       - run: pnpm test:providers:app --maxWorkers="$NATIVE_TEST_WORKERS"
       - run: pnpm --filter @yep-anywhere/client exec playwright install --with-deps chromium
       - uses: ./.github/actions/allow-chromium-sandbox

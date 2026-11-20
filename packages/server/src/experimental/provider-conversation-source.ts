@@ -36,7 +36,7 @@ export function createProviderConversationSource(
       signal.throwIfAborted();
       if (
         row.location.kind !== "file" ||
-        !["claude", "codex"].includes(row.catalogFamily)
+        !["claude", "codex", "antigravity"].includes(row.catalogFamily)
       )
         throw new Error("Unsupported conversation source");
       const nativeId = row.nativeSessionId ?? row.sessionId;

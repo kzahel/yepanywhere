@@ -21,6 +21,7 @@ export async function prepareQueuedCompaction(
 ): Promise<InputAdmissionRefusal | undefined> {
   if (
     process.provider !== "codex" &&
+    process.provider !== "antigravity" &&
     !isClaudeSdkProviderName(process.provider)
   )
     return {

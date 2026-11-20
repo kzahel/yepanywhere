@@ -14,7 +14,7 @@ export function agentApiEligible(
     options.sessionSandboxOptions?.level === "project-write"
   )
     return false;
-  if (provider === "codex")
+  if (provider === "codex" || provider === "antigravity")
     return options.permissionMode === "bypassPermissions";
   return (
     provider === "claude" ||

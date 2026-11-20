@@ -70,6 +70,8 @@ export interface SDKMessage {
   toolUseResult?: unknown;
   /** Private live evidence: Codex verified this command frame's native owner. */
   _codexOwnedCommand?: boolean;
+  /** The runtime can emit this outside any prompt without a closing result. */
+  _passiveProviderUpdate?: boolean;
   toolResultMedia?: ToolResultMedia[];
   // Input requests (tool approval, questions, etc.)
   input_request?: {

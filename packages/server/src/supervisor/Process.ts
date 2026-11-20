@@ -868,7 +868,7 @@ const WAKE_WORK_SYSTEM_SUBTYPES = new Set<string>([
  */
 function isProviderWorkWakeMessage(message: SDKMessage): boolean {
   // session_state_changed drives the state machine directly; it is not a wake.
-  if (getClaudeSessionStateChange(message) !== null) {
+  if (message._passiveProviderUpdate || getClaudeSessionStateChange(message)) {
     return false;
   }
   if (message.type === "system") {
@@ -3183,20 +3183,20 @@ export class Process {
     return [...expiredSteerEchoes, ...buffered];
   }
 
-  /** Tool-result snapshots replace older states; every update gets a fresh cursor. */
+  /** Growing snapshots replace older states and get a fresh replay cursor. */
   private bufferForReplay(message: SDKMessage): void {
-    const toolResult = Boolean(message.uuid) && isProviderToolResult(message);
-    if (toolResult) {
-      // Keep the latest full state, including during bucket handover. Retaining
-      // each growing output snapshot would multiply replay memory by chunk count.
+    const replaceable = (entry: SDKMessage) =>
+      isProviderToolResult(entry) || entry._passiveProviderUpdate === true;
+    const replace = Boolean(message.uuid) && replaceable(message);
+    if (replace) {
       for (const bucket of [this.previousBucket, this.currentBucket]) {
         const index = bucket.findIndex(
-          (old) => old.uuid === message.uuid && isProviderToolResult(old),
+          (old) => old.uuid === message.uuid && replaceable(old),
         );
         if (index !== -1) bucket.splice(index, 1);
       }
     }
-    if (toolResult || !this.replaySeqs.has(message)) {
+    if (replace || !this.replaySeqs.has(message)) {
       this.lastReplaySeq += 1;
       this.replaySeqs.set(message, this.lastReplaySeq);
     }
@@ -5338,8 +5338,8 @@ export class Process {
           )
             break;
           if (this.managedIdentity) {
-            // Do not publish idle/promote deferred turns into an ended stream.
-            // Fire-and-observe: verification may await this loop's finally.
+            if (this.abortInFlight || this.completionEmitted) break;
+            // Verify without awaiting this loop or promoting deferred input.
             void this.terminateAndWait("provider stream completed").catch(
               () => undefined,
             );

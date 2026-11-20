@@ -12,11 +12,17 @@ export interface AntigravityUpdate {
   content?: { type?: string; text?: string } | unknown[];
   toolCallId?: string;
   title?: string;
+  name?: string;
   kind?: string;
   status?: string;
   rawInput?: unknown;
   rawOutput?: unknown;
   locations?: Array<{ path: string }>;
+  availableCommands?: Array<{
+    name: string;
+    description: string;
+    input?: { hint?: string };
+  }>;
 }
 
 export interface AntigravitySessionSetup {
@@ -188,6 +194,7 @@ export async function findAntigravityRuntime(): Promise<AntigravityRuntimeComman
  */
 export class AntigravityRuntime {
   agentVersion?: string;
+  canAppendSystemPrompt = false;
   private child?: ChildProcess;
   private sequence = 0;
   // At most 32 concurrent requests; each leaves on reply, timeout or child exit.
@@ -221,12 +228,16 @@ export class AntigravityRuntime {
     command: string,
     cwd: string,
     args: string[] = [],
+    launchEnvironment?: Record<string, string>,
   ): Promise<void> {
     if (this.child || this.stopped)
       throw new Error("Antigravity runtime is closed");
     this.child = spawn(command, args, {
       cwd,
-      env: stripYaControlPlaneCredentials({ ...process.env }),
+      env: {
+        ...stripYaControlPlaneCredentials(process.env),
+        ...launchEnvironment,
+      },
       stdio: ["pipe", "pipe", "pipe"],
       detached: process.platform !== "win32",
     });
@@ -264,16 +275,21 @@ export class AntigravityRuntime {
         }
       }
     });
-    const initialized = await this.call<{ agentInfo?: { version?: string } }>(
-      "initialize",
-      {
-        protocolVersion: 1,
-        clientInfo: { name: "yepanywhere", version: "1.0.0" },
-        // Google owns tool execution, file access, and its existing configuration.
-        clientCapabilities: {},
-      },
-    );
+    const initialized = await this.call<{
+      agentInfo?: { version?: string };
+      agentCapabilities?: {
+        _meta?: { antigravity?: { systemPrompt?: { append?: boolean } } };
+      };
+    }>("initialize", {
+      protocolVersion: 1,
+      clientInfo: { name: "yepanywhere", version: "1.0.0" },
+      // Google owns tool execution, file access, and its existing configuration.
+      clientCapabilities: {},
+    });
     this.agentVersion = initialized.agentInfo?.version;
+    this.canAppendSystemPrompt =
+      initialized.agentCapabilities?._meta?.antigravity?.systemPrompt
+        ?.append === true;
   }
 
   private send(value: unknown): void {

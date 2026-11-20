@@ -1,10 +1,10 @@
 import { z } from "zod";
 
+export const selectableProvider = z.enum(["claude", "codex", "antigravity"]);
+
 export const selectionQuery = z
   .object({
-    provider: z
-      .enum(["claude", "codex"])
-      .describe("Configured launch harness."),
+    provider: selectableProvider.describe("Configured launch harness."),
     routing: z
       .enum(["direct", "aar"])
       .default("aar")
@@ -47,7 +47,7 @@ export const selectionModelSchema = z.object({
     .optional(),
 });
 export const selectionSchema = z.object({
-  provider: z.enum(["claude", "codex"]),
+  provider: selectableProvider,
   routing: z.enum(["direct", "aar"]),
   available: z
     .boolean()
