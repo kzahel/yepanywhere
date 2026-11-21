@@ -8,6 +8,7 @@ import {
   type EffortLevel,
   type ModelInfo,
   type ModelCatalogStatus,
+  type ProviderSubscriptionUsage,
   type SlashCommand,
 } from "@yep-anywhere/shared";
 import { MessageQueue } from "../messageQueue.js";
@@ -52,6 +53,11 @@ import {
 } from "./antigravity-models.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
 import { AntigravityBackground } from "./antigravity-background.js";
+import {
+  canProbeAntigravityUsage,
+  normalizeAntigravityUsage,
+  probeAntigravityUsage,
+} from "./antigravity-usage.js";
 import { compactAntigravity } from "./antigravity-compaction.js";
 import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
 
@@ -83,6 +89,10 @@ export class AntigravityProvider implements AgentProvider {
   private catalog?: { at: number; models: ModelInfo[]; error?: string };
   private catalogRead?: Promise<ModelInfo[]>;
   private catalogStatus: ModelCatalogStatus | undefined;
+  private usageRead?: {
+    command: string;
+    result: ReturnType<typeof probeAntigravityUsage>;
+  };
 
   async isInstalled(): Promise<boolean> {
     return (await findAntigravityRuntime()) !== null;
@@ -99,6 +109,27 @@ export class AntigravityProvider implements AgentProvider {
   }
   getModelCatalogStatus(): ModelCatalogStatus | undefined {
     return this.catalogStatus;
+  }
+
+  async getSubscriptionUsage(
+    models: readonly ModelInfo[],
+  ): Promise<ProviderSubscriptionUsage | null> {
+    if (!canProbeAntigravityUsage()) return null;
+    const runtime = resolveAntigravityRuntime();
+    if (runtime?.layout !== "cli" || runtime.args.length !== 1) return null;
+
+    if (!this.usageRead) {
+      this.usageRead = {
+        command: runtime.command,
+        result: probeAntigravityUsage(runtime.command)
+          .catch(() => null)
+          .finally(() => {
+            this.usageRead = undefined;
+          }),
+      };
+    }
+    if (this.usageRead.command !== runtime.command) return null;
+    return normalizeAntigravityUsage(await this.usageRead.result, models);
   }
 
   async getNewSessionNamespace() {
