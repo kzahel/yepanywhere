@@ -255,6 +255,29 @@ describe("Antigravity native process boundary", () => {
           })
         ).json();
         expect(JSON.stringify(history.messages)).toContain("Saved answer");
+        const reactivate = await app.app.request(`${detailPath}/reactivate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Yep-Anywhere": "true",
+          },
+          body: JSON.stringify({ provider: "antigravity" }),
+        });
+        expect(reactivate.status).toBe(200);
+        await vi.waitFor(() => {
+          active = app.supervisor.getProcessForSession(receipt.sessionId);
+          expect(JSON.stringify(active?.getMessageHistory())).toContain(
+            "Saved answer",
+          );
+          expect(active?.state.type).toBe("idle");
+        });
+        expect(
+          (await readFile(log, "utf8"))
+            .split("\n")
+            .filter((method) => method === "session/prompt"),
+        ).toHaveLength(1);
+        await active?.abort();
+        active = undefined;
         const resume = await app.app.request(
           `/api/projects/${projectId}/sessions/${receipt.sessionId}/resume`,
           {

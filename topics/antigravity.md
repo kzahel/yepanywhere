@@ -192,9 +192,10 @@ status, while the file contents stay in native model context.
 
 The preview uses a local in-process owner, even when the shared provider host
 is enabled. Cold resume uses native `session/load` to restore history before
-new input; it first waits for an in-progress cold history read of the same
-conversation to release it, while a second live owner is still refused. While that owner lives, detail reads use its bounded native-event
-projection rather than loading the same native session a second time. This
+new input. A session reactivated without a prompt stays idle through replay.
+Resume waits for an in-progress history read of the same conversation to
+release it and refuses a second live owner. While that owner lives, detail
+reads use its bounded native-event projection. This
 in-memory view survives YA's short transport replay window, is discarded on
 owner exit, and is never persisted as a substitute transcript. Concurrent use
 of the same conversation in a separate editor/CLI is not qualified.

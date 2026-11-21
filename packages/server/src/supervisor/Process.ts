@@ -796,10 +796,9 @@ const WAKE_WORK_SYSTEM_SUBTYPES = new Set<string>([
  * (verified-waiting-provider) regardless of this flip.
  */
 function isProviderWorkWakeMessage(message: SDKMessage): boolean {
-  // session_state_changed drives the state machine directly; it is not a wake.
-  if (message._passiveProviderUpdate || getClaudeSessionStateChange(message)) {
-    return false;
-  }
+  // Replayed history and native state notifications do not start a turn.
+  if (message.isReplay || message._passiveProviderUpdate) return false;
+  if (getClaudeSessionStateChange(message)) return false;
   if (message.type === "system") {
     const subtype = getSdkMessageSubtype(message);
     return subtype !== undefined && WAKE_WORK_SYSTEM_SUBTYPES.has(subtype);
