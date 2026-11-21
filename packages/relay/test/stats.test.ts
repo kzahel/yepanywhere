@@ -64,7 +64,7 @@ describe("relay stats", () => {
     expect(html).toContain("pairs");
   });
 
-  it("deduplicates installs and ignores malformed lines", async () => {
+  it("counts Unicode rows once per install and skips malformed lines", async () => {
     const dir = mkdtempSync(join(tmpdir(), "relay-stats-"));
     tempDirs.push(dir);
 
@@ -93,7 +93,7 @@ describe("relay stats", () => {
           relayNodeId: "relay-a",
           event: "server_register",
           username: "bob",
-          installId: "install-2",
+          installId: "install\u2028two\u2029here",
           appVersion: "1.2.3",
         }),
       ].join("\n"),

@@ -89,6 +89,12 @@ find it. The rename is reversible and the content untouched; see
 `packages/server/src/sessions/resume-exemption.ts`.
 
 
+## Live Codex output framing
+
+YA reads Codex app-server notifications and Codex OSS exec events as UTF-8
+JSON records separated by LF. A character split across stdout chunks survives
+unchanged. U+2028 and U+2029 inside JSON strings remain part of the payload.
+
 ## Scoped Codex OSS continuation
 
 Codex OSS uses `--json` for both new `codex exec` turns and subsequent

@@ -39,6 +39,7 @@ it.skipIf(process.platform === "win32")(
       projectId = toUrlProjectId(project),
       file = join(folder, "rollout-2026-11-01T00-00-00-" + id + ".jsonl");
     const stamp = "2026-11-01T00:00:00Z";
+    const reply = "OWNED\u2028OSS\u2029REPLY";
     const original =
       [
         {
@@ -66,7 +67,7 @@ it.skipIf(process.platform === "win32")(
       cli,
       `#!${process.execPath}
 const { appendFileSync }=require('node:fs');
-const argv=process.argv.slice(2),log=${JSON.stringify(log)},file=${JSON.stringify(file)},id=${JSON.stringify(id)};
+const argv=process.argv.slice(2),log=${JSON.stringify(log)},file=${JSON.stringify(file)},id=${JSON.stringify(id)},reply=${JSON.stringify(reply)};
 appendFileSync(log,JSON.stringify({argv,home:process.env.CODEX_HOME})+'\\n');
 if(argv.includes('--version')){if(process.env.CODEX_OSS_FIXTURE_FAIL==='spawn')require('node:fs').chmodSync(__filename,0o644);console.log('codex-cli 0.166.0');process.exit(0);}
 const resume=argv.indexOf('resume');
@@ -74,8 +75,8 @@ if(argv[0]!=='exec'||resume<0||argv[resume+1]!==id){console.error('unexpected na
 if(process.env.CODEX_OSS_FIXTURE_FAIL==='wrong-native'){console.log(JSON.stringify({type:'thread.started',thread_id:'710ed378-49e7-40be-9ab8-0f1d371cd079'}));process.exit(0);}
 if(process.env.CODEX_OSS_FIXTURE_FAIL){console.error('controlled exec failure');process.exit(7);}
 appendFileSync(file,JSON.stringify({type:'event_msg',timestamp:'2026-11-01T00:00:02Z',payload:{type:'user_message',message:argv[resume+2]}})+'\\n');
-appendFileSync(file,JSON.stringify({type:'response_item',timestamp:'2026-11-01T00:00:03Z',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:'OWNED_OSS_REPLY'}]}})+'\\n');
-console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:'owned-reply',text:'OWNED_OSS_REPLY'}}));
+appendFileSync(file,JSON.stringify({type:'response_item',timestamp:'2026-11-01T00:00:03Z',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:reply}]}})+'\\n');
+console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:'owned-reply',text:reply}}));
 `,
       { mode: 0o755 },
     );
@@ -296,9 +297,7 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:
       });
       const active = app.supervisor.getProcess(launched.processId)!;
       await vi.waitFor(() =>
-        expect(JSON.stringify(active.getMessageHistory())).toContain(
-          "OWNED_OSS_REPLY",
-        ),
+        expect(JSON.stringify(active.getMessageHistory())).toContain(reply),
       );
       expect(active.sessionId).toBe(saved.sessionId);
       expect(
@@ -332,7 +331,7 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:
       expect(detail.status, await detail.clone().text()).toBe(200);
       const body = await detail.json();
       expect(body.session.id).toBe(saved.sessionId);
-      expect(JSON.stringify(body.messages)).toContain("OWNED_OSS_REPLY");
+      expect(JSON.stringify(body.messages)).toContain(reply);
       const list = await (await app.app.request("/api/sessions")).json();
       expect(
         list.sessions.filter((s: { id: string }) => s.id === saved.sessionId),

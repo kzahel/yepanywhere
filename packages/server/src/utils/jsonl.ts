@@ -9,6 +9,10 @@ import { createReadStream } from "node:fs";
 import { open } from "node:fs/promises";
 import * as zlib from "node:zlib";
 import { promisify, TextDecoder } from "node:util";
+import {
+  type JsonlLineRecord,
+  iterateJsonlRecords,
+} from "@yep-anywhere/shared/jsonl";
 
 /** Strip UTF-8 BOM if present (common on Windows). */
 export function stripBom(str: string): string {
@@ -204,57 +208,20 @@ async function* streamZstdJsonlText(filePath: string): AsyncIterable<string> {
 }
 
 /**
- * Stream a JSONL file as BOM-stripped lines without materializing the full file.
- *
- * Empty lines are yielded so callers can keep their own line counts; callers
- * that parse JSON should trim/skip blank lines.
- */
-export interface JsonlLineRecord {
-  line: string;
-  terminated: boolean;
-}
-
-/**
  * Stream JSONL records while retaining whether each line ended with a newline.
  * The distinction lets append-aware readers hold an in-progress final record
  * without treating it as corrupt durable history.
  */
-export async function* iterateJsonlLineRecords(
+export function iterateJsonlLineRecords(
   filePath: string,
 ): AsyncIterable<JsonlLineRecord> {
   const chunks = isZstdPath(filePath)
     ? streamZstdJsonlText(filePath)
     : streamPlainJsonlText(filePath);
-  // Search each chunk once and join a record only when it is complete. Growing
-  // and rescanning one string per chunk makes a large single record quadratic.
-  let pending: string[] = [];
-  let firstChunk = true;
-
-  for await (const rawChunk of chunks) {
-    const chunk = firstChunk ? stripBom(rawChunk) : rawChunk;
-    firstChunk = false;
-    let offset = 0;
-    let newlineIndex = chunk.indexOf("\n");
-    while (newlineIndex !== -1) {
-      const tail = chunk.slice(offset, newlineIndex);
-      let line = tail;
-      if (pending.length) {
-        pending.push(tail);
-        line = pending.join("");
-        pending = [];
-      }
-      yield { line, terminated: true };
-      offset = newlineIndex + 1;
-      newlineIndex = chunk.indexOf("\n", offset);
-    }
-    if (offset < chunk.length) pending.push(chunk.slice(offset));
-  }
-
-  if (pending.length) {
-    yield { line: pending.join(""), terminated: false };
-  }
+  return iterateJsonlRecords(chunks);
 }
 
+/** Stream BOM-stripped lines, including empty lines for callers counting them. */
 export async function* iterateJsonlLines(
   filePath: string,
 ): AsyncIterable<string> {

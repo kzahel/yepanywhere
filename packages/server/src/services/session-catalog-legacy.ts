@@ -4,10 +4,9 @@
  * JSONL shards. `SessionCatalogService` imports that generation into SQLite
  * once, keeping its epoch and generation, and then deletes the folder.
  */
-import { createReadStream } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
+import { iterateJsonlLines } from "../utils/jsonl.js";
 import type { SessionCatalogRow } from "../sessions/catalog-types.js";
 import type { SessionCatalogSqliteSource } from "./session-catalog-sqlite.js";
 import {
@@ -121,16 +120,11 @@ export async function readLegacyCatalogRows(
       manifest.generationDirectory,
       file,
     );
-    const input = createReadStream(path, { encoding: "utf-8" });
-    const lines = createInterface({
-      input,
-      crlfDelay: Number.POSITIVE_INFINITY,
-    });
     let lineNumber = 0;
     try {
-      for await (const line of lines) {
+      for await (const line of iterateJsonlLines(path)) {
         lineNumber += 1;
-        if (!line) continue;
+        if (!line || line === "\r") continue;
         const row = JSON.parse(line) as SessionCatalogRow;
         rows.push(normalizeRow(row, row));
       }
@@ -144,9 +138,6 @@ export async function readLegacyCatalogRows(
           error instanceof Error ? error.message : String(error)
         }`,
       );
-    } finally {
-      lines.close();
-      input.destroy();
     }
   }
   // A shard cut short at a line boundary parses cleanly.

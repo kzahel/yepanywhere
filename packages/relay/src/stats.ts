@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { readdir } from "node:fs/promises";
 import * as path from "node:path";
-import { createInterface } from "node:readline";
+import { iterateJsonlRecords } from "@yep-anywhere/shared/jsonl";
 import type { RelayTelemetryEvent } from "./telemetry.js";
 
 interface DailyVersionStats {
@@ -93,12 +93,7 @@ async function parseEventsFile(
 ): Promise<void> {
   try {
     const stream = createReadStream(filePath, { encoding: "utf8" });
-    const lines = createInterface({
-      input: stream,
-      crlfDelay: Infinity,
-    });
-
-    for await (const line of lines) {
+    for await (const { line } of iterateJsonlRecords(stream)) {
       if (!line.trim()) continue;
       try {
         onEvent(JSON.parse(line) as RelayTelemetryEvent);

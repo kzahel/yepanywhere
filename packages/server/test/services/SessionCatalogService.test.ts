@@ -675,7 +675,11 @@ describe("SessionCatalogService", () => {
 
     it("imports their generation with its epoch and number, then deletes them", async () => {
       const rows = [
-        row({ sessionId: "a", project: "a", title: "kept" }),
+        row({
+          sessionId: "a",
+          project: "a",
+          title: "keep\u2028this\u2029title",
+        }),
         row({ sessionId: "b", project: "b" }),
       ];
       await writeLegacy(870_603, rows);

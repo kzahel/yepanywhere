@@ -312,6 +312,9 @@ open/error/close counters by reason. Structured telemetry distinguishes
 physical mux lifecycle from logical circuit lifecycle so socket reduction and
 failure concentration can be measured.
 
+The relay stats page reads daily telemetry as LF-delimited JSON. A valid row
+counts even when a field contains U+2028 or U+2029.
+
 The monitor continues to expose source readiness, not relay internals. Debug
 logging may show relay grouping and fallback only behind the existing relay
 debug preference.

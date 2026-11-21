@@ -17,8 +17,8 @@ import { type ChildProcess, exec, spawn } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { createInterface } from "node:readline";
 import { promisify } from "node:util";
+import { iterateJsonlRecords } from "@yep-anywhere/shared/jsonl";
 import {
   DEFAULT_GATEWAY_SERVICE_MODEL_LIMIT,
   advertisedGatewayEffortLevels,
@@ -1021,18 +1021,18 @@ export class CodexOSSProvider implements AgentProvider {
           return;
         }
 
-        const rl = createInterface({
-          input: codexProcess.stdout,
-          crlfDelay: Number.POSITIVE_INFINITY,
-        });
+        const lines = iterateJsonlRecords(
+          codexProcess.stdout.setEncoding("utf8"),
+        );
 
         // Collect stderr for debugging
         let stderr = "";
-        codexProcess.stderr?.on("data", (chunk) => {
-          stderr += chunk.toString();
+        codexProcess.stderr?.setEncoding("utf8");
+        codexProcess.stderr?.on("data", (chunk: string) => {
+          stderr += chunk;
         });
 
-        for await (const line of rl) {
+        for await (const { line } of lines) {
           if (signal.aborted) break;
 
           // Both new and resumed exec turns use the native JSONL event protocol.

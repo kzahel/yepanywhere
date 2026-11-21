@@ -1072,7 +1072,8 @@ relocated session visibly grouped under its former project.
 - The legacy `session-catalog/` generation is imported with its epoch and
   generation and the folder deleted only once the tables hold that
   generation or a later one, or the files are proven damaged; any other read
-  error keeps it and fails the start, to be retried.
+  error keeps it and fails the start, to be retried. Shard records are delimited
+  by LF, so titles with U+2028 or U+2029 retain their original text on import.
 - Loss/eviction of browser persistence changes only cold-fetch cost, not visible
   correctness or the ability to reconnect.
 

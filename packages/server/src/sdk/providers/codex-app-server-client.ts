@@ -314,8 +314,8 @@ export class CodexAppServerClient {
 
     this.process = child;
 
-    child.stdout?.on("data", (chunk: Buffer) => {
-      this.stdoutBuffer += chunk.toString("utf-8");
+    child.stdout?.setEncoding("utf8").on("data", (chunk: string) => {
+      this.stdoutBuffer += chunk;
       const lines = this.stdoutBuffer.split("\n");
       this.stdoutBuffer = lines.pop() ?? "";
       for (const raw of lines) {
@@ -325,8 +325,8 @@ export class CodexAppServerClient {
       }
     });
 
-    child.stderr?.on("data", (chunk: Buffer) => {
-      const stderr = chunk.toString("utf-8").trim();
+    child.stderr?.setEncoding("utf8").on("data", (chunk: string) => {
+      const stderr = chunk.trim();
       if (stderr) {
         log.debug({ stderr }, "codex app-server stderr");
       }
