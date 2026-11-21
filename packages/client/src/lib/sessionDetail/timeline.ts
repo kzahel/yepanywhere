@@ -146,39 +146,67 @@ export function buildVisibleTimelineEntries<
 }: VisibleTimelineEntriesInput<TTurnGroup, TAside>): Array<
   RenderTimelineEntry<TTurnGroup, TAside>
 > {
-  const entries: Array<RenderTimelineEntry<TTurnGroup, TAside>> = [];
+  const turns = turnGroups.map(
+    (group, ordinal): RenderTimelineEntry<TTurnGroup, TAside> => {
+      const firstItem = group.items[0];
+      return {
+        kind: "turn",
+        key: firstItem ? `turn-${firstItem.id}` : `turn-${ordinal}`,
+        timestampMs: getLatestRenderItemsTimestampMs(group.items),
+        ordinal,
+        group,
+      };
+    },
+  );
+  if (asides.length === 0) return turns;
 
-  turnGroups.forEach((group, index) => {
-    const firstItem = group.items[0];
-    entries.push({
-      kind: "turn",
-      key: firstItem ? `turn-${firstItem.id}` : `turn-${index}`,
-      timestampMs: getLatestRenderItemsTimestampMs(group.items),
-      ordinal: index,
-      group,
-    });
-  });
-
+  const datedAsides: Array<
+    RenderTimelineEntry<TTurnGroup, TAside> & { timestampMs: number }
+  > = [];
+  const undatedAsides: Array<RenderTimelineEntry<TTurnGroup, TAside>> = [];
   asides.forEach((aside, index) => {
-    entries.push({
-      kind: "btw",
+    const timestampMs = parseTimestampMs(aside.historyAt ?? aside.updatedAt);
+    const entry = {
+      kind: "btw" as const,
       key: `btw-${aside.id}`,
-      timestampMs: parseTimestampMs(aside.historyAt ?? aside.updatedAt),
-      ordinal: turnGroups.length + index,
+      ordinal: turns.length + index,
       aside,
-    });
-  });
-
-  return entries.sort((left, right) => {
-    if (left.timestampMs !== null && right.timestampMs !== null) {
-      return (
-        left.timestampMs - right.timestampMs || left.ordinal - right.ordinal
-      );
+    };
+    if (timestampMs === null) {
+      undatedAsides.push({ ...entry, timestampMs });
+    } else {
+      datedAsides.push({ ...entry, timestampMs });
     }
-    if (left.timestampMs !== null) return -1;
-    if (right.timestampMs !== null) return 1;
-    return left.ordinal - right.ordinal;
   });
+  datedAsides.sort((left, right) => left.timestampMs - right.timestampMs);
+
+  // Clocks place asides among the turns. Transcript order survives missing or
+  // out-of-order timestamps, including Antigravity's untimestamped replay.
+  let datedTailBoundary = turns.length;
+  while (
+    datedTailBoundary > 0 &&
+    turns[datedTailBoundary - 1]!.timestampMs === null
+  ) {
+    datedTailBoundary--;
+  }
+  const entries: Array<RenderTimelineEntry<TTurnGroup, TAside>> = [];
+  let nextAside = 0;
+  for (const [index, turn] of turns.entries()) {
+    if (datedTailBoundary > 0 && index === datedTailBoundary) {
+      entries.push(...datedAsides.slice(nextAside));
+      nextAside = datedAsides.length;
+    }
+    if (turn.timestampMs !== null) {
+      while (
+        nextAside < datedAsides.length &&
+        datedAsides[nextAside]!.timestampMs < turn.timestampMs
+      ) {
+        entries.push(datedAsides[nextAside++]!);
+      }
+    }
+    entries.push(turn);
+  }
+  return [...entries, ...datedAsides.slice(nextAside), ...undatedAsides];
 }
 
 export function getProgressiveTimelineEntryWeight(

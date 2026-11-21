@@ -11,6 +11,18 @@ export interface ProviderCapabilities {
   supportsDag: boolean;
 
   /**
+   * Whether ordered durable batches can use shared message IDs to place rows
+   * relative to the live stream.
+   */
+  usesDurableOrderAnchors?: boolean;
+
+  /**
+   * Whether replay coverage should use durable IDs. Providers that replay
+   * legacy echoes without matching IDs can still use a timestamp watermark.
+   */
+  usesDurableReplayIdentity?: boolean;
+
+  /**
    * Whether the provider supports cloning sessions.
    */
   supportsCloning: boolean;

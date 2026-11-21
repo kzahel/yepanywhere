@@ -115,9 +115,10 @@ function mergePersistedMessagesForProvider(
   taggedMessages: Message[],
   provider: string | undefined,
 ): Message[] {
+  const capabilities = getProvider(provider).capabilities;
   const result = mergeJSONLMessages(baseMessages, taggedMessages, {
-    skipDagOrdering: !getProvider(provider).capabilities.supportsDag,
-    preserveIncomingOrder: provider === "codex" || provider === "antigravity",
+    skipDagOrdering: !capabilities.supportsDag,
+    preserveIncomingOrder: capabilities.usesDurableOrderAnchors,
   });
   return maybeReconcileApprox(result.messages, provider);
 }
@@ -267,6 +268,25 @@ function updateCatchupPaginationCounts(
   };
 }
 
+function replayCoveredByPersisted(
+  state: SessionDetailState,
+  message: Message,
+): boolean {
+  if (
+    getProvider(state.session?.provider).capabilities.usesDurableReplayIdentity
+  ) {
+    const incomingId = getMessageId(message);
+    return (
+      incomingId !== "" &&
+      state.messages.some(
+        (row) => row._source === "jsonl" && getMessageId(row) === incomingId,
+      )
+    );
+  }
+  const timestampMs = getMessageTimestampMs(message);
+  return timestampMs !== null && timestampMs <= state.maxPersistedTimestampMs;
+}
+
 function applyStreamMessage(
   state: SessionDetailState,
   action: Extract<SessionDetailAction, { type: "applyStreamMessage" }>,
@@ -274,28 +294,13 @@ function applyStreamMessage(
   const provider = state.session?.provider;
   const incoming = action.message;
   const isReplay = incoming.isReplay === true;
-  const incomingTimestampMs = getMessageTimestampMs(incoming);
-  const incomingId = getMessageId(incoming);
-  const hasPersistedIdentity =
-    incomingId !== undefined &&
-    state.messages.some(
-      (message) =>
-        (message._source ?? "sdk") === "jsonl" &&
-        getMessageId(message) === incomingId,
-    );
-  const isPersistedReplay =
-    isReplay &&
-    (provider === "codex"
-      ? hasPersistedIdentity
-      : incomingTimestampMs !== null &&
-        incomingTimestampMs <= state.maxPersistedTimestampMs);
 
   if (incoming._isStreaming === true && action.streamingEnabled === false) {
     const messages = clearStreamingPlaceholderMessages(state.messages);
     return messages === state.messages ? state : { ...state, messages };
   }
 
-  if (isPersistedReplay) {
+  if (isReplay && replayCoveredByPersisted(state, incoming)) {
     return state;
   }
 

@@ -140,15 +140,30 @@ server or provider cannot supply it, the reducer preserves both rows rather
 than guessing from content or client-observed time. A provider-log timestamp
 may advance a durable freshness watermark, but it is not message identity.
 
-For Codex servers with stream/durable ID alignment, catch-up reconciles order
-as well as content. A durable batch's sequence takes precedence over the
-arrival positions of its matching live rows: missed user turns are inserted
-before a reply already received live. Matching IDs anchor the batch while
-preserving intervening retained rows and unmatched live output. Without a
-shared ID, a batch is placed before the first retained row with a later known
-timestamp; equal or missing timestamps alone do not justify moving unmatched
-rows. Timestamp placement never deduplicates content. An ordered batch with
-shared IDs can resolve order even when timestamps are equal or unavailable.
+Codex, Antigravity, and Grok can anchor linear catch-up using shared message
+IDs. The durable batch's sequence takes precedence over the arrival positions
+of matching live rows. This places missed user turns before a reply already
+received live while retaining intervening rows and unmatched live output.
+Without a shared ID, a batch is placed before the first retained row with a
+later known timestamp. Equal or missing timestamps preserve the existing
+order of unmatched rows. Codex and Antigravity recognize previously loaded
+replay rows by ID. Grok retains its timestamp watermark for replayed echoes
+whose IDs can differ from the durable record.
+
+The shared `transcriptReducer.ordering.test.ts` cases exercise the reducer
+through the visible timeline. They cover catch-up after a reply, overlapping
+refresh, older pages, and cold reload with equal, missing, and nonmonotonic
+timestamps. Reconnect cases cover ID matching for Codex and Antigravity and
+the watermark for a Grok echo whose ID differs. A Claude case checks
+parent-chain ordering. See
+[provider user-turn identities](../gaps/provider-user-turn-durable-identity.md)
+for gaps in ID alignment.
+
+The visible timeline preserves canonical turn order even when timestamps are
+missing or out of order. This keeps dated live replies below older
+Antigravity history restored without timestamps. Known timestamps still
+place `/btw` asides between transcript turns. When the transcript has no
+dated turns to anchor the asides, the asides follow the transcript.
 
 ## Augment Contract
 

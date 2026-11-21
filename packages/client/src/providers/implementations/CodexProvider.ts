@@ -10,6 +10,8 @@ export class CodexProvider implements Provider {
 
   readonly capabilities: ProviderCapabilities = {
     supportsDag: false, // Linear history
+    usesDurableOrderAnchors: true,
+    usesDurableReplayIdentity: true,
     supportsCloning: true,
     needsApproxMessageDedup: false,
   };

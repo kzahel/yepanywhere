@@ -73,7 +73,7 @@ function displayObject(
   };
 }
 
-function sourceMessage(id: string, timestamp: string): Message {
+function sourceMessage(id: string, timestamp?: string): Message {
   return {
     type: "assistant",
     uuid: id,
@@ -1394,6 +1394,69 @@ describe("session detail render selectors", () => {
         firstItemId: "assistant-1",
       },
     ]);
+  });
+
+  it("keeps dated live turns after undated Antigravity replay", () => {
+    const groups = (
+      [
+        ["old-prompt", undefined],
+        ["old-reply", undefined],
+        ["later-replay", "2026-07-02T12:00:10Z"],
+        ["live-prompt", "2026-07-02T12:01:00Z"],
+        ["live-reply", "2026-07-02T12:01:30Z"],
+      ] as const
+    ).map(
+      ([id, timestamp]): RenderTurnGroup => ({
+        isUserPrompt: false,
+        items: [
+          {
+            type: "text",
+            sourceBlockIndex: 0,
+            id,
+            text: id,
+            sourceMessages: [sourceMessage(id, timestamp)],
+          },
+        ],
+      }),
+    );
+
+    expect(
+      buildVisibleTimelineEntries({ turnGroups: groups }).map(({ key }) => key),
+    ).toEqual([
+      "turn-old-prompt",
+      "turn-old-reply",
+      "turn-later-replay",
+      "turn-live-prompt",
+      "turn-live-reply",
+    ]);
+    expect(
+      buildVisibleTimelineEntries({
+        turnGroups: groups,
+        asides: [{ id: "aside", historyAt: "2026-07-02T12:00:30Z" }],
+      }).map(({ key }) => key),
+    ).toEqual([
+      "turn-old-prompt",
+      "turn-old-reply",
+      "turn-later-replay",
+      "btw-aside",
+      "turn-live-prompt",
+      "turn-live-reply",
+    ]);
+  });
+
+  it("places a dated aside after history when all turns are undated", () => {
+    const prompt: RenderItem = {
+      id: "prompt",
+      type: "user_prompt",
+      content: "Earlier prompt",
+      sourceMessages: [sourceMessage("prompt", undefined)],
+    };
+    expect(
+      buildVisibleTimelineEntries({
+        turnGroups: [{ isUserPrompt: true, items: [prompt] }],
+        asides: [{ id: "aside", historyAt: "2026-07-02T12:00:30Z" }],
+      }).map(({ key }) => key),
+    ).toEqual(["turn-prompt", "btw-aside"]);
   });
 
   it("derives progressive timeline entry weights and tail counts", () => {

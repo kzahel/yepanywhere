@@ -10,6 +10,7 @@ export class GrokProvider implements Provider {
 
   readonly capabilities: ProviderCapabilities = {
     supportsDag: false,
+    usesDurableOrderAnchors: true,
     supportsCloning: false,
     // Assistant, thinking, plan and tool rows align deterministically across
     // the live ACP stream and the durable `updates.jsonl` replay (event id and

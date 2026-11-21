@@ -5,6 +5,8 @@ export class AntigravityProvider implements Provider {
   readonly displayName = "Antigravity";
   readonly capabilities = {
     supportsDag: false,
+    usesDurableOrderAnchors: true,
+    usesDurableReplayIdentity: true,
     supportsCloning: false,
     needsApproxMessageDedup: false,
   };
