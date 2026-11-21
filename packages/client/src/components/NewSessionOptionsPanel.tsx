@@ -115,6 +115,7 @@ export function NewSessionOptionsPanel({
     routerClaudeAiConnectors,
     routerDiscovery,
     routerModelList,
+    routerRestorePending,
     routerSelection,
     routerThinking,
     sandboxLevel,
@@ -1070,6 +1071,7 @@ export function NewSessionOptionsPanel({
               serviceTier={effectiveServiceTier}
               data={routerDiscovery.data}
               busy={routerDiscovery.busy}
+              restorePending={routerRestorePending}
               error={routerDiscovery.error}
               retry={() => void routerDiscovery.reload()}
               sourceKey={clientSummarySourceKey}

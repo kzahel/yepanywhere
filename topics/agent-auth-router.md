@@ -686,8 +686,11 @@ across its clients. They do not change existing session pins or API-created
 sessions, and no credential is stored in these defaults.
 
 Later visits and provider switches restore the choice after discovery. Initial
-discovery holds immediate Start while a saved pool is being checked; background
-refresh with existing data does not block it. Restoration requires an available
+discovery holds immediate Start while a saved pool is being checked. During
+that wait, the Pool picker shows **Checking router…** and offers **Direct
+provider login**. Choosing Direct lets an otherwise ready session start
+without waiting for discovery. Background refresh with existing data does
+not block Start. Restoration requires an available
 router control, a granted pool for this provider, a compatible enabled account
 for the selected model/thinking, a compatible explicit account when saved, and
 a supported policy override. A Manual default with several fitting accounts

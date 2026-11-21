@@ -816,6 +816,7 @@ export function useNewSessionOptions({
     routerDiscovery,
     routerModelList,
     routerPolicy,
+    routerRestorePending,
     routerSelection,
     routerSelectionCustomized,
     routerThinking,

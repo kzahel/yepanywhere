@@ -664,6 +664,7 @@ export function RouterPoolSelector({
   onChange,
   sourceKey,
   busy,
+  restorePending = false,
   error,
   retry,
   disabled,
@@ -678,6 +679,7 @@ export function RouterPoolSelector({
   onChange: (value: RouterSelection | null) => void;
   sourceKey: string;
   busy: boolean;
+  restorePending?: boolean;
   error: boolean;
   retry: () => void;
   disabled: boolean;
@@ -685,7 +687,7 @@ export function RouterPoolSelector({
   serviceTier?: string | null;
 }) {
   const { t } = useI18n();
-  if (!data && !value && !error) return null;
+  if (!data && !value && !error && !restorePending) return null;
   const pools = data?.pools.filter((p) => p.provider === provider) ?? [];
   // A router granting no pool for this provider leaves only Direct, so the
   // provider is not routed. A held selection stays visible as unavailable.
@@ -836,7 +838,8 @@ export function RouterPoolSelector({
               });
             }),
           ]}
-          selected={[value?.poolId ?? DIRECT]}
+          selected={restorePending ? [] : [value?.poolId ?? DIRECT]}
+          placeholder={t("routerChecking")}
           onChange={([poolId]) => {
             if (disabled || poolId === undefined) return;
             const selected = pools.find((p) => p.id === poolId);
@@ -867,7 +870,7 @@ export function RouterPoolSelector({
           <Banner tone="warning" compact className={styles.message}>
             {t("routerSelectionUnavailable")}
           </Banner>
-        ) : busy ? (
+        ) : busy && !restorePending ? (
           <div className={styles.status} role="status">
             <span>{t("routerChecking")}</span>
           </div>

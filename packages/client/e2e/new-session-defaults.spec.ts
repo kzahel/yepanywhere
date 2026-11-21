@@ -29,13 +29,14 @@ test("remembers speed and router choices across clients while discovery preserve
       { id: "priority", name: "Fast", description: "Faster processing" },
     ],
   };
+  const directModels: NonNullable<ProviderInfo["models"]> = [model];
   const provider: ProviderInfo = {
     name: "codex",
     displayName: "Codex",
     installed: true,
     authenticated: true,
     enabled: true,
-    models: [model],
+    models: directModels,
   };
   const overview: AgentAuthRouterOverview = {
     serviceTierSelection: true,
@@ -75,6 +76,8 @@ test("remembers speed and router choices across clients while discovery preserve
   };
   let legacyParser = false;
   let discoveries = 0;
+  let discoveryGate: Promise<void> | undefined;
+  let finishDiscovery: (() => void) | undefined;
   async function configure(target: typeof context) {
     await target.route(
       /\/api\/providers(?:\/(?:codex|descriptors))?(?:\?.*)?$/,
@@ -97,6 +100,7 @@ test("remembers speed and router choices across clients while discovery preserve
     );
     await target.route("**/api/agent-auth-router/selection", async (route) => {
       discoveries++;
+      await discoveryGate;
       await new Promise((resolve) => setTimeout(resolve, 150));
       await route.fulfill({ json: overview });
     });
@@ -287,7 +291,76 @@ test("remembers speed and router choices across clients while discovery preserve
     await expect(pool()).toContainText("Work");
     await page.reload();
     await expect(pool()).toContainText("Direct provider login");
+
+    const directModel = "gpt-6.2-sol";
+    directModels.push({ id: directModel, name: "GPT-6.2 Sol" });
+    await page.request.put(`${baseURL}/api/settings`, {
+      headers,
+      data: {
+        newSessionDefaults: {
+          provider: "codex",
+          providers: { codex: { model: directModel, routerPoolId: "work" } },
+        },
+      },
+    });
+    await page.reload();
+    await expect(pool()).toContainText("Direct provider login");
+    const start = page.locator("[data-new-session-submit-button]");
+    await composer.fill("Start after the incompatible pool is checked.");
+    await expect(start).toBeEnabled();
+
+    // On a cold visit with a saved pool, choosing Direct must work even
+    // while the router request is still outstanding.
+    discoveryGate = new Promise<void>((resolve) => {
+      finishDiscovery = resolve;
+    });
+    await page.reload();
+    await composer.clear();
+    await composer.pressSequentially("Start Codex directly.", { delay: 20 });
+    await expect(composer).toHaveValue("Start Codex directly.");
+    await expect(composer).toBeFocused();
+    await expect(start).toBeDisabled();
+    await expect(pool()).toContainText("Checking router…");
+    for (const viewport of [
+      { width: 1200, height: 600 },
+      { width: 375, height: 812 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await pool().scrollIntoViewIfNeeded();
+      await recordUiCapture(
+        page,
+        `router-checking-${viewport.width}`,
+        viewport,
+      );
+    }
+    await pick("Pool", /^Direct provider login/);
+    await expect(start).toBeEnabled();
+
+    // Inspect the real request without starting a provider in the fixture.
+    const creationPath =
+      /\/api\/(?:projects\/[^/]+\/)?(?:session-creations|sessions)$/;
+    await page.route(creationPath, (route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({
+            json: {
+              requestId: route.request().postDataJSON().requestId,
+              sessionId: "direct-test",
+              projectId: "direct-test",
+            },
+          })
+        : route.fallback(),
+    );
+    const request = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        creationPath.test(new URL(request.url()).pathname),
+    );
+    await start.click();
+    const submitted = (await request).postDataJSON();
+    expect(submitted).toMatchObject({ provider: "codex", model: directModel });
+    expect(submitted).not.toHaveProperty("routerPoolId");
   } finally {
+    finishDiscovery?.();
     await other.close();
     await page.request.put(`${baseURL}/api/settings`, {
       headers,
