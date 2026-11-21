@@ -184,8 +184,179 @@ async function exerciseAntigravityV0(context: TestContext) {
   expect(app.model.failures).toEqual([]);
 }
 
+async function exerciseAntigravitySubagent(context: TestContext) {
+  const app = await nativeAppTestFixture("antigravity", context, {
+    agentApiManagement: true,
+  });
+  await app.ready();
+  const { project } = await app.api("/projects", { path: app.project });
+  const base = `${app.baseUrl}/v0/servers/self`;
+  async function get(path: string) {
+    const response = await fetch(base + path, {
+      signal: AbortSignal.timeout(5000),
+    });
+    expect(response.status, await response.clone().text()).toBe(200);
+    return response.json();
+  }
+  async function send(
+    path: string,
+    body: object,
+    requestId = crypto.randomUUID(),
+  ) {
+    const request = apiCommand({ ...body, requestId });
+    const response = await fetch(base + path, {
+      ...request,
+      method: "POST",
+      headers: { ...request.headers, "X-Yep-Anywhere": "true" },
+      signal: AbortSignal.timeout(5000),
+    });
+    expect(response.status, await response.clone().text()).toBe(202);
+    return response.json();
+  }
+  const receipt = async (
+    id: string,
+    match: (result: Record<string, unknown>) => boolean,
+  ) => {
+    let result: Record<string, unknown> = {};
+    await expect
+      .poll(
+        async () => {
+          result = await get(`/receipts/${id}`);
+          return match(result) ? "matched" : JSON.stringify(result);
+        },
+        { timeout: 6000 },
+      )
+      .toBe("matched");
+    return result;
+  };
+
+  const creation = await send("/sessions", {
+    projectId: project.id,
+    provider: "antigravity",
+    model: "gemini-3.8-flash",
+    permissionMode: "bypassPermissions",
+    prompt: "V0_AGY_SUBAGENT_PARENT",
+  });
+  const parentTurn = await app.model.next();
+  expect(JSON.stringify(parentTurn.body)).toContain("V0_AGY_SUBAGENT_PARENT");
+  const accepted = await receipt(
+    creation.id,
+    (result) => result.state === "accepted",
+  );
+  const parentSessionId = String(accepted.sessionId);
+  const session = `/sessions/${parentSessionId}`;
+
+  parentTurn.tool("invoke_subagent", {
+    TypeName: "research",
+    Role: "Smoke Researcher",
+    Prompt: "V0_AGY_SUBAGENT_CHILD_PROMPT",
+  });
+
+  // Both the parent's post-spawn continuation and the child's first turn hit
+  // our scripted local model server. Wait for both and identify them by prompt.
+  const firstNext = await app.model.next();
+  const secondNext = await app.model.next();
+  const isChildReq = (req: typeof firstNext) =>
+    JSON.stringify(req.body).includes("V0_AGY_SUBAGENT_CHILD_PROMPT") &&
+    !JSON.stringify(req.body).includes("V0_AGY_SUBAGENT_PARENT");
+  const childTurn = isChildReq(firstNext) ? firstNext : secondNext;
+  const parentAfterSpawn = childTurn === firstNext ? secondNext : firstNext;
+
+  // Parent finishes its foreground turn while the child is still running.
+  parentAfterSpawn.finish("V0_AGY_PARENT_WAITING_FOR_CHILD");
+  await expect
+    .poll(async () => (await get(session)).state, { timeout: 6000 })
+    .toBe("background");
+  expect((await get(`${session}/conversation`)).activity).toBe("working");
+
+  // Complete the child and let the parent process its passive wake.
+  childTurn.finish("V0_AGY_CHILD_FINAL_ANSWER");
+  const parentWake = await app.model.next();
+  expect(JSON.stringify(parentWake.body)).toContain(
+    "V0_AGY_CHILD_FINAL_ANSWER",
+  );
+  parentWake.finish("V0_AGY_PARENT_RECEIVED_CHILD");
+
+  await expect
+    .poll(async () => JSON.stringify(await get(`${session}/conversation`)), {
+      timeout: 6000,
+    })
+    .toContain("V0_AGY_PARENT_RECEIVED_CHILD");
+  await expect
+    .poll(async () => (await get(session)).state, { timeout: 6000 })
+    .toBe("idle");
+
+  // Durable providerChildren must surface the child under the parent via
+  // conversation_summaries.db + companion WAL watching.
+  let childId = "";
+  await expect
+    .poll(
+      async () => {
+        const meta = (await app.api(
+          `/projects/${project.id}/sessions/${parentSessionId}/metadata`,
+        )) as {
+          session?: {
+            providerChildren?: Array<{ id: string; agentType?: string }>;
+          };
+        };
+        const firstChild = meta.session?.providerChildren?.[0];
+        if (firstChild?.id) childId = firstChild.id;
+        return firstChild?.agentType ?? "";
+      },
+      { timeout: 6000 },
+    )
+    .toBe("research");
+  expect(childId).toMatch(/^[0-9a-f-]{36}$/i);
+
+  // Top-level session list must contain only the parent, never the child.
+  const listed = (await get(`/sessions?projectId=${project.id}`)) as {
+    items?: Array<{ id: string }>;
+  };
+  expect(listed.items?.some((s) => s.id === parentSessionId)).toBe(true);
+  expect(listed.items?.some((s) => s.id === childId)).toBe(false);
+
+  // Agent mappings must correlate the parent's spawn_agent tool call to childId.
+  await expect
+    .poll(
+      async () => {
+        const res = (await app.api(
+          `/projects/${project.id}/sessions/${parentSessionId}/agents`,
+        )) as { mappings?: Array<{ toolUseId: string; agentId: string }> };
+        return res.mappings?.some((m) => m.agentId === childId) ?? false;
+      },
+      { timeout: 4000 },
+    )
+    .toBe(true);
+
+  // Read-only child transcript endpoint must return the child's replay.
+  const childTranscript = (await app.api(
+    `/projects/${project.id}/sessions/${parentSessionId}/agents/${childId}`,
+  )) as { messages: unknown[]; status: string };
+  expect(childTranscript.status).toBe("completed");
+  expect(JSON.stringify(childTranscript.messages)).toContain(
+    "V0_AGY_CHILD_FINAL_ANSWER",
+  );
+
+  // An unrelated UUID must be refused with 404.
+  const bogusRes = await fetch(
+    `${app.baseUrl}/api/projects/${project.id}/sessions/${parentSessionId}/agents/99999999-9999-4999-8999-999999999999`,
+    {
+      headers: { "X-Yep-Anywhere": "true" },
+      signal: AbortSignal.timeout(5000),
+    },
+  );
+  expect(bogusRes.status).toBe(404);
+  expect(app.model.failures).toEqual([]);
+}
+
 it.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "creates, steers, compacts and follows Antigravity through v0",
   exerciseAntigravityV0,
+  30_000,
+);
+
+it.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
+  "tracks native Antigravity invoke_subagent children, background retention, and child transcript replay",
+  exerciseAntigravitySubagent,
   30_000,
 );

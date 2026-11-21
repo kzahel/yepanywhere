@@ -85,11 +85,15 @@ came from, plus `command`, `startedAt`, `until`, `schedule`, `recurring` or
   once with `thread/backgroundTerminals/list`; an item that ends while that
   request is in flight is not resurrected. A replaced app-server process
   clears the record, because its terminals died with it.
-- Antigravity CLI 1.5.x records the root session's ACP execution and schedule
-  events. Active shell commands move from foreground waits to background
-  work when the prompt settles. Scheduled wakes are background work from
-  their start. Terminal tool events remove the items. Unsolicited replies
-  are visible in the conversation but have no verified native prompt boundary.
+- Antigravity CLI 1.5.x records the root session's ACP execution, schedule, and
+  `invoke_subagent` events. Active shell commands and spawned subagents move
+  from foreground waits to background work when the prompt settles. Scheduled
+  wakes are background work from their start. Terminal tool events remove shell
+  and schedule items; subagent items clear when `conversation_summaries.db`
+  reports the child settled (idle or killed), reconciled at turn settlement,
+  passive updates, and retention queries without a polling timer. Unsolicited
+  replies are visible in the conversation but have no verified native prompt
+  boundary.
 - The Info tab of the session model panel (`ProcessInfoBody`) lists both,
   under **Waiting on** and **Background work**, from the live session
   stream; a liveness update is published on every change.

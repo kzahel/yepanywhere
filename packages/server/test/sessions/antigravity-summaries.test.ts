@@ -138,7 +138,7 @@ describe("AntigravitySummariesReader & top-level child exclusion", () => {
     // Open and warm the reader BEFORE the WAL schema upgrade and child writes.
     expect(f.reader.readRow(PARENT_ID)?.title).toBe("Parent Session");
     expect(f.reader.readRow(PARENT_ID)?.isChild).toBe(false);
-    expect(f.reader.readChildStatuses([CHILD_ID]).size).toBe(0);
+    expect(f.reader.readChildStatuses([CHILD_ID])?.size).toBe(0);
     expect(f.reader.readRelationshipSnapshot([PARENT_ID]).hasParentIds).toBe(
       false,
     );
@@ -190,8 +190,9 @@ describe("AntigravitySummariesReader & top-level child exclusion", () => {
     expect(childRow?.parentConversationId).toBe(PARENT_ID);
     expect(childRow?.isChild).toBe(true);
     expect(childRow?.agentName).toBe("research");
-    expect(f.reader.readChildStatuses([CHILD_ID]).get(CHILD_ID)).toEqual({
+    expect(f.reader.readChildStatuses([CHILD_ID])?.get(CHILD_ID)).toEqual({
       conversationId: CHILD_ID,
+      parentConversationId: PARENT_ID,
       status: "CASCADE_RUN_STATUS_RUNNING",
       notFullyIdle: true,
       killed: false,
@@ -603,7 +604,7 @@ describe("AntigravitySummariesReader & top-level child exclusion", () => {
     } finally {
       insert.finalize();
     }
-    const peerBin = join(f.root, "race-peer.cjs");
+    const peerBin = join(f.root, "agy");
     await writeFile(
       peerBin,
       `#!/usr/bin/env node
@@ -624,6 +625,8 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
 `,
     );
     await chmod(peerBin, 0o755);
+    vi.stubEnv("GEMINI_HOME", f.root);
+    vi.stubEnv("CLOUD_CODE_URL", "http://127.0.0.1:1");
     vi.stubEnv("ANTIGRAVITY_ACP_PATH", peerBin);
     const reader = new AntigravitySessionReader({
       projectPath: f.project,

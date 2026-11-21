@@ -3,14 +3,27 @@ import {
   PROVIDER_WORK_ITEM_LIMIT,
   type ProviderWorkItem,
 } from "@yep-anywhere/shared";
+import {
+  type AntigravityChildStatus,
+  isAntigravityChildRunning,
+} from "../../sessions/antigravity-summaries.js";
 import type { ProviderRetentionSnapshot } from "../types.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
+
+const DEFAULT_PROVISIONAL_SUBAGENT_GRACE_MS = 30_000;
 
 /** ACP task edges are scoped to the live root session and end with its owner. */
 export class AntigravityBackground {
   private readonly active = new Map<
     string,
-    { item: ProviderWorkItem; detached: boolean; daemon: boolean }
+    {
+      item: ProviderWorkItem;
+      detached: boolean;
+      daemon: boolean;
+      subagentId?: string;
+      seenInSummaries?: boolean;
+      trackedAtMs?: number;
+    }
   >();
   private lastUpdatedAt?: Date;
 
@@ -63,6 +76,144 @@ export class AntigravityBackground {
       daemon: raw?.IsDaemon === true,
     });
     this.publish();
+  }
+
+  /**
+   * Track a native `invoke_subagent` child conversation so the parent `agy acp`
+   * owner stays retained in `background` state until the child settles.
+   */
+  trackSubagent(
+    childId: string,
+    label: string,
+    typeName: string | undefined,
+    inTurn: boolean,
+    options: {
+      seenInSummaries?: boolean;
+      nowMs?: number;
+      notify?: boolean;
+    } = {},
+  ): boolean {
+    const key = `subagent:${childId}`;
+    const existing = this.active.get(key);
+    if (existing) {
+      if (options.seenInSummaries && !existing.seenInSummaries) {
+        existing.seenInSummaries = true;
+      }
+      return false;
+    }
+    if (this.active.size >= PROVIDER_WORK_ITEM_LIMIT) {
+      return false;
+    }
+    const nowMs = options.nowMs ?? Date.now();
+    const [item] =
+      normalizeProviderWorkItems([
+        {
+          id: childId,
+          kind: "subagent",
+          label: label || typeName || "Subagent",
+          source: "antigravity-subagent",
+          providerType: typeName ?? "invoke_subagent",
+          startedAt: new Date(nowMs).toISOString(),
+        },
+      ]) ?? [];
+    if (!item) return false;
+    this.active.set(key, {
+      item,
+      detached: !inTurn,
+      daemon: false,
+      subagentId: childId,
+      seenInSummaries: options.seenInSummaries === true,
+      trackedAtMs: nowMs,
+    });
+    this.lastUpdatedAt = new Date(nowMs);
+    if (options.notify !== false) this.changed?.();
+    return true;
+  }
+
+  hasActiveSubagents(): boolean {
+    for (const work of this.active.values()) {
+      if (work.subagentId) return true;
+    }
+    return false;
+  }
+
+  activeSubagentIds(): string[] {
+    const ids: string[] = [];
+    for (const work of this.active.values()) {
+      if (work.subagentId) ids.push(work.subagentId);
+    }
+    return ids;
+  }
+
+  /**
+   * Clear tracked subagents whose native `conversation_summaries.db` status has
+   * settled (`CASCADE_RUN_STATUS_IDLE`, `killed`, or no longer running/busy),
+   * disappeared after being observed, or remained provisional past the bounded
+   * grace window. When `statuses` is `undefined` (transient DB unavailability),
+   * confirmed children are preserved while expired provisional entries clear.
+   */
+  reconcileSubagents(
+    statuses: ReadonlyMap<string, AntigravityChildStatus> | undefined,
+    options: {
+      expectedParentId?: string;
+      notify?: boolean;
+      nowMs?: number;
+      provisionalGraceMs?: number;
+    } = {},
+  ): boolean {
+    const nowMs = options.nowMs ?? Date.now();
+    const graceMs =
+      options.provisionalGraceMs ?? DEFAULT_PROVISIONAL_SUBAGENT_GRACE_MS;
+    let changed = false;
+    for (const [key, work] of this.active) {
+      if (!work.subagentId) continue;
+      if (statuses === undefined) {
+        // Transient DB failure: never drop a confirmed child, but bound
+        // provisional entries so an unavailable DB cannot retain forever.
+        if (
+          !work.seenInSummaries &&
+          nowMs - (work.trackedAtMs ?? 0) >= graceMs
+        ) {
+          this.active.delete(key);
+          changed = true;
+        }
+        continue;
+      }
+      const status = statuses.get(work.subagentId);
+      if (!status) {
+        // Confirmed absence from a readable summaries database: clear
+        // immediately if previously seen, or once provisional grace elapses.
+        if (
+          work.seenInSummaries ||
+          nowMs - (work.trackedAtMs ?? 0) >= graceMs
+        ) {
+          this.active.delete(key);
+          changed = true;
+        }
+        continue;
+      }
+      // If a parent constraint is provided, a row belonging to a different (or
+      // missing) parent must neither confirm a provisional launch nor retain a
+      // moved child.
+      if (
+        options.expectedParentId !== undefined &&
+        status.parentConversationId !== options.expectedParentId
+      ) {
+        this.active.delete(key);
+        changed = true;
+        continue;
+      }
+      work.seenInSummaries = true;
+      if (!isAntigravityChildRunning(status)) {
+        this.active.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.lastUpdatedAt = new Date(nowMs);
+      if (options.notify !== false) this.changed?.();
+    }
+    return changed;
   }
 
   foregroundSettled(): void {

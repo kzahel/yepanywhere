@@ -33,10 +33,12 @@ import {
 } from "./model-catalog-status.js";
 import {
   AntigravityRuntime,
+  antigravityRuntimeStoreDir,
   ownAntigravitySession,
   ownAntigravitySessionAfterReads,
   antigravitySessionsDir,
   findAntigravityRuntime,
+  pinAntigravityLaunchToScope,
   resolveAntigravityRuntime,
   type AntigravityConfigOption,
   type AntigravitySessionSetup,
@@ -59,7 +61,12 @@ import {
   probeAntigravityUsage,
 } from "./antigravity-usage.js";
 import { compactAntigravity } from "./antigravity-compaction.js";
+import { AntigravitySubagentTracker } from "./antigravity-subagent-tracker.js";
 import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
+import type {
+  AntigravityTranscriptPosition,
+  AntigravityTurnScope,
+} from "../../sessions/antigravity-subagent-links.js";
 
 type Steer = (message: UserMessage) => boolean;
 interface AntigravityControls {
@@ -72,6 +79,7 @@ interface AntigravityControls {
   setEffort?: (effort?: EffortLevel) => Promise<void>;
   inputHeld?: boolean;
   onInputHoldChanged?: () => void;
+  reconcileSubagents?: (options?: { silent?: boolean }) => void;
 }
 
 export class AntigravityProvider implements AgentProvider {
@@ -161,12 +169,14 @@ export class AntigravityProvider implements AgentProvider {
     const runtime = new AntigravityRuntime();
     const cwd = await mkdtemp(join(tmpdir(), "ya-antigravity-models-"));
     let sessionId: string | undefined;
+    let probeSessionsDir: string | undefined;
     let models: ModelInfo[] = [ANTIGRAVITY_DEFAULT_MODEL];
     let error: string | undefined;
     try {
       const command = await findAntigravityRuntime();
       if (!command)
         throw new Error("Install Google's Antigravity CLI (agy) first");
+      probeSessionsDir = antigravityRuntimeStoreDir(command);
       await runtime.connect(command.command, cwd, command.args);
       const setup = await runtime.call<AntigravitySessionSetup>("session/new", {
         cwd,
@@ -185,8 +195,8 @@ export class AntigravityProvider implements AgentProvider {
     } finally {
       await runtime.close();
       // Reclaim only our blank native probe, after the owning child has exited.
-      if (sessionId && /^[0-9a-f-]{36}$/i.test(sessionId)) {
-        const sessionsDir = antigravitySessionsDir();
+      if (sessionId && probeSessionsDir && /^[0-9a-f-]{36}$/i.test(sessionId)) {
+        const sessionsDir = probeSessionsDir;
         const base = join(sessionsDir, sessionId);
         const metadata = await readAntigravityMetadata(
           sessionsDir,
@@ -227,6 +237,29 @@ export class AntigravityProvider implements AgentProvider {
     return this.startSessionInternal(options);
   }
 
+  private async validateResumeSource(
+    options: StartSessionOptions,
+    namespace: { family: "antigravity"; storageScope: string },
+  ): Promise<void> {
+    const source = options.nativeResumeSource;
+    if (!source) return;
+    if (
+      !options.resumeSessionId ||
+      source.native.family !== namespace.family ||
+      source.native.id !== parseNativeSessionId(options.resumeSessionId) ||
+      source.native.storageScope !== namespace.storageScope ||
+      !source.filePath ||
+      (await realpath(source.filePath)) !==
+        join(namespace.storageScope, `${source.native.id}.db`) ||
+      (await realpath(fromUrlProjectId(source.projectId))) !==
+        (await realpath(options.cwd))
+    ) {
+      throw new Error(
+        "Antigravity continuation requires its original native store and project",
+      );
+    }
+  }
+
   private async startSessionInternal(
     options: StartSessionOptions,
   ): Promise<AgentSession> {
@@ -236,23 +269,11 @@ export class AntigravityProvider implements AgentProvider {
       throw new Error(
         "Use Antigravity's native /plan command with the default permission mode",
       );
-    const source = options.nativeResumeSource;
-    if (source) {
-      const namespace = await this.getNewSessionNamespace();
-      if (
-        !options.resumeSessionId ||
-        source.native.family !== namespace.family ||
-        source.native.id !== parseNativeSessionId(options.resumeSessionId) ||
-        source.native.storageScope !== namespace.storageScope ||
-        !source.filePath ||
-        (await realpath(source.filePath)) !==
-          join(namespace.storageScope, `${source.native.id}.db`) ||
-        (await realpath(fromUrlProjectId(source.projectId))) !==
-          (await realpath(options.cwd))
-      )
-        throw new Error(
-          "Antigravity continuation requires its original native store and project",
-        );
+    if (options.nativeResumeSource) {
+      await this.validateResumeSource(
+        options,
+        await this.getNewSessionNamespace(),
+      );
     }
     const controls: AntigravityControls = { commands: [] };
     const queue = Object.assign(new MessageQueue(), {
@@ -318,7 +339,10 @@ export class AntigravityProvider implements AgentProvider {
         command === "compact" && controls.compact
           ? controls.compact(argument)
           : { handled: false },
-      getProviderRetention: () => background.snapshot(),
+      getProviderRetention: () => {
+        controls.reconcileSubagents?.({ silent: true });
+        return background.snapshot();
+      },
       abort: async () => {
         controller.abort();
         await runtime.close();
@@ -426,6 +450,7 @@ export class AntigravityProvider implements AgentProvider {
     };
     const input = queue[Symbol.asyncIterator]();
     let owner: ReturnType<typeof ownAntigravitySession> | undefined;
+    let subagents: AntigravitySubagentTracker | undefined;
     let wake: (() => void) | undefined;
     const changed = () => {
       wake?.();
@@ -442,31 +467,66 @@ export class AntigravityProvider implements AgentProvider {
     signal.addEventListener("abort", stop, { once: true });
     try {
       if (signal.aborted) return;
-      const namespace = await this.getNewSessionNamespace();
-      if (options.resumeSessionId)
-        owner = await ownAntigravitySessionAfterReads(
-          namespace.storageScope,
-          options.resumeSessionId,
-          signal,
-        );
       const command = await findAntigravityRuntime();
       if (!command)
         throw new Error(
           "Install Google's Antigravity CLI (agy) and sign in with it first",
         );
+      const launchEnvironment = agentApiEnvironmentFor(options);
+      // Derive the live storage scope from the exact command and environment
+      // used to spawn ACP, and revalidate the resume source against it before
+      // acquiring ownership or launching ACP.
+      const namespace = {
+        family: "antigravity" as const,
+        storageScope: await nativeStorageScope(
+          antigravityRuntimeStoreDir(command, launchEnvironment),
+        ),
+      };
+      await this.validateResumeSource(options, namespace);
+      if (options.resumeSessionId) {
+        owner = await ownAntigravitySessionAfterReads(
+          namespace.storageScope,
+          options.resumeSessionId,
+          signal,
+        );
+        // Revalidate again after waiting on in-progress history reads so a
+        // profile or store rebind cannot redirect `session/load`.
+        const currentScope = await nativeStorageScope(
+          antigravityRuntimeStoreDir(command, launchEnvironment),
+        );
+        if (currentScope !== namespace.storageScope) {
+          throw new Error(
+            "Antigravity continuation requires its original native store and project",
+          );
+        }
+        await this.validateResumeSource(options, namespace);
+      }
       runtime.onPermission = (params) =>
         this.permission(params, options, signal);
       const skipPermissions =
         options.permissionMode === "bypassPermissions" &&
         command.layout === "cli";
+      // Pin the concrete profile path passed to ACP to the verified physical
+      // storage scope so a mutable symlink (including below the profile root)
+      // cannot redirect ACP at spawn time. Reject if pinning is impossible.
+      const pinned = pinAntigravityLaunchToScope(
+        command,
+        namespace.storageScope,
+        launchEnvironment,
+      );
+      if (!pinned) {
+        throw new Error(
+          "Antigravity continuation requires its original native store and project",
+        );
+      }
       await runtime.connect(
         command.command,
         options.cwd,
         [
-          ...command.args,
+          ...pinned.args,
           ...(skipPermissions ? ["--dangerously-skip-permissions"] : []),
         ],
-        agentApiEnvironmentFor(options),
+        pinned.env,
       );
       const [major, minor] = runtime.agentVersion?.split(".").map(Number) ?? [];
       const modern =
@@ -758,6 +818,18 @@ export class AntigravityProvider implements AgentProvider {
       let foregroundUpdate: ((update: AntigravityUpdate) => void) | undefined;
       let passiveTranscript: AntigravityTranscript | undefined;
       let compacting = false;
+      subagents = new AntigravitySubagentTracker({
+        sessionId: id,
+        storageScope: namespace.storageScope,
+        modern,
+        signal,
+        background,
+        isInTurn: () => !!foregroundUpdate,
+        publish,
+        onProviderRetentionChange: options.onProviderRetentionChange,
+      });
+      await subagents.initialize(Boolean(options.resumeSessionId));
+      controls.reconcileSubagents = (opts) => subagents?.reconcile(opts);
       if (modern)
         controls.compact = async (argument) => {
           if (compacting || foregroundUpdate || inputHeld())
@@ -778,13 +850,15 @@ export class AntigravityProvider implements AgentProvider {
               id,
               argument,
             );
-            if (result.completion === "completed")
+            if (result.completion === "completed") {
               publish({
                 type: "system",
                 subtype: "compact_boundary",
                 uuid: randomUUID(),
                 session_id: id,
               });
+              await subagents?.onCompacted();
+            }
             return result;
           } finally {
             compacting = false;
@@ -841,11 +915,24 @@ export class AntigravityProvider implements AgentProvider {
             `${id}:${randomUUID()}`,
             true,
           );
-          for (const {
-            _isStreaming: _partial,
-            ...converted
-          } of passiveTranscript.accept(update))
+          const passiveOut = passiveTranscript.accept(update);
+          for (const { _isStreaming: _partial, ...converted } of passiveOut)
             publish({ ...converted, _passiveProviderUpdate: true });
+          if (
+            update.sessionUpdate === "tool_call_update" &&
+            update.status === "completed" &&
+            update.toolCallId
+          ) {
+            subagents?.resolveCall(
+              passiveTranscript,
+              update.toolCallId,
+              resolvedModel,
+              false,
+              passiveOut,
+              undefined,
+            );
+          }
+          subagents?.reconcile({ inTurn: false });
         }
       };
       let nextInput: Awaited<ReturnType<typeof input.next>> | undefined;
@@ -886,7 +973,17 @@ export class AntigravityProvider implements AgentProvider {
                   return block.text;
                 })
                 .join("\n");
+        const initialStartPosition = await subagents.readStartPosition();
+        if (signal.aborted) break;
         const transcript = new AntigravityTranscript(id, `${id}:${uuid}`, true);
+        let activePromptScope: AntigravityTurnScope | undefined;
+        let activePromptCallIds = new Set<string>();
+        const turnPromptScopes: AntigravityTurnScope[] = [];
+        const verifiedOnProgress = new Set<AntigravityTurnScope>();
+        const callScopes = new Map<
+          string,
+          { scope: AntigravityTurnScope | undefined; callIds: Set<string> }
+        >();
         const creatingSession = firstPrompt;
         firstPrompt = false;
         let observedOriginal = false;
@@ -906,31 +1003,83 @@ export class AntigravityProvider implements AgentProvider {
               update.sessionUpdate === "tool_call")
           )
             acknowledgeOriginal();
-          for (const converted of transcript.accept(update))
-            publish(converted, activeTurnModel);
+          // Verify and advance the prompt's USER_INPUT anchor on first native
+          // progress (even on ordinary prompts with no subagent calls and >4 MiB
+          // of subsequent turn output) so later turns never drift off the tail.
+          if (
+            activePromptScope &&
+            activePromptScope.verifiedUserStep === undefined &&
+            !verifiedOnProgress.has(activePromptScope) &&
+            (update.sessionUpdate === "agent_message_chunk" ||
+              update.sessionUpdate === "agent_thought_chunk" ||
+              update.sessionUpdate === "tool_call")
+          ) {
+            verifiedOnProgress.add(activePromptScope);
+            subagents?.schedulePromptAnchorVerification(activePromptScope);
+          }
+          const emitted = transcript.accept(update);
+          for (const converted of emitted) publish(converted, activeTurnModel);
+          if (
+            update.toolCallId &&
+            transcript.getSubagentCall(update.toolCallId) &&
+            !callScopes.has(update.toolCallId)
+          ) {
+            activePromptCallIds.add(update.toolCallId);
+            callScopes.set(update.toolCallId, {
+              scope: activePromptScope,
+              callIds: activePromptCallIds,
+            });
+          }
+          if (
+            update.sessionUpdate === "tool_call_update" &&
+            update.status === "completed" &&
+            update.toolCallId
+          ) {
+            const binding = callScopes.get(update.toolCallId);
+            subagents?.resolveCall(
+              transcript,
+              update.toolCallId,
+              activeTurnModel,
+              true,
+              emitted,
+              binding?.scope ?? activePromptScope,
+              binding?.callIds,
+            );
+          }
           changed();
         };
         let pending = 0;
         let failure: unknown;
         let usage: unknown;
-        const prompt = (text: string, inputId: string, steer?: UserMessage) => {
+        const prompt = (
+          promptText: string,
+          inputId: string,
+          steer?: UserMessage,
+          promptStartPosition?: AntigravityTranscriptPosition,
+        ) => {
           if (steer) {
             const previous = transcript.close();
             if (previous) publish(previous, activeTurnModel);
             activeTurnModel = resolvedModel;
           }
+          activePromptScope = subagents?.beginPrompt(
+            promptText,
+            promptStartPosition,
+          );
+          if (activePromptScope) turnPromptScopes.push(activePromptScope);
+          activePromptCallIds = new Set<string>();
           publish({
             type: "user",
             uuid: inputId,
             session_id: id,
             timestamp: new Date().toISOString(),
-            message: { role: "user", content: text },
+            message: { role: "user", content: promptText },
           });
           pending++;
           void runtime
             .call<{ usage?: unknown; stopReason?: string }>(
               "session/prompt",
-              { sessionId: id, prompt: [{ type: "text", text }] },
+              { sessionId: id, prompt: [{ type: "text", text: promptText }] },
               0,
             )
             .then((response) => {
@@ -953,7 +1102,7 @@ export class AntigravityProvider implements AgentProvider {
             });
           changed();
         };
-        prompt(text, uuid);
+        prompt(text, uuid, undefined, initialStartPosition);
         if (modern) {
           controls.steer = (input) => {
             if (
@@ -966,7 +1115,12 @@ export class AntigravityProvider implements AgentProvider {
               input.documents?.length
             )
               return false;
-            prompt(input.text, input.uuid ?? randomUUID(), input);
+            prompt(
+              input.text,
+              input.uuid ?? randomUUID(),
+              input,
+              subagents?.readStartPositionSync(),
+            );
             return true;
           };
         }
@@ -978,7 +1132,40 @@ export class AntigravityProvider implements AgentProvider {
           await waitForChange();
         }
         foregroundUpdate = undefined;
+        await subagents.drainPending();
+        // Retry any completed (non-failed) invoke_subagent call whose
+        // transcript.jsonl entry had not flushed yet when tool_call_update arrived.
+        for (const call of transcript.listSubagentCalls()) {
+          if (
+            call.completed &&
+            !call.failed &&
+            !subagents.isCallResolved(call.toolUseId)
+          ) {
+            const binding = callScopes.get(call.toolUseId);
+            subagents.resolveCall(
+              transcript,
+              call.toolUseId,
+              activeTurnModel,
+              true,
+              [],
+              binding?.scope ?? activePromptScope,
+              binding?.callIds,
+            );
+          }
+        }
+        await subagents.drainPending();
+        // Verify and advance the anchor for every prompt submitted in this turn
+        // (including ordinary prompts with zero subagent calls) before cleanup.
+        for (const promptScope of turnPromptScopes) {
+          if (promptScope.verifiedUserStep === undefined) {
+            subagents.schedulePromptAnchorVerification(promptScope);
+          }
+        }
+        await subagents.drainPending();
+        subagents.releasePromptScopes(turnPromptScopes);
+        while (updates.length) yield updates.shift()!;
         background.foregroundSettled();
+        subagents.reconcile({ inTurn: false });
         const last = transcript.close();
         if (last) {
           publish(last, activeTurnModel);
@@ -1001,6 +1188,9 @@ export class AntigravityProvider implements AgentProvider {
       controls.setModel = undefined;
       controls.setEffort = undefined;
       controls.onInputHoldChanged = undefined;
+      controls.reconcileSubagents = undefined;
+      subagents?.close();
+      subagents = undefined;
       background.clear();
       signal.removeEventListener("abort", stop);
       await input.return?.();

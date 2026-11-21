@@ -3,7 +3,7 @@ import { getCliInstallationService } from "../cli-installation-context.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import { accessSync, constants } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
 import type { SDKMessage } from "../types.js";
 
@@ -52,15 +52,103 @@ export interface AntigravitySessionSetup {
   configOptions?: AntigravityConfigOption[];
 }
 
-/** The active runtime's native conversation store. Without an installed
- * runtime this names the `agy` CLI store, the current distribution. */
-export function antigravitySessionsDir(): string {
-  const layout = resolveAntigravityRuntime()?.layout ?? "cli";
+/** Native conversation store directory for a given Antigravity runtime layout. */
+export function antigravitySessionsDirForLayout(layout: "cli" | "acp"): string {
   return resolve(
     process.env.GEMINI_HOME || join(homedir(), ".gemini"),
     layout === "cli" ? "antigravity-cli" : "antigravity-acp",
     "conversations",
   );
+}
+
+/**
+ * Physical conversation store that a concrete launched runtime command will
+ * actually open, derived strictly from its actual launch arguments and
+ * environment. For `agy acp` (`layout === "cli"`), `agy` ignores `GEMINI_HOME`
+ * unless `--gemini-dir` is explicitly passed in `args`.
+ */
+export function antigravityRuntimeStoreDir(
+  command: Pick<AntigravityRuntimeCommand, "args" | "layout">,
+  envOverride?: Record<string, string | undefined>,
+): string {
+  if (command.layout === "cli") {
+    const flagIndex = command.args.indexOf("--gemini-dir");
+    const explicitGeminiDir =
+      flagIndex >= 0 ? command.args[flagIndex + 1] : undefined;
+    return resolve(
+      explicitGeminiDir || join(homedir(), ".gemini"),
+      "antigravity-cli",
+      "conversations",
+    );
+  }
+  const geminiHome =
+    envOverride && "GEMINI_HOME" in envOverride
+      ? envOverride.GEMINI_HOME
+      : process.env.GEMINI_HOME;
+  return resolve(
+    geminiHome || join(homedir(), ".gemini"),
+    "antigravity-acp",
+    "conversations",
+  );
+}
+
+/**
+ * Pin the concrete ACP launch arguments and environment to a verified physical
+ * `conversations/` directory so a mutable symlink on `GEMINI_HOME` or `~/.gemini`
+ * cannot redirect ACP to a different store between validation and `spawn()`.
+ */
+export function pinAntigravityLaunchToScope(
+  command: Pick<AntigravityRuntimeCommand, "args" | "layout">,
+  physicalScope: string,
+  launchEnvironment?: Record<string, string>,
+): { args: string[]; env?: Record<string, string> } | null {
+  const expectedStoreName =
+    command.layout === "cli" ? "antigravity-cli" : "antigravity-acp";
+  const canPin =
+    basename(physicalScope) === "conversations" &&
+    basename(dirname(physicalScope)) === expectedStoreName;
+  if (!canPin) {
+    // Reject rather than falling back to unpinned arguments when a symlink
+    // below the profile directory resolves outside `<profile>/<store>/conversations`.
+    return null;
+  }
+  const physicalGeminiDir = dirname(dirname(physicalScope));
+  const args = [...command.args];
+  if (command.layout === "cli") {
+    const flagIndex = args.indexOf("--gemini-dir");
+    if (flagIndex >= 0 && flagIndex + 1 < args.length) {
+      args[flagIndex + 1] = physicalGeminiDir;
+      return {
+        args,
+        env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
+      };
+    }
+    if (physicalGeminiDir !== resolve(homedir(), ".gemini")) {
+      args.push("--gemini-dir", physicalGeminiDir);
+      return {
+        args,
+        env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
+      };
+    }
+    return { args, env: launchEnvironment };
+  }
+  return {
+    args,
+    env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
+  };
+}
+
+/** The active runtime's native conversation store, derived from the exact
+ * command and environment used to launch ACP. Without an installed runtime
+ * this names the `agy` CLI store for the effective profile. */
+export function antigravitySessionsDir(): string {
+  const command = resolveAntigravityRuntime();
+  if (command) return antigravityRuntimeStoreDir(command);
+  const geminiDir =
+    process.env.CLOUD_CODE_URL && process.env.GEMINI_HOME
+      ? process.env.GEMINI_HOME
+      : join(homedir(), ".gemini");
+  return resolve(geminiDir, "antigravity-cli", "conversations");
 }
 
 /** The `agy` CLI store keeps per-conversation workspaces here, not in `.meta`. */

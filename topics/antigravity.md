@@ -144,13 +144,19 @@ outcome stays unconfirmed. Both hold later input under the existing
 The live session shows a compaction boundary for a verified command. Cold
 ACP replay does not supply checkpoint boundaries.
 
-Known active root-session shell commands and schedules appear in the shared
+Known active root-session shell commands, schedules, and `invoke_subagent`
+children appear in the shared
 [background-work view](provider-wait-and-background-work.md). Non-daemon
 work that outlives the foreground turn retains the native owner until its
-terminal tool event. Detached output appears in the same conversation,
-including replies to scheduled wakes. ACP does not guarantee a result
-notification for those replies. YA displays them as background output, with
-steering and verified turn completion available on submitted prompts.
+terminal tool event (or, for subagents, until `conversation_summaries.db`
+reports the child settled as idle/killed — with a bounded provisional grace
+window while `agy` asynchronously flushes a freshly launched child row —
+checked at turn settlement, passive updates, and retention queries with no
+polling timer). Detached output appears
+in the same conversation, including replies to scheduled wakes and subagent
+completions. ACP does not guarantee a result notification for those replies. YA
+displays them as background output, with steering and verified turn completion
+available on submitted prompts.
 
 The v0 API supports direct model discovery, creation, conversation following,
 steering, background state, queued compaction and verified Stop using the
@@ -194,7 +200,11 @@ using bounded read-only `conversation_summaries.db` snapshots; missing stores
 (including standalone 1.4.x runtimes without a summaries index) stay unknown
 rather than publishing an authoritative empty set, and running subagents whose
 `last_modified_time` is the `0001-01-01` sentinel fall back to local `.db`/`.db-wal`
-file mtimes and in-memory activity overlays without churning durable SQL edges. When several workspace URIs are listed
+file mtimes and in-memory activity overlays without churning durable SQL edges.
+Authorized descendant transcript reads serve actively running or live-owned
+children from a bounded read-only projection of `brain/<id>/.../transcript.jsonl`
+(avoiding competing ACP `session/load` writes), and replay settled children
+through `session/load` only after revalidating project-eligible lineage. When several workspace URIs are listed
 (`/private/tmp/x`, `/tmp/x`), the last is the cwd the client supplied and
 matches YA's project binding. Reading never sends a prompt or auth request.
 Unknown/foreign project files are not adopted. The native replay API may update

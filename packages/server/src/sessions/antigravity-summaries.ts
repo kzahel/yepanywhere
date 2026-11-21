@@ -56,9 +56,46 @@ export interface AntigravityRelationshipSnapshot {
 
 export interface AntigravityChildStatus {
   conversationId: string;
+  parentConversationId?: string;
   status?: string;
   notFullyIdle: boolean;
   killed: boolean;
+}
+
+export interface AntigravityActiveDirectChild {
+  conversationId: string;
+  title?: string;
+  agentName?: string;
+  status?: string;
+  notFullyIdle: boolean;
+}
+
+export interface AntigravityActiveChildrenResult {
+  children: AntigravityActiveDirectChild[];
+  /** True when an unindexed scan reached `maxScanRows` with additional rows remaining. */
+  truncated: boolean;
+  /** Rowid cursor to continue an incomplete unindexed scan on the next probe. */
+  nextCursorRowId?: number;
+  /** Opaque DB+WAL+SHM+data_version token for avoiding redundant rescans once a full pass finishes. */
+  versionKey: string;
+  /** True when `knownCompletedVersion` already matched `versionKey` so no SQLite scan ran. */
+  skippedUnchanged?: boolean;
+}
+
+/**
+ * Shared predicate deciding whether a native Antigravity child conversation is
+ * still actively running. Used by both background retention and child replay
+ * authorization so neither can diverge on `IDLE` + `not_fully_idle = 1`.
+ */
+export function isAntigravityChildRunning(row: {
+  status?: string;
+  notFullyIdle?: boolean;
+  killed?: boolean;
+}): boolean {
+  if (row.killed) return false;
+  return (
+    row.status === "CASCADE_RUN_STATUS_RUNNING" || row.notFullyIdle === true
+  );
 }
 
 /**
@@ -267,8 +304,10 @@ interface StatementSlot {
 export class AntigravitySummariesReader {
   private db: SqliteDatabase | null | undefined = undefined;
   private dbStamp: string | undefined;
+  private fileStateStamp: string | undefined;
   private closed = false;
   private schemaVersionStmt: SqliteStatement | undefined;
+  private dataVersionStmt: SqliteStatement | undefined;
   private tableInfoStmt: SqliteStatement | undefined;
   private cachedSchemaVersion: number | undefined;
   private cachedColumns: Set<string> | undefined;
@@ -279,6 +318,19 @@ export class AntigravitySummariesReader {
   private readonly childrenByParentsSlot: StatementSlot = {};
   private readonly allChildrenSlot: StatementSlot = {};
   private readonly statusSlot: StatementSlot = {};
+  private readonly activeChildrenPlanSlot: StatementSlot = {};
+  private readonly activeChildrenSlot: StatementSlot = {};
+  private activeChildrenCache:
+    | {
+        stamp: string;
+        dataVersion: number;
+        parentId: string;
+        limit: number;
+        maxScanRows: number;
+        afterRowId: number;
+        result: AntigravityActiveChildrenResult;
+      }
+    | undefined;
 
   constructor(private readonly databasePath: string) {}
 
@@ -286,20 +338,34 @@ export class AntigravitySummariesReader {
     if (this.closed) return null;
     let physicalPath: string;
     let stamp: string;
+    let fileState: string;
     try {
       const storeDir = realpathSync(dirname(this.databasePath));
       const info = assertInStoreSync(storeDir, this.databasePath, true)!;
-      assertInStoreSync(storeDir, `${this.databasePath}-wal`, false);
-      assertInStoreSync(storeDir, `${this.databasePath}-shm`, false);
+      const wal = assertInStoreSync(
+        storeDir,
+        `${this.databasePath}-wal`,
+        false,
+      );
+      const shm = assertInStoreSync(
+        storeDir,
+        `${this.databasePath}-shm`,
+        false,
+      );
       physicalPath = join(storeDir, basename(this.databasePath));
       stamp = `${info.dev}:${info.ino}:${info.mtimeMs}:${info.ctimeMs}:${info.size}`;
+      const sidecar = (s: Stats | null | undefined) =>
+        s ? `${s.dev}:${s.ino}:${s.mtimeMs}:${s.ctimeMs}:${s.size}` : "none";
+      fileState = `${stamp}|${sidecar(wal)}|${sidecar(shm)}`;
     } catch (error) {
       this.closeHandle();
       if (strict) throw error;
       return null;
     }
+    this.fileStateStamp = fileState;
     if (this.db && this.dbStamp === stamp) return this.db;
     if (this.db && this.dbStamp !== stamp) this.closeHandle();
+    this.fileStateStamp = fileState;
     const driver = loadSqliteDriver();
     if (!driver) {
       this.db = null;
@@ -730,17 +796,24 @@ export class AntigravitySummariesReader {
     return { hasParentIds, rows, truncated };
   }
 
-  /** Bounded status lookup for known active child ids (background retention). */
+  /**
+   * Bounded status lookup for known active child ids (background retention).
+   * Returns `undefined` when the summaries database is unavailable or unreadable
+   * so callers can distinguish transient DB failure from confirmed row absence.
+   */
   readChildStatuses(
     childIds: readonly string[],
-  ): Map<string, AntigravityChildStatus> {
+  ): Map<string, AntigravityChildStatus> | undefined {
     const out = new Map<string, AntigravityChildStatus>();
     if (!childIds.length) return out;
     const db = this.ensureDb(false);
-    if (!db) return out;
+    if (!db) return undefined;
     try {
       const columns = this.readColumns(db);
-      if (!columns.has("conversation_id")) return out;
+      if (!columns.has("conversation_id")) return undefined;
+      const parentCol = columns.has("parent_conversation_id")
+        ? "CASE WHEN length(parent_conversation_id) <= 256 THEN parent_conversation_id ELSE NULL END AS parent_conversation_id"
+        : "NULL AS parent_conversation_id";
       const statusCol = columns.has("status")
         ? "CASE WHEN length(status) <= 128 THEN status ELSE NULL END AS status"
         : "NULL AS status";
@@ -748,19 +821,26 @@ export class AntigravitySummariesReader {
         ? "not_fully_idle"
         : "0 AS not_fully_idle";
       const killedCol = columns.has("killed") ? "killed" : "0 AS killed";
-      const sql = `SELECT conversation_id, ${statusCol}, ${idleCol}, ${killedCol}
+      const sql = `SELECT conversation_id, ${parentCol}, ${statusCol}, ${idleCol}, ${killedCol}
         FROM conversation_summaries
         WHERE conversation_id IN (SELECT value FROM json_each(?))`;
       const rows = this.useSlot(db, this.statusSlot, sql).all<{
         conversation_id: unknown;
+        parent_conversation_id: unknown;
         status: unknown;
         not_fully_idle: unknown;
         killed: unknown;
       }>(JSON.stringify([...new Set(childIds)]));
       for (const row of rows) {
         if (typeof row.conversation_id !== "string") continue;
+        const parentId =
+          typeof row.parent_conversation_id === "string" &&
+          row.parent_conversation_id.trim()
+            ? row.parent_conversation_id.trim()
+            : undefined;
         out.set(row.conversation_id, {
           conversationId: row.conversation_id,
+          ...(parentId ? { parentConversationId: parentId } : {}),
           ...(typeof row.status === "string" && row.status
             ? { status: row.status }
             : {}),
@@ -770,7 +850,276 @@ export class AntigravitySummariesReader {
       }
       return out;
     } catch {
-      return out;
+      return undefined;
+    }
+  }
+
+  private readDataVersion(db: SqliteDatabase): number {
+    this.dataVersionStmt ??= db.prepare("PRAGMA data_version");
+    const row = this.dataVersionStmt.get<{ data_version?: unknown }>();
+    return typeof row?.data_version === "number" ? row.data_version : -1;
+  }
+
+  private planUsesActiveChildrenIndex(
+    db: SqliteDatabase,
+    indexedSql: string,
+    parentId: string,
+    limit: number,
+  ): boolean {
+    try {
+      const plan = this.useSlot(
+        db,
+        this.activeChildrenPlanSlot,
+        `EXPLAIN QUERY PLAN ${indexedSql}`,
+      ).all<{ detail?: unknown }>(parentId, limit);
+      const details = plan
+        .map((row) => (typeof row.detail === "string" ? row.detail : ""))
+        .filter(Boolean);
+      // Require an index search that explicitly constrains `parent_conversation_id=`
+      // so a status-only or other-column index cannot bypass the unindexed scan cap.
+      const usesParentIndex = details.some((detail) =>
+        /\bSEARCH conversation_summaries USING (?:COVERING )?INDEX\b[^(\n]*\([^)\n]*\bparent_conversation_id\s*=/i.test(
+          detail,
+        ),
+      );
+      const scansTable = details.some((detail) =>
+        /\bSCAN conversation_summaries\b/i.test(detail),
+      );
+      return usesParentIndex && !scansTable;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Discover currently running direct children of `parentId` directly from
+   * `conversation_summaries.db` so background retention still tracks verified
+   * active subagents even when ambiguous tool calls remain unlinked.
+   * Reuses the cached result until DB/WAL/SHM or SQLite `data_version` changes,
+   * requires a `parent_conversation_id`-constrained index to skip the scan cap,
+   * and supports bounded `afterRowId` cursor continuation on unindexed schemas.
+   * Returns `undefined` when the database is unavailable or lacks lineage.
+   */
+  readActiveDirectChildren(
+    parentId: string,
+    options: {
+      limit?: number;
+      maxScanRows?: number;
+      afterRowId?: number;
+      knownCompletedVersion?: string;
+    } = {},
+  ): AntigravityActiveChildrenResult | undefined {
+    const limit = options.limit ?? 64;
+    const maxScanRows =
+      options.maxScanRows ?? ANTIGRAVITY_RELATIONSHIP_MAX_SCAN_ROWS;
+    const afterRowId = options.afterRowId ?? 0;
+    const db = this.ensureDb(false);
+    if (!db) return undefined;
+    try {
+      const stamp = this.fileStateStamp ?? "";
+      const dataVersion = this.readDataVersion(db);
+      const versionKey = `${stamp}#${dataVersion}`;
+      if (
+        options.knownCompletedVersion !== undefined &&
+        options.knownCompletedVersion === versionKey
+      ) {
+        return {
+          children: [],
+          truncated: false,
+          versionKey,
+          skippedUnchanged: true,
+        };
+      }
+      if (
+        this.activeChildrenCache &&
+        this.activeChildrenCache.stamp === stamp &&
+        this.activeChildrenCache.dataVersion === dataVersion &&
+        this.activeChildrenCache.parentId === parentId &&
+        this.activeChildrenCache.limit === limit &&
+        this.activeChildrenCache.maxScanRows === maxScanRows &&
+        this.activeChildrenCache.afterRowId === afterRowId
+      ) {
+        return this.activeChildrenCache.result;
+      }
+      const columns = this.readColumns(db);
+      if (
+        !columns.has("conversation_id") ||
+        !columns.has("parent_conversation_id")
+      ) {
+        return undefined;
+      }
+      const titleCol = columns.has("title")
+        ? "CASE WHEN length(title) <= 512 THEN title ELSE substr(title, 1, 512) END AS title"
+        : "NULL AS title";
+      const agentCol = columns.has("agent_name")
+        ? "CASE WHEN length(agent_name) <= 128 THEN agent_name ELSE NULL END AS agent_name"
+        : "NULL AS agent_name";
+      const statusCol = columns.has("status")
+        ? "CASE WHEN length(status) <= 128 THEN status ELSE NULL END AS status"
+        : "NULL AS status";
+      const idleCol = columns.has("not_fully_idle")
+        ? "not_fully_idle"
+        : "0 AS not_fully_idle";
+      const killedCol = columns.has("killed") ? "killed" : "0 AS killed";
+      const runningPredicate = columns.has("status")
+        ? columns.has("not_fully_idle")
+          ? "(status = 'CASCADE_RUN_STATUS_RUNNING' OR not_fully_idle = 1)"
+          : "status = 'CASCADE_RUN_STATUS_RUNNING'"
+        : columns.has("not_fully_idle")
+          ? "not_fully_idle = 1"
+          : "0";
+      const alivePredicate = columns.has("killed")
+        ? "(killed IS NULL OR killed = 0)"
+        : "1";
+      const indexedSql = `SELECT conversation_id, ${titleCol}, ${agentCol}, ${statusCol}, ${idleCol}, ${killedCol}
+        FROM conversation_summaries
+        WHERE parent_conversation_id = ?
+          AND ${alivePredicate}
+          AND ${runningPredicate}
+        ORDER BY conversation_id ASC
+        LIMIT ?`;
+      const useIndex = this.planUsesActiveChildrenIndex(
+        db,
+        indexedSql,
+        parentId,
+        limit,
+      );
+      const out: AntigravityActiveDirectChild[] = [];
+      let truncated = false;
+      let nextCursorRowId: number | undefined;
+      if (useIndex) {
+        const rows = this.useSlot(db, this.activeChildrenSlot, indexedSql).all<{
+          conversation_id: unknown;
+          title: unknown;
+          agent_name: unknown;
+          status: unknown;
+          not_fully_idle: unknown;
+          killed: unknown;
+        }>(parentId, limit);
+        for (const row of rows) {
+          if (typeof row.conversation_id !== "string" || !row.conversation_id) {
+            continue;
+          }
+          const killed = row.killed === 1 || row.killed === true;
+          const notFullyIdle =
+            row.not_fully_idle === 1 || row.not_fully_idle === true;
+          const status =
+            typeof row.status === "string" && row.status
+              ? row.status
+              : undefined;
+          if (!isAntigravityChildRunning({ status, notFullyIdle, killed })) {
+            continue;
+          }
+          out.push({
+            conversationId: row.conversation_id,
+            ...(typeof row.title === "string" && row.title.trim()
+              ? { title: row.title.trim() }
+              : {}),
+            ...(typeof row.agent_name === "string" && row.agent_name.trim()
+              ? { agentName: row.agent_name.trim() }
+              : {}),
+            ...(status ? { status } : {}),
+            notFullyIdle,
+          });
+        }
+      } else {
+        // Bound source rows examined per probe using a rowid cursor so
+        // unindexed schemas neither scan an unbounded table nor permanently
+        // miss running children past `maxScanRows`.
+        const boundedSql = `WITH bounded AS MATERIALIZED (
+          SELECT rowid AS _rowid, conversation_id, parent_conversation_id, ${titleCol}, ${agentCol}, ${statusCol}, ${idleCol}, ${killedCol}
+          FROM conversation_summaries
+          WHERE rowid > ?
+          ORDER BY rowid ASC
+          LIMIT ?
+        )
+        SELECT conversation_id, title, agent_name, status, not_fully_idle, killed, 0 AS _is_meta, 0 AS _has_more, 0 AS _last_rowid
+        FROM (
+          SELECT conversation_id, title, agent_name, status, not_fully_idle, killed
+          FROM bounded
+          WHERE parent_conversation_id = ?
+            AND ${alivePredicate}
+            AND ${runningPredicate}
+          ORDER BY conversation_id ASC
+          LIMIT ?
+        )
+        UNION ALL
+        SELECT
+          NULL, NULL, NULL, NULL, 0, 0,
+          1 AS _is_meta,
+          CASE
+            WHEN (SELECT COUNT(*) FROM bounded) = ?
+              AND EXISTS (SELECT 1 FROM conversation_summaries WHERE rowid > (SELECT MAX(_rowid) FROM bounded))
+            THEN 1 ELSE 0
+          END AS _has_more,
+          COALESCE((SELECT MAX(_rowid) FROM bounded), 0) AS _last_rowid`;
+        const rows = this.useSlot(db, this.activeChildrenSlot, boundedSql).all<{
+          conversation_id: unknown;
+          title: unknown;
+          agent_name: unknown;
+          status: unknown;
+          not_fully_idle: unknown;
+          killed: unknown;
+          _is_meta: unknown;
+          _has_more: unknown;
+          _last_rowid: unknown;
+        }>(afterRowId, maxScanRows, parentId, limit, maxScanRows);
+        for (const row of rows) {
+          if (row._is_meta === 1) {
+            if (
+              row._has_more === 1 &&
+              typeof row._last_rowid === "number" &&
+              row._last_rowid > afterRowId
+            ) {
+              truncated = true;
+              nextCursorRowId = row._last_rowid;
+            }
+            continue;
+          }
+          if (typeof row.conversation_id !== "string" || !row.conversation_id) {
+            continue;
+          }
+          const killed = row.killed === 1 || row.killed === true;
+          const notFullyIdle =
+            row.not_fully_idle === 1 || row.not_fully_idle === true;
+          const status =
+            typeof row.status === "string" && row.status
+              ? row.status
+              : undefined;
+          if (!isAntigravityChildRunning({ status, notFullyIdle, killed })) {
+            continue;
+          }
+          out.push({
+            conversationId: row.conversation_id,
+            ...(typeof row.title === "string" && row.title.trim()
+              ? { title: row.title.trim() }
+              : {}),
+            ...(typeof row.agent_name === "string" && row.agent_name.trim()
+              ? { agentName: row.agent_name.trim() }
+              : {}),
+            ...(status ? { status } : {}),
+            notFullyIdle,
+          });
+        }
+      }
+      const result: AntigravityActiveChildrenResult = {
+        children: out,
+        truncated,
+        ...(nextCursorRowId !== undefined ? { nextCursorRowId } : {}),
+        versionKey,
+      };
+      this.activeChildrenCache = {
+        stamp,
+        dataVersion,
+        parentId,
+        limit,
+        maxScanRows,
+        afterRowId,
+        result,
+      };
+      return result;
+    } catch {
+      return undefined;
     }
   }
 
@@ -783,6 +1132,8 @@ export class AntigravitySummariesReader {
   private closeHandle(): void {
     this.schemaVersionStmt?.finalize();
     this.schemaVersionStmt = undefined;
+    this.dataVersionStmt?.finalize();
+    this.dataVersionStmt = undefined;
     this.tableInfoStmt?.finalize();
     this.tableInfoStmt = undefined;
     this.clearSlot(this.rowSlot);
@@ -792,6 +1143,9 @@ export class AntigravitySummariesReader {
     this.clearSlot(this.childrenByParentsSlot);
     this.clearSlot(this.allChildrenSlot);
     this.clearSlot(this.statusSlot);
+    this.clearSlot(this.activeChildrenPlanSlot);
+    this.clearSlot(this.activeChildrenSlot);
+    this.activeChildrenCache = undefined;
     this.cachedColumns = undefined;
     this.cachedSchemaVersion = undefined;
     if (this.db) {
@@ -803,6 +1157,7 @@ export class AntigravitySummariesReader {
     }
     this.db = undefined;
     this.dbStamp = undefined;
+    this.fileStateStamp = undefined;
   }
 
   close(): void {

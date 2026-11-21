@@ -1,3 +1,9 @@
+import {
+  type AntigravitySubagentCall,
+  formatSpawnAgentResult,
+  isAntigravityInvokeSubagent,
+  normalizeInvokeSubagentInput,
+} from "../../sessions/antigravity-subagent-links.js";
 import type { SDKMessage } from "../types.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
 
@@ -8,6 +14,7 @@ export class AntigravityTranscript {
   private text?: { kind: string; message: SDKMessage; value: string };
   // Bounded by the same 8 MiB/10,000-message replay limits; discarded with it.
   private tools = new Map<string, SDKMessage>();
+  private subagents = new Map<string, AntigravitySubagentCall>();
 
   /** `live` stamps arrival time; native replay carries no timestamps. */
   constructor(
@@ -50,6 +57,53 @@ export class AntigravityTranscript {
     );
     if (existing < 0) this.messages.push(message);
     else this.messages[existing] = message;
+  }
+
+  /** Normalized `spawn_agent` calls observed in this transcript, in order. */
+  listSubagentCalls(): AntigravitySubagentCall[] {
+    return [...this.subagents.values()];
+  }
+
+  /** Look up a previously observed `invoke_subagent` call by ACP `toolCallId`. */
+  getSubagentCall(toolCallId: string): AntigravitySubagentCall | undefined {
+    return this.subagents.get(toolCallId);
+  }
+
+  /**
+   * Attach or update a verified `agent_id` on a `spawn_agent` `tool_result`
+   * in-place (reusing `${toolCallId}:result` so live streams and cold replays
+   * stay idempotent and never duplicate result entries). Never overwrites a
+   * failed invocation.
+   */
+  enrichSubagentResult(
+    toolCallId: string,
+    childId: string,
+    nickname?: string,
+  ): SDKMessage | undefined {
+    const call = this.subagents.get(toolCallId);
+    if (!call || call.failed) return undefined;
+    const message: SDKMessage = {
+      type: "user",
+      uuid: `${toolCallId}:result`,
+      session_id: this.sessionId,
+      ...this.stamp(),
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: toolCallId,
+            content: formatSpawnAgentResult(childId, nickname ?? call.role),
+            is_error: false,
+          },
+        ],
+      },
+    };
+    const existing = this.messages.findIndex(
+      (entry) => entry.uuid === message.uuid,
+    );
+    this.record(message, existing);
+    return structuredClone(message);
   }
 
   /**
@@ -111,8 +165,27 @@ export class AntigravityTranscript {
     const id = update.toolCallId;
     if (!id) return out;
     if (kind === "tool_call") {
+      const isSubagent = isAntigravityInvokeSubagent(update);
       let message = this.tools.get(id);
       if (!message) {
+        const subagentInput = isSubagent
+          ? normalizeInvokeSubagentInput(update.rawInput)
+          : undefined;
+        const normalizedInput = subagentInput ?? update.rawInput ?? {};
+        if (subagentInput) {
+          this.subagents.set(id, {
+            toolUseId: id,
+            ...(typeof subagentInput.description === "string"
+              ? { role: subagentInput.description }
+              : {}),
+            ...(typeof subagentInput.subagent_type === "string"
+              ? { typeName: subagentInput.subagent_type }
+              : {}),
+            ...(typeof subagentInput.prompt === "string"
+              ? { prompt: subagentInput.prompt }
+              : {}),
+          });
+        }
         message = {
           type: "assistant",
           uuid: `${id}:call`,
@@ -124,8 +197,10 @@ export class AntigravityTranscript {
               {
                 type: "tool_use",
                 id,
-                name: update.title || "Antigravity tool",
-                input: update.rawInput ?? {},
+                name: isSubagent
+                  ? "spawn_agent"
+                  : update.title || "Antigravity tool",
+                input: normalizedInput,
               },
             ],
           },
@@ -134,10 +209,60 @@ export class AntigravityTranscript {
         this.tools.set(id, message);
       }
       out.push(structuredClone(message));
+      // Cold ACP `session/load` replays `invoke_subagent` as a single
+      // `tool_call` with `status: "completed"` and no `tool_call_update`.
+      // Synthesize the paired `tool_result` (enriched with verified `agent_id`
+      // after replay finishes) so the tool does not render stuck pending.
+      if (
+        !this.live &&
+        isSubagent &&
+        (update.status === "completed" || update.status === "failed")
+      ) {
+        const call = this.subagents.get(id);
+        if (call) {
+          call.completed = update.status === "completed";
+          call.failed = update.status === "failed";
+        }
+        const rawText =
+          typeof update.rawOutput === "string"
+            ? update.rawOutput
+            : typeof update.content === "string"
+              ? update.content
+              : "";
+        const resultMessage: SDKMessage = {
+          type: "user",
+          uuid: `${id}:result`,
+          session_id: this.sessionId,
+          ...this.stamp(),
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: id,
+                content: rawText,
+                is_error: update.status === "failed",
+              },
+            ],
+          },
+        };
+        const existing = this.messages.findIndex(
+          (entry) => entry.uuid === resultMessage.uuid,
+        );
+        this.record(resultMessage, existing);
+        out.push(structuredClone(resultMessage));
+      }
       return out;
     }
     if (update.status !== "completed" && update.status !== "failed") return out;
     const output = update.rawOutput ?? update.content ?? "";
+    const rawContent =
+      typeof output === "string" ? output : JSON.stringify(output);
+    const subagent = this.subagents.get(id);
+    if (subagent) {
+      subagent.completed = update.status === "completed";
+      subagent.failed = update.status === "failed";
+    }
     const message: SDKMessage = {
       type: "user",
       uuid: `${id}:result`,
@@ -149,8 +274,7 @@ export class AntigravityTranscript {
           {
             type: "tool_result",
             tool_use_id: id,
-            content:
-              typeof output === "string" ? output : JSON.stringify(output),
+            content: rawContent,
             is_error: update.status === "failed",
           },
         ],

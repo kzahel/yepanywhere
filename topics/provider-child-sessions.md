@@ -145,6 +145,15 @@ partial, and derives running-child freshness from local `.db`/`.db-wal` mtimes
 when `last_modified_time` holds the `0001-01-01` sentinel. Companion summaries
 DB/WAL events coalesce across active parents on the reader and update activity
 overlays without SQL commits when structure is unchanged.
+`AntigravityTranscript` normalizes `invoke_subagent` to `spawn_agent` so
+existing clients render inline expand and Open links with no wire change;
+`getAgentSession` authorizes only verified descendants of the parent (revalidating
+before `session/load` and before returning), uses a bounded read-only
+`transcript.jsonl` projection without starting ACP while a child is running, and
+replays settled children via `session/load`. `getAgentMappings` correlates
+already-loaded calls against bounded `brain/<parentId>/.system_generated/logs/transcript.jsonl`
+tails anchored to the physical native store and cross-checked with
+`conversation_summaries.db`.
 
 ## Presentation contract
 
