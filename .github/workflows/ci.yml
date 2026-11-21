@@ -331,6 +331,16 @@ jobs:
       - run: pnpm --filter @yep-anywhere/shared build
       - run: pnpm -F @yep-anywhere/client exec playwright install chromium
       - run: pnpm test
+      - name: Install the pinned Antigravity test runtime
+        run: |
+          pnpm test:providers:install antigravity
+          if ! getent group nobody >/dev/null; then
+            sudo groupadd --non-unique --gid "$(id -g nobody)" nobody
+          fi
+      - name: Verify Antigravity through the app and v0 API
+        env:
+          YEP_NATIVE_APP_TESTS: "1"
+        run: pnpm --filter @yep-anywhere/server test test/native-app/app-antigravity-v0.test.ts
 
   cached-sidebar-performance:
     runs-on: ubuntu-24.04

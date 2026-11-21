@@ -328,15 +328,15 @@ test("app inventory sits below port forwards and manages addresses inline", asyn
     await expect(
       inventory.getByRole("button", { name: "Copy viewer link" }),
     ).toBeVisible();
+    const unserve = inventory.getByRole("button", {
+      name: "Stop serving at this address",
+      exact: true,
+    });
+    await unserve.click();
     await inventory
       .getByRole("button", { name: "Serve at this address", exact: true })
       .click();
-    await expect(
-      inventory.getByRole("button", {
-        name: "Stop serving at this address",
-        exact: true,
-      }),
-    ).toBeVisible();
+    await expect(unserve).toBeVisible();
     await inventory.scrollIntoViewIfNeeded();
     expect(
       await inventory.evaluate(
@@ -393,13 +393,15 @@ test("serving a stopped process app starts it first, and a served stopped app wa
     await pane
       .getByRole("button", { name: "Reserve address", exact: true })
       .click();
-    await pane
-      .getByRole("button", { name: "Start app and serve here", exact: true })
-      .click();
     const unserve = pane.getByRole("button", {
       name: "Stop serving at this address",
       exact: true,
     });
+    await expect(pane.getByText(warning)).toBeVisible();
+    await unserve.click();
+    await pane
+      .getByRole("button", { name: "Start app and serve here", exact: true })
+      .click();
     await expect(unserve).toBeVisible({ timeout: 25_000 });
     await expect(pane.getByText("App: running")).toBeVisible();
     await expect(pane.getByText(warning)).toHaveCount(0);

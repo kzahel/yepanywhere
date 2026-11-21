@@ -137,6 +137,17 @@ The same cases run in the ordinary server suite through `pnpm test`, including
 the existing CI unit-test job. No browser or extra CI service is needed.
 Root `pnpm typecheck` checks the native test helpers as well as production code.
 
+The Antigravity app/v0 case requires the separately installed native CLI.
+The Linux CI unit-test job installs the pinned artifact after `pnpm test` and
+runs the case as a required step. The general workspace suite keeps its
+package-installed provider baseline. For the same focused check on a qualified
+host, run:
+
+```bash
+pnpm test:providers:install antigravity
+YEP_NATIVE_APP_TESTS=1 pnpm --filter @yep-anywhere/server test test/native-app/app-antigravity-v0.test.ts
+```
+
 The native suite's boundary is YA `Process` → production provider adapter → actual
 native executable → local model API, plus the native transcript it writes.
 The separate full-app qualification below covers HTTP/WebSocket admission,

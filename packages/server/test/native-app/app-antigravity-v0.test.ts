@@ -1,8 +1,8 @@
-import { expect, it } from "vitest";
+import { expect, it, type TestContext } from "vitest";
 import { apiCommand } from "../support/api-command-request.js";
 import { nativeAppTestFixture } from "./fixture.js";
 
-it("creates, steers, compacts and follows Antigravity through v0", async (context) => {
+async function exerciseAntigravityV0(context: TestContext) {
   const app = await nativeAppTestFixture("antigravity", context, {
     agentApiManagement: true,
   });
@@ -182,4 +182,10 @@ it("creates, steers, compacts and follows Antigravity through v0", async (contex
     })
     .toContain("V0_AGY_RESUMED_DONE");
   expect(app.model.failures).toEqual([]);
-}, 30_000);
+}
+
+it.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
+  "creates, steers, compacts and follows Antigravity through v0",
+  exerciseAntigravityV0,
+  30_000,
+);
