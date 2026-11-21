@@ -303,15 +303,14 @@ export const features = [
     id: "experimental-providers",
     title: "Experimental provider integrations",
     summary:
-      "Explore OpenCode, Grok Build, Gemini, Antigravity, and pi with capability differences shown up front.",
+      "Explore OpenCode, Grok Build, Antigravity, and pi with capability differences shown up front.",
     category: "providers",
     status: "experimental",
     docsPath: "/docs/providers",
-    providers: ["opencode", "grok", "gemini", "antigravity", "pi"],
+    providers: ["opencode", "grok", "antigravity", "pi"],
     sourceRefs: [
       "topics/opencode-backend.md",
       "topics/grok.md",
-      "packages/server/src/sdk/providers/gemini-acp.ts",
       "topics/antigravity.md",
       "topics/pi-provider.md",
     ],

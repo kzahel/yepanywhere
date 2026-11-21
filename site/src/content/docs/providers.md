@@ -40,9 +40,13 @@ and [Codex access through a ChatGPT plan](https://help.openai.com/en/articles/11
 | --- | --- |
 | OpenCode | Start/resume, history, permissions/questions, tools, thinking, and images; capability parity varies |
 | Grok Build | ACP-based sessions with approvals, suggestions, effort, and steering where upstream supports them |
-| Gemini CLI | Experimental ACP integration with narrower approval, steering, and history behavior; both Gemini provider names use this adapter |
 | Antigravity | Experimental ACP integration through `agy acp`, available by default when the `agy` CLI is installed, with text, file references, approvals, streaming, and native history; macOS is live-qualified, Linux remains unqualified, and Windows is unavailable |
 | pi | Headless RPC sessions with streaming, tool rendering, model/thinking controls, compaction, forks, and durable history; tools currently run without a Yep Anywhere approval bridge |
+
+Existing Gemini CLI sessions remain available as read-only history. Use
+Antigravity for new sessions. If your server sets `ENABLED_PROVIDERS`, update
+any `gemini` or `gemini-acp` entries to `antigravity` and restart the server
+and its provider host.
 
 Experimental means the integration ships and can be used, but it may require
 extra setup, expose fewer controls, or change as its upstream protocol evolves.

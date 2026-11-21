@@ -1,3 +1,4 @@
+import { assertProviderExecutable } from "../sdk/providers/retired-provider.js";
 import type { HarnessRelationshipObserver } from "../sessions/NestedHarnessRelationshipService.js";
 import { assertClaudeCopyRoot, cloneClaudeSession } from "../sessions/fork.js";
 import type { AuthorizeSessionCreation } from "../sessions/session-creation-authority.js";
@@ -159,6 +160,7 @@ import {
 } from "./SessionDoneCoordinator.js";
 import {
   type ModelSettings,
+  type ReadSessionProvider,
   SessionActivationCoordinator,
   type SessionReactivationOptions,
   canApplyThinkingConfigDynamically,
@@ -560,6 +562,7 @@ export interface SupervisorOptions {
   onProcessInventoryChanged?: () => void;
   /** Callback to fetch session summary for initial metadata reconciliation */
   onSessionSummary?: OnSessionSummaryCallback;
+  readSessionSummaryForResume?: ReadSessionProvider;
   /** Best-effort transcript recovery for sessions without a launch snapshot. */
   recoverSessionLaunchSettings?: RecoverSessionLaunchSettingsCallback;
   /** Resolve native I/O once; settings, routing and lineage keep the public id. */
@@ -901,6 +904,7 @@ export class Supervisor {
         ) ?? Promise.resolve(),
       sessionMetadataService: this.sessionMetadataService,
       recoverSessionLaunchSettings: this.recoverSessionLaunchSettings,
+      readSessionProvider: options.readSessionSummaryForResume,
       getProcess: (processId) => this.getProcess(processId),
       getProcessForSession: (sessionId) => this.getProcessForSession(sessionId),
       unregisterProcess: (process) => this.unregisterProcess(process),
@@ -985,12 +989,9 @@ export class Supervisor {
   }
 
   /**
-   * An existing session's launch with its settled sandbox applied. A
-   * persisted project-write sandbox binds every later process for the
-   * session (topics/session-sandboxing.md § Session Lifetime), so wake,
-   * wake, deferred-message and restart relaunches keep it whether or
-   * not their caller restated it. A request to weaken it is refused; only a
-   * new session may choose a weaker boundary.
+   * A persisted project-write sandbox binds every later launch, including
+   * wake, deferred messages and restarts that omit sandbox settings.
+   * Only a new session may choose a weaker boundary (topics/session-sandboxing.md).
    */
   private withSettledSandbox(
     sessionId: string,
@@ -998,6 +999,7 @@ export class Supervisor {
     modelSettings: ModelSettings | undefined,
   ): { projectPath: string; modelSettings: ModelSettings | undefined } {
     const settled = this.sessionMetadataService?.getMetadata(sessionId);
+    assertProviderExecutable(settled?.provider, modelSettings?.providerName);
     if (settled?.executor || modelSettings?.executor) {
       throw new Error(
         "SSH executors have been removed; this session cannot run locally",
@@ -1029,17 +1031,11 @@ export class Supervisor {
   }
 
   private resolveProvider(modelSettings?: ModelSettings): AgentProvider | null {
-    if (modelSettings?.executor) {
+    if (modelSettings?.executor)
       throw new Error("SSH executors have been removed");
-    }
-    const providerName = modelSettings?.providerName;
-
-    if (!providerName) {
-      return this.provider;
-    }
-    if (this.provider?.name === providerName) {
-      return this.provider;
-    }
+    const providerName = modelSettings?.providerName ?? this.provider?.name;
+    if (!providerName) return null;
+    if (this.provider?.name === providerName) return this.provider;
     return this.providerDiscoveryEnabled ? getProvider(providerName) : null;
   }
 
@@ -1350,6 +1346,7 @@ export class Supervisor {
       if (!request?.launch || !saved.initialInputId)
         throw new Error("Saved creation lacks launch/input identity");
       const launch = request.launch;
+      assertProviderExecutable(request.provider);
       // Runtime and namespace are frozen intent; current authority stays live.
       if (
         !this.resolveProvider({ providerName: request.provider })
@@ -1604,6 +1601,7 @@ export class Supervisor {
     this.assertSessionSandboxSettings(modelSettings);
     const projectId = launchOptions?.projectId ?? encodeProjectId(projectPath);
     const provider = this.resolveProvider(modelSettings);
+    assertProviderExecutable(modelSettings?.providerName, provider?.name);
 
     // Every native new-session launch shares admission; capability bits only
     // describe the narrower workflows supported by older clients.
@@ -2674,6 +2672,7 @@ export class Supervisor {
     const identities = this.sessionMetadataService?.identities;
     const stored = identities?.resolveYa(sessionId);
     if (!stored) return undefined;
+    assertProviderExecutable(stored.provider);
     if (!stored.native) throw new Error("Session has no native continuation");
     const savedCreation =
       this.sessionMetadataService?.creations?.getForSession(sessionId);
@@ -6795,6 +6794,7 @@ export class Supervisor {
           modelSettings,
         )
       : { permissionMode, modelSettings };
+    assertProviderExecutable(resolved.modelSettings?.providerName);
     const provider = this.resolveProvider(resolved.modelSettings);
     if (!provider) throw new Error("Requested provider is not available");
 

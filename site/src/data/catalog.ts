@@ -1,3 +1,5 @@
+import { nativeSessionFamily } from "../../../packages/shared/src/session-identity";
+import type { ProviderName } from "../../../packages/shared/src/types";
 import { distributions } from "./distributions";
 import { publishedDocPaths } from "./docs-navigation";
 import { featureCategories, features, type PublicFeature } from "./features";
@@ -20,11 +22,14 @@ export function validateCatalog() {
   requireUniqueIds("distribution", distributions);
   const categoryIds = new Set(featureCategories.map((category) => category.id));
   const providerIds = new Set(providers.map((provider) => provider.id));
-  const coveredRuntimeProviderIds = new Set(
+  const coveredRuntimeProviderIds = new Set<ProviderName>(
     providers.flatMap((provider) => provider.runtimeIds),
   );
 
-  for (const runtimeProviderId of ALL_PROVIDERS) {
+  const executableProviderIds = ALL_PROVIDERS.filter(
+    (provider) => nativeSessionFamily(provider) !== "gemini",
+  );
+  for (const runtimeProviderId of executableProviderIds) {
     if (!coveredRuntimeProviderIds.has(runtimeProviderId)) {
       throw new Error(
         `Runtime provider ${runtimeProviderId} is missing from the public provider registry`,
@@ -32,9 +37,9 @@ export function validateCatalog() {
     }
   }
   for (const runtimeProviderId of coveredRuntimeProviderIds) {
-    if (!ALL_PROVIDERS.includes(runtimeProviderId)) {
+    if (!executableProviderIds.includes(runtimeProviderId)) {
       throw new Error(
-        `Public provider registry references unknown runtime provider ${runtimeProviderId}`,
+        `Public provider registry references an unavailable runtime provider ${runtimeProviderId}`,
       );
     }
   }

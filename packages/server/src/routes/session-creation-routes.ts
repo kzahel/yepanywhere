@@ -1,3 +1,7 @@
+import {
+  isRetiredProvider,
+  RETIRED_GEMINI_MESSAGE,
+} from "../sdk/providers/retired-provider.js";
 import { sessionCreationReceipt } from "../sessions/session-creation-acceptance.js";
 import { readLimitedJsonObject } from "./limited-json-body.js";
 import { RETIRED_COMPUTER_CONTROL_ERROR } from "../machine-control/legacy-retirement.js";
@@ -98,6 +102,9 @@ export function registerSessionCreationRoutes(
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
+
+    if (isRetiredProvider(body.provider))
+      return c.json({ error: RETIRED_GEMINI_MESSAGE }, 409);
 
     const acceptance = creationAcceptance(c, body, projectId);
     if (acceptance instanceof Response) return acceptance;
@@ -269,6 +276,9 @@ export function registerSessionCreationRoutes(
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
+
+    if (isRetiredProvider(body.provider))
+      return c.json({ error: RETIRED_GEMINI_MESSAGE }, 409);
 
     const acceptance = creationAcceptance(c, body, "detached");
     if (acceptance instanceof Response) return acceptance;

@@ -13,6 +13,10 @@ import {
   type UserMessageMetadata,
 } from "@yep-anywhere/shared";
 import { getProvider } from "../sdk/providers/index.js";
+import {
+  isRetiredProvider,
+  RETIRED_GEMINI_MESSAGE,
+} from "../sdk/providers/retired-provider.js";
 import type { PermissionMode } from "../sdk/types.js";
 import type { ResumeMode } from "../supervisor/Supervisor.js";
 
@@ -189,6 +193,8 @@ export function parseOptionalRestartSessionBody(
       return { error: `${label} must be a string` };
     }
   }
+  if (isRetiredProvider(body.provider))
+    return { error: RETIRED_GEMINI_MESSAGE };
   if (
     body.provider !== undefined &&
     (typeof body.provider !== "string" ||

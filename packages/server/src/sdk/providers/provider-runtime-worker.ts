@@ -165,14 +165,7 @@ async function main(): Promise<void> {
       if (!provider)
         throw new Error(`Unknown provider ${request.providerName}`);
       const sandboxOptions = providerOptions.sessionSandboxOptions;
-      if (
-        sandboxOptions &&
-        sandboxOptions.provider !== request.providerName &&
-        !(
-          sandboxOptions.provider === "gemini" &&
-          request.providerName === "gemini-acp"
-        )
-      ) {
+      if (sandboxOptions && sandboxOptions.provider !== request.providerName) {
         throw new Error(
           "Provider worker sandbox request has the wrong provider",
         );

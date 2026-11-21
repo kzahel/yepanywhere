@@ -45,18 +45,17 @@ function deferred<T>(): {
 }
 
 describe("Providers Routes", () => {
-  it("keeps Gemini alias discovery and launch on the retained ACP adapter", async () => {
+  it("keeps Antigravity in discovery when stale allowlists include Gemini", async () => {
+    const routes = createProvidersRoutes({
+      enabledProviders: ["gemini", "gemini-acp", "antigravity"],
+    });
+    expect(await (await routes.request("/descriptors")).json()).toEqual({
+      providers: [{ name: "antigravity", displayName: "Antigravity" }],
+    });
     for (const name of ["gemini", "gemini-acp"] as const) {
-      const routes = createProvidersRoutes({ enabledProviders: [name] });
-      expect(await (await routes.request("/descriptors")).json()).toEqual({
-        providers: [
-          { name, displayName: name === "gemini" ? "Gemini" : "Gemini (ACP)" },
-        ],
-      });
+      expect((await routes.request(`/${name}`)).status).toBe(404);
+      expect(getRawProvider(name)).toBeNull();
     }
-    const provider = getRawProvider("gemini-acp");
-    expect(provider).not.toBeNull();
-    expect(getRawProvider("gemini")).toBe(provider);
   });
 
   it("publishes model-aware image preparation through provider discovery", async () => {

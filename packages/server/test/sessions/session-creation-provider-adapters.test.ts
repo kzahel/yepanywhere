@@ -16,7 +16,6 @@ import {
   toUrlProjectId,
 } from "@yep-anywhere/shared";
 import { GrokACPProvider } from "../../src/sdk/providers/grok-acp.js";
-import { GeminiACPProvider } from "../../src/sdk/providers/gemini-acp.js";
 import { CodexOSSProvider } from "../../src/sdk/providers/codex-oss.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import { getLogger } from "../../src/logging/logger.js";
@@ -28,7 +27,7 @@ import {
 
 // Real adapter/stdio children plus SQLite; no provider account or model network.
 it.skipIf(process.platform === "win32").each(
-  (["grok", "gemini-acp", "codex-oss"] as const).flatMap((name) => [
+  (["grok", "codex-oss"] as const).flatMap((name) => [
     { name, lostProof: false },
     { name, lostProof: true },
   ]),
@@ -45,12 +44,7 @@ it.skipIf(process.platform === "win32").each(
       release = join(root, "release"),
       data = join(root, "data");
     await Promise.all([project, home].map((p) => mkdir(p)));
-    const scope =
-      name === "grok"
-        ? join(home, "sessions")
-        : name === "gemini-acp"
-          ? join(home, ".gemini", "tmp")
-          : join(home, "sessions");
+    const scope = join(home, "sessions");
     const nativeId = "310ed378-49e7-40be-9ab8-0f1d371cd079",
       file = join(scope, "owned.jsonl"),
       projectId = toUrlProjectId(project);
@@ -68,7 +62,6 @@ it.skipIf(process.platform === "win32").each(
 const fs=require('node:fs'),rl=require('node:readline'),id=${JSON.stringify(nativeId)},log=${JSON.stringify(log)},release=${JSON.stringify(release)};
 const argv=process.argv.slice(2);
 if(argv.includes('--version')){console.log('codex-cli 0.166.0');process.exit(0);}
-if(argv.includes('--help')){console.log('--experimental-acp');process.exit(0);}
 const record=v=>fs.appendFileSync(log,JSON.stringify(v)+'\\n');
 const wait=()=>new Promise(r=>{const t=setInterval(()=>{if(fs.existsSync(release)){clearInterval(t);r();}},5)});
 if(argv[0]==='exec'){
@@ -82,7 +75,7 @@ if(argv[0]==='exec'){
  rl.createInterface({input:process.stdin}).on('line',async line=>{const q=JSON.parse(line);let result;
  if(q.method==='initialize')result={protocolVersion:1,agentCapabilities:{loadSession:true},authMethods:[]};
  else if(q.method==='session/new'){record({method:'new',id});result={sessionId:id};}
- else if(q.method==='session/load'||q.method==='session/resume'){record({method:'resume',id:q.params.sessionId});result={};}
+ else if(q.method==='session/load'){record({method:'resume',id:q.params.sessionId});result={};}
  else if(q.method==='session/prompt'){record({method:'prompt',id:q.params.sessionId,prompt:q.params.prompt});await wait();result={stopReason:'end_turn'};}
  else result={};
  if(q.id!==undefined)send({jsonrpc:'2.0',id:q.id,result});
@@ -92,14 +85,11 @@ if(argv[0]==='exec'){
       { mode: 0o755 },
     );
     vi.stubEnv("GROK_HOME", home);
-    vi.stubEnv("GEMINI_CLI_HOME", home);
     vi.stubEnv("CODEX_HOME", home);
     const provider =
       name === "grok"
         ? new GrokACPProvider({ grokPath: cli })
-        : name === "gemini-acp"
-          ? new GeminiACPProvider({ geminiPath: cli })
-          : new CodexOSSProvider({ codexPath: cli });
+        : new CodexOSSProvider({ codexPath: cli });
     const nativeIterators: Array<AsyncIterableIterator<unknown>> = [];
     const startNative = provider.startSession.bind(provider);
     vi.spyOn(provider, "startSession").mockImplementation(async (options) => {
@@ -206,11 +196,7 @@ if(argv[0]==='exec'){
         metadata.identities.resolveYa(parseYaSessionId(savedId))?.native,
       ).toEqual(
         nativeSessionRef(
-          name === "codex-oss"
-            ? "codex"
-            : name === "gemini-acp"
-              ? "gemini"
-              : "grok",
+          name === "codex-oss" ? "codex" : "grok",
           scope,
           parseNativeSessionId(nativeId),
         ),
@@ -224,11 +210,7 @@ if(argv[0]==='exec'){
         sessionMetadataService: reopened,
         resolveNativeSessionSource: async () => ({
           native: nativeSessionRef(
-            name === "codex-oss"
-              ? "codex"
-              : name === "gemini-acp"
-                ? "gemini"
-                : "grok",
+            name === "codex-oss" ? "codex" : "grok",
             scope,
             parseNativeSessionId(nativeId),
           ),
@@ -262,7 +244,7 @@ if(argv[0]==='exec'){
         );
       for (const c of errors.mock.calls)
         expect(String(c[1])).toMatch(
-          /Grok prompt error|Grok ACP session error|Prompt error|Gemini ACP session error/,
+          /Grok prompt error|Grok ACP session error|Prompt error/,
         );
       vi.restoreAllMocks();
       vi.unstubAllEnvs();

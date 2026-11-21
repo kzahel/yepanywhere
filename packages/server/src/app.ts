@@ -2575,8 +2575,7 @@ export function createApp(options: AppOptions): AppResult {
           : {}),
       };
     },
-    // Durably record a model's real context window the moment a process
-    // observes it (in the result message), independent of any client fetch.
+    // Persist observed context windows independently of client reads.
     onContextWindowObserved: options.modelInfoService
       ? (model, contextWindow, provider) =>
           options.modelInfoService?.recordContextWindow(
@@ -2586,6 +2585,7 @@ export function createApp(options: AppOptions): AppResult {
           )
       : undefined,
     onSessionSummary: getSessionSummary,
+    readSessionSummaryForResume: getSessionListSummary,
     resolveNativeSessionSource: async (sessionId, projectPath, provider) => {
       const deps = {
         signal: sessionReadLifetime.signal,

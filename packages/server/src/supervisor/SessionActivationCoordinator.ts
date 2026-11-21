@@ -1,6 +1,7 @@
 import {
   DEFAULT_RECAP_AFTER_SECONDS,
   HELPER_SIDE_MODEL_CHEAPEST,
+  isYaSessionId,
   type EffortLevel,
   type PermissionRules,
   type PromptSuggestionMode,
@@ -17,6 +18,7 @@ import type {
 } from "../metadata/index.js";
 import { getSessionSandboxSettingsError } from "../session-sandbox.js";
 import type { RecoveredSessionLaunchSettings } from "../sessions/types.js";
+import { assertProviderExecutable } from "../sdk/providers/retired-provider.js";
 import { resolveInheritedForkModel } from "../sdk/providers/types.js";
 import type { PermissionMode } from "../sdk/types.js";
 import type { Process } from "./Process.js";
@@ -144,9 +146,15 @@ interface SessionCoordinationState {
   stoppingSettlement: StoppingProcessSettlement | null;
 }
 
+export type ReadSessionProvider = (
+  sessionId: string,
+  projectId: UrlProjectId,
+) => Promise<{ provider?: ProviderName } | null>;
+
 export interface SessionActivationCoordinatorOptions {
   defaultPermissionMode: PermissionMode;
   sessionMetadataService?: SessionMetadataService;
+  readSessionProvider?: ReadSessionProvider;
   recoverSessionLaunchSettings?: (
     sessionId: string,
     projectId: UrlProjectId,
@@ -328,6 +336,27 @@ export class SessionActivationCoordinator {
     modelSettings?: ModelSettings,
   ): Promise<{ permissionMode: PermissionMode; modelSettings: ModelSettings }> {
     const metadata = this.options.sessionMetadataService;
+    const storedProvider = metadata?.getProvider?.(sessionId);
+    const binding = isYaSessionId(sessionId)
+      ? metadata?.identities?.resolveYa(sessionId)
+      : undefined;
+    assertProviderExecutable(
+      storedProvider,
+      binding?.provider,
+      modelSettings?.providerName,
+    );
+    if (
+      !storedProvider &&
+      !binding &&
+      !modelSettings?.providerName &&
+      this.options.readSessionProvider
+    ) {
+      const summary = await this.options.readSessionProvider(
+        sessionId,
+        projectId,
+      );
+      assertProviderExecutable(summary?.provider);
+    }
     const durable = metadata?.getEffectiveLaunchSettings(sessionId);
     const explicitRequestedModel =
       modelSettings?.requestedModel ?? modelSettings?.model;
@@ -342,8 +371,7 @@ export class SessionActivationCoordinator {
         modelSettings?.thinking === undefined);
     let recovered: RecoveredSessionLaunchSettings | undefined;
     if (needsRecovery && this.options.recoverSessionLaunchSettings) {
-      const provider =
-        modelSettings?.providerName ?? metadata?.getProvider?.(sessionId);
+      const provider = modelSettings?.providerName ?? storedProvider;
       try {
         recovered =
           (await this.options.recoverSessionLaunchSettings(

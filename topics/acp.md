@@ -20,7 +20,7 @@ rather than opening an unrelated provider rewrite. Discovery, reader selection
 and provider-session command ownership have their own owners; ACP sharing
 must not become a prerequisite for their remaining work. The
 [roadmap](../docs/roadmap/README.md#active-maintenance-focus-core-house-cleaning)
-continues to own priority and Gemini's freeze/retirement decision.
+continues to own priority.
 
 ## Current YA support
 
@@ -32,11 +32,10 @@ behavior. Access to a model through another harness is a different integration.
 | --- | --- | --- |
 | Antigravity | Official `agy_acp_server.par` / `antigravity-acp` distribution | Local `AntigravityRuntime` transport and `AntigravityTranscript` projection |
 | Grok Build | `grok agent … --no-leader stdio` | Shared `ACPClient`; separate Grok session loop and conversion |
-| Gemini CLI, frozen | `gemini --experimental-acp` | Shared `ACPClient`; separate Gemini session loop and conversion |
 
-`gemini` and `gemini-acp` select the same retained adapter, not two ACP
-integrations. Antigravity remains explicitly opt-in and has separate platform,
-history and shared-host limits in its [contract](antigravity.md).
+Gemini CLI execution is retired. Antigravity is available by default when a
+runtime is installed, with platform and history limits in its
+[contract](antigravity.md).
 
 The [shared client](../packages/server/src/sdk/providers/acp/client.ts) owns
 connection setup, request failure/closure, new/load/resume calls, prompts,
@@ -46,13 +45,9 @@ ownership through process-tree termination. The
 and [plan 171](../docs/tactical/171-durable-session-identity-and-creation.md)
 record existing scope/refusal and teardown work; sharing must preserve it.
 
-Above that layer,
-[Gemini](../packages/server/src/sdk/providers/gemini-acp.ts) and
-[Grok](../packages/server/src/sdk/providers/grok-acp.ts) separately implement
-input iteration, notification queues, prompt lifecycle, approvals, text/tool
-assembly and conversion into YA `SDKMessage`s. Some approval mappings and
-session-loop structure are repeated. This is transport reuse, not a shared
-ACP-to-YA session implementation.
+Above that layer, [Grok](../packages/server/src/sdk/providers/grok-acp.ts)
+owns input iteration, notification queues, prompt lifecycle, approvals,
+text/tool assembly and conversion into YA `SDKMessage`s.
 
 [Antigravity's transport](../packages/server/src/sdk/providers/antigravity-runtime.ts)
 is deliberately separate because the retained shared SDK predates notifications
@@ -140,8 +135,6 @@ per-input identity through queue and protocol boundaries.
    Preserve closure versus actual child-death evidence, pending-call failure,
    permission responses and existing limits. Retire the superseded active
    transport for migrated consumers; an unused common wrapper is not progress.
-   Gemini remains frozen: retaining it requires compatibility evidence, while
-   retiring execution requires its separate selected scope and historical reads.
 
 2. **Extract shared ACP session behavior.** Move only demonstrated common
    notification, text/tool assembly and prompt-loop mechanics. Use Grok and AGY
@@ -164,9 +157,8 @@ per-input identity through queue and protocol boundaries.
    operations explicitly; registry presence must not advertise unqualified
    fork, rollback, steering, permission or persistence capabilities.
 
-The existing AGY discussion places consolidation after its qualification and
-Gemini retirement assessment. This recommendation refines the extraction
-boundary; it does not silently change that sequence or authorize retirement.
+The Antigravity discussion places consolidation after native qualification.
+This recommendation describes the proposed extraction boundary.
 
 ## Qualification and remaining evidence
 

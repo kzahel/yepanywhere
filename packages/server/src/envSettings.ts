@@ -351,7 +351,7 @@ export const ENV_VAR_REGISTRY: EnvVarDescriptor[] = [
     name: "ENABLED_PROVIDERS",
     group: "Providers & features",
     description:
-      "Comma-separated providers to expose (claude, codex, gemini, …). Empty = all enabled.",
+      "Comma-separated live providers to expose (claude, codex, antigravity, …). Empty = all enabled.",
   },
   {
     name: "VOICE_INPUT",

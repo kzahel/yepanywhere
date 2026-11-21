@@ -19,6 +19,7 @@ import { collectionCatalogAdapters } from "../../src/sessions/catalog-adapters/c
 import { hashProjectPath } from "../../src/projects/gemini-project-map.js";
 import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js";
 import { listSessionsAcrossProviders } from "../../src/sessions/provider-resolution.js";
+import { RETIRED_GEMINI_MESSAGE } from "../../src/sdk/providers/retired-provider.js";
 import { createApp } from "../setup/create-app.js";
 
 it("projects scoped Gemini sources once through native discovery, indexed metadata and public history across profile reopen", async () => {
@@ -91,14 +92,38 @@ it("projects scoped Gemini sources once through native discovery, indexed metada
           insert.finalize();
         }
         await metadata.setWorkingProject(publicId, workingId, originalId);
+        metadata.creations.admit({
+          requestId: "saved-gemini-request",
+          context: {
+            owner: { kind: "superuser" },
+            source: { kind: "request", provenance: { surface: "web" } },
+          },
+          request: {
+            projectPath: working,
+            projectId: workingId,
+            provider: "gemini-acp",
+            message: "original saved input",
+            settings: {
+              permissionMode: "default",
+              requestedModel: "default",
+              thinking: null,
+              effort: null,
+              serviceTier: null,
+            },
+            launch: { schemaVersion: 1 },
+          },
+        });
       }
       index = new SessionIndexService({
         database: storage.getDatabase(),
         dataDir: join(root, "indexes"),
         projectsDir: join(root, "ambient"),
       });
+      const claude = new ScriptedClaudeProvider();
+      const startClaude = vi.spyOn(claude, "startSession");
       app = createApp({
-        provider: new ScriptedClaudeProvider(),
+        provider: claude,
+        geminiSessionsDir: scope,
         dataDir,
         discoverySqlite: storage,
         sessionMetadataService: metadata,
@@ -123,6 +148,58 @@ it("projects scoped Gemini sources once through native discovery, indexed metada
         }),
       );
       expect(results[0].session.provider).toBe("gemini-acp");
+      if (restart) {
+        const post = (path: string, body: object) =>
+          app!.app.request(path, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Yep-Anywhere": "true",
+            },
+            body: JSON.stringify(body),
+          });
+        const target = `/api/projects/${workingId}/sessions/${publicId}`;
+        for (const [path, body] of [
+          [`${target}/resume`, { message: "keep the original provider" }],
+          [
+            `${target}/resume`,
+            { message: "no replacement", provider: "claude" },
+          ],
+          [`${target}/reactivate`, {}],
+          [
+            `/api/projects/${workingId}/session-creations`,
+            { message: "no launch", provider: "gemini" },
+          ],
+          [
+            `/api/projects/${workingId}/session-creations`,
+            { message: "no launch", provider: "gemini-acp" },
+          ],
+        ] as const) {
+          const response = await post(path, body);
+          expect(response.status, await response.clone().text()).toBe(409);
+          expect(await response.json()).toMatchObject({
+            error: RETIRED_GEMINI_MESSAGE,
+          });
+        }
+        await expect(
+          app.supervisor.resumeSession(publicId, working, {
+            text: "no background resume",
+          }),
+        ).rejects.toThrow(RETIRED_GEMINI_MESSAGE);
+        const saved = metadata.creations.get(
+          { kind: "superuser" },
+          "saved-gemini-request",
+        );
+        expect(saved).toBeDefined();
+        const authorize = vi.fn();
+        await expect(
+          app.supervisor.startSavedSession(saved!.attempt, authorize),
+        ).rejects.toThrow(RETIRED_GEMINI_MESSAGE);
+        expect(authorize).not.toHaveBeenCalled();
+        expect(startClaude).not.toHaveBeenCalled();
+        expect(app.supervisor.getAllProcesses()).toHaveLength(0);
+      }
+
       const summaries = await Promise.all(
         [
           [workingId, publicId],

@@ -374,11 +374,17 @@ The [ACP topic](acp.md) compares current YA and T3 sharing and recommends a
 bounded transport/session composition. It refines this discussion without
 authorizing implementation or changing the retirement/qualification sequence.
 
-Once Antigravity discovery and normal session use meet the selected platform
-qualification, remove legacy Gemini execution and its installer/authentication
-surface. Retain historical readers, recorded IDs, scoped source resolution and
-useful regressions. A request to execute a retired provider fails explicitly;
-it never selects another provider or allocates a replacement conversation.
+Yep Anywhere retired execution for `gemini` and `gemini-acp` on 2026-11-21.
+Both IDs remain valid in historical records, URLs, and collection filters.
+Gemini transcripts can be opened without the Gemini CLI. The session page
+shows a read-only notice when its server omits the provider from discovery.
+Launch, resume, and saved dispatch refuse retired providers explicitly. A
+Gemini transcript retains its original provider and identity. Users can
+start a separate Antigravity session in the same project.
+
+Retired IDs in `ENABLED_PROVIDERS` match no live provider. Replace the
+entries with `antigravity` if desired. Let active Gemini turns finish before
+upgrading and fully restart the provider host along with the server.
 
 Then assess a separate, bounded consolidation of Grok and Antigravity's ACP
 transport: request correlation, framing limits, pending-request failure,

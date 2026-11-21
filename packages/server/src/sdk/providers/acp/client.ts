@@ -58,9 +58,9 @@ export function acpErrorMessage(error: unknown): string {
  * Configuration for spawning an ACP agent.
  */
 export interface ACPClientConfig {
-  /** Command to spawn (e.g., "gemini", "codex-acp") */
+  /** Agent executable to spawn. */
   command: string;
-  /** Command arguments (e.g., ["--experimental-acp"]) */
+  /** Arguments that select the agent’s stdio mode. */
   args?: string[];
   /** Working directory for the agent process */
   cwd: string;
@@ -107,7 +107,7 @@ export type ExtensionMethodCallback = (
  * Usage:
  * ```typescript
  * const client = new ACPClient();
- * await client.connect({ command: 'gemini', args: ['--experimental-acp'], cwd: '/path' });
+ * await client.connect({ command: 'grok', args: ['agent', 'stdio'], cwd: '/path' });
  * const init = await client.initialize();
  * const sessionId = await client.newSession('/path');
  * const result = await client.prompt(sessionId, 'Hello!');

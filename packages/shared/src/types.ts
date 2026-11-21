@@ -7,8 +7,8 @@ import type { UrlProjectId } from "./projectId.js";
  * - "claude-ollama": Legacy Claude SDK transport for Ollama
  * - "codex": OpenAI Codex via SDK (cloud models)
  * - "codex-oss": Codex via CLI with --oss (local models via Ollama)
- * - "gemini": Google Gemini via CLI
- * - "gemini-acp": Gemini via CLI with --experimental-acp (preferred)
+ * - "gemini", "gemini-acp": historical Gemini CLI sessions
+ * - "antigravity": Google Antigravity via ACP
  * - "grok": Grok Build via ACP (`grok agent stdio`) - Phase 1 isolated prototype
  * - "opencode": OpenCode via HTTP server (multi-provider agent)
  * - "pi": pi via `pi --mode rpc` (provider-agnostic agent; see topics/pi-provider.md)

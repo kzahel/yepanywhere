@@ -16,6 +16,7 @@ import { QuestionAnswerPanel } from "./QuestionAnswerPanel";
 import { QuestionAsideCard } from "./QuestionAsideCard";
 import { ToolApprovalPanel } from "./ToolApprovalPanel";
 import { isSessionCreationPending } from "@yep-anywhere/shared";
+import { Banner } from "./ui/Banner";
 import type { useBtwAsides } from "../hooks/useBtwAsides";
 import type { DraftControls } from "../hooks/useDraftPersistence";
 import type { useProject } from "../hooks/useProjects";
@@ -123,6 +124,7 @@ export interface SessionComposerFooterProps {
   draftControlsRef: RefObject<DraftControls | null>;
   effectiveModelConfig: SessionModelConfig | null;
   effectiveProvider: ProviderName | undefined;
+  readOnly: boolean;
   fileViewCommandOptions: {
     open: (path: string, line?: FileViewLineTarget) => void;
   };
@@ -344,6 +346,7 @@ export function SessionComposerFooter({
   projectQueueNewSessionTarget,
   promptSuggestion,
   providerRuntimeStatus,
+  readOnly,
   questionAside,
   questionAsidesEnabled,
   session,
@@ -382,11 +385,17 @@ export function SessionComposerFooter({
   uploadProgress,
 }: SessionComposerFooterProps) {
   const { t } = useI18n();
+  const footerClassName = `${styles.input} ${chromeSessionComposerFooterStyles["session-input"]}`;
+  if (session && readOnly) {
+    return (
+      <footer className={footerClassName} data-session-input>
+        <div data-selection-actions-mobile-slot />
+        <Banner compact>{t("sessionGeminiRetired")}</Banner>
+      </footer>
+    );
+  }
   return (
-    <footer
-      className={`${styles.input} ${chromeSessionComposerFooterStyles["session-input"]}`}
-      data-session-input
-    >
+    <footer className={footerClassName} data-session-input>
       {creationRecovery?.key === creationKey && (
         <SessionCreationRecovery
           storageKey={creationKey}

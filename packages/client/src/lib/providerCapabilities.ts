@@ -18,6 +18,7 @@ const PROVIDERS_WITH_LOCAL_SESSION_SANDBOX: ReadonlySet<ProviderName> = new Set(
 export interface SessionProviderCapabilities {
   providerName?: ProviderName;
   providerInfo: ProviderInfo | null;
+  readOnly: boolean;
   generallySupportsSteering: boolean;
   supportsCurrentTurnSteering: boolean;
   supportsSteerNow: boolean;
@@ -42,6 +43,7 @@ export function providerSupportsLocalSessionSandbox(
 export function resolveSessionProviderCapabilities(params: {
   providers: ProviderInfo[];
   providerName?: ProviderName | null;
+  catalogLoaded?: boolean;
 }): SessionProviderCapabilities {
   const providerName = params.providerName ?? undefined;
   const providerInfo = providerName
@@ -55,6 +57,10 @@ export function resolveSessionProviderCapabilities(params: {
   return {
     providerName,
     providerInfo,
+    readOnly:
+      params.catalogLoaded === true &&
+      !providerInfo &&
+      (providerName === "gemini" || providerName === "gemini-acp"),
     generallySupportsSteering:
       metadataSupportsSteering || staticSupportsSteering,
     supportsCurrentTurnSteering: providerInfo

@@ -56,25 +56,6 @@ export {
 } from "./codex.js";
 
 import { antigravityProvider } from "./antigravity.js";
-// Gemini ACP provider (uses gemini CLI with --experimental-acp)
-import { geminiACPProvider } from "./gemini-acp.js";
-export {
-  GeminiACPProvider,
-  geminiACPProvider,
-  type GeminiACPProviderConfig,
-} from "./gemini-acp.js";
-
-// Keep saved/configured `gemini` selections discoverable through the same ACP
-// adapter used for launch. This alias owns no separate transport or state.
-const geminiAliasProvider = new Proxy(geminiACPProvider, {
-  get(target, property) {
-    if (property === "name") return "gemini";
-    if (property === "displayName") return "Gemini";
-    const value = Reflect.get(target, property, target) as unknown;
-    return typeof value === "function" ? value.bind(target) : value;
-  },
-});
-
 // Grok Build ACP provider (uses `grok agent stdio`)
 // Phase 1 isolated addition per topics/grok.md. Gated by ENABLED_PROVIDERS=grok.
 import { grokACPProvider } from "./grok-acp.js";
@@ -298,8 +279,6 @@ export function getAllProviders(): AgentProvider[] {
     ...(isClaudeOllamaVisible() ? [claudeOllamaProvider] : []),
     codexProvider,
     codexOSSProvider,
-    geminiAliasProvider,
-    geminiACPProvider,
     antigravityProvider,
     grokACPProvider, // Phase 1: additive only (see grok-acp.ts header + topics/grok.md)
     opencodeProvider,
@@ -309,9 +288,6 @@ export function getAllProviders(): AgentProvider[] {
 
 /**
  * Get a provider by name.
- *
- * Both Gemini names select the retained ACP adapter. Discovery keeps the old
- * name as an alias, without a separate stream-JSON execution path.
  *
  * "grok" added (additive, isolated). When ENABLED_PROVIDERS does not include "grok",
  * getProvider("grok") is never reached from normal flows.
@@ -328,10 +304,6 @@ export function getRawProvider(name: ProviderName): AgentProvider | null {
       return codexProvider;
     case "codex-oss":
       return codexOSSProvider;
-    case "gemini":
-    case "gemini-acp":
-      // Both map to ACP provider - "gemini" is legacy name for backward compatibility
-      return geminiACPProvider;
     case "antigravity":
       return antigravityProvider;
     case "grok":

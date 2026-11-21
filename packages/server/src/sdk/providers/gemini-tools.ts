@@ -7,10 +7,8 @@
  * names. This module maps both so Gemini tool calls reach the rich renderers
  * (and Edit gets the diff augment) instead of the raw-JSON fallback.
  *
- * Used by both the live provider (gemini.ts) and the durable reader path
- * (sessions/normalization.ts convertGeminiMessages) so live streaming and
- * reloaded history agree — the same shared-normalizer shape opencode-tools.ts
- * uses. Tools without a mapping (write_todos, delegate_to_agent, save_memory)
+ * Historical Gemini transcripts use this mapping during normalization.
+ * Tools without a mapping (write_todos, delegate_to_agent, save_memory)
  * keep their original name and input untouched: an unmapped tool stays explicit
  * (raw fallback) rather than being forced into a misleading alias whose field
  * shape the renderer would misread.

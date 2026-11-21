@@ -84,17 +84,6 @@ export const providers = [
     ],
   },
   {
-    id: "gemini",
-    name: "Gemini CLI",
-    status: "experimental",
-    summary:
-      "Launch or read Gemini CLI sessions through its experimental ACP integration.",
-    notes:
-      "Streaming and tool rendering are available; approvals, steering, and history behavior vary by mode.",
-    runtimeIds: ["gemini", "gemini-acp"],
-    sourceRefs: ["packages/server/src/sdk/providers/gemini-acp.ts"],
-  },
-  {
     id: "antigravity",
     name: "Antigravity",
     status: "experimental",

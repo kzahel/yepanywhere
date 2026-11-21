@@ -31,6 +31,11 @@ import type { UserMessage } from "../sdk/types.js";
 import { getSessionSandboxSettingsError } from "../session-sandbox.js";
 import type { ProjectQueueScheduler } from "../services/ProjectQueueScheduler.js";
 import { getProvider } from "../sdk/providers/index.js";
+import {
+  isRetiredProvider,
+  RETIRED_GEMINI_MESSAGE,
+  RetiredProviderError,
+} from "../sdk/providers/retired-provider.js";
 import type { Process } from "../supervisor/Process.js";
 import type {
   ModelSettings,
@@ -102,6 +107,8 @@ function parseOptionalReactivateSessionBody(
   if (Object.hasOwn(body, "model") && typeof body.model !== "string") {
     return { error: "model must be a string" };
   }
+  if (isRetiredProvider(body.provider))
+    return { error: RETIRED_GEMINI_MESSAGE };
   if (
     Object.hasOwn(body, "provider") &&
     (typeof body.provider !== "string" ||
@@ -256,6 +263,16 @@ export function registerSessionResumeRoutes(
     });
     if (!identity) {
       return c.json({ error: "Session not found" }, 404);
+    }
+    if (
+      [
+        body.provider,
+        metadataProvider,
+        identity.provider,
+        identity.native?.family,
+      ].some(isRetiredProvider)
+    ) {
+      return c.json({ error: RETIRED_GEMINI_MESSAGE }, 409);
     }
     const settledSandboxLevel = persistedMetadata?.sandboxLevel ?? "none";
     const settledSandboxNetworkFirewall =
@@ -463,7 +480,10 @@ export function registerSessionResumeRoutes(
           409,
         );
       }
-      if (error instanceof SessionMessageRejectedError) {
+      if (
+        error instanceof SessionMessageRejectedError ||
+        error instanceof RetiredProviderError
+      ) {
         return c.json({ error: error.message, reason: error.message }, 409);
       }
       if (error instanceof RetryableSessionLaunchError) {
@@ -620,6 +640,16 @@ export function registerSessionResumeRoutes(
           });
       if (!existingProcess && !identity) {
         return c.json({ error: "Session not found" }, 404);
+      }
+      if (
+        [
+          metadata?.provider,
+          identity?.provider,
+          identity?.native?.family,
+          existingProcess?.provider,
+        ].some(isRetiredProvider)
+      ) {
+        return c.json({ error: RETIRED_GEMINI_MESSAGE }, 409);
       }
       let providerName = hasProvider
         ? body.provider

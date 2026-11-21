@@ -20,7 +20,7 @@ import { nativeStorageScope } from "./native-storage-scope.js";
  * - Gated behind `ENABLED_PROVIDERS=grok` (or equivalent filter); when the env var
  *   does not list "grok", this code is unreachable and other providers are 100% unaffected.
  *
- * Modeled closely on gemini-acp.ts + ACPClient. Grok's live and persisted
+ * Grok's live and persisted
  * tool lifecycles share only the provider-specific normalizer in
  * grok-tool-normalization.ts; no other provider or shared hot path depends on
  * Grok's extension metadata.
@@ -811,7 +811,6 @@ export class GrokACPProvider implements AgentProvider {
         slash_command_inventory: commandInventory.commands,
       } as SDKMessage;
 
-      // Process messages from the queue (identical pattern to gemini-acp)
       const messageGen = input;
       let isFirstNewMessage = true;
       for await (const message of messageGen) {
@@ -1149,7 +1148,7 @@ export class GrokACPProvider implements AgentProvider {
   }
 
   /**
-   * Handle ACP permission request (identical structure + Grok logging to gemini-acp.ts:453).
+   * Handle a Grok ACP permission request.
    */
   private async handlePermissionRequest(
     request: RequestPermissionRequest,
@@ -1475,7 +1474,7 @@ export class GrokACPProvider implements AgentProvider {
   /**
    * Convert ACP SessionUpdate to SDKMessage (Phase 1 normalization for Grok events).
    * Handles: agent_thought_chunk (thinking), agent_message_chunk, tool_call/tool_call_update,
-   * plan. Based on gemini-acp.ts:706 + Grok 15-agent-mode.md table.
+   * plan. See the Grok 15-agent-mode.md table.
    */
   private convertUpdateToSDKMessage(
     update: SessionUpdate,
@@ -1627,7 +1626,7 @@ export class GrokACPProvider implements AgentProvider {
   }
 
   /**
-   * Extract text content from a user message (identical to gemini-acp.ts:822).
+   * Extract text content from a user message.
    */
   private extractTextFromMessage(message: unknown): string {
     if (!message || typeof message !== "object") {

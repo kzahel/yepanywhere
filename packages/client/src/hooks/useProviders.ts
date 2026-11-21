@@ -184,7 +184,10 @@ export function useProviders() {
   const visibleState =
     state.sourceKey === sourceKey ? state : getInitialProviderState(sourceKey);
 
-  return { ...visibleState, refetch, reload };
+  const catalog = getProviderCache(sourceKey);
+  const catalogLoaded =
+    catalog?.providers === visibleState.providers && !catalog.stale;
+  return { ...visibleState, catalogLoaded, refetch, reload };
 }
 
 export interface UseProviderRowOptions {

@@ -10,9 +10,9 @@ linked docs when the details change.
 
 The current [core house-cleaning proposal](topics/core-house-cleaning.md)
 selects feature reduction to support a smaller core for reliable queued
-`/compact` and following message delivery. Legacy Gemini is frozen and may be
-removed if it impedes that work; future Antigravity support is a separate
-provider decision. Read the proposal's removal and retained-consumer boundaries
+`/compact` and following message delivery. Legacy Gemini execution is retired.
+[Antigravity](topics/antigravity.md) provides Google agent execution and Gemini
+transcripts remain readable. Read the proposal's removal and retained-consumer boundaries
 before extending execution placement, automatic session input/resume, lane
 checkouts or alternate core clients.
 

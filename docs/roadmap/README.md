@@ -656,6 +656,11 @@ checkpoint-verified queued compaction. Direct v0 model discovery, creation,
 control and following use the existing grants and receipts. Child-agent
 projection, inline media and wider platform qualification remain open.
 
+**Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
+leave provider discovery and execution. Both IDs remain in readable history.
+See the [retirement contract](../../topics/antigravity.md#gemini-retirement-and-optional-acp-consolidation)
+for allowlist upgrades and refusal behavior.
+
 **Scoping direction, 2026-11-03:** use Antigravity discovery and eventual
 legacy Gemini execution retirement to consolidate shared native-store catalog,
 project contribution and exact reader-resolution paths. Preserve read-only

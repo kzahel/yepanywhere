@@ -872,7 +872,9 @@ export function ProvidersSettings() {
     );
     if (
       (clientProvider.id === "claude-ollama" ||
-        clientProvider.id === "antigravity") &&
+        clientProvider.id === "antigravity" ||
+        clientProvider.id === "gemini" ||
+        clientProvider.id === "gemini-acp") &&
       !serverInfo
     ) {
       return [];
