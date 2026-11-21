@@ -270,4 +270,11 @@ Both files and the native memory-admission fixture passed a focused rerun
 with one worker (11 tests). The timeout logs do not identify a stalled
 phase. No guards changed.
 
+2026-11-21: the `session-identity-consumers` stall was the OpenCode reader
+spawning the host's real `opencode export <id>` for every cross-provider
+lookup miss, about 0.6s each, so hosts with OpenCode installed ran each case
+in ~16s against the 20s guard. The reader now skips export for ids that are
+not `ses_*`; the case takes under 1s. The `session-identity-helpers` 5-second
+guard was not re-examined.
+
 Contributing-model: gpt-6.2-sol

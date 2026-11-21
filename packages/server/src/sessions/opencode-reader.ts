@@ -1167,14 +1167,14 @@ export class OpenCodeSessionReader implements ISessionReader {
   private async loadCliExport(
     sessionId: string,
   ): Promise<OpenCodeExport | null> {
+    // Only `ses_*` ids export; others would spawn the CLI on each lookup miss.
+    if (!sessionId.startsWith("ses_")) return null;
     const output = await this.runOpenCodeCli(["export", sessionId]);
     if (!output) return null;
-
     const parsed = this.parseJsonOutput(output);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
-
     return parsed as OpenCodeExport;
   }
 
