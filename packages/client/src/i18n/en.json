@@ -5145,6 +5145,7 @@
   "sessionPreparationFailed": "The session could not start. Its settings are saved.",
   "sessionPreparationUncertain": "Startup was interrupted. Session settings are saved. Check the session before trying again.",
   "sessionCreationFailed": "The session could not start. Your prompt is saved.",
+  "sessionCreationClaudeExecutableUnavailable": "The Claude Code executable is missing or cannot run. If you just updated dependencies, reload the Yep Anywhere server and retry. If you configured a custom executable, check its path and permissions. Nothing was sent.",
   "sessionCreationRouterLoginRequired": "This session's router account needs to sign in again in AAR. Nothing was sent, and your prompt is saved.",
   "sessionCreationRouterRefused": "Agent Auth Router could not start this session. Nothing was sent; your prompt is saved. Check Pools and usage in Settings → Providers for account status.",
   "sessionCreationProviderHostOutdated": "The running provider host is older than this YA server and cannot start new sessions. Restart the provider host (a full YA restart), then send again. Nothing was sent, and your prompt is saved.",

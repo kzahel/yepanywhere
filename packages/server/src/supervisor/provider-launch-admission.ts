@@ -3,7 +3,7 @@ import {
   ProviderMemoryBudget,
   ProviderMemoryCapacityError,
 } from "../sdk/providers/provider-memory-budget.mjs";
-import type { AgentProvider } from "../sdk/providers/types.js";
+import type { AgentProvider, AuthStatus } from "../sdk/providers/types.js";
 import { RouterRefusedBeforeProvider } from "../services/AgentAuthRouter.js";
 import type {
   CreationAttemptFence,
@@ -16,6 +16,38 @@ const budgets = new WeakMap<
   ReadonlyMap<string, Process>,
   ProviderMemoryBudget
 >();
+
+export class ClaudeExecutableUnavailable extends Error {
+  readonly outcome = "claude-executable-unavailable";
+
+  constructor() {
+    super(
+      "The Claude Code executable is missing or cannot run. If you just updated dependencies, reload the Yep Anywhere server and retry. If you configured a custom executable, check its path and permissions.",
+    );
+  }
+}
+
+export function assertSavedProviderReady(
+  store: SessionCreationStore,
+  fence: CreationAttemptFence,
+  providerName: AgentProvider["name"],
+  auth: AuthStatus,
+  routed: boolean,
+): void {
+  store.assertCurrent(fence);
+  if (!auth.installed && providerName === "claude") {
+    const error = new ClaudeExecutableUnavailable();
+    store.failBeforeEffects(fence, error.outcome);
+    throw error;
+  }
+  if (
+    !auth.installed ||
+    (!routed && (!auth.authenticated || auth.enabled === false))
+  ) {
+    store.failBeforeEffects(fence, "startup-unavailable");
+    throw new Error("Provider startup is unavailable");
+  }
+}
 
 export function reserveLocalMemory(
   processes: ReadonlyMap<string, Process>,

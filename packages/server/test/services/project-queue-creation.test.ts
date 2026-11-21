@@ -819,7 +819,11 @@ it.each(["claude", "codex"] as const)(
           },
         },
       ),
-    ).rejects.toThrow("unavailable");
+    ).rejects.toThrow(
+      name === "claude"
+        ? "The Claude Code executable is missing"
+        : "Provider startup is unavailable",
+    );
     const saved = f.metadata.creations.get(
       { kind: "superuser" },
       "owned-failed-preparation",
@@ -951,7 +955,7 @@ it("retains legacy uploaded bytes, inline images and complete initial input thro
         },
       },
     ),
-  ).rejects.toThrow("unavailable");
+  ).rejects.toThrow("The Claude Code executable is missing");
   const saved = f.metadata.creations.get(context.owner, "legacy-sealed-input")!;
   expect(saved.request?.attachments?.files).toHaveLength(2);
   expect(f.metadata.getMetadata(saved.sessionId)).toMatchObject({

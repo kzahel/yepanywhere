@@ -415,8 +415,7 @@ test("a disappeared executable leaves a saved failed session and prompt after pa
       .getByRole("button", { name: "Start session", exact: true })
       .click();
     const failure = page.getByText(
-      "The session could not start. Your prompt is saved.",
-      { exact: true },
+      /The Claude Code executable is missing or cannot run.*reload the Yep Anywhere server and retry.*Nothing was sent\./,
     );
     await expect(failure).toBeVisible();
     const sessionUrl = page.url();

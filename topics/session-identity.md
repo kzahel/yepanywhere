@@ -69,8 +69,13 @@ before acceptance. Existing Supervisor/WorkerQueue machinery owns later dispatch
 closing the originating browser does not cancel it. A routed request retains its
 chosen account/pool and uses AAR authorization independently of direct login.
 Routing failure never falls back to direct credentials. The selected executable
-is rechecked even when its path was cached before an installation change, so a
-missing CLI can fail before native effects.
+is rechecked even when its path was cached before an installation change.
+If Claude Code is missing or cannot run, the session is saved with failure
+`claude-executable-unavailable` before starting Claude or allocating a router
+account. The startup notice retains the prompt and advises reloading YA after
+a dependency update or checking the path and permissions of a custom executable.
+Older clients show the generic saved failure, and older servers still work
+with the existing generic message. No new capability is required.
 
 The form retains a source/account/draft-scoped recovery identity before sending,
 then opens the stable session on acceptance. Draft capture precedes async work.

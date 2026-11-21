@@ -23,6 +23,7 @@ import { CoreApi, type CoreApiSources } from "../../src/core-api/service.js";
 import type { ApiSession } from "../../src/core-api/contracts.js";
 import type { PeerPrincipal } from "../../src/core-api/peer-policy.js";
 import { createSessionRequest } from "../../src/core-api/command-contracts.js";
+import { ClaudeExecutableUnavailable } from "../../src/supervisor/provider-launch-admission.js";
 import { SUPERUSER } from "../../src/auth/principal.js";
 import {
   createAgentApiRuntime,
@@ -132,6 +133,38 @@ function http(
     },
   );
 }
+
+it("reports a missing Claude executable as a known failure after saving the session", async () => {
+  const f = fixture({
+    async start(
+      _project,
+      _request,
+      _receipt,
+      _settled,
+      _failed,
+      _consumed,
+      admitted,
+    ) {
+      admitted?.("saved");
+      throw new ClaudeExecutableUnavailable();
+    },
+  });
+  try {
+    f.enable();
+    const { id } = f.commands.create(project, { ...body, provider: "claude" });
+    await f.commands.idle();
+    expect(await f.commands.receipt(id)).toMatchObject({
+      state: "failed",
+      sessionId: "saved",
+      failure: {
+        code: "claude-executable-unavailable",
+        message: expect.stringContaining("reload the Yep Anywhere server"),
+      },
+    });
+  } finally {
+    f.close();
+  }
+});
 
 it.skipIf(process.platform === "win32")(
   "keeps existing grants read-only, attributes native admission, and deduplicates concurrent HTTP retries",

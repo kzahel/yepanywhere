@@ -438,8 +438,11 @@ replay, provider restart or fallback routing.
 not successful response completion. Native capacity rejection is recorded as a
 known failure. [Provider memory admission](provider-memory-admission.md)
 reports a verified pre-spawn refusal as `failed` with
-`failure.code: "capacity_unavailable"`. An exception after reservation or a
-queued startup failure without a verified refusal is uncertain. Never
+`failure.code: "capacity_unavailable"`. A Claude executable that is missing or
+cannot run is also a known pre-spawn failure with
+`failure.code: "claude-executable-unavailable"` and recovery guidance.
+An exception after reservation or a queued startup failure without a verified
+refusal is uncertain. Never
 generate a new retry key merely to escape that uncertainty. Unique live-owner API-input
 admission/consumption evidence can reconcile a target binding without launching
 again. Inherited transcript UUIDs and optimistic user echoes are not admission

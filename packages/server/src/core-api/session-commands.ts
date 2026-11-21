@@ -14,6 +14,7 @@ import type { ApiPendingInput } from "./input-contracts.js";
 import type { InputReceiptPatch } from "./native-session-inputs.js";
 import type { ApiReceiptStore } from "./receipt-store.js";
 import { ProviderMemoryCapacityError } from "../sdk/providers/provider-memory-budget.mjs";
+import { ClaudeExecutableUnavailable } from "../supervisor/provider-launch-admission.js";
 import { CoreApiError } from "./errors.js";
 
 export interface SessionCommandOwner {
@@ -162,7 +163,8 @@ export class SessionCommands {
       if (this.disposed) return;
       const current = this.store.get(receipt.id);
       if (
-        reason instanceof ProviderMemoryCapacityError &&
+        (reason instanceof ProviderMemoryCapacityError ||
+          reason instanceof ClaudeExecutableUnavailable) &&
         (current?.state === "dispatching" || current?.state === "queued")
       ) {
         this.store.update(receipt.id, {

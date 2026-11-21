@@ -251,7 +251,7 @@ describe("a session start that waits for a worker", () => {
   });
 
   for (const route of ["project", "detached"] as const) {
-    it(`retains ${route} prompt/source and first-input metadata when the provider is unavailable`, async () => {
+    it(`retains ${route} prompt/source and first-input metadata when the Claude executable is unavailable`, async () => {
       const f = nativeRoutes(false);
       // Intentional HTTP startup failure: the saved control record must survive.
       const response = await f.routes.request(
@@ -284,7 +284,7 @@ describe("a session start that waits for a worker", () => {
       const [projection] = metadata.creations.listProjections();
       expect(projection?.creation).toMatchObject({
         state: "failed",
-        failure: "startup-unavailable",
+        failure: "claude-executable-unavailable",
         delivery: "not-admitted",
       });
       const saved = metadata.creations.getForSession(projection!.sessionId)!;

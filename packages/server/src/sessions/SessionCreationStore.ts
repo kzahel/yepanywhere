@@ -1053,6 +1053,7 @@ export class SessionCreationStore {
     if (
       ![
         "startup-unavailable",
+        "claude-executable-unavailable",
         "launch-refused",
         "cancelled",
         "provider-host-outdated",

@@ -354,16 +354,16 @@ it("dispatches persisted text through Supervisor with a stable id and native con
   expect(f.starts).toEqual([f.saved.sessionId]);
 });
 
-it("keeps unavailable startup durably failed with its source and prompt, without native effects", async () => {
+it("keeps a missing Claude executable startup durably failed with its source and prompt, without native effects", async () => {
   const f = await supervisorFixture(false);
   await expect(
     f.supervisor.startSavedSession(f.saved.attempt, async () => {}),
-  ).rejects.toThrow("unavailable");
+  ).rejects.toThrow("The Claude Code executable is missing");
   const failed = f.store.getForSession(f.saved.sessionId)!;
   expect(failed.attempt).toMatchObject({
     state: "failed",
     delivery: "not-admitted",
-    failure: "startup-unavailable",
+    failure: "claude-executable-unavailable",
   });
   expect(failed.request?.message).toBe("exact prompt");
   expect(failed.context.source).toEqual({

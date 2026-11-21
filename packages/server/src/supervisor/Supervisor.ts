@@ -14,6 +14,7 @@ import {
 } from "../services/AgentAuthRouter.js";
 import { ProviderMemoryCapacityError } from "../sdk/providers/provider-memory-budget.mjs";
 import {
+  assertSavedProviderReady,
   recordKnownProviderRefusal,
   reserveLocalMemory,
 } from "./provider-launch-admission.js";
@@ -1370,16 +1371,13 @@ export class Supervisor {
         await assertHostedCreationSupport(request.provider, {
           sandbox: launch.sandboxLevel === "project-write",
         });
-      const auth = await provider.getAuthStatus();
-      store.assertCurrent(fence);
-      if (
-        !auth.installed ||
-        (!(launch.routerAccountId || launch.routerPoolId) &&
-          (!auth.authenticated || auth.enabled === false))
-      ) {
-        store.failBeforeEffects(fence, "startup-unavailable");
-        throw new Error("Provider startup is unavailable");
-      }
+      assertSavedProviderReady(
+        store,
+        fence,
+        provider.name,
+        await provider.getAuthStatus(),
+        Boolean(launch.routerAccountId || launch.routerPoolId),
+      );
       const sessionSandbox = await prepareSessionSandbox(
         this.newSessionSandboxOptions(
           provider.name,

@@ -29,6 +29,7 @@ export interface SessionCreationStatus {
    */
   failure?:
     | "startup-unavailable"
+    | "claude-executable-unavailable"
     | "launch-refused"
     | "cancelled"
     | "router-login-required"
