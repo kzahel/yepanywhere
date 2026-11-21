@@ -50,6 +50,7 @@ export interface ProviderChildSource {
     previousMetadata?: (
       child: NativeSessionRef,
     ) => Readonly<RelationshipMetadata> | undefined,
+    previousChildren?: () => readonly string[],
   ): Promise<ProviderChildObservation>;
   /** Optional bounded metadata reads; must never enumerate a provider corpus. */
   refreshMetadata?(
@@ -714,38 +715,79 @@ export class ProviderChildRelationshipService {
       ? `${SNAPSHOT_PRODUCER}/metadata-v1`
       : SNAPSHOT_PRODUCER;
     let previous = this.index.checkpoint(producer, key);
-    const previousMetadata =
+    const hasPreviousCheckpoint = Boolean(
       previous ||
-      (metadataOnly && this.index.checkpoint(SNAPSHOT_PRODUCER, key))
-        ? (child: NativeSessionRef) => {
-            if (this.retired) return;
-            // Historical enrichment comes from this exact scoped edge. It cannot
-            // supply structural proof or collide through flattened child ids.
-            const parents = this.index.list({
-              resource: this.resource(child),
-              direction: "incoming",
-              type: "provider_child",
-              limit: 2,
-            });
-            if (
-              parents.edges.length !== 1 ||
-              parents.next ||
-              relationshipResourceKey(parents.edges[0]!.source) !== key
-            )
-              return;
-            return this.index
-              .evidence(parents.edges[0]!.id)
-              .find(
-                (e) =>
-                  e.producer === `provider-child/${child.family}` &&
-                  e.sourceKey === this.key(child) &&
-                  e.trust === "provider-observed",
-              )?.metadata;
+        (metadataOnly && this.index.checkpoint(SNAPSHOT_PRODUCER, key)),
+    );
+    const previousMetadata = hasPreviousCheckpoint
+      ? (child: NativeSessionRef) => {
+          if (this.retired) return;
+          // Historical enrichment comes from this exact scoped edge. It cannot
+          // supply structural proof or collide through flattened child ids.
+          const parents = this.index.list({
+            resource: this.resource(child),
+            direction: "incoming",
+            type: "provider_child",
+            limit: 2,
+          });
+          if (
+            parents.edges.length !== 1 ||
+            parents.next ||
+            relationshipResourceKey(parents.edges[0]!.source) !== key
+          )
+            return;
+          return this.index
+            .evidence(parents.edges[0]!.id)
+            .find(
+              (e) =>
+                e.producer === `provider-child/${child.family}` &&
+                e.sourceKey === this.key(child) &&
+                e.trust === "provider-observed",
+            )?.metadata;
+        }
+      : undefined;
+    // Always provide lazy durable outgoing-descendant lookup: a parent can
+    // already hold accepted outgoing edges (e.g. from an ancestor observation
+    // or reparenting) before it has its own snapshot checkpoint.
+    const previousChildren = () => {
+      if (this.retired) return [];
+      const seen = new Set<string>();
+      const queue: NativeSessionRef[] = [work.native];
+      for (let i = 0; i < queue.length && seen.size < 4096; i++) {
+        let after: string | undefined;
+        while (seen.size < 4096) {
+          const page = this.index.list({
+            resource: this.resource(queue[i]!),
+            direction: "outgoing",
+            type: "provider_child",
+            after,
+            limit: 64,
+          });
+          for (const edge of page.edges) {
+            if (edge.target.kind !== "native") continue;
+            const childId = edge.target.native.id;
+            if (seen.has(childId)) continue;
+            seen.add(childId);
+            queue.push(edge.target.native);
+            if (seen.size >= 4096) break;
           }
-        : undefined;
+          after = page.next ?? undefined;
+          if (!after) break;
+        }
+      }
+      return [...seen];
+    };
     let observation = metadataOnly
-      ? await source.refreshMetadata?.(this.lifetime.signal, previousMetadata)
-      : await source.observe(this.lifetime.signal, previousMetadata);
+      ? await source.refreshMetadata?.(
+          this.lifetime.signal,
+          previousMetadata,
+          previousChildren,
+        )
+      : await source.observe(
+          this.lifetime.signal,
+          previousMetadata,
+          previousChildren,
+        );
     if (
       (!observation || observation.needsFullMetadata) &&
       mode === "metadata-or-full"
@@ -757,6 +799,7 @@ export class ProviderChildRelationshipService {
       observation = await source.observe(
         this.lifetime.signal,
         previousMetadata,
+        previousChildren,
       );
     }
     if (!observation) return;

@@ -188,7 +188,13 @@ SQLite sidecars. Conversations with a non-empty `parent_conversation_id` are
 excluded from top-level catalog scans, `listSessions`, `getSessionSummary` and
 `getSession` before any ACP subprocess starts, keeping provider-managed
 subagents out of top-level session lists even when their `<uuid>.db` files sit
-inside `conversations/`. When several workspace URIs are listed
+inside `conversations/`. Durable child relationships flow through the shared
+`ProviderChildRelationshipService` via `AntigravitySessionReader.getProviderChildSource`
+using bounded read-only `conversation_summaries.db` snapshots; missing stores
+(including standalone 1.4.x runtimes without a summaries index) stay unknown
+rather than publishing an authoritative empty set, and running subagents whose
+`last_modified_time` is the `0001-01-01` sentinel fall back to local `.db`/`.db-wal`
+file mtimes and in-memory activity overlays without churning durable SQL edges. When several workspace URIs are listed
 (`/private/tmp/x`, `/tmp/x`), the last is the cwd the client supplied and
 matches YA's project binding. Reading never sends a prompt or auth request.
 Unknown/foreign project files are not adopted. The native replay API may update

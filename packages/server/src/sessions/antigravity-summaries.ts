@@ -506,10 +506,8 @@ export class AntigravitySummariesReader {
       Math.max(maxRows * 2, ANTIGRAVITY_RELATIONSHIP_MAX_SCAN_ROWS);
     const uniqueParents = [...new Set(parentIds)];
     const uniqueRelated = [...new Set(relatedIds)];
-    let truncated =
-      uniqueParents.length > maxSeeds || uniqueRelated.length > maxSeeds;
+    let truncated = uniqueParents.length > maxSeeds;
     const boundedParents = uniqueParents.slice(0, maxSeeds);
-    const boundedRelated = uniqueRelated.slice(0, maxSeeds);
     const hasParentIds = columns.has("parent_conversation_id");
     const selectCols = this.selectColumns(columns);
     const byIdsSql = `SELECT ${selectCols} FROM conversation_summaries WHERE conversation_id IN (SELECT value FROM json_each(?)) LIMIT ?`;
@@ -650,19 +648,25 @@ export class AntigravitySummariesReader {
         }
       }
 
-      // Now load any unvisited relatedIds for ancestor resolution.
-      const missingRelated = boundedRelated.filter((id) => !visited.has(id));
-      if (missingRelated.length > 0 && !truncated) {
+      // Load relatedIds that were not already visited by descendant traversal
+      // (e.g. moved/deleted children), applying maxSeeds only to those missing
+      // IDs so large unchanged child trees never exhaust the seed budget. When
+      // missingRelated exceeds maxSeeds, still load the bounded subset and its
+      // ancestors while keeping `truncated = true` so callers treat it as partial.
+      const missingRelated = uniqueRelated.filter((id) => !visited.has(id));
+      if (missingRelated.length > maxSeeds) truncated = true;
+      const boundedMissingRelated = missingRelated.slice(0, maxSeeds);
+      if (boundedMissingRelated.length > 0 && visited.size < maxRows) {
         const remaining = maxRows - visited.size;
         const related = byIdsStmt.all<AntigravitySummaryRawRow>(
-          JSON.stringify(missingRelated),
+          JSON.stringify(boundedMissingRelated),
           remaining + 1,
         );
         if (related.length > remaining) truncated = true;
         addRows(related);
       }
 
-      if (hasParentIds && !truncated) {
+      if (hasParentIds && visited.size < maxRows) {
         // Bounded ancestor walk starting at hop 0 independently of descendant depth.
         let pendingParents = new Set<string>();
         for (const row of visited.values()) {
@@ -674,10 +678,14 @@ export class AntigravitySummariesReader {
             pendingParents.add(row.parent_conversation_id);
           }
         }
-        for (let depth = 0; pendingParents.size > 0 && !truncated; depth++) {
+        for (let depth = 0; pendingParents.size > 0; depth++) {
           const ids = [...pendingParents];
           pendingParents = new Set<string>();
           const remaining = maxRows - visited.size;
+          if (remaining <= 0) {
+            truncated = true;
+            break;
+          }
           const probeLimit = depth >= maxDepth ? 1 : remaining + 1;
           const batch = byIdsStmt.all<AntigravitySummaryRawRow>(
             JSON.stringify(ids),

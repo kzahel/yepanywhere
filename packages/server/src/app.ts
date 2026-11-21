@@ -1892,6 +1892,8 @@ export function createApp(options: AppOptions): AppResult {
     500,
     closeReader,
   );
+  const readCatalogRows = async () =>
+    (await retainedCollections?.read())?.rows ?? [];
   const readerFactory = (
     project: Project,
     native?: NativeSessionRef,
@@ -1966,9 +1968,8 @@ export function createApp(options: AppOptions): AppResult {
             () =>
               new AntigravitySessionReader({
                 projectPath: project.path,
-                sessionsDir: native.storageScope,
-                catalogRows: async () =>
-                  (await retainedCollections?.read())?.rows ?? [],
+                nativeStorageScope: native.storageScope,
+                catalogRows: readCatalogRows,
               }),
           );
         case "grok":
@@ -2134,8 +2135,7 @@ export function createApp(options: AppOptions): AppResult {
             new AntigravitySessionReader({
               projectPath: project.path,
               sessionsDir: options.antigravitySessionsDir,
-              catalogRows: async () =>
-                (await retainedCollections?.read())?.rows ?? [],
+              catalogRows: readCatalogRows,
             }),
         );
       case "grok":

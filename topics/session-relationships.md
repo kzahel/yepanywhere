@@ -269,8 +269,9 @@ progress. Providers are not forced through a JSONL byte-cursor interface.
 | Codex family | Each child rollout's own immediate-parent metadata; correlated native start records / older `spawn_agent` outputs enrich anchors | Reuse the shared scoped header catalog and its source invalidation. Persist structural observations without replaying the parent body. Optional tool-call enrichment must not gate a structural link. Never accept copied fork history without the child's own parent proof. |
 | OpenCode | Native SQL `session.parent_id`, legacy file `parentID`, task parts | Bounded native row queries with logical DB/WAL versioning; task parts enrich launch anchors when available. A main-file mtime alone is insufficient. |
 | Grok | Parent `subagents/*/meta.json` and child session records | Exact parent metadata directory observation; fork `parent_session_id` remains a different predicate. |
+| Antigravity | Sibling `conversation_summaries.db` `parent_conversation_id`, `agent_name`, `nesting_depth` | Read-only bounded SQLite snapshot with logical DB/WAL versioning and companion watcher; running-child `.db`/`.db-wal` mtime overlay avoids SQL churn. Standalone 1.4.x stores without a summaries index remain unknown. |
 | Pi | Explicit YA creation/fork evidence; native within-transcript parent links | Import proved session-to-session operations only. `parentId` entry links are not native child-session evidence. |
-| Other retained/new providers | Shared YA/v0 creation evidence immediately; native structures only after audit | Omit unsupported native-child acquisition. Do not infer support from a related transport or provider name; preserve the legacy Gemini freeze and independent Antigravity scope. |
+| Other retained/new providers | Shared YA/v0 creation evidence immediately; native structures only after audit | Omit unsupported native-child acquisition. Do not infer support from a related transport or provider name; preserve the legacy Gemini freeze. |
 
 The adapter capability distinguishes observing relationships from controlling a
 child, switching a branch or launching work. Adding a provider implementation

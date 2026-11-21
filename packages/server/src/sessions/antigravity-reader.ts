@@ -4,6 +4,8 @@ import {
   nativeSessionRef,
   parseNativeSessionId,
   type NativeSessionId,
+  type NativeSessionRef,
+  type ProviderChildSessionSummary,
   type UrlProjectId,
 } from "@yep-anywhere/shared";
 import type { Message, SessionSummary } from "../supervisor/types.js";
@@ -18,7 +20,9 @@ import {
   ownAntigravitySession,
 } from "../sdk/providers/antigravity-runtime.js";
 import { AntigravityTranscript } from "../sdk/providers/antigravity-transcript.js";
+import { AntigravityChildSourceOwner } from "./antigravity-child-source.js";
 import { readAntigravityMetadata } from "./antigravity-metadata.js";
+import type { ProviderChildSource } from "./ProviderChildRelationshipService.js";
 import { catalogProjectIdentity } from "./catalog-adapters/row.js";
 import { AntigravitySessionCatalogAdapter } from "./catalog-adapters/antigravity-catalog-adapter.js";
 import type { SessionCatalogRow } from "./catalog-types.js";
@@ -48,6 +52,9 @@ export class AntigravitySessionReader implements ISessionReader {
     { version: string; entries: SDKMessage[]; model?: string }
   >();
   private runtimes = new Set<AntigravityRuntime>();
+  private readonly retireListeners = new Set<() => void>();
+  private readonly nativeStorageScope?: string;
+  private readonly childSourceOwner: AntigravityChildSourceOwner;
   private closed = false;
 
   private readonly catalogRows?: () => Promise<
@@ -57,11 +64,28 @@ export class AntigravitySessionReader implements ISessionReader {
   constructor(options: {
     projectPath: string;
     sessionsDir?: string;
+    nativeStorageScope?: string;
     catalogRows?: () => Promise<readonly Readonly<SessionCatalogRow>[]>;
   }) {
     this.catalogRows = options.catalogRows;
     this.projectPath = options.projectPath;
-    this.directory = options.sessionsDir ?? antigravitySessionsDir();
+    this.directory =
+      options.sessionsDir ??
+      options.nativeStorageScope ??
+      antigravitySessionsDir();
+    this.nativeStorageScope = options.nativeStorageScope;
+    this.childSourceOwner = new AntigravityChildSourceOwner({
+      owner: this,
+      sessionsDir: this.directory,
+      projectPath: this.projectPath,
+      isRetired: () => this.closed,
+      onRetire: (listener) => {
+        this.retireListeners.add(listener);
+        return () => {
+          this.retireListeners.delete(listener);
+        };
+      },
+    });
   }
 
   private async metadata(id: string) {
@@ -331,13 +355,31 @@ export class AntigravitySessionReader implements ISessionReader {
   }
   async getNativeSessionRef(id: NativeSessionId) {
     const metadata = await this.metadata(id);
-    return metadata
+    return metadata && !metadata.isChild
       ? nativeSessionRef(
           "antigravity",
           metadata.scope,
           parseNativeSessionId(id),
         )
       : null;
+  }
+  getProviderChildSource(
+    parent: NativeSessionRef,
+  ): ProviderChildSource | undefined {
+    if (
+      this.closed ||
+      parent.family !== "antigravity" ||
+      (this.nativeStorageScope &&
+        this.nativeStorageScope !== parent.storageScope)
+    ) {
+      return undefined;
+    }
+    return this.childSourceOwner.source(parent);
+  }
+  async listProviderChildSessions(
+    parentSessionId: string,
+  ): Promise<ProviderChildSessionSummary[]> {
+    return this.childSourceOwner.listDirectChildren(parentSessionId);
   }
   async getAgentMappings(): Promise<[]> {
     return [];
@@ -347,6 +389,9 @@ export class AntigravitySessionReader implements ISessionReader {
   }
   async close(): Promise<void> {
     this.closed = true;
+    for (const listener of this.retireListeners) listener();
+    this.retireListeners.clear();
+    this.childSourceOwner.close();
     this.coldReads.clear();
     await Promise.all([...this.runtimes].map((runtime) => runtime.close()));
     this.listCache = undefined;
