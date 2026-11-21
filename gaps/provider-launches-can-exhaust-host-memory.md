@@ -29,3 +29,13 @@ updated capacity snapshot would also allow authorized agents to resume
 dispatch when memory becomes available.
 
 Found 2026-11-20 while investigating the Tilefun overnight review outage.
+
+## Stop receipt and release of admission capacity
+
+On 2026-11-21, the native app fixture observed a PID-verified stop followed
+by a `capacity_unavailable` refusal. The host inventory hides closing workers
+while their groups still count toward admission. Waiting for the host to remove
+the stopped worker's groups before making the new request restored admission
+in the fixture. The startup accounting still includes unrelated retained groups
+such as the fixture's project-service worker. The API has no receipt for when
+the host has released that provider's memory charge.

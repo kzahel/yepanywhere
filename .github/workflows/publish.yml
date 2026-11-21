@@ -52,6 +52,11 @@ jobs:
 
       - uses: ./.github/actions/allow-chromium-sandbox
 
+      - name: Verify native provider memory admission
+        env:
+          YEP_NATIVE_APP_TESTS: "1"
+        run: pnpm --filter @yep-anywhere/server test test/native-app/app-memory-admission.test.ts
+
       - name: Run tests
         run: pnpm test
 

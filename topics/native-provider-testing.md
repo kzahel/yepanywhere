@@ -138,14 +138,21 @@ the existing CI unit-test job. No browser or extra CI service is needed.
 Root `pnpm typecheck` checks the native test helpers as well as production code.
 
 The Antigravity app/v0 case requires the separately installed native CLI.
-The Linux CI unit-test job installs the pinned artifact after `pnpm test` and
-runs the case as a required step. The general workspace suite keeps its
-package-installed provider baseline. For the same focused check on a qualified
-host, run:
+The Linux CI unit-test job installs the pinned artifact and runs the case as a
+required step before `pnpm test`. It also runs Claude's real-process memory
+admission case in its own step. In [run 44924492986](https://github.com/kzahel/yepanywhere/actions/runs/44924492986/job/136907479715),
+the concurrent workspace suite's native fixture took 13.38 seconds to start
+the API and 18.06 seconds to attach its first runtime, then reached the
+20-second case guard. The isolated case allows 45 seconds (2.25 times that
+observed lower bound). It checks the stop receipt and waits for the host to
+release the stopped worker's groups before attempting the next launch. The npm
+release workflow also requires the memory admission case. For these focused
+checks on a qualified host, run:
 
 ```bash
 pnpm test:providers:install antigravity
 YEP_NATIVE_APP_TESTS=1 pnpm --filter @yep-anywhere/server test test/native-app/app-antigravity-v0.test.ts
+YEP_NATIVE_APP_TESTS=1 pnpm --filter @yep-anywhere/server test test/native-app/app-memory-admission.test.ts
 ```
 
 The native suite's boundary is YA `Process` → production provider adapter → actual

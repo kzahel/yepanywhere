@@ -329,8 +329,6 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
       - run: pnpm --filter @yep-anywhere/shared build
-      - run: pnpm -F @yep-anywhere/client exec playwright install chromium
-      - run: pnpm test
       - name: Install the pinned Antigravity test runtime
         run: |
           pnpm test:providers:install antigravity
@@ -341,6 +339,12 @@ jobs:
         env:
           YEP_NATIVE_APP_TESTS: "1"
         run: pnpm --filter @yep-anywhere/server test test/native-app/app-antigravity-v0.test.ts
+      - name: Verify native provider memory admission
+        env:
+          YEP_NATIVE_APP_TESTS: "1"
+        run: pnpm --filter @yep-anywhere/server test test/native-app/app-memory-admission.test.ts
+      - run: pnpm -F @yep-anywhere/client exec playwright install chromium
+      - run: pnpm test
 
   cached-sidebar-performance:
     runs-on: ubuntu-24.04

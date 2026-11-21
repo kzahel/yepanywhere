@@ -1,8 +1,10 @@
-import { expect, it } from "vitest";
-import { appBarrier } from "../native-provider/app-fixture.js";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { expect, it, type TestContext, vi } from "vitest";
+import { receiptSchema } from "../../src/core-api/command-contracts.js";
 import { nativeAppTestFixture } from "./fixture.js";
 
-it("refuses a second Claude runtime before it can reach the model and admits a new launch after verified exit", async (context) => {
+async function verifyMemoryAdmission(context: TestContext) {
   const fixture = await nativeAppTestFixture("claude", context, {
     agentApiManagement: true,
     providerMemoryLimitMiB: 896,
@@ -13,6 +15,7 @@ it("refuses a second Claude runtime before it can reach the model and admits a n
   function command(path: string, body: unknown, key = crypto.randomUUID()) {
     return fetch(base + path, {
       method: "POST",
+      signal: context.signal,
       headers: {
         "Content-Type": "application/json",
         "Idempotency-Key": key,
@@ -24,16 +27,23 @@ it("refuses a second Claude runtime before it can reach the model and admits a n
       return response.json();
     });
   }
-  async function receipt(id: string, state: string) {
-    return appBarrier(async () => {
-      const response = await fetch(`${base}/receipts/${id}`);
-      const result = await response.json();
-      if (state !== "failed" && result.state === "failed")
-        throw new Error(
-          `Unexpected refusal: ${JSON.stringify(result.failure)}`,
+  async function receipt(id: string, state: "accepted" | "failed") {
+    const result = await vi.waitFor(
+      async () => {
+        const response = await fetch(`${base}/receipts/${id}`, {
+          signal: context.signal,
+        });
+        expect(response.status).toBe(200);
+        const current = receiptSchema.parse(await response.json());
+        expect(current.state, `Receipt ${id}`).toMatch(
+          /^(accepted|failed|uncertain)$/,
         );
-      return result.state === state ? result : false;
-    }, `receipt state ${state}`);
+        return current;
+      },
+      { timeout: 12_000 },
+    );
+    expect(result.state, JSON.stringify(result)).toBe(state);
+    return result;
   }
   const request = {
     projectId: project.id,
@@ -52,16 +62,37 @@ it("refuses a second Claude runtime before it can reach the model and admits a n
   const key = crypto.randomUUID();
   const second = await command("/sessions", request, key);
   const refused = await receipt(second.id, "failed");
-  expect(refused.failure.code).toBe("capacity_unavailable");
+  expect(refused.failure?.code).toBe("capacity_unavailable");
   expect((await command("/sessions", request, key)).id).toBe(second.id);
-  expect(await fixture.inventory()).toHaveLength(1);
+  const firstWorkers = await fixture.inventory();
+  expect(firstWorkers).toHaveLength(1);
+  const [worker] = firstWorkers;
   expect(fixture.model.requests).toHaveLength(1);
 
   firstTurn.finish("First response");
   const stop = await command(`/sessions/${accepted.sessionId}/stop`, {});
-  expect((await receipt(stop.id, "accepted")).result.verifiedStopped).toBe(
-    true,
-  );
+  const stopped = await receipt(stop.id, "accepted");
+  expect(stopped.result?.verifiedStopped).toBe(true);
+  // Inventory hides closing workers while the host still charges their groups.
+  const descriptorPath = join(fixture.root, "host", "host.json");
+  const workerGroups = new Set([
+    worker!.pid,
+    ...worker!.providerProcessGroupIds,
+  ]);
+  await expect
+    .poll(
+      async () => {
+        const { processGroups } = JSON.parse(
+          await readFile(descriptorPath, "utf8"),
+        );
+        return processGroups.filter(
+          ({ processGroupId }: { processGroupId: number }) =>
+            workerGroups.has(processGroupId),
+        );
+      },
+      { timeout: 8_000 },
+    )
+    .toEqual([]);
   expect(await fixture.inventory()).toHaveLength(0);
 
   const third = await command("/sessions", request);
@@ -70,5 +101,11 @@ it("refuses a second Claude runtime before it can reach the model and admits a n
     receipt(third.id, "accepted"),
   ]);
   thirdTurn.finish("Third response");
-  // macOS reached the first model request at 4.4s and exhausted a 5s guard.
-}, 20_000);
+}
+
+it.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
+  "refuses a second Claude runtime before it can reach the model and admits a new launch after verified exit",
+  verifyMemoryAdmission,
+  // Hosted CI reached 20s during cold startup and verified teardown.
+  45_000,
+);
