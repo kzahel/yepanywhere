@@ -95,6 +95,34 @@ acts on that control without retriggering the context indicator.
 The existing context percentage remains context-window consumption, not
 subscription usage.
 
+## Operator quota watchdog
+
+`scripts/codex-quota-watchdog.py` is a one-shot Python 3.9+ script for an
+operator-owned five-minute schedule. It uses `aar account quotas` to read one
+explicitly selected Codex enrollment and checks the local YA instance record
+against the configured server ID. It requires all-project operator access to
+the ordinary loopback API.
+
+The script acts on a fresh account-wide quota. Explicit permission for
+included usage takes precedence over displayed percentages. Without that
+permission field, either general Codex window at zero triggers the watchdog.
+Failed or missing quota observations leave sessions running. The default
+reports what it would do. With `--apply`, the script requests a verified
+stop of every active session it sees on that local server, across projects
+and providers, and reports the result from each stop receipt. Session history
+remains available. A later run can stop sessions started since the last check.
+
+```sh
+python3 scripts/codex-quota-watchdog.py \
+  --account "$AAR_CODEX_ACCOUNT_ID" --server-id "$YA_SERVER_ID"
+```
+
+Use `--aar-state` and `--ya-instance` for nondefault profiles. When using a
+packaged AAR runtime or source checkout, pass the command after `--`, for
+example `-- node /path/to/agent-auth-router/src/cli.ts`. Add `--apply` to the
+scheduled invocation to enable stops. Credits may still be spent between checks
+or outside that YA server.
+
 ## Compatibility
 
 Routed reads use the existing `agent-auth-router-pools` capability and cache by
