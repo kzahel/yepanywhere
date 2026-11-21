@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEffortLevelLabel,
   getEffortLevelOptions,
+  getNextToggledThinkingMode,
   getThinkingModeOptions,
   normalizeEffortLevelForProvider,
   resolveSupportedEffortLevel,
@@ -177,5 +178,81 @@ describe("effort level options", () => {
   it("normalizes unsupported thinking modes to the closest available mode", () => {
     expect(resolveSupportedThinkingMode("on", ["off", "auto"])).toBe("auto");
     expect(resolveSupportedThinkingMode("auto", ["off"])).toBe("off");
+  });
+
+  it("exposes Auto/On with per-model efforts for Antigravity and hides controls on fixed-effort models", () => {
+    const agyProvider: ProviderInfo = {
+      name: "antigravity",
+      displayName: "Antigravity",
+      installed: true,
+      authenticated: true,
+      enabled: true,
+    };
+    const neonModel = {
+      id: "gemini-4-neon",
+      name: "Gemini 4 Neon",
+      supportsEffort: true,
+      supportedEffortLevels: ["low", "medium", "high", "xhigh"] as const,
+      supportedReasoningEfforts: [
+        { reasoningEffort: "low" },
+        { reasoningEffort: "medium" },
+        { reasoningEffort: "high" },
+        { reasoningEffort: "xhigh" },
+      ],
+    };
+    const fixedModel = {
+      id: "gemini-pro-orchestrator-neon",
+      name: "Orchestrator (Neon)",
+      supportsEffort: false,
+      supportsAdaptiveThinking: false,
+    };
+
+    const neonEfforts = getEffortLevelOptions({
+      provider: agyProvider,
+      model: {
+        ...neonModel,
+        supportedEffortLevels: [...neonModel.supportedEffortLevels],
+      },
+    });
+    expect(neonEfforts.map((o) => o.value)).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+    expect(
+      getThinkingModeOptions({
+        provider: agyProvider,
+        model: {
+          ...neonModel,
+          supportedEffortLevels: [...neonModel.supportedEffortLevels],
+        },
+        effortOptions: neonEfforts,
+      }),
+    ).toEqual(["auto", "on"]);
+    expect(
+      getThinkingModeOptions({
+        provider: agyProvider,
+        model: fixedModel,
+        effortOptions: [],
+      }),
+    ).toEqual(["off"]);
+    // Older servers without supportsEffort metadata must not fabricate controls.
+    expect(
+      getEffortLevelOptions({
+        provider: agyProvider,
+        model: { id: "gemini-4-neon-high", name: "Gemini 4 Neon (High)" },
+      }),
+    ).toEqual([]);
+    expect(
+      getThinkingModeOptions({
+        provider: agyProvider,
+        model: { id: "gemini-4-neon-high", name: "Gemini 4 Neon (High)" },
+      }),
+    ).toEqual(["off"]);
+    expect(getNextToggledThinkingMode("auto", "auto", ["auto", "on"])).toBe(
+      "on",
+    );
+    expect(getNextToggledThinkingMode("on", "on", ["auto", "on"])).toBe("auto");
   });
 });

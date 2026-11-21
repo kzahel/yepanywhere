@@ -48,15 +48,22 @@ it("creates, steers, compacts and follows Antigravity through v0", async (contex
     return result;
   };
 
-  const model = "gemini-3.8-flash-low";
+  const model = "gemini-3.8-flash";
   expect(
     (await get("/selection?provider=antigravity&routing=direct")).models,
-  ).toContainEqual(expect.objectContaining({ id: model }));
+  ).toContainEqual(
+    expect.objectContaining({
+      id: model,
+      supportsEffort: true,
+      supportedEffortLevels: expect.arrayContaining(["low", "medium"]),
+    }),
+  );
   const requestId = crypto.randomUUID();
   const launch = {
     projectId: project.id,
     provider: "antigravity",
     model,
+    thinking: "on:medium",
     permissionMode: "bypassPermissions",
     prompt: "V0_AGY_INITIAL",
   };
@@ -65,6 +72,9 @@ it("creates, steers, compacts and follows Antigravity through v0", async (contex
   const initial = await app.model.next();
   expect(JSON.stringify(initial.body)).toContain("V0_AGY_INITIAL");
   expect(JSON.stringify(initial.body)).toContain("AGENT_YA_V0_SOCKET");
+  expect(JSON.stringify(initial.body)).toMatch(
+    /"thinkingLevel":"MEDIUM"|"thinking_level":"MEDIUM"/i,
+  );
   const accepted = await receipt(
     creation.id,
     (result) => result.state === "accepted",
@@ -162,6 +172,9 @@ it("creates, steers, compacts and follows Antigravity through v0", async (contex
   expect(resumedRequest).toContain("V0_AGY_RESUMED");
   expect(resumedRequest).toContain("V0_AGY_SUMMARY");
   expect(resumedRequest).toContain("AGENT_YA_V0_SOCKET");
+  expect(resumedRequest).toMatch(
+    /"thinkingLevel":"MEDIUM"|"thinking_level":"MEDIUM"/i,
+  );
   resumed.finish("V0_AGY_RESUMED_DONE");
   await expect
     .poll(async () => JSON.stringify(await get(`${session}/conversation`)), {

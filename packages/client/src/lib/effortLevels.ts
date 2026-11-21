@@ -90,6 +90,7 @@ function getFallbackEffortLevels(providerName?: ProviderName): EffortLevel[] {
     case "claude-ollama":
       return EFFORT_LEVEL_ORDER;
     case "claude-gateway":
+    case "antigravity":
       return [];
     case "codex":
       return CODEX_EFFORT_LEVELS;
@@ -226,6 +227,12 @@ export function getThinkingModeOptions(params: {
   if (model?.supportsAdaptiveThinking === false) {
     return ["off"];
   }
+  if (getProviderName(params.provider) === "antigravity") {
+    const hasSupportedEfforts =
+      model?.supportsEffort === true &&
+      (params.effortOptions?.length ?? getModelEffortLevels(model).length) > 0;
+    return hasSupportedEfforts ? ["auto", "on"] : ["off"];
+  }
 
   const modes: ThinkingMode[] = ["off", "auto"];
   const supportsEffort = model?.supportsEffort !== false;
@@ -241,6 +248,20 @@ export function resolveSupportedThinkingMode(
 ): ThinkingMode {
   if (options.includes(mode)) return mode;
   return options.includes("auto") ? "auto" : "off";
+}
+
+export function getNextToggledThinkingMode(
+  current: ThinkingMode,
+  lastNonOffMode: ThinkingMode,
+  options: readonly ThinkingMode[],
+): ThinkingMode {
+  if (!options.includes("off")) {
+    return current === "on" ? "auto" : options.includes("on") ? "on" : "auto";
+  }
+  const nextEnabledMode = options.includes(lastNonOffMode)
+    ? lastNonOffMode
+    : (options.find((option) => option !== "off") ?? "auto");
+  return current === "off" ? nextEnabledMode : "off";
 }
 
 export function normalizeEffortLevelForProvider(

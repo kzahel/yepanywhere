@@ -64,7 +64,12 @@ function getToolbarThinkingTitle(
                 (option) => option.value === control.level,
               )?.label ?? getEffortLevelLabel(control.level, undefined, t),
           });
-  return t("toolbarThinkingTitle", { current });
+  return t(
+    control.modeOptions?.includes("off") === false
+      ? "toolbarThinkingAutoOnTitle"
+      : "toolbarThinkingTitle",
+    { current },
+  );
 }
 
 const THINKING_MENU_VIEWPORT_GUTTER_PX = 12;

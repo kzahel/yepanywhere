@@ -410,9 +410,12 @@ thinking/effort, permission mode and service tier map to incumbent native
 launch controls. Permission mode defaults to `default`; bypass must be explicit.
 Configured local Claude, Codex and Antigravity can be started in catalog
 projects. Antigravity uses direct native model IDs from
-`selection?provider=antigravity&routing=direct`. Agent Auth Router selections,
-separate thinking controls, plan mode and service tier are rejected for
-Antigravity creation. Select an effort-suffixed native model ID when offered.
+`selection?provider=antigravity&routing=direct` along with optional `thinking`
+selection on `agy` 1.5+ (`off` maps to the model's lowest offered thinking
+level; legacy effort-suffixed model IDs also remain accepted). Agent Auth Router
+selections, plan mode and service tier are rejected for Antigravity creation.
+The creation receipt reports launch failure when the installed runtime or
+selected model does not offer the requested thinking level.
 Blank creation, remote executors, worktree/cloning policy, managed delegation,
 terminal execution and provider upgrades are outside this slice. Global agent
 context and native launch ownership/admission remain shared with existing YA

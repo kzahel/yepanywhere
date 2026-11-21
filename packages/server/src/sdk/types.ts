@@ -72,6 +72,8 @@ export interface SDKMessage {
   _codexOwnedCommand?: boolean;
   /** The runtime can emit this outside any prompt without a closing result. */
   _passiveProviderUpdate?: boolean;
+  /** Live configured model when a reply names an earlier turn's model. */
+  _selectedProviderModel?: string;
   toolResultMedia?: ToolResultMedia[];
   // Input requests (tool approval, questions, etc.)
   input_request?: {

@@ -40,6 +40,8 @@ type CancellableMessageIterator = AsyncIterator<QueuedSDKUserMessage> &
 /** Queue surface consumed by Process; remote runtime proxies implement it too. */
 export interface AgentMessageQueue {
   push(message: UserMessage): number;
+  /** Pause native delivery while a multi-step configuration is unsettled. */
+  setConfigurationInputHeld?(held: boolean): void;
   drain(): UserMessage[];
   /** Remote queues use this to return the worker's authoritative drain. */
   drainAsync?(): Promise<UserMessage[]>;

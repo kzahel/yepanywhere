@@ -102,6 +102,7 @@ import {
 } from "../lib/sessionViewerController";
 import {
   getEffortLevelOptions,
+  getNextToggledThinkingMode,
   getThinkingModeOptions,
   resolveSupportedEffortLevel,
   resolveSupportedThinkingMode,
@@ -3370,13 +3371,12 @@ export function MessageInputToolbar({
   }, [effectiveThinkingMode]);
 
   const toggleThinkingEnabled = useCallback(() => {
-    const nextEnabledMode = thinkingModeOptions.includes(
-      lastNonOffThinkingModeRef.current,
-    )
-      ? lastNonOffThinkingModeRef.current
-      : (thinkingModeOptions.find((option) => option !== "off") ?? "auto");
     setSelectedThinkingMode(
-      effectiveThinkingMode === "off" ? nextEnabledMode : "off",
+      getNextToggledThinkingMode(
+        effectiveThinkingMode,
+        lastNonOffThinkingModeRef.current,
+        thinkingModeOptions,
+      ),
     );
   }, [effectiveThinkingMode, setSelectedThinkingMode, thinkingModeOptions]);
   const setSelectedThinkingEffortMode = useCallback(

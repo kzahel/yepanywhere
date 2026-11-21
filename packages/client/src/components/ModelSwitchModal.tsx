@@ -255,19 +255,30 @@ export function ModelSwitchModal({
           process?.effort,
           processProvider,
         );
-        const resolvedThinkingMode = getThinkingModeFromProcess(
-          process?.thinking,
-          process?.effort,
+        const visibleModels = withVisibleModelSelection(
+          modelsRes.models,
+          resolvedModel,
+          t("modelSelectionUnavailable"),
+        );
+        const resolvedModelInfo =
+          visibleModels.find((model) => model.id === resolvedModel) ?? null;
+        const initialEffortOptions = getEffortLevelOptions({
+          provider: processProvider,
+          model: resolvedModelInfo,
+          translate: t,
+        });
+        const initialThinkingModeOptions = getThinkingModeOptions({
+          provider: processProvider,
+          model: resolvedModelInfo,
+          effortOptions: initialEffortOptions,
+        });
+        const resolvedThinkingMode = resolveSupportedThinkingMode(
+          getThinkingModeFromProcess(process?.thinking, process?.effort),
+          initialThinkingModeOptions,
         );
 
         setRoutedServiceTierSelection(modelsRes.serviceTierSelection === true);
-        setModels(
-          withVisibleModelSelection(
-            modelsRes.models,
-            resolvedModel,
-            t("modelSelectionUnavailable"),
-          ),
-        );
+        setModels(visibleModels);
         setProvider(processProvider);
         setCurrentModelId(resolvedModel);
         setSelectedModel(resolvedModel);
@@ -328,7 +339,24 @@ export function ModelSwitchModal({
     thinkingMode,
     thinkingModeOptions,
   );
+  const showThinkingModeOptions = thinkingModeOptions.some(
+    (mode) => mode !== "off",
+  );
   const showEffortOptions = thinkingModeOptions.includes("on");
+  const antigravityCatalogSupportsThinking =
+    provider === "antigravity" &&
+    models.some((model) => model.supportsEffort === true);
+  // Fixed-effort Antigravity models on a thinking-capable server keep native
+  // adaptive thinking ("auto") and clear any prior effort override instead of
+  // sending "off" (which would force a restart or 409).
+  const submitThinkingMode: ThinkingMode | undefined =
+    provider === "antigravity" && !showThinkingModeOptions
+      ? antigravityCatalogSupportsThinking
+        ? "auto"
+        : undefined
+      : effectiveThinkingMode;
+  const displayedPendingThinkingMode =
+    submitThinkingMode ?? effectiveThinkingMode;
   // Tiers belong to the running model; a model switch keeps the current tier
   // and Codex drops it for a model that does not offer it.
   const currentModelInfo = useMemo(
@@ -361,7 +389,7 @@ export function ModelSwitchModal({
       currentThinkingMode,
       currentEffortLevel,
       selectedModel,
-      effectiveThinkingMode,
+      displayedPendingThinkingMode,
       effectiveEffortLevel,
     );
 
@@ -370,11 +398,11 @@ export function ModelSwitchModal({
     setSwitching(true);
     setError(null);
     try {
-      const thinking = toThinkingOption(
-        effectiveThinkingMode,
-        effectiveEffortLevel,
-      );
-      if (guardEffortChange) {
+      const thinking =
+        submitThinkingMode !== undefined
+          ? toThinkingOption(submitThinkingMode, effectiveEffortLevel)
+          : undefined;
+      if (guardEffortChange && thinking !== undefined) {
         const verdict = await guardEffortChange(
           thinking,
           toThinkingOption(currentThinkingMode, currentEffortLevel),
@@ -385,13 +413,20 @@ export function ModelSwitchModal({
           return;
         }
       }
-      const result = await api.setProcessConfig(processId, {
-        model: selectedModel,
-        thinking,
-        showThinking: getShowThinkingSetting(),
-      });
-      setThinkingMode(effectiveThinkingMode);
-      setEffortLevel(effectiveEffortLevel);
+      const result = await api.setProcessConfig(
+        processId,
+        thinking !== undefined
+          ? {
+              model: selectedModel,
+              thinking,
+              showThinking: getShowThinkingSetting(),
+            }
+          : { model: selectedModel },
+      );
+      if (submitThinkingMode !== undefined) {
+        setThinkingMode(submitThinkingMode);
+        setEffortLevel(effectiveEffortLevel);
+      }
       onModelChanged(result);
       if (!dismissedRef.current) {
         dismissedRef.current = true;
@@ -470,7 +505,7 @@ export function ModelSwitchModal({
     provider,
   );
   const pendingIndicatorTone = getIndicatorToneFromSelection(
-    effectiveThinkingMode,
+    displayedPendingThinkingMode,
     effectiveEffortLevel,
   );
   const renderThinkingLabel = (mode: ThinkingMode, effort: EffortLevel) => {
@@ -612,7 +647,7 @@ export function ModelSwitchModal({
                     data-model-switch-status-detail
                   >
                     {renderThinkingLabel(
-                      effectiveThinkingMode,
+                      displayedPendingThinkingMode,
                       effectiveEffortLevel,
                     )}
                   </span>
@@ -647,7 +682,7 @@ export function ModelSwitchModal({
             )}
             {error && <Banner tone="error">{error}</Banner>}
 
-            {processId && (
+            {processId && showThinkingModeOptions && (
               <section
                 className={modelSectionStyles.modelSwitchSection}
                 data-model-switch-section

@@ -451,11 +451,13 @@ export async function startNewSession(
 
     const sessionMode = effectivePermissionMode;
 
-    // Get model and thinking settings
-    const thinking = toThinkingOption(
-      effectiveThinkingMode,
-      effectiveEffortLevel,
-    );
+    // Get model and thinking settings. Antigravity has no disabled thinking
+    // mode; "off" only means thinking controls are hidden for this model/server
+    // (e.g. saved legacy effort-suffixed ID or fixed-effort model), so omit it.
+    const thinking =
+      selectedProvider === "antigravity" && effectiveThinkingMode === "off"
+        ? undefined
+        : toThinkingOption(effectiveThinkingMode, effectiveEffortLevel);
     const effectiveRecapMode = resolveRecapMode(
       selectedProviderInfo,
       selectedRecapMode,

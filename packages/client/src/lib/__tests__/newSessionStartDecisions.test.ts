@@ -466,6 +466,47 @@ describe("Project Queue decisions", () => {
       serviceTier: "priority",
       thinking: "auto",
     });
+    // Saved legacy Antigravity suffixed ID or fixed-effort model has hidden
+    // thinking controls and must omit thinking instead of sending "off".
+    const agyProvider: ProviderInfo = {
+      name: "antigravity",
+      displayName: "Antigravity",
+      installed: true,
+      authenticated: true,
+      enabled: true,
+      models: [
+        {
+          id: "gemini-3.8-flash",
+          name: "Gemini 3.8 Flash",
+          supportsEffort: true,
+          supportedEffortLevels: ["low", "medium", "high"],
+        },
+        {
+          id: "gemini-pro-orchestrator-neon",
+          name: "Orchestrator (Neon)",
+          supportsEffort: false,
+          supportsAdaptiveThinking: false,
+        },
+      ],
+    };
+    expect(
+      target({
+        providerInfo: agyProvider,
+        selectedProvider: "antigravity",
+        selectedModel: "gemini-3.8-flash-high",
+        selectedThinkingMode: "on",
+        selectedEffortLevel: "high",
+      }).target.thinking,
+    ).toBeUndefined();
+    expect(
+      target({
+        providerInfo: agyProvider,
+        selectedProvider: "antigravity",
+        selectedModel: "gemini-3.8-flash",
+        selectedThinkingMode: "on",
+        selectedEffortLevel: "medium",
+      }).target.thinking,
+    ).toBe("on:medium");
   });
 });
 

@@ -27,17 +27,37 @@ export class AntigravityTranscript {
     return message ? structuredClone(message) : undefined;
   }
 
+  private reserveHistory(bytes: number, addingMessage = false): void {
+    if (
+      this.bytes + bytes > 8 * 1024 * 1024 ||
+      (addingMessage && this.messages.length >= 10_000)
+    ) {
+      throw new Error(
+        "Antigravity replay exceeds the experimental history limit",
+      );
+    }
+    this.bytes += bytes;
+  }
+
+  private record(message: SDKMessage, existing = -1): void {
+    const previous = existing < 0 ? undefined : this.messages[existing];
+    const oldBytes = previous
+      ? Buffer.byteLength(JSON.stringify(previous), "utf8")
+      : 0;
+    this.reserveHistory(
+      Buffer.byteLength(JSON.stringify(message), "utf8") - oldBytes,
+      existing < 0,
+    );
+    if (existing < 0) this.messages.push(message);
+    else this.messages[existing] = message;
+  }
+
   /**
    * Live messages for one native update, in order. A text or thinking block
    * publishes `_isStreaming` snapshots and is committed when another block
    * starts or the caller closes it. `messages` holds committed history only.
    */
   accept(update: AntigravityUpdate): SDKMessage[] {
-    this.bytes += Buffer.byteLength(JSON.stringify(update), "utf8");
-    if (this.bytes > 8 * 1024 * 1024 || this.messages.length >= 10_000)
-      throw new Error(
-        "Antigravity replay exceeds the experimental history limit",
-      );
     const kind = update.sessionUpdate;
     if (
       kind === "user_message_chunk" ||
@@ -62,11 +82,21 @@ export class AntigravityTranscript {
           uuid: `${this.prefix}:${this.messages.length}`,
           session_id: this.sessionId,
           ...this.stamp(),
-          message: { role, content: "" },
+          message: {
+            role,
+            content:
+              kind === "agent_thought_chunk"
+                ? [{ type: "thinking", thinking: "" }]
+                : "",
+          },
         };
-        this.messages.push(message);
+        this.record(message);
         this.text = { kind, message, value: "" };
       }
+      // Reserve the serialized text delta without rescanning the entire block.
+      this.reserveHistory(
+        Buffer.byteLength(JSON.stringify(content.text), "utf8") - 2,
+      );
       this.text!.value += content.text;
       this.text!.message.message!.content =
         kind === "agent_thought_chunk"
@@ -100,8 +130,8 @@ export class AntigravityTranscript {
             ],
           },
         };
+        this.record(message);
         this.tools.set(id, message);
-        this.messages.push(message);
       }
       out.push(structuredClone(message));
       return out;
@@ -129,8 +159,7 @@ export class AntigravityTranscript {
     const existing = this.messages.findIndex(
       (entry) => entry.uuid === message.uuid,
     );
-    if (existing >= 0) this.messages[existing] = message;
-    else this.messages.push(message);
+    this.record(message, existing);
     out.push(message);
     return out;
   }

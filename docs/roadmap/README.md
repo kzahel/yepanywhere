@@ -656,6 +656,13 @@ checkpoint-verified queued compaction. Direct v0 model discovery, creation,
 control and following use the existing grants and receipts. Child-agent
 projection, inline media and wider platform qualification remain open.
 
+**Antigravity model and effort controls, 2026-11-21:** `agy` exposes base
+models and separate thinking levels. Yep Anywhere switches both controls in
+place, restores the provider's observed Auto level, and holds delivery during
+combined changes and rollback. Large ACP replay fields that the viewer
+does not retain no longer block cold resume. Standalone ACP retains its flat
+catalog. See the [provider contract](../../topics/antigravity.md).
+
 **Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
 leave provider discovery and execution. Both IDs remain in readable history.
 See the [retirement contract](../../topics/antigravity.md#gemini-retirement-and-optional-acp-consolidation)

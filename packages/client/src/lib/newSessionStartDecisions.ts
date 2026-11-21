@@ -209,7 +209,7 @@ export function buildNewSessionStartOptions(input: {
   routerPolicy: string | undefined;
   routerClaudeAiConnectors: boolean;
   routerThinking: ThinkingOption;
-  thinking: ThinkingOption;
+  thinking: ThinkingOption | undefined;
   showThinking: ShowThinking;
   effectiveServiceTier: string | null;
   selectedProvider: ProviderName | null;
@@ -416,17 +416,24 @@ export function buildProjectQueueNewSessionTarget(input: {
     model: directModel,
     translate: input.t,
   });
-  const thinking = toThinkingOption(
-    resolveSupportedThinkingMode(
-      input.selectedThinkingMode,
-      getThinkingModeOptions({
-        provider: input.providerInfo,
-        model: directModel,
-        effortOptions: directEffortOptions,
-      }),
-    ),
-    resolveSupportedEffortLevel(input.selectedEffortLevel, directEffortOptions),
+  const directThinkingMode = resolveSupportedThinkingMode(
+    input.selectedThinkingMode,
+    getThinkingModeOptions({
+      provider: input.providerInfo,
+      model: directModel,
+      effortOptions: directEffortOptions,
+    }),
   );
+  const thinking =
+    input.selectedProvider === "antigravity" && directThinkingMode === "off"
+      ? undefined
+      : toThinkingOption(
+          directThinkingMode,
+          resolveSupportedEffortLevel(
+            input.selectedEffortLevel,
+            directEffortOptions,
+          ),
+        );
   const directServiceTier = selectableServiceTiers(
     directModel?.serviceTiers,
   ).find((tier) => tier.id === input.selectedServiceTier)?.id;

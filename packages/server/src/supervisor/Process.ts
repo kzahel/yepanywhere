@@ -62,6 +62,7 @@ import type {
   SessionQueuePersistenceService,
 } from "../services/SessionQueuePersistenceService.js";
 import { composeSeenNeedle, composeTimeAnchors } from "./composeTimeAnchor.js";
+import { applyModelAndEffort, ConfigurationHold } from "./configurationHold.js";
 import {
   type DeferredDeliverySettings,
   resolveDeferredDeliverySettings,
@@ -1126,8 +1127,8 @@ export class Process {
     null;
   /** Serializes provider effort controls so slower writes cannot win late. */
   private effortApplyTail: Promise<void> = Promise.resolve();
-  /** A failed turn-boundary effort write keeps the process non-idle. */
   private effortBoundaryBlocked = false;
+  private readonly configurationHold = new ConfigurationHold();
   private effortBoundaryTransition: Promise<void> | null = null;
 
   /** Function to change max thinking tokens at runtime (SDK 0.2.7+) */
@@ -2373,17 +2374,57 @@ export class Process {
     return true;
   }
 
-  /**
-   * Select a new effort without interrupting provider work. Providers with an
-   * active-turn settings control apply it immediately; other active or waiting
-   * processes hold the latest choice until the provider reports the boundary.
-   */
-  async setEffort(effort?: EffortLevel): Promise<boolean> {
-    if (!this.setEffortFn) {
-      return false;
-    }
+  get configurationHeld(): boolean {
+    return this.configurationHold.active;
+  }
 
-    this.pendingEffortUpdate = { effort };
+  async setModelAndEffort(settings: {
+    model?: string;
+    requestedModel: string | null;
+    thinking?: ThinkingConfig;
+    effort?: EffortLevel;
+  }): Promise<boolean> {
+    const setModel = this.setModelFn;
+    const setEffort = this.setEffortFn;
+    if (!setModel || !setEffort) return false;
+    this.messageQueue.setConfigurationInputHeld?.(true);
+    const pending = this.pendingEffortUpdate;
+    const applying = this.configurationHold.run(
+      async (keepHeld) => {
+        await this.effortApplyTail;
+        await applyModelAndEffort(
+          setModel,
+          setEffort,
+          settings,
+          {
+            model: this.resolvedModel ?? this.model,
+            effort: this._effort,
+          },
+          keepHeld,
+        );
+        this._thinking = settings.thinking;
+        this._effort = settings.effort;
+        this.recordModelSelection(settings.model, settings.requestedModel);
+        if (pending) await this.clearPendingEffort(pending);
+        return true;
+      },
+      () => {
+        this.messageQueue.setConfigurationInputHeld?.(false);
+        if (this._state.type === "idle" && !this.effortBoundaryBlocked)
+          this.continueAfterTurnBoundary(false);
+      },
+    );
+    this.effortApplyTail = applying.then(
+      () => undefined,
+      () => undefined,
+    );
+    return applying;
+  }
+
+  async setEffort(effort?: EffortLevel): Promise<boolean> {
+    if (!this.setEffortFn) return false;
+    const pending = { effort };
+    this.pendingEffortUpdate = pending;
     await this.publishAgentSelfSelectionFn?.({
       effort: effort ?? null,
       pendingEffort: true,
@@ -2405,14 +2446,20 @@ export class Process {
       );
       return true;
     }
-
     if (this.effortBoundaryBlocked) {
       await this.completeEffortBoundaryTransition();
     } else {
       try {
         await this.enqueuePendingEffortApplication();
       } catch (error) {
-        if (!canDeferUntilBoundary || this.isTerminated) throw error;
+        if (
+          !canDeferUntilBoundary ||
+          this.configurationHold.active ||
+          this.isTerminated
+        ) {
+          void this.clearPendingEffort(pending);
+          throw error;
+        }
         getLogger().info(
           {
             event: "effort_change_deferred_after_live_failure",
@@ -2461,14 +2508,19 @@ export class Process {
           cause: error,
         });
       }
-      if (this.pendingEffortUpdate === pending) {
-        this.pendingEffortUpdate = null;
-        await this.publishAgentSelfSelectionFn?.({
-          effort: pending.effort ?? null,
-          pendingEffort: false,
-        });
-      }
+      await this.clearPendingEffort(pending);
     }
+  }
+
+  private async clearPendingEffort(
+    pending: NonNullable<Process["pendingEffortUpdate"]>,
+  ): Promise<void> {
+    if (this.pendingEffortUpdate !== pending) return;
+    this.pendingEffortUpdate = null;
+    await this.publishAgentSelfSelectionFn?.({
+      effort: this._effort ?? null,
+      pendingEffort: false,
+    });
   }
 
   private enqueuePendingEffortApplication(): Promise<void> {
@@ -2743,14 +2795,7 @@ export class Process {
     await this.primeSupportedCommands();
   }
 
-  /**
-   * Change the model mid-session without restarting.
-   * Only supported by Claude SDK 0.2.7+.
-   *
-   * @param model - New model to use, or undefined to use default
-   * @param requestedModel - Exact YA selection token retained for restoration
-   * @returns true if the change was applied, false if not supported
-   */
+  /** Apply a model selection without restarting the provider. */
   async setModel(
     model?: string,
     requestedModel: string | null = model ?? null,
@@ -2798,6 +2843,14 @@ export class Process {
       await setModel(model);
     }
 
+    this.recordModelSelection(model, requestedModel);
+    return true;
+  }
+
+  private recordModelSelection(
+    model: string | undefined,
+    requestedModel: string | null,
+  ) {
     // Follow switches, including an explicit return to provider default.
     // The readonly `model` remains the original launch value. An alias the
     // catalog cannot resolve stands only until the next reply names the model.
@@ -2805,7 +2858,6 @@ export class Process {
       model === undefined ? null : (this.resolveModel?.(model) ?? model);
     this._requestedModel = requestedModel;
     this.emit({ type: "configuration-applied", setting: "model" });
-    return true;
   }
 
   /**
@@ -3856,6 +3908,9 @@ export class Process {
     if (inputError) {
       return { success: false, error: inputError };
     }
+    if (this.configurationHold.reason) {
+      return { success: false, error: this.configurationHold.reason };
+    }
 
     // Create user message with UUID - this UUID will be used by both SSE and SDK
     const uuid = providerMessage.uuid ?? randomUUID();
@@ -4007,7 +4062,11 @@ export class Process {
     position?: number;
     error?: string;
   } {
-    if (message.queuedCompact || this.queuedCompactionBlocksInput) {
+    if (
+      message.queuedCompact ||
+      this.queuedCompactionBlocksInput ||
+      this.configurationHold.active
+    ) {
       return this.deferMessage(message);
     }
     if (message.metadata?.turnEffort && this._state.type !== "idle") {
@@ -4235,6 +4294,7 @@ export class Process {
       // queue so the Supervisor can evaluate usage before it is sent.
       !acceptedMessage.queuedCompact &&
       !this.queuedCompactionBlocksInput &&
+      !this.configurationHold.active &&
       // Deferred input never overtakes a deferred compaction that has not
       // started yet; patient compactions keep their own, later boundary.
       !this.deferredQueue.some(
@@ -5411,15 +5471,18 @@ export class Process {
 
         // The served model, as each main-thread reply names it. A subagent's
         // reply may run another model and says nothing about this session's.
+        const observedModel =
+          message._selectedProviderModel ?? message.message?.model;
         if (
           message.type === "assistant" &&
+          !this.configurationHold.active &&
           !message.parent_tool_use_id &&
-          message.message?.model &&
-          message.message.model !== "<synthetic>" &&
-          message.message.model !== this._resolvedModel
+          observedModel &&
+          observedModel !== "<synthetic>" &&
+          observedModel !== this._resolvedModel
         ) {
-          this._resolvedModel = message.message.model;
-          this.emit({ type: "model-resolved", model: this._resolvedModel });
+          this._resolvedModel = observedModel;
+          this.emit({ type: "model-resolved", model: observedModel });
         }
 
         this.observeQueuedCompaction(message);
@@ -5888,7 +5951,11 @@ export class Process {
    * consecutively-composed turns into one `--------`-separated provider turn.
    */
   private promoteEligibleDeferredAfterTurn(): boolean {
-    if (this.queuedCompactionBlocksInput || this.deferredQueue.length === 0) {
+    if (
+      this.queuedCompactionBlocksInput ||
+      this.configurationHold.active ||
+      this.deferredQueue.length === 0
+    ) {
       return false;
     }
 
@@ -6186,6 +6253,7 @@ export class Process {
   }): { promoted: boolean; nextPatienceMsRemaining: number | null } {
     if (
       this.queuedCompactionBlocksInput ||
+      this.configurationHold.active ||
       this.deferredQueue.length === 0 ||
       this._state.type !== "idle"
     ) {

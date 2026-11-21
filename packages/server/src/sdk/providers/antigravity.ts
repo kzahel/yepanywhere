@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import {
   fromUrlProjectId,
   parseNativeSessionId,
+  type EffortLevel,
   type ModelInfo,
   type ModelCatalogStatus,
   type SlashCommand,
@@ -36,21 +37,35 @@ import {
   antigravitySessionsDir,
   findAntigravityRuntime,
   resolveAntigravityRuntime,
+  type AntigravityConfigOption,
   type AntigravitySessionSetup,
   type AntigravityUpdate,
 } from "./antigravity-runtime.js";
+import {
+  ANTIGRAVITY_DEFAULT_MODEL,
+  buildAntigravityModels,
+  isAntigravityEffortLevel,
+  splitAntigravityLegacyModel,
+  findAntigravityConfigOption,
+  resolveAntigravityModelSelection,
+  resolveAntigravityTargetEffort,
+} from "./antigravity-models.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
 import { AntigravityBackground } from "./antigravity-background.js";
 import { compactAntigravity } from "./antigravity-compaction.js";
 import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
 
-const DEFAULT_MODEL: ModelInfo = { id: "default", name: "Antigravity default" };
 type Steer = (message: UserMessage) => boolean;
 interface AntigravityControls {
   id?: string;
   steer?: Steer;
   commands: SlashCommand[];
+  models?: ModelInfo[];
   compact?: (argument: string) => Promise<ProviderCommandResult>;
+  setModel?: (model?: string) => Promise<void>;
+  setEffort?: (effort?: EffortLevel) => Promise<void>;
+  inputHeld?: boolean;
+  onInputHoldChanged?: () => void;
 }
 
 export class AntigravityProvider implements AgentProvider {
@@ -58,7 +73,9 @@ export class AntigravityProvider implements AgentProvider {
   readonly displayName = "Antigravity";
   readonly supportsNativeResumeSource = true;
   readonly supportsPermissionMode = true;
-  readonly supportsThinkingToggle = false;
+  get supportsThinkingToggle(): boolean {
+    return resolveAntigravityRuntime()?.layout === "cli";
+  }
   readonly supportsSlashCommands = true;
   get supportsSteering(): boolean {
     return resolveAntigravityRuntime()?.layout === "cli";
@@ -113,7 +130,7 @@ export class AntigravityProvider implements AgentProvider {
     const runtime = new AntigravityRuntime();
     const cwd = await mkdtemp(join(tmpdir(), "ya-antigravity-models-"));
     let sessionId: string | undefined;
-    let models = [DEFAULT_MODEL];
+    let models: ModelInfo[] = [ANTIGRAVITY_DEFAULT_MODEL];
     let error: string | undefined;
     try {
       const command = await findAntigravityRuntime();
@@ -127,13 +144,9 @@ export class AntigravityProvider implements AgentProvider {
       sessionId = setup.sessionId;
       if (!sessionId)
         throw new Error("Antigravity did not return a session ID");
-      models = [
-        DEFAULT_MODEL,
-        ...(setup.models?.availableModels ?? []).map((model) => ({
-          id: model.modelId,
-          name: model.name,
-        })),
-      ];
+      models = buildAntigravityModels(setup, {
+        useConfigOptions: command.layout === "cli",
+      });
       this.catalogStatus = liveModelCatalog();
     } catch (cause) {
       error = modelCatalogError(cause);
@@ -210,14 +223,27 @@ export class AntigravityProvider implements AgentProvider {
           "Antigravity continuation requires its original native store and project",
         );
     }
-    const queue = new MessageQueue();
+    const controls: AntigravityControls = { commands: [] };
+    const queue = Object.assign(new MessageQueue(), {
+      setConfigurationInputHeld(held: boolean) {
+        controls.inputHeld = held;
+        controls.onInputHoldChanged?.();
+      },
+    });
     if (options.initialMessage) queue.push(options.initialMessage);
     const runtime = new AntigravityRuntime();
     const controller = new AbortController();
     const background = new AntigravityBackground(
       options.onProviderRetentionChange,
     );
-    const controls: AntigravityControls = { commands: [] };
+    let resolveReady!: () => void;
+    let rejectReady!: (error: Error) => void;
+    const ready = new Promise<void>((resolve, reject) => {
+      resolveReady = resolve;
+      rejectReady = reject;
+    });
+    void ready.catch(() => undefined);
+    const supportsThinking = this.supportsThinkingToggle;
     return {
       queue,
       iterator: this.run(
@@ -227,11 +253,33 @@ export class AntigravityProvider implements AgentProvider {
         controller.signal,
         background,
         controls,
+        resolveReady,
+        rejectReady,
       ),
       ...(this.supportsSteering
         ? {
             steer: async (message: UserMessage) =>
               controls.steer?.(message) ?? false,
+          }
+        : {}),
+      supportedModels: async () => controls.models ?? this.getAvailableModels(),
+      setModel: async (model?: string) => {
+        await ready;
+        if (!controls.setModel)
+          throw new Error("Antigravity session cannot change models");
+        await controls.setModel(model);
+      },
+      ...(supportsThinking
+        ? {
+            effortUpdatesActiveTurn: true,
+            setEffort: async (effort?: EffortLevel) => {
+              await ready;
+              if (!controls.setEffort)
+                throw new Error(
+                  "Antigravity session does not support live effort changes",
+                );
+              await controls.setEffort(effort);
+            },
           }
         : {}),
       supportedCommands: async () => controls.commands,
@@ -329,7 +377,22 @@ export class AntigravityProvider implements AgentProvider {
     signal: AbortSignal,
     background: AntigravityBackground,
     controls: AntigravityControls,
+    resolveReady: () => void,
+    rejectReady: (error: Error) => void,
   ): AsyncIterableIterator<SDKMessage> {
+    let settledReady = false;
+    const markReady = () => {
+      if (settledReady) return;
+      settledReady = true;
+      resolveReady();
+    };
+    const failReady = (error: unknown) => {
+      if (settledReady) return;
+      settledReady = true;
+      rejectReady(
+        error instanceof Error ? error : new Error(String(error ?? "closed")),
+      );
+    };
     const input = queue[Symbol.asyncIterator]();
     let owner: ReturnType<typeof ownAntigravitySession> | undefined;
     let wake: (() => void) | undefined;
@@ -376,7 +439,8 @@ export class AntigravityProvider implements AgentProvider {
       );
       const [major, minor] = runtime.agentVersion?.split(".").map(Number) ?? [];
       const modern =
-        command.layout === "cli" && major === 1 && (minor ?? 0) >= 5;
+        command.layout === "cli" &&
+        ((major ?? 0) > 1 || (major === 1 && (minor ?? 0) >= 5));
       void runtime.closed.then(stop);
       if (options.agentApiInstructions && !runtime.canAppendSystemPrompt)
         throw new Error(
@@ -443,17 +507,167 @@ export class AntigravityProvider implements AgentProvider {
       owner ??= ownAntigravitySession(namespace.storageScope, id);
       for (const message of replay?.messages ?? []) owner.record(message);
       controls.id = id;
-      let resolvedModel = setup.models?.currentModelId;
-      if (
-        options.model &&
-        options.model !== "default" &&
-        options.model !== "auto"
-      ) {
-        await runtime.call("session/set_model", {
-          sessionId: id,
-          modelId: options.model,
-        });
-        resolvedModel = options.model;
+      const structuredControls = command.layout === "cli";
+      controls.models = buildAntigravityModels(setup, {
+        useConfigOptions: structuredControls,
+      });
+      let configOptions: AntigravityConfigOption[] = structuredControls
+        ? (setup.configOptions ?? [])
+        : [];
+      const initialModel = resolveAntigravityModelSelection(
+        configOptions,
+        setup.models?.currentModelId,
+      );
+      let resolvedModel = initialModel;
+      const currentThought = () =>
+        findAntigravityConfigOption(configOptions, "thought_level");
+      let defaultEffort = currentThought()?.currentValue;
+      // One observed Auto level per model in this session's native catalog.
+      const autoEfforts = new Map<string, string>();
+      if (resolvedModel && defaultEffort)
+        autoEfforts.set(resolvedModel, defaultEffort);
+      let hasExplicitEffortOverride = false;
+      let pendingConfigCount = 0;
+      const inputHeld = () => controls.inputHeld || pendingConfigCount > 0;
+      controls.onInputHoldChanged = changed;
+      let configTail = Promise.resolve();
+      const serializeConfig = <T>(operation: () => Promise<T>): Promise<T> => {
+        pendingConfigCount++;
+        const runOp = async () => {
+          try {
+            return await operation();
+          } finally {
+            pendingConfigCount--;
+            changed();
+          }
+        };
+        const next = configTail.then(runOp, runOp);
+        configTail = next.then(
+          () => undefined,
+          () => undefined,
+        );
+        return next;
+      };
+      const applyModelSelection = async (
+        requested: string | undefined,
+        keepInitialWhenDefault: boolean,
+      ) => {
+        const explicit =
+          requested && requested !== "default" && requested !== "auto"
+            ? requested
+            : undefined;
+        const target =
+          explicit ?? (keepInitialWhenDefault ? undefined : initialModel);
+        if (!target) return;
+        const modelOption = findAntigravityConfigOption(configOptions, "model");
+        if (modelOption) {
+          const legacy = splitAntigravityLegacyModel(target, controls.models);
+          const base = legacy?.modelId ?? target;
+          const override = hasExplicitEffortOverride
+            ? currentThought()?.currentValue
+            : undefined;
+          if (base !== resolvedModel) {
+            if (!modelOption.options?.some((entry) => entry.value === base)) {
+              throw new Error(`Antigravity does not offer model "${target}"`);
+            }
+            // agy carries a compatible effort across base models. Clear an
+            // explicit override first so the target inherits the Auto baseline.
+            if (override)
+              await applyThinkingSelection(undefined, undefined, true);
+            const response = await runtime.call<{
+              configOptions?: AntigravityConfigOption[];
+            }>("session/set_config_option", {
+              sessionId: id,
+              configId: modelOption.id,
+              value: base,
+            });
+            if (Array.isArray(response?.configOptions))
+              configOptions = response.configOptions;
+            resolvedModel = resolveAntigravityModelSelection(
+              configOptions,
+              base,
+            );
+            const observed = currentThought()?.currentValue;
+            defaultEffort =
+              (resolvedModel && autoEfforts.get(resolvedModel)) || observed;
+            if (resolvedModel && defaultEffort)
+              autoEfforts.set(resolvedModel, defaultEffort);
+            if (observed !== defaultEffort)
+              await applyThinkingSelection(undefined, undefined, true);
+          }
+          const selectedEffort =
+            legacy?.embeddedEffort ??
+            (isAntigravityEffortLevel(override) ? override : undefined);
+          if (
+            selectedEffort &&
+            currentThought()?.options?.some(
+              (entry) => entry.value === selectedEffort,
+            )
+          ) {
+            await applyThinkingSelection(undefined, selectedEffort, false);
+          }
+        } else {
+          await runtime.call("session/set_model", {
+            sessionId: id,
+            modelId: target,
+          });
+          resolvedModel = target;
+        }
+      };
+      const applyThinkingSelection = async (
+        thinking: StartSessionOptions["thinking"],
+        effort: StartSessionOptions["effort"],
+        restoreModelDefault: boolean,
+      ) => {
+        const thoughtOption = currentThought();
+        const offered =
+          thoughtOption?.options?.map((entry) => entry.value) ?? [];
+        let target = resolveAntigravityTargetEffort(thinking, effort, offered);
+        if (!thoughtOption) {
+          if (effort !== undefined)
+            throw new Error(
+              `Model "${resolvedModel ?? "current"}" does not support configurable thinking levels`,
+            );
+          hasExplicitEffortOverride = false;
+          return;
+        }
+        if (!target && restoreModelDefault && effort === undefined) {
+          if (!defaultEffort && hasExplicitEffortOverride) {
+            throw new Error(
+              `Cannot restore default thinking level for model "${resolvedModel ?? "current"}"`,
+            );
+          }
+          target = defaultEffort;
+        }
+        if (!target) return;
+        if (thoughtOption.currentValue !== target) {
+          const response = await runtime.call<{
+            configOptions?: AntigravityConfigOption[];
+          }>("session/set_config_option", {
+            sessionId: id,
+            configId: thoughtOption.id,
+            value: target,
+          });
+          if (Array.isArray(response?.configOptions)) {
+            configOptions = response.configOptions;
+            resolvedModel = resolveAntigravityModelSelection(
+              configOptions,
+              resolvedModel,
+            );
+          }
+        }
+        hasExplicitEffortOverride =
+          effort !== undefined || thinking?.type === "disabled";
+      };
+      await applyModelSelection(options.model, true);
+      await applyThinkingSelection(options.thinking, options.effort, false);
+      controls.setModel = (model) =>
+        serializeConfig(() => applyModelSelection(model, false));
+      if (findAntigravityConfigOption(configOptions, "model")) {
+        controls.setEffort = (effort) =>
+          serializeConfig(() =>
+            applyThinkingSelection(undefined, effort, true),
+          );
       }
       // Use only offered native modes: 1.4.x named them auto_edit/yolo,
       // agy 1.5+ offers accept-edits and grants YOLO through a launch flag.
@@ -479,6 +693,7 @@ export class AntigravityProvider implements AgentProvider {
         );
       if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
         await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
+      markReady();
       yield {
         type: "system",
         subtype: "init",
@@ -490,13 +705,18 @@ export class AntigravityProvider implements AgentProvider {
       for (const message of replay?.messages ?? [])
         yield { ...message, isReplay: true };
       const updates: SDKMessage[] = [];
-      const publish = (converted: SDKMessage) => {
+      const publish = (
+        converted: SDKMessage,
+        attributionModel = resolvedModel,
+      ) => {
         if (
           converted.type === "assistant" &&
           converted.message &&
-          resolvedModel
-        )
-          converted.message.model = resolvedModel;
+          attributionModel
+        ) {
+          converted.message.model = attributionModel;
+          converted._selectedProviderModel = resolvedModel;
+        }
         const { _isStreaming: _partial, ...committed } = converted;
         owner!.record(committed);
         if (updates.at(-1)?.uuid === converted.uuid)
@@ -509,7 +729,7 @@ export class AntigravityProvider implements AgentProvider {
       let compacting = false;
       if (modern)
         controls.compact = async (argument) => {
-          if (compacting || foregroundUpdate)
+          if (compacting || foregroundUpdate || inputHeld())
             return {
               handled: true,
               error: "Wait for the active Antigravity turn or queue compaction",
@@ -546,6 +766,31 @@ export class AntigravityProvider implements AgentProvider {
           update.sessionUpdate === "user_message_chunk"
         )
           return;
+        if (
+          structuredControls &&
+          update.sessionUpdate === "config_option_update" &&
+          Array.isArray(update.configOptions)
+        ) {
+          configOptions = update.configOptions;
+          const selected = resolveAntigravityModelSelection(
+            configOptions,
+            resolvedModel,
+          );
+          if (
+            pendingConfigCount === 0 &&
+            selected &&
+            selected !== resolvedModel
+          ) {
+            defaultEffort = autoEfforts.get(selected);
+            const observed = currentThought()?.currentValue;
+            if (!defaultEffort && observed && !hasExplicitEffortOverride) {
+              defaultEffort = observed;
+              autoEfforts.set(selected, observed);
+            }
+          }
+          resolvedModel = selected;
+          return;
+        }
         if (observeCommands(update))
           publish({
             type: "system",
@@ -589,7 +834,7 @@ export class AntigravityProvider implements AgentProvider {
         while (!signal.aborted && runtime.alive) {
           if (updates.length) yield updates.shift()!;
           else if (inputError) throw inputError;
-          else if (nextInput && !compacting) break;
+          else if (nextInput && !compacting && !inputHeld()) break;
           else await waitForChange();
         }
         if (signal.aborted || nextInput?.done || !nextInput) break;
@@ -619,6 +864,7 @@ export class AntigravityProvider implements AgentProvider {
           observedOriginal = true;
           options.onNativeInputConsumed?.(id, uuid);
         };
+        let activeTurnModel = resolvedModel;
         foregroundUpdate = (update) => {
           // A new owner has no earlier turn that could produce this output.
           // Confirm startup on native progress so the first turn can be steered.
@@ -629,7 +875,8 @@ export class AntigravityProvider implements AgentProvider {
               update.sessionUpdate === "tool_call")
           )
             acknowledgeOriginal();
-          for (const converted of transcript.accept(update)) publish(converted);
+          for (const converted of transcript.accept(update))
+            publish(converted, activeTurnModel);
           changed();
         };
         let pending = 0;
@@ -638,7 +885,8 @@ export class AntigravityProvider implements AgentProvider {
         const prompt = (text: string, inputId: string, steer?: UserMessage) => {
           if (steer) {
             const previous = transcript.close();
-            if (previous) publish(previous);
+            if (previous) publish(previous, activeTurnModel);
+            activeTurnModel = resolvedModel;
           }
           publish({
             type: "user",
@@ -680,6 +928,7 @@ export class AntigravityProvider implements AgentProvider {
             if (
               signal.aborted ||
               !runtime.alive ||
+              inputHeld() ||
               failure ||
               pending >= 8 ||
               input.images?.length ||
@@ -701,21 +950,26 @@ export class AntigravityProvider implements AgentProvider {
         background.foregroundSettled();
         const last = transcript.close();
         if (last) {
-          publish(last);
+          publish(last, activeTurnModel);
           yield updates.shift()!;
         }
         if (failure) throw failure;
         yield { type: "result", session_id: id, usage };
       }
     } catch (error) {
+      failReady(error);
       if (!signal.aborted)
         yield {
           type: "error",
           error: error instanceof Error ? error.message : String(error),
         };
     } finally {
+      failReady(new Error("Antigravity session closed before initialization"));
       controls.steer = undefined;
       controls.compact = undefined;
+      controls.setModel = undefined;
+      controls.setEffort = undefined;
+      controls.onInputHoldChanged = undefined;
       background.clear();
       signal.removeEventListener("abort", stop);
       await input.return?.();

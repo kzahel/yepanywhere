@@ -424,4 +424,119 @@ describe("ModelSwitchModal", () => {
       expect(screen.queryByText("modelSwitchSpeedLabel")).toBeNull();
     });
   });
+
+  describe("antigravity", () => {
+    it("opens clean on Auto when thinking is omitted and hides thinking controls on fixed-effort models", async () => {
+      mockGetProcessModels.mockResolvedValue({
+        models: [
+          {
+            id: "gemini-4-neon",
+            name: "Gemini 4 Neon",
+            supportsEffort: true,
+            supportedEffortLevels: ["low", "medium", "high", "xhigh"],
+          },
+          {
+            id: "gemini-pro-orchestrator-neon",
+            name: "Orchestrator (Neon)",
+            supportsEffort: false,
+            supportsAdaptiveThinking: false,
+          },
+        ],
+      });
+      mockGetProcessInfo.mockResolvedValue({
+        process: {
+          model: "gemini-4-neon",
+          provider: "antigravity",
+          thinking: undefined,
+          effort: undefined,
+        },
+      });
+
+      render(
+        <ModelSwitchModal
+          processId="process-1"
+          sessionId="session-1"
+          currentModel="gemini-4-neon"
+          sessionProvider="antigravity"
+          onModelChanged={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      await screen.findByText("Orchestrator (Neon)");
+      expect(
+        screen.queryByRole("button", { name: /modelSwitchSaveAll/ }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("radio", { name: /modelSettingsThinkingOffLabel/ }),
+      ).toBeNull();
+      expect(
+        screen.getByRole("radio", { name: /effortLevelExtraHighLabel/ }),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("radio", { name: /effortLevelMaxLabel/ }),
+      ).toBeNull();
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /Orchestrator \(Neon\)/ }),
+      );
+      expect(screen.queryByText("modelSwitchThinkingModeTitle")).toBeNull();
+      expect(screen.queryByText("modelSettingsEffortTitle")).toBeNull();
+      const saveButtons = await screen.findAllByRole("button", {
+        name: /modelSwitchSaveAll/,
+      });
+      fireEvent.click(saveButtons[0]!);
+      await waitFor(() => {
+        expect(mockSetProcessConfig).toHaveBeenCalledWith("process-1", {
+          model: "gemini-pro-orchestrator-neon",
+          thinking: "auto",
+          showThinking: true,
+        });
+      });
+    });
+
+    it("omits thinking controls and thinking payload against older servers without Antigravity effort metadata", async () => {
+      mockGetProcessModels.mockResolvedValue({
+        models: [
+          { id: "gemini-4-neon-high", name: "Gemini 4 Neon (High)" },
+          { id: "gemini-4-neon-low", name: "Gemini 4 Neon (Low)" },
+        ],
+      });
+      mockGetProcessInfo.mockResolvedValue({
+        process: {
+          model: "gemini-4-neon-high",
+          provider: "antigravity",
+          thinking: undefined,
+          effort: undefined,
+        },
+      });
+
+      render(
+        <ModelSwitchModal
+          processId="process-1"
+          sessionId="session-1"
+          currentModel="gemini-4-neon-high"
+          sessionProvider="antigravity"
+          onModelChanged={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      await screen.findByText("Gemini 4 Neon (Low)");
+      expect(screen.queryByText("modelSwitchThinkingModeTitle")).toBeNull();
+      expect(screen.queryByText("modelSettingsEffortTitle")).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", { name: /Gemini 4 Neon \(Low\)/ }),
+      );
+      const saveButtons = await screen.findAllByRole("button", {
+        name: /modelSwitchSaveAll/,
+      });
+      fireEvent.click(saveButtons[0]!);
+      await waitFor(() => {
+        expect(mockSetProcessConfig).toHaveBeenCalledWith("process-1", {
+          model: "gemini-4-neon-low",
+        });
+      });
+    });
+  });
 });

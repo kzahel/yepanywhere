@@ -7,6 +7,19 @@ import { delimiter, dirname, join, resolve } from "node:path";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
 import type { SDKMessage } from "../types.js";
 
+export interface AntigravityConfigOption {
+  id: string;
+  name?: string;
+  category?: string;
+  type?: string;
+  currentValue?: string;
+  options?: Array<{
+    value: string;
+    name?: string;
+    description?: string;
+  }>;
+}
+
 export interface AntigravityUpdate {
   sessionUpdate: string;
   content?: { type?: string; text?: string } | unknown[];
@@ -23,6 +36,7 @@ export interface AntigravityUpdate {
     description: string;
     input?: { hint?: string };
   }>;
+  configOptions?: AntigravityConfigOption[];
 }
 
 export interface AntigravitySessionSetup {
@@ -35,6 +49,7 @@ export interface AntigravitySessionSetup {
     currentModeId: string;
     availableModes: Array<{ id: string; name?: string }>;
   };
+  configOptions?: AntigravityConfigOption[];
 }
 
 /** The active runtime's native conversation store. Without an installed
@@ -267,11 +282,22 @@ export class AntigravityRuntime {
         buffer = buffer.slice(end + 1);
         end = buffer.indexOf("\n");
         if (!line.trim()) continue;
+        let message: Record<string, unknown>;
         try {
-          this.receive(JSON.parse(line) as Record<string, unknown>);
+          message = JSON.parse(line) as Record<string, unknown>;
+          if (!message || typeof message !== "object" || Array.isArray(message))
+            throw new Error("Expected a JSON-RPC object");
         } catch {
           this.fail(new Error("Invalid Antigravity protocol response"));
           void this.close();
+          return;
+        }
+        try {
+          this.receive(message);
+        } catch (error) {
+          this.fail(error instanceof Error ? error : new Error(String(error)));
+          void this.close();
+          return;
         }
       }
     });

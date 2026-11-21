@@ -1995,6 +1995,7 @@
   "skillInvocationStillSent": "Text will still be sent.",
   "toolbarQueuePrimaryActionLabel": "Queue from primary action",
   "toolbarThinkingTitle": "{current}. Click to choose; right-click or long-press to toggle off/on. Applies next turn.",
+  "toolbarThinkingAutoOnTitle": "{current}. Click to choose. Right-click or long-press to switch between Auto and On. Applies next turn.",
   "toolbarThinkingAppliesNextTurn": "Applies next turn",
   "showThinkingTitle": "Show thinking",
   "showThinkingHint": "Show the model's thinking. For some providers this is only a summary.",

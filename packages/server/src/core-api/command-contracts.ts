@@ -95,8 +95,7 @@ export const createSessionRequest = z
   .refine(
     (body) =>
       body.provider !== "antigravity" ||
-      (body.thinking === undefined &&
-        body.serviceTier === undefined &&
+      (body.serviceTier === undefined &&
         !body.routerPoolId &&
         !body.routerAccountId &&
         body.permissionMode !== "plan"),

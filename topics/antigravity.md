@@ -87,8 +87,35 @@ YA sends ordinary text verbatim, adds no context prefix, advertises no client
 filesystem/terminal tools and performs no model substitution. The native default
 stays selected unless the operator explicitly chooses a model. The dynamic
 catalog is the actual account's `session/new` response, not the CLI's catalog
-or a static list. A coalesced, short-lived blank probe checks readiness without
-sending a model prompt, then removes only its proven scratch session files.
+or a static list. When `agy` 1.5+ returns structured ACP `configOptions` for `model` and
+`thought_level`, YA projects the base models with per-model supported thinking
+levels derived from the paired `availableModels` entries while keeping the
+`default` sentinel as the default selection so untouched launches preserve the
+runtime's own default model. Separate model and effort controls offer `Auto`
+(restoring the level observed before a YA override) and `On` with the model's offered
+levels, omitting thinking controls for fixed-effort models; explicit `off` from
+API or older callers maps to the lowest offered level because `agy` has no
+disabled thinking level. Standalone 1.4.x runtimes (even when they include
+`configOptions` with `thinking_level`) keep the flat `availableModels` catalog
+with thinking controls disabled. The v0.12.0 and v0.13.0 server catalogs omit
+structured Antigravity effort metadata. Current clients keep those flat
+catalogs usable and omit thinking overrides for them. Both startup, resume,
+and live mid-session
+`setModel` / `setEffort` apply changes in place via `session/set_config_option`
+(falling back to `session/set_model` on 1.4.x), without restarting the runtime.
+In-flight replies remain attributed to the model active when the turn started.
+Combined changes hold input and publish the new configuration only after both
+settings apply. If restoration fails, queued input waits until a configuration
+request successfully reapplies the desired pair.
+Legacy effort-suffixed model IDs remain accepted: when no explicit effort is
+supplied, YA syncs the embedded effort into session state and persisted launch
+settings; when an explicit effort is also supplied, the explicit effort takes
+precedence. If catalog discovery is unavailable during launch, the saved ID
+stays intact and the native session applies it using its own catalog.
+Requesting an explicit thinking level on a model that does not offer
+one fails explicitly before mutating active session state. A coalesced, short-lived
+blank probe checks readiness without sending a model prompt, then removes only
+its proven scratch session files.
 
 YA default and accept-edits select the native mode the runtime offers:
 `default` and `accept-edits` in `agy` 1.5+, `default` and `auto_edit` in the
@@ -179,9 +206,11 @@ provider watcher reports and viewers refetch, a cold history read is reused
 until those files differ from their post-load state (at most four per project
 reader). Without this, opening a session could reload it repeatedly. Native title lookups coalesce and cache their ACP list for five seconds,
 cap at 2,000 entries and refuse unsupported pagination.
-At most eight detail reads per cached reader may run concurrently. Replay is
-bounded to 8 MiB/10,000 messages and protocol frames to 16 MiB; excess fails
-explicitly instead of claiming complete history. Larger-corpus/bounded native
+At most eight detail reads per cached reader may run concurrently. YA bounds
+the normalized history it retains to 8 MiB and 10,000 messages, and each ACP
+frame to 16 MiB. Tool fields that YA does not display do not consume the
+history budget or prevent resume. If the retained history exceeds its limit,
+YA reports the history-limit error. Larger-corpus/bounded native
 replay support is a prerequisite to removing these preview limits.
 The live projection has the same 8 MiB/10,000-message limit. It is retained only
 for an owned provider session and adds no timers or background history reads.

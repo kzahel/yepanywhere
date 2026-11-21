@@ -55,7 +55,7 @@ afterEach(async (context) => {
 });
 
 describe.each(providers)("native lifecycle: %s", (provider) => {
-  if (["claude", "codex", "pi"].includes(provider))
+  if (["claude", "codex", "pi", "antigravity"].includes(provider))
     it("live model selection changes the actual next request and cold launch", async () => {
       const f = await nativeFixture(provider);
       fixture = f;
@@ -72,14 +72,75 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
           ? "owned/m2"
           : provider === "codex"
             ? "gpt-6.1-terra"
-            : "claude-sonnet-5-5";
+            : provider === "antigravity"
+              ? "gemini-3.7-flash"
+              : "claude-sonnet-5-5";
       const wireModel = provider === "pi" ? "m2" : selection;
+      if (provider === "antigravity")
+        expect(await f.proc.setEffort(undefined)).toBe(true);
       expect(await f.proc.setModel(selection)).toBe(true);
+      if (provider === "antigravity") {
+        // Observe the target's Auto wire level before introducing an override.
+        expect(
+          f.proc.queueMessage({ text: "LIVE_SWITCH_BASELINE" }).success,
+        ).toBe(true);
+        const liveBaseReq = await f.model.next();
+        expect(liveBaseReq.model).toBe(wireModel);
+        const liveBaseMatch = JSON.stringify(liveBaseReq.body).match(
+          /"(?:thinkingLevel|thinking_level)":"([A-Z]+)"/i,
+        );
+        const observedLiveBaseline = liveBaseMatch?.[1]?.toLowerCase();
+        expect(observedLiveBaseline).toBeTruthy();
+        liveBaseReq.finish("LIVE_BASELINE_DONE");
+        await f.output("LIVE_BASELINE_DONE");
+        await f.idle();
+
+        const liveOverride =
+          observedLiveBaseline === "medium" ? "high" : "medium";
+        expect(await f.proc.setModel(initial.model)).toBe(true);
+        expect(await f.proc.setEffort(liveOverride)).toBe(true);
+        expect(await f.proc.setModel(selection)).toBe(true);
+        expect(
+          f.proc.queueMessage({ text: "LIVE_SWITCH_OVERRIDE" }).success,
+        ).toBe(true);
+        const liveOverrideReq = await f.model.next();
+        expect(JSON.stringify(liveOverrideReq.body)).toMatch(
+          new RegExp(
+            `"(?:thinkingLevel|thinking_level)":"${liveOverride.toUpperCase()}"`,
+            "i",
+          ),
+        );
+        liveOverrideReq.finish("LIVE_OVERRIDE_DONE");
+        await f.output("LIVE_OVERRIDE_DONE");
+        await f.idle();
+
+        expect(await f.proc.setEffort(undefined)).toBe(true);
+        expect(f.proc.queueMessage({ text: "LIVE_SWITCH_AUTO" }).success).toBe(
+          true,
+        );
+        const liveAutoReq = await f.model.next();
+        expect(JSON.stringify(liveAutoReq.body)).toMatch(
+          new RegExp(
+            `"(?:thinkingLevel|thinking_level)":"${observedLiveBaseline!.toUpperCase()}"`,
+            "i",
+          ),
+        );
+        liveAutoReq.finish("LIVE_AUTO_DONE");
+        await f.output("LIVE_AUTO_DONE");
+        await f.idle();
+
+        expect(await f.proc.setEffort("low")).toBe(true);
+      }
       expect(f.proc.queueMessage({ text: "AFTER_MODEL_CHANGE" }).success).toBe(
         true,
       );
       const changed = await f.model.next();
       expect(changed.model).toBe(wireModel);
+      if (provider === "antigravity") {
+        expect(JSON.stringify(changed.body)).toMatch(
+          /"thinkingLevel":"LOW"|"thinking_level":"LOW"/i,
+        );
+      }
       changed.finish("MODEL_CHANGE_DONE");
       await f.output("MODEL_CHANGE_DONE");
       await f.idle();
@@ -90,10 +151,16 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
         resumeSessionId: id,
         nativeResumeSource: source,
         model: selection,
+        ...(provider === "antigravity" ? { effort: "low" as const } : {}),
         initialMessage: { text: "RESTORED_MODEL_CHOICE" },
       });
       const restored = await f.model.next();
       expect(restored.model).toBe(wireModel);
+      if (provider === "antigravity") {
+        expect(JSON.stringify(restored.body)).toMatch(
+          /"thinkingLevel":"LOW"|"thinking_level":"LOW"/i,
+        );
+      }
       expect(JSON.stringify(restored.body).includes("AFTER_MODEL_CHANGE")).toBe(
         true,
       );
@@ -102,9 +169,64 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       await f.idle();
       expect(f.nativeId()).toBe(id);
       await f.close();
+      fixture = undefined;
       expect(f.diagnostics).toEqual([]);
       expect(f.errors).toEqual([]);
       expect(f.model.failures).toEqual([]);
+      if (provider === "antigravity") {
+        // Verify Auto restores the actual observed startup baseline for a
+        // non-default model (captured on the wire before any override).
+        const autoFixture = await nativeFixture("antigravity", "gentle", {
+          launch: { model: "gemini-3.7-flash" },
+        });
+        fixture = autoFixture;
+        const baseReq = await autoFixture.model.next();
+        const baseMatch = JSON.stringify(baseReq.body).match(
+          /"(?:thinkingLevel|thinking_level)":"([A-Z]+)"/i,
+        );
+        const observedBaseline = baseMatch?.[1]?.toLowerCase();
+        expect(observedBaseline).toBeTruthy();
+        baseReq.finish("BASELINE_DONE");
+        await autoFixture.output("BASELINE_DONE");
+        await autoFixture.idle();
+
+        const override = observedBaseline === "medium" ? "high" : "medium";
+        expect(await autoFixture.proc.setEffort(override)).toBe(true);
+        expect(
+          autoFixture.proc.queueMessage({ text: "EFFORT_OVERRIDE_DISTINCT" })
+            .success,
+        ).toBe(true);
+        const overrideTurn = await autoFixture.model.next();
+        expect(JSON.stringify(overrideTurn.body)).toMatch(
+          new RegExp(
+            `"(?:thinkingLevel|thinking_level)":"${override.toUpperCase()}"`,
+            "i",
+          ),
+        );
+        overrideTurn.finish("OVERRIDE_DONE");
+        await autoFixture.output("OVERRIDE_DONE");
+        await autoFixture.idle();
+
+        expect(await autoFixture.proc.setEffort(undefined)).toBe(true);
+        expect(
+          autoFixture.proc.queueMessage({ text: "EFFORT_RESET_AUTO" }).success,
+        ).toBe(true);
+        const autoTurn = await autoFixture.model.next();
+        expect(JSON.stringify(autoTurn.body)).toMatch(
+          new RegExp(
+            `"(?:thinkingLevel|thinking_level)":"${observedBaseline!.toUpperCase()}"`,
+            "i",
+          ),
+        );
+        autoTurn.finish("AUTO_DONE");
+        await autoFixture.output("AUTO_DONE");
+        await autoFixture.idle();
+        await autoFixture.close();
+        fixture = undefined;
+        expect(autoFixture.diagnostics).toEqual([]);
+        expect(autoFixture.errors).toEqual([]);
+        expect(autoFixture.model.failures).toEqual([]);
+      }
     });
 
   it("cancels an active native request and continues with saved context", {
