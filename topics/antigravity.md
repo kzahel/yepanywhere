@@ -53,6 +53,12 @@ reads tokens, calls `authenticate` or `logout`, forwards an OAuth callback,
 switches accounts, or selects an API-billed method. A missing login fails with
 the native error; it does not start YA-managed sign-in.
 
+For an explicitly configured `CLOUD_CODE_URL`, YA passes a configured
+`GEMINI_HOME` to `agy acp` as `--gemini-dir` so the runtime and YA's history
+reader use the same profile. See the experimental
+[AAR Antigravity bridge](https://github.com/kzahel/agent-auth-router/blob/main/docs/antigravity.md)
+for the manual subscription gateway setup.
+
 The November 3 live probe found that CLI 1.4.12 and the standalone ACP 1.4.5
 required separate initial sign-ins even under the same home; on 2026-11-13,
 `agy acp` 1.5.8 reused the CLI's login with no further sign-in. The ACP runtime saved its own
