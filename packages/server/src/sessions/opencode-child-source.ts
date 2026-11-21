@@ -17,7 +17,7 @@ import {
   type OpenCodeDbReader,
   type OpenCodeRelationshipSnapshot,
 } from "./opencode-db-reader.js";
-import { sortProviderChildSessions } from "./types.js";
+import { ChildActivityOverlay } from "./child-source-activity.js";
 import type {
   ObservedProviderChild,
   ProviderChildSource,
@@ -190,7 +190,7 @@ export class OpenCodeChildSourceOwner {
   // Native event queues can interleave DB/WAL generations; keep four compact
   // results, never native rows. One shared probe replaces per-parent scans.
   private readonly probes = new Map<string, Promise<ReadonlySet<string>>>();
-  private readonly activity = new Map<string, string>(); // MAX_ACTIVITY
+  private readonly activity = new ChildActivityOverlay(MAX_ACTIVITY);
   private readonly projectDirectory: Promise<string>;
   constructor(
     private readonly options: {
@@ -308,10 +308,7 @@ export class OpenCodeChildSourceOwner {
     )
       return new Set();
     for (const [id, updatedAt] of activity) {
-      if (!this.activity.has(id) || this.activity.get(id)! < updatedAt)
-        this.activity.set(id, updatedAt);
-      if (this.activity.size > MAX_ACTIVITY)
-        this.activity.delete(this.activity.keys().next().value!);
+      this.activity.remember(id, updatedAt);
     }
     return changed;
   }
@@ -671,11 +668,7 @@ export class OpenCodeChildSourceOwner {
           complete = false;
           continue;
         }
-        const previous = this.activity.get(row.id);
-        if (!previous || previous < row.updatedAt)
-          this.activity.set(row.id, row.updatedAt);
-        if (this.activity.size > MAX_ACTIVITY)
-          this.activity.delete(this.activity.keys().next().value!);
+        this.activity.remember(row.id, row.updatedAt);
         if (!row.parent) continue;
         if (!rows.has(row.parent) || !eligible.has(row.parent)) {
           complete = false;
@@ -768,18 +761,7 @@ export class OpenCodeChildSourceOwner {
         ]);
         return (await this.probeChanges(key, parent)).has(sourceKey(parent));
       },
-      overlayActivity: (children) => {
-        let changed = false;
-        const next = children.map((c) => {
-          const updatedAt = this.activity.get(c.id);
-          if (updatedAt && updatedAt > c.updatedAt) {
-            changed = true;
-            return { ...c, updatedAt };
-          }
-          return c;
-        });
-        return changed ? sortProviderChildSessions(next) : children;
-      },
+      overlayActivity: (children) => this.activity.overlay(children),
       observe: async (signal) => {
         const result = await observe(signal);
         if (!result) throw new Error("OpenCode native parent unavailable");

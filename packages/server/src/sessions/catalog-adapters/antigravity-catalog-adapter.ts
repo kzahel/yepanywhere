@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { opendir } from "node:fs/promises";
-import { antigravitySessionsDir } from "../../sdk/providers/antigravity-runtime.js";
+import { isAbsolute, relative, sep } from "node:path";
+import {
+  antigravitySessionsDir,
+  antigravitySummariesPath,
+} from "../../sdk/providers/antigravity-runtime.js";
 import {
   ANTIGRAVITY_METADATA_LIMIT,
   ANTIGRAVITY_SESSION_ID,
@@ -14,6 +19,13 @@ import {
 } from "../catalog-types.js";
 import { buildCatalogRow, isWithinScanMode } from "./row.js";
 
+function storeOwnsCandidate(root: string, candidate: string): boolean {
+  const summaries = antigravitySummariesPath(root);
+  if (candidate === summaries || candidate === `${summaries}-wal`) return true;
+  const child = relative(root, candidate);
+  return child !== ".." && !child.startsWith(`..${sep}`) && !isAbsolute(child);
+}
+
 /** A single bounded native inventory, shared by project and session consumers. */
 export class AntigravitySessionCatalogAdapter
   implements NativeSessionCatalogAdapter
@@ -23,6 +35,25 @@ export class AntigravitySessionCatalogAdapter
 
   constructor(options: { sessionsDir?: string } = {}) {
     this.storeKey = options.sessionsDir ?? antigravitySessionsDir();
+  }
+
+  ownsPath(path: string): boolean {
+    if (storeOwnsCandidate(this.storeKey, path)) return true;
+    try {
+      const physicalRoot = realpathSync(this.storeKey);
+      if (storeOwnsCandidate(physicalRoot, path)) return true;
+      try {
+        const physicalPath = realpathSync(path);
+        return (
+          storeOwnsCandidate(this.storeKey, physicalPath) ||
+          storeOwnsCandidate(physicalRoot, physicalPath)
+        );
+      } catch {
+        return false;
+      }
+    } catch {
+      return false;
+    }
   }
 
   async scan(context: SessionCatalogScanContext) {
@@ -56,6 +87,7 @@ export class AntigravitySessionCatalogAdapter
           const metadata = await readAntigravityMetadata(this.storeKey, id);
           if (
             !metadata ||
+            metadata.isChild ||
             !isWithinScanMode(context.mode, metadata.updatedAtMs)
           )
             return;

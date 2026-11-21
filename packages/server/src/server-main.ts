@@ -89,6 +89,7 @@ import { ProjectWorktreeSubscriptionManager } from "./projects/projectWorktreeSu
 import { projectPathCacheDiagnostics } from "./projects/projectPathIndex.js";
 import { GROK_SESSIONS_DIR } from "./projects/paths.js";
 import { OPENCODE_DB_PATH } from "./sessions/opencode-reader.js";
+import { antigravitySessionWatcherSpec } from "./sessions/antigravity-summaries.js";
 import { openCodeRelationshipWatcherSpec } from "./sessions/opencode-child-source.js";
 import { ProjectStoragePolicy } from "./projects/projectStoragePolicy.js";
 import { PushService, getOrCreateVapidKeys } from "./push/index.js";
@@ -472,12 +473,7 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
   activationDelayMs: PROVIDER_WATCH_ACTIVATION_DELAY_MS,
   activationYieldMs: PROVIDER_WATCH_ACTIVATION_YIELD_MS,
   specs: [
-    {
-      family: "antigravity",
-      provider: "antigravity",
-      watchDir: antigravitySessionsDir(),
-      debounceMs: 200,
-    },
+    antigravitySessionWatcherSpec(antigravitySessionsDir()),
     {
       family: "claude",
       watchDir: config.claudeSessionsDir,

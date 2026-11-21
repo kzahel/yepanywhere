@@ -1,6 +1,7 @@
 import { appProviderRuntime } from "./sdk/app-provider-runtime.js";
 import { ownedApiSessions } from "./core-api/owned-sessions.js";
 import type { ProviderObservationCallbacks } from "./watcher/ProviderSessionWatcherRegistry.js";
+import { wireProviderObservations } from "./watcher/provider-observation-wiring.js";
 import { createClaudeTranscriptCache } from "./sessions/claude-transcript-cache.js";
 import { createSessionReaderAdmission } from "./sessions/session-reader-admission.js";
 import {
@@ -1662,24 +1663,11 @@ export function createApp(options: AppOptions): AppResult {
       );
     },
   );
-  const unsubscribeProviderChildChanges = options.eventBus?.subscribe(
-    (event) => {
-      if (event.type === "file-change") {
-        providerChildRelationships.notifyNativeFileChange(event);
-        harnessRelationships.notifyFileChange(event);
-      }
-    },
+  const providerObservations = wireProviderObservations(
+    options,
+    providerChildRelationships,
+    harnessRelationships,
   );
-  const unsubscribeProviderObservationReady =
-    options.subscribeProviderObservationReady?.((family) => {
-      providerChildRelationships.observationReady(family);
-      harnessRelationships.observationReady(family);
-    });
-  const unsubscribeNativeProviderFileChanges =
-    options.subscribeNativeProviderFileChanges?.((event) => {
-      providerChildRelationships.notifyNativeFileChange(event);
-      harnessRelationships.notifyFileChange(event);
-    });
   const projectFileCompletion = new ProjectFileCompletion(effectiveDataDir, {
     eventBus: options.eventBus,
   });
@@ -1845,9 +1833,7 @@ export function createApp(options: AppOptions): AppResult {
     // Cache the promise before asynchronous cleanup can close shared services.
     sessionReadersDisposal ??= (async () => {
       sessionReadLifetime.abort();
-      unsubscribeProviderChildChanges?.();
-      unsubscribeProviderObservationReady?.();
-      unsubscribeNativeProviderFileChanges?.();
+      providerObservations.dispose();
       await providerChildRelationships.close();
       authorizedRelationships.dispose();
       await harnessRelationships.close();
@@ -3515,6 +3501,7 @@ export function createApp(options: AppOptions): AppResult {
       antigravitySessionsDir: options.antigravitySessionsDir,
     }),
   });
+  providerObservations.attachRetainedCollections(retainedCollections);
   conversationSubscriptions = new ConversationSubscriptions(
     createProviderConversationSource({
       readerFactory,

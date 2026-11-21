@@ -86,6 +86,8 @@ export interface SessionCatalogAdapterScan {
 export interface NativeSessionCatalogAdapter {
   catalogFamily: ProviderCatalogFamily;
   storeKey: string;
+  /** Optional path ownership predicate when a store depends on sibling files (e.g. summaries DB). */
+  ownsPath?(path: string): boolean;
   scan(context: SessionCatalogScanContext): Promise<SessionCatalogAdapterScan>;
 }
 

@@ -516,3 +516,4 @@
 - creation-recovery-never-blocks - Saved creation recovery state (New Session, Session-page Start, template creation) always offers Start fresh; the November 2026 stale-request lock investigation and repair.
 
 - v0-catalog-read-cost - v0 session operations that read the whole session catalog on the main event loop; single-session lookups moved to the native-id index first, lists and misses remain.
+- antigravity-subagents - Native Antigravity (agy) invoke_subagent child exclusion, durable SQL child relationships, child transcript reading, and background retention.

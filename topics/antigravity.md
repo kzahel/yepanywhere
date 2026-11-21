@@ -180,15 +180,21 @@ queued input into another conversation.
 History comes from native file facts and ACP `session/list` and
 `session/load`, with no YA shadow transcript or protobuf decoder. The standalone
 runtime writes a `<uuid>.meta` JSON file holding the project path; `agy` 1.5+
-writes none and instead records each conversation's workspace URIs and title in
-its `conversation_summaries.db` index. YA reads only that table's id,
-workspace and title columns, read-only, cached per index file version. When
-several workspace URIs are listed (`/private/tmp/x`, `/tmp/x`), the last is the
-cwd the client supplied and matches YA's project binding. Reading never
-sends a prompt or auth request. Unknown/foreign project files are not adopted.
-The native replay API may update Google's own continuation metadata. The
-`agy` 1.5.13 ACP stream and replay report file-read tool identity, location and
-status, while the file contents stay in native model context.
+writes none and instead records each conversation's workspace URIs, title and
+subagent lineage (`parent_conversation_id`, `agent_name`, `nesting_depth`) in
+its `conversation_summaries.db` index. YA reads only those bounded summary
+columns, read-only, rejecting out-of-store symlinks on the database and its
+SQLite sidecars. Conversations with a non-empty `parent_conversation_id` are
+excluded from top-level catalog scans, `listSessions`, `getSessionSummary` and
+`getSession` before any ACP subprocess starts, keeping provider-managed
+subagents out of top-level session lists even when their `<uuid>.db` files sit
+inside `conversations/`. When several workspace URIs are listed
+(`/private/tmp/x`, `/tmp/x`), the last is the cwd the client supplied and
+matches YA's project binding. Reading never sends a prompt or auth request.
+Unknown/foreign project files are not adopted. The native replay API may update
+Google's own continuation metadata. The `agy` 1.5.13 ACP stream and replay
+report file-read tool identity, location and status, while the file contents
+stay in native model context.
 
 The preview uses a local in-process owner, even when the shared provider host
 is enabled. Cold resume uses native `session/load` to restore history before
@@ -282,10 +288,12 @@ Retained project reads return accepted state while finite discovery runs.
 Completeness requires accepted coverage of each eligible native store, including
 empty stores; failed acquisition retains the previous generation. Only historically
 used families are eligible. Antigravity joins the existing provider-root watcher
-owner, watching native metadata, database and WAL changes. Changes under a
-registered native store refresh that store without rescanning file-provider
-projects. Project notifications follow changed project facts, rather than title
-changes alone. There is no new polling loop or watcher per project.
+owner, watching native conversation metadata, database and WAL changes as well
+as the sibling `conversation_summaries.db` and its `-wal` sidecar so
+lineage-only WAL commits invalidate the retained catalog without rescanning
+file-provider projects. Project notifications follow changed project facts,
+rather than title changes alone. There is no new polling loop or watcher per
+project.
 
 The next cleanup slice shares exact reader selection for child sessions and
 vocabulary, and Project Queue title lookups read accepted catalog facts without

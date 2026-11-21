@@ -26,6 +26,15 @@ export interface FileWatcherOptions {
   recursive?: boolean;
   /** Fixed files needing inode watches (macOS open SQLite WAL writes). Max 8. */
   watchFiles?: readonly string[];
+  /**
+   * Optional non-recursive watch on one fixed companion directory and up to
+   * eight exact basenames (e.g., Antigravity's sibling `conversation_summaries.db`
+   * and `-wal` without recursively watching neighboring trees like `brain/`).
+   */
+  companionWatchDir?: {
+    dir: string;
+    files: readonly string[];
+  };
   /** Internal finite handover; never emitted onto the client activity stream. */
   onInitialBaseline?: () => void;
   /**
@@ -145,6 +154,12 @@ export class FileWatcher {
   private readonly includePaths?: readonly string[];
   private readonly recursive: boolean;
   private readonly watchFiles: readonly string[];
+  private readonly companionWatchDir?: {
+    dir: string;
+    files: readonly string[];
+    fileSet: ReadonlySet<string>;
+  };
+  private companionWatcher: fs.FSWatcher | null = null;
   private readonly fileWatches = new Map<
     string,
     { identity: string; watcher: fs.FSWatcher }
@@ -199,6 +214,28 @@ export class FileWatcher {
       )
     )
       throw new Error("FileWatcher requires at most eight fixed basenames");
+    if (options.companionWatchDir) {
+      const { dir, files } = options.companionWatchDir;
+      if (
+        files.length > 8 ||
+        files.some(
+          (name) =>
+            !name ||
+            path.isAbsolute(name) ||
+            name.includes(path.sep) ||
+            name === "." ||
+            name === "..",
+        )
+      )
+        throw new Error(
+          "FileWatcher companionWatchDir requires at most eight fixed basenames",
+        );
+      this.companionWatchDir = {
+        dir,
+        files,
+        fileSet: new Set(files),
+      };
+    }
     this.onInitialBaseline = options.onInitialBaseline;
     this.periodicRescanMs = options.periodicRescanMs ?? 0;
     this.periodicRescanCurrentMs = this.periodicRescanMs;
@@ -259,11 +296,59 @@ export class FileWatcher {
         this.releaseFixedFiles();
       });
       this.refreshFileWatches();
-      if (this.fixedFilePoll && this.watchFiles.length) {
+      if (this.companionWatchDir) {
+        const companion = this.companionWatchDir;
+        try {
+          const companionWatcher = watchSharedDirectory(
+            companion.dir,
+            { recursive: false },
+            (eventType, filename) => {
+              if (!filename) {
+                for (const name of companion.files)
+                  this.handleAbsoluteFileEvent(
+                    eventType,
+                    path.join(companion.dir, name),
+                    true,
+                  );
+                return;
+              }
+              if (!companion.fileSet.has(filename)) return;
+              this.handleAbsoluteFileEvent(
+                eventType,
+                path.join(companion.dir, filename),
+                true,
+              );
+            },
+          );
+          this.companionWatcher = companionWatcher;
+          companionWatcher.on("error", (error) => {
+            if (this.companionWatcher !== companionWatcher) return;
+            this.failFileWatches(error);
+          });
+          companionWatcher.on("close", () => {
+            if (this.companionWatcher !== companionWatcher) return;
+            this.companionWatcher = null;
+          });
+        } catch (error) {
+          this.failFileWatches(error);
+        }
+      }
+      if (
+        this.fixedFilePoll &&
+        (this.watchFiles.length || this.companionWatchDir?.files.length)
+      ) {
         this.fixedFileTimer = runOutsideRequestContext(() =>
           setInterval(() => {
             for (const name of this.watchFiles)
               this.handleFileEvent("change", name);
+            if (this.companionWatchDir) {
+              for (const name of this.companionWatchDir.files)
+                this.handleAbsoluteFileEvent(
+                  "change",
+                  path.join(this.companionWatchDir.dir, name),
+                  true,
+                );
+            }
           }, 1000),
         );
         this.fixedFileTimer.unref();
@@ -299,6 +384,10 @@ export class FileWatcher {
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
+    }
+    if (this.companionWatcher) {
+      this.companionWatcher.close();
+      this.companionWatcher = null;
     }
 
     // Clear all debounce timers
@@ -413,6 +502,12 @@ export class FileWatcher {
       if (!completed || !this.isCurrentLifecycle(lifecycleGeneration)) {
         return null;
       }
+      if (
+        !(await this.statCompanionFiles(baseline, lifecycleGeneration)) ||
+        !this.isCurrentLifecycle(lifecycleGeneration)
+      ) {
+        return null;
+      }
 
       for (const filePath of baseline.keys()) {
         if (this.wasTouchedDuringBaseline(filePath)) {
@@ -461,6 +556,37 @@ export class FileWatcher {
         }
       }
     }
+  }
+
+  private async statCompanionFiles(
+    index: Map<string, FileFingerprint>,
+    lifecycleGeneration: number | null,
+  ): Promise<boolean> {
+    if (!this.companionWatchDir) return true;
+    for (const name of this.companionWatchDir.files) {
+      if (
+        lifecycleGeneration !== null &&
+        !this.isCurrentLifecycle(lifecycleGeneration)
+      ) {
+        return false;
+      }
+      const fullPath = path.join(this.companionWatchDir.dir, name);
+      try {
+        const stats = await fs.promises.stat(fullPath);
+        if (stats.isFile()) {
+          index.set(fullPath, {
+            mtimeMs: stats.mtimeMs,
+            size: stats.size,
+          });
+        }
+      } catch {
+        // Optional companion file (e.g. -wal) may not exist.
+      }
+    }
+    return (
+      lifecycleGeneration === null ||
+      this.isCurrentLifecycle(lifecycleGeneration)
+    );
   }
 
   private async scanDirAsync(
@@ -547,6 +673,14 @@ export class FileWatcher {
   private handleFileEvent(eventType: string, filename: string): void {
     const fullPath = path.join(this.watchDir, filename);
     if (!this.includesPath(fullPath)) return;
+    this.handleAbsoluteFileEvent(eventType, fullPath, false);
+  }
+
+  private handleAbsoluteFileEvent(
+    eventType: string,
+    fullPath: string,
+    isCompanion: boolean,
+  ): void {
     this.refreshFileWatches();
     const duringInitialBaseline =
       this.initialBaselineState === "scheduled" ||
@@ -559,7 +693,7 @@ export class FileWatcher {
     }
 
     getLogger().debug(
-      `[FileWatcher] Raw event provider=${this.provider} type=${eventType} file=${filename} path=${fullPath}`,
+      `[FileWatcher] Raw event provider=${this.provider} type=${eventType} companion=${isCompanion} path=${fullPath}`,
     );
 
     // Debounce per-file
@@ -642,7 +776,9 @@ export class FileWatcher {
       provider: this.provider,
       path: fullPath,
       relativePath,
-      ...(["claude", "codex", "grok", "opencode"].includes(this.provider)
+      ...(["claude", "codex", "grok", "opencode", "antigravity"].includes(
+        this.provider,
+      )
         ? { nativeStorageScope: this.watchDir }
         : {}),
       changeType,
@@ -804,6 +940,9 @@ export class FileWatcher {
         metrics,
         lifecycleGeneration,
       );
+      if (completed) {
+        completed = await this.statCompanionFiles(current, lifecycleGeneration);
+      }
       if (
         lifecycleGeneration !== null &&
         !this.isCurrentLifecycle(lifecycleGeneration)
@@ -1011,12 +1150,20 @@ export class FileWatcher {
           ? "session"
           : "other";
       }
-      case "antigravity":
-        return /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(?:meta|db(?:-wal)?)$/i.test(
-          relativePath,
+      case "antigravity": {
+        const normalized = relativePath.replace(/\\/g, "/");
+        const base = path.posix.basename(normalized);
+        if (
+          base === "conversation_summaries.db" ||
+          base === "conversation_summaries.db-wal"
+        )
+          return "session";
+        return /^(?:conversations\/)?[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(?:meta|db(?:-wal)?)$/i.test(
+          normalized,
         )
           ? "session"
           : "other";
+      }
     }
   }
 
@@ -1035,9 +1182,27 @@ export class FileWatcher {
 
   private refreshFileWatches(): void {
     if (this.fixedFilePoll || this.fileWatchFailed || !this.watcher) return;
-    for (const name of this.watchFiles) {
-      const fullPath = path.join(this.watchDir, name);
-      const previous = this.fileWatches.get(name);
+    const targets: Array<{
+      key: string;
+      fullPath: string;
+      isCompanion: boolean;
+    }> = this.watchFiles.map((name) => ({
+      key: name,
+      fullPath: path.join(this.watchDir, name),
+      isCompanion: false,
+    }));
+    if (this.companionWatchDir) {
+      for (const name of this.companionWatchDir.files) {
+        targets.push({
+          key: `companion:${name}`,
+          fullPath: path.join(this.companionWatchDir.dir, name),
+          isCompanion: true,
+        });
+      }
+    }
+    for (const target of targets) {
+      const { key, fullPath, isCompanion } = target;
+      const previous = this.fileWatches.get(key);
       let identity: string;
       try {
         const s = fs.lstatSync(fullPath);
@@ -1047,29 +1212,29 @@ export class FileWatcher {
           });
         identity = `${s.dev}:${s.ino}`;
       } catch (error) {
-        this.fileWatches.delete(name);
+        this.fileWatches.delete(key);
         previous?.watcher.close();
         if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
         this.failFileWatches(error);
         return;
       }
       if (previous?.identity === identity) continue;
-      this.fileWatches.delete(name);
+      this.fileWatches.delete(key);
       previous?.watcher.close();
       try {
         const watcher = runOutsideRequestContext(() =>
           fs.watch(fullPath, { persistent: false }, (event) => {
-            if (this.fileWatches.get(name)?.watcher === watcher)
-              this.handleFileEvent(event, name);
+            if (this.fileWatches.get(key)?.watcher === watcher)
+              this.handleAbsoluteFileEvent(event, fullPath, isCompanion);
           }),
         );
-        this.fileWatches.set(name, { identity, watcher });
+        this.fileWatches.set(key, { identity, watcher });
         watcher.on("error", (error) => {
-          if (this.fileWatches.get(name)?.watcher === watcher)
+          if (this.fileWatches.get(key)?.watcher === watcher)
             this.failFileWatches(error);
         });
         watcher.on("close", () => {
-          if (this.fileWatches.get(name)?.watcher === watcher)
+          if (this.fileWatches.get(key)?.watcher === watcher)
             this.failFileWatches(
               new Error("Native metadata file watcher closed"),
             );

@@ -348,6 +348,7 @@ export async function collectionCatalogAdapters(
     // A path inside a native store rescans that store; the rest are files.
     const native = nativeCatalogAdapters(deps.getCatalogFamilies(), deps);
     const contains = (store: NativeSessionCatalogAdapter, path: string) => {
+      if (store.ownsPath?.(path)) return true;
       const child = relative(store.storeKey, path);
       return (
         child !== ".." &&

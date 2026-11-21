@@ -150,13 +150,12 @@ export class AntigravitySessionReader implements ISessionReader {
     return summaries;
   }
 
-  private async summary(
+  private summaryFromMetadata(
     id: string,
     projectId: UrlProjectId,
+    metadata: NonNullable<Awaited<ReturnType<typeof readAntigravityMetadata>>>,
     row?: NativeListEntry,
-  ): Promise<SessionSummary | null> {
-    const metadata = await this.metadata(id);
-    if (!metadata) return null;
+  ): SessionSummary {
     return {
       id,
       projectId,
@@ -170,14 +169,27 @@ export class AntigravitySessionReader implements ISessionReader {
     };
   }
 
+  private async summary(
+    id: string,
+    projectId: UrlProjectId,
+    row?: NativeListEntry,
+  ): Promise<SessionSummary | null> {
+    const metadata = await this.metadata(id);
+    if (!metadata || metadata.isChild) return null;
+    return this.summaryFromMetadata(id, projectId, metadata, row);
+  }
+
   async getSessionSummary(
     id: string,
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
-    if (!(await this.metadata(id))) return null;
+    const metadata = await this.metadata(id);
+    if (!metadata || metadata.isChild) return null;
     const row = (await this.nativeList()).find(
       (entry) => entry.sessionId === id,
     );
+    // Revalidate after awaiting ACP so lineage committed mid-flight cannot
+    // promote a newly-linked child into a top-level summary.
     return this.summary(id, projectId, row);
   }
 
@@ -207,7 +219,7 @@ export class AntigravitySessionReader implements ISessionReader {
     projectId: UrlProjectId,
   ): Promise<LoadedSession | null> {
     const metadata = await this.metadata(id);
-    if (!metadata) return null;
+    if (!metadata || metadata.isChild) return null;
     // The live owner already carries replay + new output. Native session/load
     // may update continuation metadata, so never run it beside that owner.
     let entries = antigravityLiveHistory(metadata.scope, id);

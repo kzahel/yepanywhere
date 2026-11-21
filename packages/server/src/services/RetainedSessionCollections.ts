@@ -8,6 +8,7 @@ import {
   type UrlProjectId,
   type RetainedSessionCollectionState,
 } from "@yep-anywhere/shared";
+import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
 import type { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
 import { catalogFileVersion } from "../sessions/catalog-adapters/row.js";
 import {
@@ -359,6 +360,17 @@ export class RetainedSessionCollections {
     if (path && this.changedPaths.size < 1024) this.changedPaths.add(path);
     else this.discover = true;
     this.schedule();
+  }
+
+  /**
+   * One scoped reconciliation when a native watcher completes its initial
+   * baseline so commits between first scan and watcher activation converge.
+   */
+  observationReady(family: ProviderCatalogFamily): void {
+    if (family !== "antigravity" || this.controller.signal.aborted) return;
+    for (const store of this.options.projectStores?.() ?? []) {
+      if (store.catalogFamily === family) this.invalidate(store.storeKey);
+    }
   }
 
   private nativeId(sessionId: string): string | undefined {

@@ -1,15 +1,19 @@
 import { constants, type Stats } from "node:fs";
 import { open, realpath, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { antigravitySummariesPath } from "../sdk/providers/antigravity-runtime.js";
-import { loadSqliteDriver } from "../storage/sqlite.js";
 import { isAbsolutePath } from "../projects/paths.js";
+import {
+  AntigravitySummariesReader,
+  antigravitySummariesVersion,
+  type AntigravitySummaryRow,
+} from "./antigravity-summaries.js";
 import { catalogFileVersion } from "./catalog-adapters/row.js";
 
 export const ANTIGRAVITY_SESSION_ID =
   /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 export const ANTIGRAVITY_METADATA_LIMIT = 2_000;
+const MAX_SUMMARY_CACHE_PATHS = 16;
 
 async function readMetaFile(metaPath: string) {
   const handle = await open(
@@ -36,77 +40,65 @@ async function readMetaFile(metaPath: string) {
   }
 }
 
-// One parsed workspace map per summaries database version, shared by scans.
-const summaryWorkspaces = new Map<
+// Bounded by MAX_SUMMARY_CACHE_PATHS (16); one parsed summary snapshot per
+// summaries database version, shared across catalog scans in the same process.
+const summaryCache = new Map<
   string,
-  { version: string; workspaces: Map<string, { cwd: string; title?: string }> }
+  {
+    version: string;
+    rows: Map<string, AntigravitySummaryRow>;
+    complete: boolean;
+  }
 >();
 
-/** `agy` 1.5+ records each conversation's workspace in its summaries index
- * instead of a `.meta` file. Reads only the id and workspace URI columns. */
-async function cliWorkspace(directory: string, id: string) {
-  const path = antigravitySummariesPath(directory);
-  const versions = await Promise.all(
-    [path, `${path}-wal`].map((file) =>
-      stat(file).then(catalogFileVersion, (error) => {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
-        throw error;
-      }),
-    ),
-  );
-  if (!versions[0]) return undefined;
-  const version = versions.join("|");
-  let cached = summaryWorkspaces.get(path);
+/** `agy` 1.5+ records each conversation's workspace and lineage in its
+ * summaries index instead of a `.meta` file. Takes the validated physical
+ * conversations scope so symlinked conversation roots cannot pair with a
+ * foreign summaries database. On a capped bulk-cache miss, falls back to a
+ * targeted point read so children past the cap cannot be promoted to roots. */
+async function cliSummary(
+  scope: string,
+  id: string,
+  bulkLimit = ANTIGRAVITY_METADATA_LIMIT * 5,
+): Promise<AntigravitySummaryRow | undefined> {
+  const path = antigravitySummariesPath(scope);
+  const version = await antigravitySummariesVersion(path);
+  if (!version) return undefined;
+  let cached = summaryCache.get(path);
   if (cached?.version !== version) {
-    const driver = loadSqliteDriver();
-    if (!driver) throw new Error("SQLite is unavailable");
-    const workspaces = new Map<string, { cwd: string; title?: string }>();
-    const database = driver.open(path, { readOnly: true });
+    const reader = new AntigravitySummariesReader(path);
+    let snapshot: ReturnType<AntigravitySummariesReader["readAllRows"]>;
     try {
-      const query = database.prepare(
-        "SELECT conversation_id, workspace_uris, title FROM conversation_summaries LIMIT ?",
-      );
-      try {
-        for (const row of query.all<{
-          conversation_id: string;
-          workspace_uris: string;
-          title: string | null;
-        }>(ANTIGRAVITY_METADATA_LIMIT * 5)) {
-          try {
-            const uris = JSON.parse(row.workspace_uris) as unknown;
-            // agy lists the resolved path first and the cwd it was given
-            // last (`/private/tmp/x`, `/tmp/x`). YA binds the given cwd.
-            const given = Array.isArray(uris)
-              ? (uris as unknown[])
-                  .filter(
-                    (uri): uri is string =>
-                      typeof uri === "string" && uri.startsWith("file://"),
-                  )
-                  .at(-1)
-              : undefined;
-            if (given)
-              workspaces.set(row.conversation_id, {
-                cwd: fileURLToPath(given),
-                ...(row.title ? { title: row.title } : {}),
-              });
-          } catch {
-            /* A malformed row leaves only that conversation undiscovered. */
-          }
-        }
-      } finally {
-        query.finalize();
-      }
+      snapshot = reader.readAllRows(bulkLimit);
     } finally {
-      database.close();
+      reader.close();
     }
-    cached = { version, workspaces };
-    summaryWorkspaces.set(path, cached);
+    cached = { version, rows: snapshot.rows, complete: snapshot.complete };
+    summaryCache.delete(path);
+    summaryCache.set(path, cached);
+    if (summaryCache.size > MAX_SUMMARY_CACHE_PATHS) {
+      const oldest = summaryCache.keys().next().value;
+      if (oldest !== undefined) summaryCache.delete(oldest);
+    }
   }
-  return cached.workspaces.get(id);
+  const hit = cached.rows.get(id);
+  if (hit || cached.complete) return hit;
+  // Strict point read: an unreadable/poisoned DB on a cache miss must throw
+  // so callers preserve prior catalog state instead of promoting a child.
+  const reader = new AntigravitySummariesReader(path);
+  try {
+    return reader.readRowStrict(id);
+  } finally {
+    reader.close();
+  }
 }
 
 /** Native identity only. No conversation decoding, agent process or authentication. */
-export async function readAntigravityMetadata(directory: string, id: string) {
+export async function readAntigravityMetadata(
+  directory: string,
+  id: string,
+  options: { summaryBulkLimit?: number } = {},
+) {
   if (!ANTIGRAVITY_SESSION_ID.test(id)) return null;
   const base = join(directory, id);
   try {
@@ -121,18 +113,40 @@ export async function readAntigravityMetadata(directory: string, id: string) {
     let metaInfo: Stats | undefined;
     let cwd: unknown;
     let title: string | undefined;
+    let parentConversationId: string | undefined;
+    let isChild = false;
+    let agentName: string | undefined;
+    let nestingDepth: number | undefined;
+    let status: string | undefined;
+    let summaryUpdatedAtMs: number | undefined;
     const metaPath = await realpath(`${base}.meta`).catch((error) => {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw error;
     });
+    const summary = await cliSummary(scope, id, options.summaryBulkLimit);
     if (metaPath) {
       if (dirname(metaPath) !== scope || basename(metaPath) !== `${id}.meta`)
         throw new Error("Antigravity session escapes its native store");
       ({ cwd, metaInfo } = await readMetaFile(metaPath));
+      if (summary) {
+        isChild = summary.isChild;
+        parentConversationId = summary.parentConversationId;
+        agentName = summary.agentName;
+        nestingDepth = summary.nestingDepth;
+        status = summary.status;
+        summaryUpdatedAtMs = summary.lastModifiedMs;
+        title = summary.title;
+      }
     } else {
-      const workspace = await cliWorkspace(directory, id);
-      if (!workspace) return null;
-      ({ cwd, title } = workspace);
+      if (!summary?.cwd) return null;
+      cwd = summary.cwd;
+      title = summary.title;
+      isChild = summary.isChild;
+      parentConversationId = summary.parentConversationId;
+      agentName = summary.agentName;
+      nestingDepth = summary.nestingDepth;
+      status = summary.status;
+      summaryUpdatedAtMs = summary.lastModifiedMs;
     }
     if (typeof cwd !== "string" || !isAbsolutePath(cwd))
       throw new Error("Antigravity session has no absolute project path");
@@ -152,12 +166,18 @@ export async function readAntigravityMetadata(directory: string, id: string) {
       scope,
       cwd,
       title,
+      parentConversationId,
+      isChild,
+      agentName,
+      nestingDepth,
+      status,
       path: dbPath,
       info,
       updatedAtMs: Math.max(
         info.mtimeMs,
         metaInfo?.mtimeMs ?? 0,
         walInfo?.mtimeMs ?? 0,
+        summaryUpdatedAtMs ?? 0,
       ),
       sourceVersion: [
         ...(metaInfo ? [metaInfo] : []),
@@ -166,6 +186,7 @@ export async function readAntigravityMetadata(directory: string, id: string) {
       ]
         .map(catalogFileVersion)
         .concat(title ? [title] : [])
+        .concat(isChild ? [`child:${parentConversationId ?? "opaque"}`] : [])
         .join("|"),
     };
   } catch (error) {
