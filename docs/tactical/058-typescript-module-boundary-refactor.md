@@ -436,9 +436,11 @@ heartbeat behavior.
 | Slice | Status | Target | Intent | Tripwires / Notes |
 |---|---|---|---|---|
 | 5.1 | Deferred | `Process.ts` pure helper extraction | Move static/pure helpers for message text, API retry status, permission pattern matching, and formatting when touched. | Move-only; no stream/replay/timer changes. Tripwire matrix: architecture-mandates row. |
+| 5.1a | Done 2026-11-21 | Process mode tool decisions | Move standing-mode permission decisions and question prompts to `modeToolApproval.ts`. | Pure helpers and constants. Focused Process approval tests exercise the existing call sites. |
 | 5.2 | Deferred | `Process.ts` recap helper boundary | Consider extracting recap generation helpers if recap work resumes. | Preserve native recap waiters and pending recap flow. |
 | 5.3 | Deferred | `Process.ts` queue persistence helpers | Consider extracting patient/deferred queue persistence helpers only with queue-specific tests. | Idle sessions must not retain repeating work. |
 | 5.4 | Deferred | `Supervisor.ts` recap/compaction helpers | Extract pure compaction threshold, heartbeat candidate, and recap helper functions opportunistically. | Do not alter worker pool, preemption, liveness, or heartbeat scheduling. |
+| 5.4a | Done 2026-11-21 | Supervisor launch model validation | Move Claude Gateway catalog validation to `providerLaunchModel.ts`. | Retains the new-session-only gateway check; no routing change in the move. |
 
 ## Phase 6: Tests And Fixtures Organization
 

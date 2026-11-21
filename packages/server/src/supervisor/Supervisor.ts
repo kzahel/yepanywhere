@@ -1,3 +1,4 @@
+import { resolveProviderLaunchModel } from "./providerLaunchModel.js";
 import { assertProviderExecutable } from "../sdk/providers/retired-provider.js";
 import type { HarnessRelationshipObserver } from "../sessions/NestedHarnessRelationshipService.js";
 import { assertClaudeCopyRoot, cloneClaudeSession } from "../sessions/fork.js";
@@ -1037,26 +1038,6 @@ export class Supervisor {
     if (!providerName) return null;
     if (this.provider?.name === providerName) return this.provider;
     return this.providerDiscoveryEnabled ? getProvider(providerName) : null;
-  }
-
-  private async assertAuthoritativeNewSessionModel(
-    provider: AgentProvider,
-    modelSettings?: ModelSettings,
-  ): Promise<void> {
-    if (provider.name !== "claude-gateway") return;
-
-    const requestedModel = modelSettings?.model;
-    if (!requestedModel || requestedModel === "default") {
-      throw new Error(
-        "Claude Gateway requires a model from its current catalog",
-      );
-    }
-    const models = await provider.getAvailableModels();
-    if (!models.some((model) => model.id === requestedModel)) {
-      throw new Error(
-        `Claude Gateway no longer advertises model ${JSON.stringify(requestedModel)}`,
-      );
-    }
   }
 
   private resolvePromptSuggestionMode(
@@ -2775,12 +2756,11 @@ export class Supervisor {
         "This provider does not support one-turn effort modifiers",
       );
     }
-    if (!resumeSessionId) {
-      await this.assertAuthoritativeNewSessionModel(
-        activeProvider,
-        modelSettings,
-      );
-    }
+    modelSettings = await resolveProviderLaunchModel(
+      activeProvider,
+      modelSettings,
+      Boolean(resumeSessionId),
+    );
 
     const resume = managedLaunch?.runtime
       ? undefined
