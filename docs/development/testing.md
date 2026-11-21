@@ -210,6 +210,29 @@ The workflow path lists are authoritative; before a release, obtain passing
 platform acceptance for the source being released even when its changes only
 received scheduled coverage.
 
+### iOS hosted-runner allocation failures
+
+Inspect the failed attempt with `gh run view RUN_ID --attempt ATTEMPT`. When
+GitHub reports `The job was not acquired by Runner of type hosted` and the job
+has no executed steps, record a runner allocation failure. If iOS acceptance is
+still needed for that commit, retry the same run once with
+`gh run rerun RUN_ID --failed` and verify its result with
+`gh run watch RUN_ID --exit-status`. If the retry also ends before allocation,
+record both attempts and report that iOS verification is blocked on runner
+capacity. For a job that reached a failing step, use that step's logs and
+artifacts to diagnose the failure.
+
+When reviewing iOS CI reliability, count allocation failures against completed
+attempts on `main`, including earlier attempts of rerun workflows. Record the
+UTC date range, the two counts, and links to the affected attempts. In the
+November 12–18, 2026 UTC baseline, **3 of 12 completed attempts** across 11 runs
+failed before runner allocation. Two other attempts failed after a runner
+started work. The retry of the third allocation failure passed the full suite.
+[November 17](https://github.com/kzahel/yepanywhere/actions/runs/44173364328/attempts/1),
+[November 18 nightly](https://github.com/kzahel/yepanywhere/actions/runs/44314055069/attempts/1),
+[November 18 push](https://github.com/kzahel/yepanywhere/actions/runs/44335320367/attempts/1),
+[passing retry](https://github.com/kzahel/yepanywhere/actions/runs/44335320367/attempts/2).
+
 ## Cross-Platform Behavior And Tests
 
 Treat Linux, macOS, and Windows as supported development targets. Code and
