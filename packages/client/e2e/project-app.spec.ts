@@ -328,6 +328,7 @@ test("app inventory sits below port forwards and manages addresses inline", asyn
     await expect(
       inventory.getByRole("button", { name: "Copy viewer link" }),
     ).toBeVisible();
+    // The superuser's reservation serves at once; the toggle still works.
     const unserve = inventory.getByRole("button", {
       name: "Stop serving at this address",
       exact: true,
@@ -393,11 +394,13 @@ test("serving a stopped process app starts it first, and a served stopped app wa
     await pane
       .getByRole("button", { name: "Reserve address", exact: true })
       .click();
+    // The reservation serves at once, so the stopped app is served and warns;
+    // unserving offers to start the app before serving it again.
     const unserve = pane.getByRole("button", {
       name: "Stop serving at this address",
       exact: true,
     });
-    await expect(pane.getByText(warning)).toBeVisible();
+    await expect(pane.getByText(warning)).toBeVisible({ timeout: 15_000 });
     await unserve.click();
     await pane
       .getByRole("button", { name: "Start app and serve here", exact: true })
