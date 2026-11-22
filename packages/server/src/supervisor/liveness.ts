@@ -191,7 +191,11 @@ export function buildSessionLivenessSnapshot({
       } else {
         derivedStatus = "verified-idle";
         activeWorkKind = "none";
-        const settled = providerRetention?.detachedReply?.at;
+        const settled =
+          provider === "antigravity"
+            ? (providerRetention?.lastUpdatedAt ??
+              providerRetention?.detachedReply?.at)
+            : providerRetention?.detachedReply?.at;
         lastVerifiedIdleAt =
           settled && settled > state.since ? settled : state.since;
         evidence.push("idle-boundary");

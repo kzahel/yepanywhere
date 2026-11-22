@@ -136,7 +136,7 @@
       "maxLines": 1877
     },
     "packages/server/src/supervisor/Process.ts": {
-      "maxLines": 6562
+      "maxLines": 6555
     },
     "packages/server/src/supervisor/Supervisor.ts": {
       "maxLines": 6882

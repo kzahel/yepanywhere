@@ -6443,6 +6443,8 @@ export class Supervisor {
     if (process.state.type === "idle") {
       this.emitProcessActivity(process);
       if (!process.isRetainingProviderWork()) {
+        if (process.hasPatientDeferredMessages())
+          this.schedulePatientDeferredCheck(process, 250);
         void this.finalizePendingDone(process);
         process.promoteDeferredAfterCompactionGate();
         void this.maybeCompactAfterIdle(process);

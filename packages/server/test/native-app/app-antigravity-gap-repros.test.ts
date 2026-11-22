@@ -121,7 +121,7 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
     );
 
     it(
-      "sends a patient message before a held native child completes",
+      "delivers ordinary queue work at turn end and patient work after the native wake and quiet interval",
       caseBudget,
       async (context) => {
         const app = await nativeAppTestFixture("antigravity", context, {
@@ -151,7 +151,7 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
         const queued = await app.api(`/sessions/${sessionId}/messages`, {
           message: "AGY_GAP_PATIENT_NEXT",
           deferred: true,
-          messageMetadata: { deliveryIntent: "patient", patienceSeconds: 120 },
+          messageMetadata: { deliveryIntent: "patient", patienceSeconds: 1 },
         });
         expect(queued).toMatchObject({ queued: true, deferred: true });
         expect(queued.deferredMessages).toContainEqual(
@@ -159,17 +159,69 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
             kind: "patient",
             metadata: expect.objectContaining({
               deliveryIntent: "patient",
-              patienceSeconds: 120,
+              patienceSeconds: 1,
             }),
           }),
         );
+        await app.api(`/sessions/${sessionId}/messages`, {
+          message: "AGY_GAP_ORDINARY_NEXT",
+          deferred: true,
+          messageMetadata: { deliveryIntent: "deferred" },
+        });
         parent.finish("AGY_GAP_PARENT_FOREGROUND_DONE");
-        const delivered = await app.model.next();
-        expect(JSON.stringify(delivered.body)).toContain(
+        const ordinary = await app.model.next();
+        expect(JSON.stringify(ordinary.body)).toContain(
+          "AGY_GAP_ORDINARY_NEXT",
+        );
+        expect(JSON.stringify(ordinary.body)).not.toContain(
           "AGY_GAP_PATIENT_NEXT",
         );
-        delivered.finish("AGY_GAP_PATIENT_NEXT_DONE");
+        ordinary.finish("AGY_GAP_ORDINARY_DONE");
+        await expect
+          .poll(async () => (await ownedSession(app, sessionId)).state)
+          .toBe("background");
+
+        const live = await app.connect(sessionId);
         child.finish("AGY_GAP_PATIENT_CHILD_DONE");
+        const wake = await app.model.next();
+        expect(JSON.stringify(wake.body)).toContain(
+          "AGY_GAP_PATIENT_CHILD_DONE",
+        );
+        expect(JSON.stringify(wake.body)).not.toContain("AGY_GAP_PATIENT_NEXT");
+        wake.partial("AGY_GAP_PATIENT_WAKE_DONE");
+        await live.wait('"derivedStatus":"verified-progressing"');
+        const afterWake = live.events.length;
+        const next = app.model.next().then((request) => ({
+          request,
+          at: Date.now(),
+        }));
+        void next.catch(() => {});
+        wake.finish("");
+        await live.wait('"derivedStatus":"verified-idle"', afterWake);
+        const idle = live.events.slice(afterWake).find((event) => {
+          const data = event.data as { liveness?: { derivedStatus?: string } };
+          return data?.liveness?.derivedStatus === "verified-idle";
+        });
+        const data = idle?.data as {
+          liveness: { lastVerifiedIdleAt: string };
+        };
+        const delivered = await next;
+        expect(
+          delivered.at - Date.parse(data.liveness.lastVerifiedIdleAt),
+        ).toBeGreaterThanOrEqual(1_000);
+        expect(JSON.stringify(delivered.request.body)).toContain(
+          "AGY_GAP_PATIENT_NEXT",
+        );
+        delivered.request.finish("AGY_GAP_PATIENT_NEXT_DONE");
+        await live.wait("AGY_GAP_PATIENT_NEXT_DONE");
+        await expect
+          .poll(async () => (await ownedSession(app, sessionId)).state)
+          .toBe("idle");
+        expect(
+          app.model.requests.filter((request) =>
+            JSON.stringify(request.body).includes("AGY_GAP_PATIENT_NEXT"),
+          ),
+        ).toHaveLength(1);
         expect(app.model.failures).toEqual([]);
       },
     );

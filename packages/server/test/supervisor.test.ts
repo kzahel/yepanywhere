@@ -6260,101 +6260,131 @@ describe("Supervisor", () => {
   });
 
   describe("patient scheduling and liveness", () => {
-    it("promotes patient deferred messages after verified quiet", async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2026-05-06T00:00:00.000Z"));
-      let aborted = false;
+    it.each(["claude", "antigravity"] as const)(
+      "promotes %s patient deferred messages after verified quiet",
+      async (providerName) => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-05-06T00:00:00.000Z"));
+        let aborted = false;
+        let retained = providerName === "antigravity";
+        let settledAt: Date | undefined;
+        let retentionChanged: (() => void) | undefined;
 
-      try {
-        const realSdk: Pick<AgentProvider, "startSession"> = {
-          startSession: async () => {
-            const queue = new MessageQueue();
-            async function* iterator() {
-              yield {
-                type: "system",
-                subtype: "init",
-                session_id: "patient-deferred-maintenance-session",
-              };
-              await queue[Symbol.asyncIterator]().next();
-              yield {
-                type: "result",
-                session_id: "patient-deferred-maintenance-session",
-              };
+        try {
+          const realSdk: Pick<AgentProvider, "startSession"> = {
+            startSession: async (options) => {
+              retentionChanged = options.onProviderRetentionChange;
+              const queue = new MessageQueue();
+              async function* iterator() {
+                yield {
+                  type: "system",
+                  subtype: "init",
+                  session_id: "patient-deferred-maintenance-session",
+                };
+                await queue[Symbol.asyncIterator]().next();
+                yield {
+                  type: "result",
+                  session_id: "patient-deferred-maintenance-session",
+                };
 
-              while (!aborted) {
-                await new Promise((resolve) => setTimeout(resolve, 10));
+                while (!aborted) {
+                  await new Promise((resolve) => setTimeout(resolve, 10));
+                }
               }
-            }
 
-            return {
-              iterator: iterator(),
-              queue,
-              abort: () => {
-                aborted = true;
-              },
-              isProcessAlive: () => !aborted,
-            };
-          },
-        };
+              return {
+                iterator: iterator(),
+                queue,
+                abort: () => {
+                  aborted = true;
+                },
+                isProcessAlive: () => !aborted,
+                getProviderRetention: () => ({
+                  retained,
+                  reasons: retained ? ["test-detached-reply"] : [],
+                  ...(settledAt
+                    ? {
+                        lastUpdatedAt: settledAt,
+                        detachedReply: { status: "settled", at: settledAt },
+                      }
+                    : {}),
+                }),
+              };
+            },
+          };
 
-        const supervisorWithPatientQueue = new Supervisor({
-          provider: controlledProvider(realSdk),
-          idleTimeoutMs: 100,
-        });
+          const supervisorWithPatientQueue = new Supervisor({
+            provider: Object.assign(controlledProvider(realSdk), {
+              name: providerName,
+            }),
+            idleTimeoutMs: 100,
+          });
 
-        const started = await supervisorWithPatientQueue.startSession(
-          "/tmp/test",
-          {
-            text: "start",
-          },
-        );
-        if (!("id" in started)) {
-          throw new Error("expected process");
+          const started = await supervisorWithPatientQueue.startSession(
+            "/tmp/test",
+            {
+              text: "start",
+            },
+          );
+          if (!("id" in started)) {
+            throw new Error("expected process");
+          }
+
+          await vi.advanceTimersByTimeAsync(0);
+          expect(started.state.type).toBe("idle");
+          if (retained) retentionChanged?.();
+
+          const deferred = started.deferMessage(
+            {
+              text: "patient follow-up",
+              tempId: "temp-patient",
+              metadata: { deliveryIntent: "patient" },
+            },
+            { promoteIfReady: true },
+          );
+          expect(deferred).toMatchObject({ success: true, deferred: true });
+          expect(started.getDeferredQueueSummary()).toMatchObject([
+            {
+              tempId: "temp-patient",
+              content: "patient follow-up",
+              metadata: { deliveryIntent: "patient" },
+            },
+          ]);
+
+          if (retained) {
+            // An elapsed patience window cannot bypass native retention.
+            await vi.advanceTimersByTimeAsync(5_000);
+            expect(started.queueDepth).toBe(0);
+            expect(started.getDeferredQueueSummary()).toHaveLength(1);
+            retained = false;
+            settledAt = new Date();
+            retentionChanged?.();
+          }
+
+          // Still inside the (default 2s) quiet window: not yet promoted.
+          await vi.advanceTimersByTimeAsync(1_000);
+          expect(started.state.type).toBe("idle");
+          expect(started.queueDepth).toBe(0);
+          expect(started.getDeferredQueueSummary()).toHaveLength(1);
+
+          // Past the quiet window: promoted.
+          await vi.advanceTimersByTimeAsync(1_500);
+          expect(started.state.type).toBe("in-turn");
+          expect(started.queueDepth).toBe(1);
+          expect(started.getDeferredQueueSummary()).toEqual([]);
+
+          const abortPromise = supervisorWithPatientQueue.abortProcess(
+            started.id,
+          );
+          await vi.advanceTimersByTimeAsync(5000);
+          await expect(abortPromise).resolves.toBe(true);
+        } finally {
+          vi.useRealTimers();
         }
+      },
+    );
 
-        await vi.advanceTimersByTimeAsync(0);
-        expect(started.state.type).toBe("idle");
-
-        const deferred = started.deferMessage(
-          {
-            text: "patient follow-up",
-            tempId: "temp-patient",
-            metadata: { deliveryIntent: "patient" },
-          },
-          { promoteIfReady: true },
-        );
-        expect(deferred).toMatchObject({ success: true, deferred: true });
-        expect(started.getDeferredQueueSummary()).toMatchObject([
-          {
-            tempId: "temp-patient",
-            content: "patient follow-up",
-            metadata: { deliveryIntent: "patient" },
-          },
-        ]);
-
-        // Still inside the (default 2s) quiet window: not yet promoted.
-        await vi.advanceTimersByTimeAsync(1_000);
-        expect(started.state.type).toBe("idle");
-        expect(started.queueDepth).toBe(0);
-        expect(started.getDeferredQueueSummary()).toHaveLength(1);
-
-        // Past the quiet window: promoted.
-        await vi.advanceTimersByTimeAsync(1_500);
-        expect(started.state.type).toBe("in-turn");
-        expect(started.queueDepth).toBe(1);
-        expect(started.getDeferredQueueSummary()).toEqual([]);
-
-        const abortPromise = supervisorWithPatientQueue.abortProcess(
-          started.id,
-        );
-        await vi.advanceTimersByTimeAsync(5000);
-        await expect(abortPromise).resolves.toBe(true);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    it("treats a patient message as plain deferred on non-Claude providers", async () => {
+    it("treats a Codex patient message as plain deferred", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-05-06T00:00:00.000Z"));
       let aborted = false;

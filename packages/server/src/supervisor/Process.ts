@@ -249,19 +249,15 @@ function hasPatientQueueIntent(entry: DeferredQueueEntry): boolean {
   return entry.message.metadata?.deliveryIntent === "patient";
 }
 
-/**
- * Whether a queued entry should ride the verified-idle patient delivery path
- * instead of the plain turn-end deferred path. Patient timing only differs
- * from deferred on Claude — the only provider that reports background-work
- * retention (session crons, background/live tasks), which is what lets YA wait
- * for genuine completion. Other providers still preserve patient intent across
- * restart, but promote it at the ordinary turn-end boundary.
- */
+/** Providers with native background retention use the verified-idle gate. */
 function usesPatientDeliveryPath(
   entry: DeferredQueueEntry,
   provider: ProviderName,
 ): boolean {
-  return hasPatientQueueIntent(entry) && isClaudeSdkProvider(provider);
+  return (
+    hasPatientQueueIntent(entry) &&
+    (isClaudeSdkProvider(provider) || provider === "antigravity")
+  );
 }
 
 function compactionGateFor(
@@ -4282,9 +4278,7 @@ export class Process {
       acceptedMessage.tempId ??= `compact-${randomUUID()}`;
     const canPromoteIfReady = !!(
       options?.promoteIfReady &&
-      // Only Claude waits for the verified-idle patient delivery path;
-      // elsewhere durable patient intent uses ordinary deferred timing and
-      // promotes immediately like any other deferred turn.
+      // Verified-idle patient delivery checks each item's quiet interval.
       !usesPatientDeliveryPath(
         { message: acceptedMessage, timestamp: new Date().toISOString() },
         this.provider,
