@@ -1,12 +1,22 @@
 import { spawn } from "node:child_process";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
+import {
+  processTreeSpawnOptions,
+  signalProcessTree,
+} from "../../utils/processTree.js";
 
 /** The oldest `agy` YA runs: the native test pin. Older runtimes are refused. */
 export const ANTIGRAVITY_MIN_VERSION = "1.5.13";
 const MINIMUM = [1, 5, 13] as const;
-// `agy` reports a bare semantic version, from ACP `initialize` and `--version`.
-const VERSION =
-  /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
+// `agy` reports a bare semantic version, from ACP `initialize` and
+// `--version`. The pattern is the Semantic Versioning 2.0.0 grammar.
+const NUMBER = "0|[1-9]\\d*";
+const PRERELEASE_ID = `${NUMBER}|\\d*[A-Za-z-][0-9A-Za-z-]*`;
+const VERSION = new RegExp(
+  `^(${NUMBER})\\.(${NUMBER})\\.(${NUMBER})` +
+    `(?:-((?:${PRERELEASE_ID})(?:\\.(?:${PRERELEASE_ID}))*))?` +
+    "(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
+);
 
 /** A runtime below the floor, or one whose version YA cannot read. */
 export class AntigravityVersionError extends Error {
@@ -65,8 +75,10 @@ export function antigravityCliVersionRefusal(
 /**
  * Run `<command> --version` as an owned child: YA credentials are filtered
  * from its environment, and the deadline or `signal` kills its process group
- * and waits for it to exit. Resolves the trimmed output, or undefined when
- * the command fails, is cancelled or runs out of time.
+ * and waits for the leader to exit. The group is also killed once the
+ * version is read, so a helper the command left behind does not outlive it.
+ * Resolves the trimmed output, or undefined when the command fails, is
+ * cancelled or runs out of time.
  */
 export function readAgyVersion(
   command: string,
@@ -75,39 +87,35 @@ export function readAgyVersion(
 ): Promise<string | undefined> {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve(undefined);
-    const group = process.platform !== "win32";
     let child: ReturnType<typeof spawn>;
     try {
       child = spawn(command, ["--version"], {
+        ...processTreeSpawnOptions,
         stdio: ["ignore", "pipe", "ignore"],
         env: stripYaControlPlaneCredentials(process.env),
-        detached: group,
       });
     } catch {
       return resolve(undefined);
     }
     let output = "";
     let killed = false;
+    let exited = false;
     let settled = false;
     const finish = (value: string | undefined) => {
       if (settled) return;
       settled = true;
       clearTimeout(deadline);
       signal?.removeEventListener("abort", kill);
+      // The group outlives its leader: end any helper it left behind.
+      signalProcessTree(child, "SIGKILL");
       child.stdout?.destroy();
       resolve(value);
     };
     function kill() {
       killed = true;
-      // An exited leader cannot be waited on again; stop reading instead.
-      if (child.exitCode !== null || child.signalCode !== null)
-        return finish(undefined);
-      try {
-        if (group && child.pid) process.kill(-child.pid, "SIGKILL");
-        else child.kill("SIGKILL");
-      } catch {
-        /* Already exited; the exit event finishes. */
-      }
+      signalProcessTree(child, "SIGKILL");
+      // An exited leader was already reaped; a live one finishes on exit.
+      if (exited) finish(undefined);
     }
     const deadline = setTimeout(kill, deadlineMs);
     signal?.addEventListener("abort", kill, { once: true });
@@ -118,6 +126,7 @@ export function readAgyVersion(
     });
     child.once("error", () => finish(undefined));
     child.once("exit", () => {
+      exited = true;
       if (killed) finish(undefined);
     });
     child.once("close", (code) =>

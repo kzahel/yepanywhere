@@ -1213,7 +1213,11 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   async function controlledAgy(options: {
     cliVersion?: string;
     hangOnVersion?: string;
-    acp: "exit" | { version?: string } | { error: string };
+    acp:
+      | "exit"
+      | { version?: string }
+      | { error: string }
+      | { result: null | "omitted" };
   }) {
     const path = join(directory, "controlled-bin", "agy");
     await mkdir(join(directory, "controlled-bin"), { recursive: true });
@@ -1244,7 +1248,9 @@ if (process.argv.includes('--version')) {
     log(m.method);
     const reply = options.acp.error
       ? { error: { code: -32000, message: options.acp.error } }
-      : { result: { protocolVersion: 1, agentInfo: options.acp.version ? { version: options.acp.version } : {} } };
+      : 'result' in options.acp
+        ? options.acp.result === null ? { result: null } : {}
+        : { result: { protocolVersion: 1, agentInfo: options.acp.version ? { version: options.acp.version } : {} } };
     process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...reply }) + '\\n');
   });
 }
@@ -1265,6 +1271,8 @@ if (process.argv.includes('--version')) {
   (process.platform === "win32" ? it.skip : it).each([
     [{ acp: { version: "1.4.5" } }, "reports version 1.4.5"],
     [{ acp: {} }, "did not report a version"],
+    [{ acp: { result: null } }, "did not report a version"],
+    [{ acp: { result: "omitted" } }, "did not report a version"],
     [{ acp: "exit", cliVersion: "1.4.12" }, "reports version 1.4.12"],
   ] as const)(
     "refuses agy below the floor (%j) in provider status and at start",

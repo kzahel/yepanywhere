@@ -366,12 +366,16 @@ export class AntigravityRuntime {
         }
       }
     });
-    let initialized: {
-      agentInfo?: { version?: unknown };
-      agentCapabilities?: {
-        _meta?: { antigravity?: { systemPrompt?: { append?: boolean } } };
-      };
-    };
+    // Untrusted: a null, omitted or malformed result reports no version.
+    let initialized:
+      | {
+          agentInfo?: { version?: unknown } | null;
+          agentCapabilities?: {
+            _meta?: { antigravity?: { systemPrompt?: { append?: unknown } } };
+          } | null;
+        }
+      | null
+      | undefined;
     try {
       initialized = await this.call("initialize", {
         protocolVersion: 1,
@@ -394,10 +398,10 @@ export class AntigravityRuntime {
           : antigravityCliVersionRefusal(version);
       throw refusal ? new AntigravityVersionError(refusal) : error;
     }
-    const refusal = antigravityVersionRefusal(initialized.agentInfo?.version);
+    const refusal = antigravityVersionRefusal(initialized?.agentInfo?.version);
     if (refusal) throw new AntigravityVersionError(refusal);
     this.canAppendSystemPrompt =
-      initialized.agentCapabilities?._meta?.antigravity?.systemPrompt
+      initialized?.agentCapabilities?._meta?.antigravity?.systemPrompt
         ?.append === true;
   }
 

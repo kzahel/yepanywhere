@@ -24,9 +24,17 @@ describe("Antigravity version floor", () => {
     ["1.4.5", refusal("reports version 1.4.5")],
     [
       "version unknown; Node.js 24.22.1",
-      refusal('reports an unrecognized version "version unknown; Node.js 24.22.1"'),
+      refusal(
+        'reports an unrecognized version "version unknown; Node.js 24.22.1"',
+      ),
     ],
     ["agy 1.5.13", refusal('reports an unrecognized version "agy 1.5.13"')],
+    ["1.6.0-0", undefined],
+    // Malformed versions are unrecognized, whatever their numbers.
+    ["01.5.13", refusal('reports an unrecognized version "01.5.13"')],
+    ["1.5.13+.", refusal('reports an unrecognized version "1.5.13+."')],
+    ["1.6.0-..", refusal('reports an unrecognized version "1.6.0-.."')],
+    ["1.6.0-01", refusal('reports an unrecognized version "1.6.0-01"')],
     ["", refusal("did not report a version")],
     [undefined, refusal("did not report a version")],
     [15, refusal("did not report a version")],
@@ -41,6 +49,7 @@ describe("Antigravity version floor", () => {
     // Unreadable --version output keeps the native failure.
     ["v24.22.1\n", undefined],
     ["Node.js 1.4.12\n", undefined],
+    ["01.4.12\n", undefined],
   ])("agy --version output %j", (output, expected) => {
     expect(antigravityCliVersionRefusal(output)).toBe(expected);
   });
@@ -72,6 +81,41 @@ describe.skipIf(process.platform === "win32")("agy --version probe", () => {
     );
     expect(await readAgyVersion(agy)).toBe("1.5.13");
   });
+
+  // The wrapper prints a version, starts a helper in its own process group
+  // and exits first; the helper must not outlive the probe.
+  it.each([
+    ["deadline", "holds stdout", undefined],
+    ["cancel", "holds stdout", undefined],
+    ["completion", "closes its streams", "1.5.13"],
+  ] as const)(
+    "ends a same-group helper left by an exited leader on %s (helper %s)",
+    async (ending, streams, expected) => {
+      const marker = join(directory, "helper.pid");
+      const redirect = streams === "holds stdout" ? "" : " >/dev/null 2>&1";
+      const agy = join(directory, "agy");
+      await writeFile(
+        agy,
+        `#!/bin/sh\necho 1.5.13\nsleep 60${redirect} &\necho $! > ${JSON.stringify(marker)}\nexit 0\n`,
+      );
+      await chmod(agy, 0o755);
+      const controller = new AbortController();
+      const probe = readAgyVersion(
+        agy,
+        controller.signal,
+        ending === "deadline" ? 1_000 : 60_000,
+      );
+      if (ending === "cancel") {
+        await vi.waitFor(() => readFile(marker, "utf8"), { timeout: 5_000 });
+        controller.abort();
+      }
+      expect(await probe).toBe(expected);
+      const helper = Number(await readFile(marker, "utf8"));
+      await vi.waitFor(() => expect(() => process.kill(helper, 0)).toThrow(), {
+        timeout: 2_000,
+      });
+    },
+  );
 
   it.each(["deadline", "cancel"] as const)(
     "kills and reaps a probe that ignores SIGTERM on %s",

@@ -65,17 +65,21 @@ not download, update or reconfigure the runtime.
 YA runs `agy` 1.5.13 or later, the [native test pin](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
 (`ANTIGRAVITY_MIN_VERSION`). The version comes from the `agentInfo.version`
 that ACP `initialize` reports, so a runtime that answers costs no extra
-process. The whole value must be a semantic version (`major.minor.patch`,
-optionally with a prerelease or build suffix). A prerelease ranks below its
-release, so `1.5.13-rc.1` is refused. A missing value, or one that merely
-contains a version, is refused rather than assumed current.
+process. The whole value must be a valid Semantic Versioning 2.0.0 version:
+no leading zeros, and non-empty dot-separated prerelease and build
+identifiers. A prerelease ranks below its release, so `1.5.13-rc.1` is
+refused. A missing value, a null or absent `initialize` result, a malformed
+version, or one that merely contains a version, is refused rather than
+assumed current.
 
 An `agy` before 1.5 has no `acp` subcommand. When no ACP peer answers
 `initialize` (the process exits, writes something other than the protocol, or
 reaches the 30-second initialize timeout), YA runs `agy --version` once. That
 probe gets YA's provider environment without YA's own credentials, has three
 seconds, and is killed with its process group on its deadline or when the
-owner stops the runtime; YA waits for it to exit either way. A whole version
+owner stops the runtime; YA waits for it to exit either way. The group is
+also killed once the version is read, so a helper the command started in its
+group does not outlive the probe, even after the command itself exits. A whole version
 below the floor gets the same refusal. Any other answer leaves the native
 failure as the error. A runtime that does answer `initialize`, including with
 an ACP error, is never probed, so its own error is kept.

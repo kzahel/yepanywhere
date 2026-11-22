@@ -965,8 +965,9 @@ brought the selection to 32 cases. All 32 passed on 2026-11-22 on macOS arm64
 with the 1.5.13 pin and with the 1.5.14 candidate.
 Its review added cases for the version probe's lifecycle, an ACP peer's own
 initialize error, the first refresh after an update, and app and v0 creation
-against a controlled `agy` below the floor. The selection is now 37 cases; all
-37 passed on 2026-11-22 with the 1.5.13 pin and the 1.5.14 candidate.
+against a controlled `agy` below the floor. A second review added null and
+omitted `initialize` results. The selection is now 39 cases; all 39 passed on
+2026-11-22 with the 1.5.13 pin and the 1.5.14 candidate.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
