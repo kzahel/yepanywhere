@@ -969,6 +969,13 @@ against a controlled `agy` below the floor. A second review added null and
 omitted `initialize` results. The selection is now 39 cases; all 39 passed on
 2026-11-22 with the 1.5.13 pin and the 1.5.14 candidate.
 
+Plan 195 step 2 added two controlled-peer cases that assert today's history
+limits, named "today: …" for later steps to flip. It also added the opt-in
+[live retention measurement](antigravity-native-storage.md#live-session-retention),
+which the selection skips unless `YEP_NATIVE_RETENTION_MEASURE=1`. The
+selection passed with 41 cases and 3 skipped on 2026-11-22, with the 1.5.13
+pin and with the 1.5.14 candidate.
+
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
 joins the operation and stops any registered owner before deleting fixture

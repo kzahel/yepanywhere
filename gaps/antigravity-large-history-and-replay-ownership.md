@@ -2,7 +2,8 @@
 
 Opening a stopped root conversation, even for its latest messages, and resuming
 it both use ACP `session/load`. That operation streams the whole conversation
-and can rewrite native continuation files. YA's bounded native tail read checks
+and writes store-wide native files, though on a stopped conversation not its
+database or log. YA's bounded native tail read checks
 that replay reached the saved text. YA still accumulates normalized history in
 memory and rejects replay beyond 8 MiB or 10,000 messages. The live projection
 has the same cap. The limits apply to what YA retains, so the native database's
@@ -40,6 +41,14 @@ available, and concurrent open, resume, and backend replacement should never
 start a competing load beside a live owner. Evaluate the existing read-only
 log reader for that view and measure native `session/resume` on large histories.
 Replay completion for ambiguous tails has its own gap.
+
+Plan 195 step 2 reproduced both limits with the controlled peer, as tests
+named "today: …" in `antigravity.test.ts`: a replay over 8 MiB fails open and
+resume, and a live session that passes the cap is stopped mid-turn. It also
+measured real `agy` 1.5.13 on a 7,261-step compacted conversation:
+`session/resume` answered in 41 ms with no replayed history and kept the
+compacted context. The ownership races remain unreproduced.
+[Measurements](../topics/antigravity-native-storage.md#measurements--plan-195-step-2)
 [Read-only native log reader](../packages/server/src/sessions/antigravity-subagent-links.ts#L1050) ·
 [Native storage and log format](../topics/antigravity-native-storage.md) ·
 [Plan 195](../docs/tactical/195-antigravity-native-history.md) ·

@@ -22,7 +22,7 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Reader and resume keep collecting ACP history after an early load response until they observe the persisted text tail. A missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
-| Other controls | Model and effort changes, offered permission choices, and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Inline images/documents, rewind and fork remain unavailable. |
+| Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission replies are implemented for numeric request IDs, but `agy` sends string IDs, so YA refuses its requests and `agy` denies the tool without a prompt ([gap](../gaps/antigravity-permission-requests-with-string-ids-are-refused.md)). Inline images/documents, rewind and fork remain unavailable. |
 
 The [native lifecycle tests](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
 use real `agy` with a scripted model. They cover idle reap and scheduled
@@ -278,8 +278,10 @@ children from a bounded read-only projection of `brain/<id>/.../transcript.jsonl
 through `session/load` only after revalidating project-eligible lineage. When several workspace URIs are listed
 (`/private/tmp/x`, `/tmp/x`), the last is the cwd the client supplied and
 matches YA's project binding. Reading never sends a prompt or auth request.
-Unknown/foreign project files are not adopted. The native replay API may update
-Google's own continuation metadata. The `agy` 1.5.13 ACP stream and replay
+Unknown/foreign project files are not adopted. A native load or resume of a
+stopped conversation leaves its database and brain log unchanged, but `agy`
+writes store-wide files, including the summaries index
+([measured](antigravity-native-storage.md#what-load-and-resume-write)). The `agy` 1.5.13 ACP stream and replay
 report file-read tool identity, location and status, while the file contents
 stay in native model context.
 
@@ -307,9 +309,9 @@ of the same conversation in a separate editor/CLI is not qualified.
 
 App browsing uses the shared catalog and provider-root watcher described below.
 Explicit native history and title reads own subprocesses; reader disposal closes
-them. Because `session/load` itself rewrites the conversation files, which the
+them. Because every `session/load` writes the store's summaries index, which the
 provider watcher reports and viewers refetch, a cold history read is reused
-until those files differ from their post-load state (at most four per project
+until the conversation's files differ from their post-load state (at most four per project
 reader). Without this, opening a session could reload it repeatedly. Native title lookups coalesce and cache their ACP list for five seconds,
 cap at 2,000 entries and refuse unsupported pagination.
 At most eight detail reads per cached reader may run concurrently. YA bounds
@@ -318,8 +320,11 @@ frame to 16 MiB. Tool fields that YA does not display do not consume the
 history budget or prevent resume. If the retained history exceeds its limit,
 YA reports the history-limit error. Larger-corpus/bounded native
 replay support is a prerequisite to removing these preview limits.
-The live projection has the same 8 MiB/10,000-message limit. It is retained only
-for an owned provider session and adds no timers or background history reads.
+The live projection has the same 8 MiB/10,000-message limit, counted across
+the whole run including replayed history. A session that passes it is stopped
+mid-turn: YA ends the native process without `session/cancel` and the session
+ends with the history-limit error. It is retained only for an owned provider
+session and adds no timers or background history reads.
 
 Text and generic tool records are normalized from actual native notifications.
 Live text and thinking blocks publish `_isStreaming` snapshots of one message

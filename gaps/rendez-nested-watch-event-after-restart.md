@@ -382,3 +382,8 @@ run, missed the second nested delivery at line 364 (1 observed, 2 expected)
 on macOS, with Node 25.8.2 and Node 24.22.1 respectively. Focused reruns
 passed. The Antigravity slice changes no Rendez source, fixture, assertion or
 timeout; both runs stay red.
+
+2026-11-22: plan 195 step 2's workspace run, on macOS with Node 25.8.2,
+missed the first nested delivery at line 353 (0 observed, 1 expected); 7,693
+other server tests passed, and a focused rerun of the file passed. Step 2
+changes no Rendez source, fixture, assertion or timeout.
