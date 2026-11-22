@@ -30,12 +30,12 @@ behavior. Access to a model through another harness is a different integration.
 
 | YA provider | Native interface | Shared implementation today |
 | --- | --- | --- |
-| Antigravity | Official `agy_acp_server.par` / `antigravity-acp` distribution | Local `AntigravityRuntime` transport and `AntigravityTranscript` projection |
+| Antigravity | Google's `agy acp`; standalone `agy_acp_server.par` fallback | Local `AntigravityRuntime` transport and `AntigravityTranscript` projection |
 | Grok Build | `grok agent … --no-leader stdio` | Shared `ACPClient`; separate Grok session loop and conversion |
 
 Gemini CLI execution is retired. Antigravity is available by default when a
 runtime is installed, with platform and history limits in its
-[contract](antigravity.md).
+[support status](antigravity.md#support-status--2026-11-22).
 
 The [shared client](../packages/server/src/sdk/providers/acp/client.ts) owns
 connection setup, request failure/closure, new/load/resume calls, prompts,
@@ -64,6 +64,10 @@ GitHub documents `copilot --acp --stdio` as an integration interface.
 [GitHub ACP reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/acp-server)
 
 ## What T3 shares
+
+The November 22 [Antigravity-specific T3 review](antigravity.md#t3-code-reference--2026-11-22)
+covers the newer wake-settlement and replay-classification fixes and their
+relationship to YA's message delivery.
 
 Source comparison: clean local T3 checkout at
 [`6d46336476941257d774be7c7733e9caf201fec2`][t3-revision]; YA baseline

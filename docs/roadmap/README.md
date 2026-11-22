@@ -663,6 +663,12 @@ combined changes and rollback. Large ACP replay fields that the viewer
 does not retain no longer block cold resume. Standalone ACP retains its flat
 catalog. See the [provider contract](../../topics/antigravity.md).
 
+**Antigravity reliability, 2026-11-22:** native child links, replay and retention
+are implemented. Early patient delivery, false idle during detached wakes,
+unsafe scheduled reload and truncated cold replay remain open. The
+[support status](../../topics/antigravity.md#support-status--2026-11-22) links
+the scripted and live evidence and the current T3 Code source comparison.
+
 **Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
 leave provider discovery and execution. Both IDs remain in readable history.
 See the [retirement contract](../../topics/antigravity.md#gemini-retirement-and-optional-acp-consolidation)

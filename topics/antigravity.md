@@ -1,12 +1,40 @@
 # Antigravity provider
 
-Status: experimental, available by default when a runtime is installed. The
-current test target is the ACP server built into Google's `agy` CLI (1.5.13,
-run as `agy acp`); the standalone ACP runtime 1.4.5 remains supported. The live
-qualification used macOS arm64; Linux
-uses the same POSIX process boundary but has not been live-qualified. Windows remains unavailable
-until its native child-tree teardown is qualified. This is a separate provider;
-legacy Gemini histories and execution settings never migrate implicitly.
+Status: **experimental and listed by default when installed.** Basic foreground
+work is usable. Patient delivery, detached work, scheduled backend reload and
+cold history still have reproduced correctness gaps. The primary integration
+runs Google's `agy acp` against the user's native login and store. Legacy Gemini
+history retains its original provider and identity.
+
+## Support status — 2026-11-22
+
+Evidence below is from YA `eb520d058`. The
+[scripted native test target](native-provider-testing.md) is `agy` 1.5.13.
+Live Gemini 3.8 Flash Low probes used `agy` 1.5.14 on macOS arm64. Linux has
+scripted native coverage. Windows execution remains unavailable pending native
+child-tree teardown qualification. The standalone ACP 1.4.5 path remains
+available for its own store and uses ordinary queueing and the flat model
+catalog.
+
+| Surface | Current support and limits |
+| --- | --- |
+| Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. On `agy` 1.5.x, Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
+| Patient delivery | YA saves patient intent durably. Antigravity delivers it at the ordinary turn boundary, including when a native child or schedule can still wake the root. The per-item quiet interval and verified-idle gate belong to the intended patient behavior. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Early patient delivery](../gaps/antigravity-patient-queue-promotes-during-background-work.md) |
+| Detached work | Known shell tasks, schedules and native subagents appear in live work state. Native child links, settled child replay and running-child read-only views are implemented. The root can still report `verified-idle` while answering a wake, and idle reap can cancel that reply. Metadata can show `idle` even while retention is active. [Detached-wake gap](../gaps/antigravity-detached-wakes-look-idle.md) |
+| Cold history and resume | The reader can close `agy` when `session/load` returns and cache a truncated prefix. The saved-session ACP probe confirmed the final reply arrived after that RPC response. Resume also needs a late-frame classification check. [Cold replay gap](../gaps/antigravity-cold-replay-drops-the-transcript-tail.md) |
+| Backend reload | `agy` is backend-local. A scheduled reload can miss a detached wake or admit new foreground work after its blocker snapshot. Either can interrupt work. The original interrupted session later resumed and finished. [Reload gap](../gaps/antigravity-backend-reload-interrupts-active-work.md) |
+| Other controls | Model and effort changes, offered permission choices, and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Inline images/documents, rewind and fork remain unavailable. |
+
+The [lifecycle reproductions](../gaps/antigravity-detached-wakes-look-idle.md#reproduction)
+use real `agy` with a scripted model for early patient delivery, false idle
+and idle reap, scheduled reload during a wake, and the late foreground reload
+race. The [cold replay reproduction](../gaps/antigravity-cold-replay-drops-the-transcript-tail.md#original-reproduction)
+uses a saved native session. A repeatable cold-tail cutoff with a disposable
+scripted-model session remains unqualified. The
+[upgrade checks](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
+can run with an explicitly selected `agy` version. They check wire order in a
+short native replay and reproduce YA's incomplete-cache behavior with a
+controlled ACP peer.
 
 ## Installation selection
 
@@ -163,8 +191,9 @@ steering, background state, queued compaction and verified Stop using the
 existing authority and receipt contracts. Eligible bypass-permissions CLI
 launches receive their own private v0 connection when Agent API discovery is
 enabled. See [HTTP API v0](http-api-v0.md#local-agent-bootstrap).
-Rewind, fork, the quota dashboard and YA-specific instructions remain outside
-the current provider scope.
+The shared subscription usage surface can show quota buckets from the CLI
+status line on supported hosts. Rewind, fork and general YA instruction
+injection remain outside the current provider scope.
 Native skills, hooks, MCP configuration and provider-created workspace files
 remain Google's behavior; YA creates no project-local cache or Git exclusions.
 Native-only projects now join the shared retained catalog and project list;
@@ -213,8 +242,12 @@ report file-read tool identity, location and status, while the file contents
 stay in native model context.
 
 The preview uses a local in-process owner, even when the shared provider host
-is enabled. Cold resume uses native `session/load` to restore history before
-new input. A session reactivated without a prompt stays idle through replay.
+is enabled. Cold resume calls native `session/load` before sending new input.
+ACP v1 orders history notifications before the load response. The saved-session
+repro on `agy` 1.5.14 observed late history notifications after that response.
+A session reactivated without a prompt stays idle through replay.
+[ACP load ordering](https://agentclientprotocol.com/protocol/v1/session-setup#loading-sessions) ·
+[Cold replay gap](../gaps/antigravity-cold-replay-drops-the-transcript-tail.md)
 Resume waits for an in-progress history read of the same conversation to
 release it and refuses a second live owner. While that owner lives, detail
 reads use its bounded native-event projection. This
@@ -258,6 +291,49 @@ Provider side-effect controls and the wider native tool/media matrix remain
 unverified, as described in the existing
 [side-effect](../gaps/provider-session-side-effect-controls.md) and
 [display-coverage](../gaps/tool-display-native-provider-coverage.md) gaps.
+
+## T3 Code reference — 2026-11-22
+
+Source review of T3 Code `main` at [`122d3bf853`][t3-agy-revision]. The
+[T3 provider guide][t3-agy-guide] documents `agy` 1.5 or newer and recommends
+1.5.12 or newer. T3 runs `agy acp` with a managed profile and selects the
+`antigravity-acp` app-data directory inside it. YA's usual `agy acp` path uses
+the CLI's existing `antigravity-cli` store. Native file locations and layouts
+need qualification in YA's actual launch mode. This review used T3 source and
+its reported tests. Live and scripted reproduction evidence above is from YA.
+[T3 launch arguments][t3-agy-launch] · [Shared ACP architecture](acp.md#what-t3-shares)
+
+| Boundary | Reference in T3 | Application to YA |
+| --- | --- | --- |
+| Steering and Stop | The Antigravity flavor sends a second prompt for native steering and preserves background work on an ordinary follow-up after the prompt settles. Explicit Stop can cancel the native work. [T3 adapter flavor][t3-agy-flavor] | Keep Steer, ordinary deferred delivery, patient delivery and Stop distinct through the native boundary. Test that ordinary input and steering preserve background work unless the user explicitly stops it. |
+| Prompt return and pending wakes | T3 can keep an application turn open after the prompt responds. Its wake check looks for unread high-priority messages in the native inbox or a trailing waking `SYSTEM_MESSAGE` in a bounded transcript tail. It also looks for child reports or killed children. Tests cover consecutive wakes, batched reports and a stalled wake. [T3 native readers][t3-agy-work] · [T3 wake fix and evidence][t3-agy-wake-fix] | Treat the inbox and tail as candidate positive evidence that work remains when the last tool or child clears. Check them against live ACP events and the root summary in YA's store. Missing or stale reads leave settlement unverified. Keep the ordinary deferred boundary at foreground completion and apply confirmed root settlement plus the quiet interval to patient delivery. |
+| Detached reply completion | T3 uses `usage_update` to close an observed detached reply and checks for another pending wake before finalizing. It bounds how long it waits for quiet. [T3 wake fix and evidence][t3-agy-wake-fix] · [T3 ACP finalization][t3-agy-finalize] | Qualify `usage_update` on the pinned and live runtimes as one input to root settlement. Exercise a quiet end, delayed native publication and a second wake. Use the shared provider observation owner for exact-session reads. |
+| Replay and live updates | T3's shared ACP adapter sends `_meta.isReplay: true` updates to history snapshots and skips prompt progress and wake tracking. The reported regression used a scripted ACP peer through the Grok adapter. [T3 replay fix and evidence][t3-acp-replay-fix] · [T3 replay classification][t3-acp-replay-classification] | Check whether `agy` marks the late frames seen in YA. YA currently forwards only the update and session ID to the adapter, so using a replay flag would require carrying notification metadata with them. Replay classification and proof that a cold read reached the saved tail are separate checks. The saved-session marker also exists in YA's bounded native JSONL reader. [YA ACP dispatch](../packages/server/src/sdk/providers/antigravity-runtime.ts#L435-L442) |
+
+The applicable design is a provider-owned report of foreground completion,
+detached work and verified root settlement, with YA retaining its delivery
+policy. Use the existing scheduler and reload owners to consume that evidence.
+The final scheduled-reload admission check still belongs at the YA wrapper
+handoff. Shared ACP transport and provider-host continuity remain separately
+scoped in their owning contracts. [YA session liveness](session-liveness.md) ·
+[Reload ownership](reload-safe-provider-runtimes.md) · [ACP composition](acp.md#proposed-ya-boundary)
+
+The [upgrade checks](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
+keep lifecycle and delivery on real `agy` against a scripted model. The
+controlled ACP peer reproduces the late history ordering at the cold reader.
+Replay classification after live resume still needs a regression check that
+late history never counts as live progress. The saved-session replay probe
+supplies real-runtime evidence for the longer cutoff.
+
+[t3-agy-revision]: https://github.com/pingdotgg/t3code/commit/122d3bf853da716652d5066b54d05d7654c46e36
+[t3-agy-guide]: https://github.com/pingdotgg/t3code/blob/122d3bf853da716652d5066b54d05d7654c46e36/docs/user/providers-antigravity.md
+[t3-agy-launch]: https://github.com/pingdotgg/t3code/blob/122d3bf853da716652d5066b54d05d7654c46e36/apps/server/src/provider/antigravityAuthSupport.ts#L558-L564
+[t3-agy-flavor]: https://github.com/pingdotgg/t3code/blob/122d3bf853da716652d5066b54d05d7654c46e36/apps/server/src/orchestration-v2/Adapters/AntigravityAdapterV2.ts#L236-L251
+[t3-agy-work]: https://github.com/pingdotgg/t3code/blob/122d3bf853da716652d5066b54d05d7654c46e36/apps/server/src/provider/acp/AntigravityChildWork.ts#L751-L815
+[t3-agy-wake-fix]: https://github.com/pingdotgg/t3code/pull/39989
+[t3-agy-finalize]: https://github.com/pingdotgg/t3code/blob/122d3bf853da716652d5066b54d05d7654c46e36/packages/provider-acp/src/server/adapter.ts#L8753-L8783
+[t3-acp-replay-fix]: https://github.com/pingdotgg/t3code/pull/40328
+[t3-acp-replay-classification]: https://github.com/pingdotgg/t3code/blob/122d3bf853da716652d5066b54d05d7654c46e36/packages/provider-acp/src/server/runtimeModel.ts#L1319-L1322
 
 ## Qualification on 2026-11-03
 
