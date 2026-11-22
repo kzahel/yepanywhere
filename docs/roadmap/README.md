@@ -671,6 +671,12 @@ handoff. The
 [support status](../../topics/antigravity.md#support-status--2026-11-22) links
 the scripted and live evidence and the current T3 Code source comparison.
 
+**Antigravity native history plan, 2026-11-22:**
+[plan 195](../tactical/195-antigravity-native-history.md) proposes reading
+history from `agy`'s native log, removing the history size limit and the
+standalone 1.4.x runtime, and then moving the owner into the Provider Host.
+No step has started.
+
 **Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
 leave provider discovery and execution. Both IDs remain in readable history.
 See the [retirement contract](../../topics/antigravity.md#gemini-retirement-and-optional-acp-consolidation)

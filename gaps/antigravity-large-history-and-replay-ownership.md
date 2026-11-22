@@ -41,6 +41,8 @@ start a competing load beside a live owner. Evaluate the existing read-only
 log reader for that view and measure native `session/resume` on large histories.
 Replay completion for ambiguous tails has its own gap.
 [Read-only native log reader](../packages/server/src/sessions/antigravity-subagent-links.ts#L1050) ·
+[Native storage and log format](../topics/antigravity-native-storage.md) ·
+[Plan 195](../docs/tactical/195-antigravity-native-history.md) ·
 [Replay completion gap](antigravity-acp-replay-completion-signal.md)
 
 Found 2026-11-22 while investigating Antigravity reload continuity and large histories.

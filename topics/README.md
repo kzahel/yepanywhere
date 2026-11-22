@@ -63,6 +63,9 @@
   transport/session composition; native Copilot and generic registry boundaries)
 - [Antigravity provider](antigravity.md) (`agy acp` support, delivery and history
   gaps, and the Antigravity-specific T3 Code comparison)
+- [Antigravity native storage](antigravity-native-storage.md) (what `agy`
+  writes per conversation, the brain log's record format, and which files YA
+  and T3 Code read)
 - OpenCode ses_ session ID unification with YA session ID
 - MessageQueue batch delivery and steering UI
 - Message-control and queue intent (`/btw`, queue intent, later-interrupt state contract)

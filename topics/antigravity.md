@@ -213,7 +213,9 @@ effects. Rejected native resume never falls back to `session/new` or replays
 queued input into another conversation.
 
 History comes from native file facts and ACP `session/list` and
-`session/load`, with no YA shadow transcript or protobuf decoder. The standalone
+`session/load`, with no YA shadow transcript or protobuf decoder.
+[Native storage](antigravity-native-storage.md) describes each file `agy`
+writes and the brain log's record format. The standalone
 runtime writes a `<uuid>.meta` JSON file holding the project path; `agy` 1.5+
 writes none and instead records each conversation's workspace URIs, title and
 subagent lineage (`parent_conversation_id`, `agent_name`, `nesting_depth`) in
