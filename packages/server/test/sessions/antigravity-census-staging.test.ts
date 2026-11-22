@@ -1,5 +1,11 @@
 import { execFile } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import {
   chmod,
   lstat,
@@ -38,8 +44,19 @@ async function store(at: string) {
   await writeFile(join(at, "conversations", `${ID}.db-wal`), "wal");
   await writeFile(join(logs, "transcript_full.jsonl"), "{}\n");
   await writeFile(join(at, "conversation_summaries.db"), "index");
+  await writeFile(join(at, "conversation_summaries.db-wal"), "index wal");
   return at;
 }
+
+/** Runs the pending change once, between the checks and the copy. */
+let pending: (() => void) | undefined;
+const racing = {
+  beforeCopy: () => {
+    const change = pending;
+    pending = undefined;
+    change?.();
+  },
+};
 
 describe("Antigravity census staging", () => {
   it("copies independent regular files and notices a source that changed", async () => {
@@ -60,11 +77,60 @@ describe("Antigravity census staging", () => {
       expect(copy.isFile()).toBe(true);
       expect(copy.ino).not.toBe(original.ino);
     }
-    const changed = stageConversation(source, target, ID, () => {
-      appendFileSync(join(source, "conversations", `${ID}.db-wal`), "+");
+    const changed = stageConversation(source, target, ID, {
+      afterCopy: () =>
+        appendFileSync(join(source, "conversations", `${ID}.db-wal`), "+"),
     });
     expect(changed).toEqual({ coherent: false });
+    await expect(
+      lstat(join(target, `conversations/${ID}.db`)),
+    ).rejects.toThrow();
   });
+
+  it.each([
+    [
+      "a checkpoint removes the conversation's WAL",
+      (source: string) => rmSync(join(source, `conversations/${ID}.db-wal`)),
+      (source: string, target: string) =>
+        stageConversation(source, target, ID, racing),
+    ],
+    [
+      "the conversation's database is renamed",
+      (source: string) =>
+        renameSync(
+          join(source, `conversations/${ID}.db`),
+          join(source, `conversations/${ID}.db.old`),
+        ),
+      (source: string, target: string) =>
+        stageConversation(source, target, ID, racing),
+    ],
+    [
+      "a checkpoint removes the summaries WAL",
+      (source: string) => rmSync(join(source, "conversation_summaries.db-wal")),
+      (source: string, target: string) =>
+        stageSummaries(source, target, racing),
+    ],
+  ])(
+    "discards and retries when %s between the check and the copy",
+    async (_name, change, stage) => {
+      root = await mkdtemp(join(tmpdir(), "ya-agy-stage-"));
+      const source = await store(join(root, "source"));
+      const target = join(root, "target");
+      pending = () => change(source);
+      expect(stage(source, target)).toEqual({ coherent: false });
+      const staged = existsSync(target)
+        ? readdirSync(target, { recursive: true }).map(String)
+        : [];
+      expect(staged.filter((name) => name.includes(".db"))).toEqual([]);
+      // The next attempt sees the settled source.
+      if (existsSync(join(source, `conversations/${ID}.db.old`)))
+        renameSync(
+          join(source, `conversations/${ID}.db.old`),
+          join(source, `conversations/${ID}.db`),
+        );
+      expect(stage(source, target)).toEqual({ coherent: true });
+    },
+  );
 
   it.each([
     ["a linked conversations directory", "conversations"],
@@ -98,40 +164,45 @@ describe("Antigravity census staging", () => {
     expect(() => assertContained(profile)).toThrow(/leaves the profile/);
   });
 
-  it("never starts agy for a store whose conversations are a link", async () => {
-    root = await mkdtemp(join(tmpdir(), "ya-agy-stage-"));
-    const original = await store(join(root, "original"));
-    const source = await store(join(root, "source"));
-    await rm(join(source, "conversations"), { recursive: true });
-    await symlink(
-      join(original, "conversations"),
-      join(source, "conversations"),
-    );
-    const marker = join(root, "agy-started");
-    const agy = join(root, "agy");
-    await writeFile(agy, `#!/bin/sh\ntouch '${marker}'\nexit 1\n`);
-    await chmod(agy, 0o755);
-    const census = run(
-      join(repo, "node_modules/.bin/tsx"),
-      [
-        "--conditions",
-        "source",
-        join(repo, "scripts/perf-repro/antigravity-log-census.mjs"),
-        "census",
-        "--store",
-        source,
-        "--agy",
-        agy,
-      ],
-      { cwd: join(repo, "packages/server"), timeout: 60_000 },
-    );
-    await expect(census).rejects.toMatchObject({
-      stderr: expect.stringContaining("refusing a link in the source store"),
-    });
-    await expect(lstat(marker)).rejects.toThrow();
-    // Nothing beside the original database either.
-    await expect(
-      lstat(join(original, "conversations", `${ID}.db-shm`)),
-    ).rejects.toThrow();
-  }, 60_000);
+  // A POSIX shell script stands in for agy.
+  it.skipIf(process.platform === "win32")(
+    "never starts agy for a store whose conversations are a link",
+    async () => {
+      root = await mkdtemp(join(tmpdir(), "ya-agy-stage-"));
+      const original = await store(join(root, "original"));
+      const source = await store(join(root, "source"));
+      await rm(join(source, "conversations"), { recursive: true });
+      await symlink(
+        join(original, "conversations"),
+        join(source, "conversations"),
+      );
+      const marker = join(root, "agy-started");
+      const agy = join(root, "agy");
+      await writeFile(agy, `#!/bin/sh\ntouch '${marker}'\nexit 1\n`);
+      await chmod(agy, 0o755);
+      const census = run(
+        join(repo, "node_modules/.bin/tsx"),
+        [
+          "--conditions",
+          "source",
+          join(repo, "scripts/perf-repro/antigravity-log-census.mjs"),
+          "census",
+          "--store",
+          source,
+          "--agy",
+          agy,
+        ],
+        { cwd: join(repo, "packages/server"), timeout: 60_000 },
+      );
+      await expect(census).rejects.toMatchObject({
+        stderr: expect.stringContaining("refusing a link in the source store"),
+      });
+      await expect(lstat(marker)).rejects.toThrow();
+      // Nothing beside the original database either.
+      await expect(
+        lstat(join(original, "conversations", `${ID}.db-shm`)),
+      ).rejects.toThrow();
+    },
+    60_000,
+  );
 });

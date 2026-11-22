@@ -71,50 +71,66 @@ function copyTree(root, target, rel) {
 }
 
 /**
- * Copies `files` (each with its `-wal` when present) and `trees`, then
- * compares the source identity of `watched` before and after. A change
- * means the copy may mix two persisted states: `coherent` is false.
+ * Copies `files` (each with its `-wal` when present) and `trees`, and
+ * compares the source identity of `watched` before and after. When they
+ * differ, the copy may mix two persisted states, or a file vanished or was
+ * renamed between the check and the copy (a SQLite checkpoint removes the
+ * WAL): the staged files are discarded and `coherent` is false, so the
+ * caller can retry. An error on a source that did not change, such as a
+ * refused link, is thrown. `hooks` let tests act between the steps.
  */
-function stage(source, target, { files, trees = [], watched }, afterCopy) {
+function stage(source, target, { files, trees = [], watched }, hooks = {}) {
   const root = realpathSync(source);
-  // Refuse before copying anything.
-  for (const rel of files) {
-    checked(root, rel, "file");
-    if (identity(join(root, `${rel}-wal`)) !== null)
-      checked(root, `${rel}-wal`, "file");
-  }
-  for (const rel of trees) copyTree(root, null, rel);
+  const sameSource = () =>
+    watched.every((rel, index) => identity(join(root, rel)) === before[index]);
+  const discard = () => {
+    for (const rel of [...files, ...trees])
+      for (const suffix of rel.endsWith(".db") ? ["", "-wal", "-shm"] : [""])
+        rmSync(join(target, `${rel}${suffix}`), {
+          force: true,
+          recursive: true,
+        });
+  };
   const before = watched.map((rel) => identity(join(root, rel)));
-  for (const rel of [...files, ...trees])
-    rmSync(join(target, rel), { force: true, recursive: true });
-  for (const rel of files) {
-    rmSync(join(target, `${rel}-wal`), { force: true });
-    rmSync(join(target, `${rel}-shm`), { force: true });
-    copyFile(root, target, rel);
-    if (identity(join(root, `${rel}-wal`)) !== null)
-      copyFile(root, target, `${rel}-wal`);
+  discard();
+  try {
+    // Refuse before copying anything.
+    const copies = files.flatMap((rel) => {
+      checked(root, rel, "file");
+      if (identity(join(root, `${rel}-wal`)) === null) return [rel];
+      checked(root, `${rel}-wal`, "file");
+      return [rel, `${rel}-wal`];
+    });
+    for (const rel of trees) copyTree(root, null, rel);
+    hooks.beforeCopy?.();
+    for (const rel of copies) copyFile(root, target, rel);
+    for (const rel of trees) copyTree(root, target, rel);
+    hooks.afterCopy?.();
+  } catch (error) {
+    if (sameSource()) throw error;
+    discard();
+    return { coherent: false };
   }
-  for (const rel of trees) copyTree(root, target, rel);
-  afterCopy?.();
-  const after = watched.map((rel) => identity(join(root, rel)));
-  return { coherent: before.every((value, index) => value === after[index]) };
+  if (sameSource()) return { coherent: true };
+  discard();
+  return { coherent: false };
 }
 
 const log = (id) => `brain/${id}/.system_generated/logs/transcript_full.jsonl`;
 
 /** The summaries index and its WAL. */
-export function stageSummaries(source, target, afterCopy) {
+export function stageSummaries(source, target, hooks) {
   const db = "conversation_summaries.db";
   return stage(
     source,
     target,
     { files: [db], watched: [db, `${db}-wal`] },
-    afterCopy,
+    hooks,
   );
 }
 
 /** One conversation: its database and WAL, and its brain directory. */
-export function stageConversation(source, target, id, afterCopy) {
+export function stageConversation(source, target, id, hooks) {
   const db = `conversations/${id}.db`;
   return stage(
     source,
@@ -124,7 +140,7 @@ export function stageConversation(source, target, id, afterCopy) {
       trees: [`brain/${id}`],
       watched: [db, `${db}-wal`, log(id)],
     },
-    afterCopy,
+    hooks,
   );
 }
 

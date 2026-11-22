@@ -530,6 +530,10 @@ live, and its missing results are interrupted otherwise.
 
 A window is a run of records the caller projects. Records outside it are
 observed: they update the group state and checks, and produce no messages.
+A caller that parses lines itself, for the window, for `observe` or for
+the context read backward, must treat a line with `invalidUtf8` as an
+unknown log before parsing it: `parseAntigravityLogRecord(line.text)`
+cannot tell a real U+FFFD from a replaced byte. `addLine` does this.
 Following the [group rule for parts](#reading-a-tool-group), a window that
 does not start the file observes the records from the last non-`GENERIC`
 record before it, and a window that ends inside a group it projected
@@ -579,11 +583,15 @@ source, and the census refuses to start `agy` while anything in the
 profile resolves outside it, so no `session/load` can open a source file.
 The source's database, WAL and log identities (device, inode, size,
 modification time) are compared before and after each copy. A copy that
-changed is retried twice and then reported inconclusive. For each
+changed is retried twice and then reported inconclusive. That includes a
+file that vanished or was renamed between the check and the copy, such as
+a WAL a SQLite checkpoint removed; a failed or changed copy is discarded
+before a retry, and an error on an unchanged source, such as a refused
+link, stops the census. For each
 conversation it projects the copy's log and replays the copy through `agy
 acp` `session/load` into YA's cold transcript, observing for 500 ms after
-the load. It counts the replay's raw tool frames and YA's normalized
-results, then compares the projection and transcript after removing the expected differences that
+the load. It counts the replay's raw tool frames, recognizing a subagent's updates
+by the ID its call announced, and YA's normalized results, then compares the projection and transcript after removing the expected differences that
 [`antigravity-projection-compare.ts`](../packages/server/test/utils/antigravity-projection-compare.ts)
 lists: IDs, tool names (ACP titles), the projection's results, system
 messages, checkpoints, errors, timestamps and models, and replay's habit of

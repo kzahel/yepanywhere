@@ -168,6 +168,7 @@ try {
       withRawOutput: {},
       ordinaryToolCallUpdates: 0,
       subagentToolCalls: 0,
+      subagentToolCallUpdates: 0,
     },
     normalizedOrdinaryResults: 0,
     classes: {},
@@ -208,14 +209,22 @@ try {
     entry.projectedMessages = projected.messages.length;
     const transcript = new AntigravityTranscript(id);
     const frames = totals.frames;
+    // An update may carry only the call's ID and status, so a subagent is
+    // recognized by the ID its call announced as well as by its own name.
+    const subagentIds = new Set();
     const count = (update) => {
       if (
         update.sessionUpdate !== "tool_call" &&
         update.sessionUpdate !== "tool_call_update"
       )
         return;
-      if (isAntigravityInvokeSubagent(update)) {
-        frames.subagentToolCalls++;
+      if (
+        isAntigravityInvokeSubagent(update) ||
+        subagentIds.has(update.toolCallId)
+      ) {
+        if (update.toolCallId) subagentIds.add(update.toolCallId);
+        if (update.sessionUpdate === "tool_call") frames.subagentToolCalls++;
+        else frames.subagentToolCallUpdates++;
         return;
       }
       if (update.sessionUpdate === "tool_call_update") {
