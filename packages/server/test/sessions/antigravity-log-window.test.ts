@@ -107,6 +107,14 @@ describe("Antigravity log windows", () => {
       expect.arrayContaining(["suffix", "interior"]),
     );
     const all = await whole();
+    // Every window names the conversation's first prompt, read from the head.
+    const firstPrompt = all.find((m) => m.type === "user")?.message?.content;
+    expect(firstPrompt).toMatch(/^TURN_1_PROMPT STEP_0 /);
+    expect((await known({ kind: "complete" })).firstPrompt).toBe(firstPrompt);
+    expect(
+      (await known({ kind: "latest", compactions: 1 }, { pageBytes: 4096 }))
+        .firstPrompt,
+    ).toBe(firstPrompt);
     for (const [pageBytes, compactions] of [
       [16 * 1024, 2],
       [1024 * 1024, 1],

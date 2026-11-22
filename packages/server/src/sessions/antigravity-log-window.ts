@@ -611,11 +611,7 @@ export async function readAntigravityLogWindow(
       );
       try {
         read = await window.run(options.request);
-        if (
-          read.status === "known" &&
-          options.request.kind !== "complete" &&
-          read.anchor !== "missed"
-        )
+        if (read.status === "known")
           read.firstPrompt = read.omittedPrefix
             ? await window.firstPrompt()
             : firstUserText(read.messages);

@@ -577,7 +577,7 @@ describe("AntigravitySummariesReader & top-level child exclusion", () => {
     }
   });
 
-  it("revalidates getSessionSummary after nativeList() when lineage commits mid-flight", async () => {
+  it("summarizes from the summaries index without starting agy, excluding a child once linked", async () => {
     if (process.platform === "win32") return;
     const f = await createSummariesFixture();
     await writeFile(join(f.conversationsDir, `${CHILD_ID}.db`), "child");
@@ -600,25 +600,11 @@ describe("AntigravitySummariesReader & top-level child exclusion", () => {
     } finally {
       insert.finalize();
     }
+    const started = join(f.root, "agy-started");
     const peerBin = join(f.root, "agy");
     await writeFile(
       peerBin,
-      `#!/usr/bin/env node
-const readline = require("node:readline");
-const { DatabaseSync } = require("node:sqlite");
-const send = (v) => process.stdout.write(JSON.stringify(v) + "\\n");
-readline.createInterface({ input: process.stdin }).on("line", (line) => {
-  const m = JSON.parse(line);
-  if (m.method === "initialize") return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1, agentInfo: { version: "1.5.13" } } });
-  if (m.method === "session/list") {
-    const db = new DatabaseSync(${JSON.stringify(f.dbPath)});
-    db.prepare("UPDATE conversation_summaries SET parent_conversation_id = ?, nesting_depth = 1 WHERE conversation_id = ?").run(${JSON.stringify(PARENT_ID)}, ${JSON.stringify(CHILD_ID)});
-    db.close();
-    return send({ jsonrpc: "2.0", id: m.id, result: { sessions: [{ sessionId: ${JSON.stringify(CHILD_ID)}, title: "Stale ACP Title" }] } });
-  }
-  return send({ jsonrpc: "2.0", id: m.id, result: {} });
-});
-`,
+      `#!/bin/sh\necho started >> '${started}'\nexit 1\n`,
     );
     await chmod(peerBin, 0o755);
     vi.stubEnv("GEMINI_HOME", f.root);
@@ -630,7 +616,19 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     });
     try {
       const projectId = toUrlProjectId(f.project);
+      expect((await reader.getSessionSummary(CHILD_ID, projectId))?.title).toBe(
+        "Initially Root",
+      );
+      const link = f.db.prepare(
+        "UPDATE conversation_summaries SET parent_conversation_id = ?, nesting_depth = 1 WHERE conversation_id = ?",
+      );
+      try {
+        link.run(PARENT_ID, CHILD_ID);
+      } finally {
+        link.finalize();
+      }
       expect(await reader.getSessionSummary(CHILD_ID, projectId)).toBeNull();
+      await expect(readFile(started, "utf8")).rejects.toThrow();
     } finally {
       await reader.close();
     }
