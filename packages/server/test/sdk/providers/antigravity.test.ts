@@ -22,6 +22,7 @@ import { createCatalogSessionLookup } from "../../../src/sessions/catalog-sessio
 import { projectCatalogIdentities } from "../../../src/sessions/catalog-identity.js";
 import { AntigravitySessionReader } from "../../../src/sessions/antigravity-reader.js";
 import type { SDKMessage } from "../../../src/sdk/types.js";
+import type { Process } from "../../../src/supervisor/Process.js";
 import { createApp } from "../../setup/create-app.js";
 import { EventBus } from "../../../src/watcher/EventBus.js";
 import {
@@ -100,10 +101,40 @@ readline.createInterface({input:process.stdin}).on('line', line => {
 });
 `;
 
+async function waitForIdle(
+  process: Process,
+  signal: AbortSignal,
+  ready: (process: Process) => boolean = () => true,
+) {
+  signal.throwIfAborted();
+  await new Promise<void>((resolve, reject) => {
+    const abort = () => finish(signal.reason);
+    const finish = (error?: unknown) => {
+      unsubscribe();
+      signal.removeEventListener("abort", abort);
+      if (error !== undefined) reject(error);
+      else resolve();
+    };
+    const observe = () => {
+      const state = process.state;
+      if (state.type === "idle" && ready(process)) finish();
+      if (state.type === "terminated")
+        finish(state.error ?? new Error(state.reason));
+    };
+    const unsubscribe = process.subscribe((event) => {
+      if (event.type === "error") finish(event.error);
+      else observe();
+    });
+    signal.addEventListener("abort", abort, { once: true });
+    observe();
+  });
+}
+
 describe("Antigravity native process boundary", () => {
   let directory: string;
   let executable: string;
   let log: string;
+  let admissionFinished: Promise<void> | undefined;
   beforeEach(async () => {
     // The temp root is itself a link on macOS; a project is its real folder.
     directory = await realpath(await mkdtemp(join(tmpdir(), "ya-agy-test-")));
@@ -116,6 +147,8 @@ describe("Antigravity native process boundary", () => {
     vi.stubEnv("AGY_TEST_LOG", log);
   });
   afterEach(async () => {
+    await admissionFinished;
+    admissionFinished = undefined;
     closeTestDiscoveryDatabases();
     vi.unstubAllEnvs();
     await rm(directory, { recursive: true, force: true });
@@ -123,207 +156,238 @@ describe("Antigravity native process boundary", () => {
 
   it.skipIf(process.platform === "win32")(
     "admits a real child through YA and reopens its native conversation under the same public identity",
-    async () => {
-      vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
-      const metadata = createTestSessionMetadataService(
-        join(directory, "data"),
-      );
-      await metadata.initialize();
-      const provider = new AntigravityProvider();
-      const boot = () =>
-        createApp({
-          provider,
-          dataDir: join(directory, "data"),
-          sessionMetadataService: metadata,
-          eventBus: new EventBus(),
-          authDisabled: true,
-          enabledProviders: ["antigravity"],
-        });
-      let app = boot();
-      let active: ReturnType<typeof app.supervisor.getProcessForSession>;
-      const projectId = toUrlProjectId(directory);
+    async ({ signal }) => {
+      const finished = Promise.withResolvers<void>();
+      admissionFinished = finished.promise;
       try {
-        const response = await app.app.request(
-          `/api/projects/${projectId}/session-creations`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Yep-Anywhere": "true",
-            },
-            body: JSON.stringify({
-              requestId: "preview-admission",
-              message: "hello",
-              provider: "antigravity",
-              mode: "default",
-            }),
-          },
-        );
-        expect(response.status).toBe(202);
-        const receipt = await response.json();
-        await vi.waitFor(() => {
-          active = app.supervisor.getProcessForSession(receipt.sessionId);
-          expect(active?.state.type).toBe("idle");
-          expect(active?.resolvedModel).toBe("native-default");
-          expect(
-            active?.getMessageHistory().some((m) => m.type === "result"),
-          ).toBe(true);
-        });
-        expect(
-          metadata.identities.resolveYa(receipt.sessionId)?.native?.id,
-        ).toBe(nativeId);
-        expect(receipt.sessionId).not.toBe(nativeId);
-        // The native prompt echo must not duplicate YA's own user message.
-        expect(
-          active
-            ?.getMessageHistory()
-            .filter((m) => m.type === "user" && m.message?.content === "hello"),
-        ).toHaveLength(1);
-        // An anchored catch-up is incremental: the reader must leave the
-        // anchor for the route to find, or the client replaces its window.
-        const detailPath = `/api/projects/${projectId}/sessions/${receipt.sessionId}`;
-        const detail = await (
-          await app.app.request(detailPath, {
-            headers: { "X-Yep-Anywhere": "true" },
-          })
-        ).json();
-        const [first, ...rest] = detail.messages as Array<{ uuid: string }>;
-        const anchored = await (
-          await app.app.request(
-            `${detailPath}?afterMessageId=${encodeURIComponent(first!.uuid)}`,
-            { headers: { "X-Yep-Anywhere": "true" } },
-          )
-        ).json();
-        expect(anchored.pagination).toBeUndefined();
-        expect(anchored.messages.map((m: { uuid: string }) => m.uuid)).toEqual(
-          rest.map((m) => m.uuid),
-        );
-        const nativeCatalog = await new AntigravitySessionCatalogAdapter().scan(
-          {
-            catalogEpoch: "test",
-            targetGeneration: 1,
-            mode: { kind: "complete" },
-            signal: new AbortController().signal,
-          },
-        );
-        const publicRows = await projectCatalogIdentities(
-          nativeCatalog.rows,
-          metadata,
-        );
-        expect(
-          publicRows.find((row) => row.nativeSessionId === nativeId)?.sessionId,
-        ).toBe(receipt.sessionId);
-        expect(
-          await projectCatalogIdentities(nativeCatalog.rows, metadata),
-        ).toEqual(publicRows);
+        await exerciseAdmission(signal);
+      } finally {
+        finished.resolve();
+      }
+    },
+    // Three real child launches and a large replay took up to 2.2s under
+    // local CPU contention. Earlier full-suite runs exhausted a 1s startup
+    // wait before reaching any of the reopen steps.
+    8_000,
+  );
 
-        const row = nativeCatalog.rows[0]!;
-        const lookup = createCatalogSessionLookup(
-          {
-            readPublishedProjectRows: async () => [
-              {
-                ...row,
-                nativeStorageScope: `${row.nativeStorageScope}-foreign`,
-                title: "Wrong store",
-              },
-              { ...row, title: "Exact native title" },
-            ],
-          },
-          metadata,
-        );
-        expect((await lookup(projectId, receipt.sessionId))?.title).toBe(
-          "Exact native title",
-        );
-        expect(
-          await lookup(projectId, receipt.sessionId, "codex"),
-        ).toBeUndefined();
-        expect(
-          await lookup(
-            toUrlProjectId(join(directory, "foreign-project")),
-            receipt.sessionId,
-          ),
-        ).toBeUndefined();
-        expect(metadata.identities.resolveYa(nativeId)).toBeUndefined();
-        const reader = new AntigravitySessionReader({ projectPath: directory });
-        try {
-          expect(
-            JSON.stringify(await reader.getSession(nativeId, projectId)),
-          ).toContain("Hello world");
-          expect(await readFile(log, "utf8")).not.toContain("session/load");
-        } finally {
-          await reader.close();
-        }
-        await active?.abort();
-        active = undefined;
-        app.stopNotifications();
-        await app.disposeSessionReaders();
-        vi.stubEnv("AGY_TEST_LARGE_REPLAY", "1");
-        app = boot();
-        const history = await (
-          await app.app.request(detailPath, {
-            headers: { "X-Yep-Anywhere": "true" },
-          })
-        ).json();
-        expect(JSON.stringify(history.messages)).toContain("Saved answer");
-        const reactivate = await app.app.request(`${detailPath}/reactivate`, {
+  async function exerciseAdmission(signal: AbortSignal) {
+    vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
+    const metadata = createTestSessionMetadataService(join(directory, "data"));
+    await metadata.initialize();
+    signal.throwIfAborted();
+    const provider = new AntigravityProvider();
+    const boot = () =>
+      createApp({
+        provider,
+        dataDir: join(directory, "data"),
+        sessionMetadataService: metadata,
+        eventBus: new EventBus(),
+        authDisabled: true,
+        enabledProviders: ["antigravity"],
+      });
+    let app = boot();
+    const startup = vi.spyOn(app.supervisor, "startSession");
+    const projectId = toUrlProjectId(directory);
+    let failure: unknown;
+    try {
+      const response = await app.app.request(
+        `/api/projects/${projectId}/session-creations`,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-Yep-Anywhere": "true",
           },
-          body: JSON.stringify({ provider: "antigravity" }),
-        });
-        expect(reactivate.status).toBe(200);
-        await vi.waitFor(() => {
-          active = app.supervisor.getProcessForSession(receipt.sessionId);
-          expect(JSON.stringify(active?.getMessageHistory())).toContain(
-            "Saved answer",
-          );
-          expect(active?.state.type).toBe("idle");
-        });
-        expect(
-          (await readFile(log, "utf8"))
-            .split("\n")
-            .filter((method) => method === "session/prompt"),
-        ).toHaveLength(1);
-        await active?.abort();
-        active = undefined;
-        const resume = await app.app.request(
-          `/api/projects/${projectId}/sessions/${receipt.sessionId}/resume`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Yep-Anywhere": "true",
+          body: JSON.stringify({
+            requestId: "preview-admission",
+            message: "hello",
+            provider: "antigravity",
+            mode: "default",
+          }),
+        },
+      );
+      expect(response.status).toBe(202);
+      const receipt = await response.json();
+      const started = await startup.mock.results[0]?.value;
+      let active = app.supervisor.getProcessForSession(receipt.sessionId);
+      if (!active) throw new Error("Accepted creation has no active owner");
+      expect(active).toBe(started);
+      await waitForIdle(active, signal);
+      expect(active.resolvedModel).toBe("native-default");
+      expect(active.getMessageHistory().some((m) => m.type === "result")).toBe(
+        true,
+      );
+      expect(metadata.identities.resolveYa(receipt.sessionId)?.native?.id).toBe(
+        nativeId,
+      );
+      expect(receipt.sessionId).not.toBe(nativeId);
+      // The native prompt echo must not duplicate YA's own user message.
+      expect(
+        active
+          ?.getMessageHistory()
+          .filter((m) => m.type === "user" && m.message?.content === "hello"),
+      ).toHaveLength(1);
+      // An anchored catch-up is incremental: the reader must leave the
+      // anchor for the route to find, or the client replaces its window.
+      const detailPath = `/api/projects/${projectId}/sessions/${receipt.sessionId}`;
+      const detail = await (
+        await app.app.request(detailPath, {
+          headers: { "X-Yep-Anywhere": "true" },
+        })
+      ).json();
+      const [first, ...rest] = detail.messages as Array<{ uuid: string }>;
+      const anchored = await (
+        await app.app.request(
+          `${detailPath}?afterMessageId=${encodeURIComponent(first!.uuid)}`,
+          { headers: { "X-Yep-Anywhere": "true" } },
+        )
+      ).json();
+      expect(anchored.pagination).toBeUndefined();
+      expect(anchored.messages.map((m: { uuid: string }) => m.uuid)).toEqual(
+        rest.map((m) => m.uuid),
+      );
+      const nativeCatalog = await new AntigravitySessionCatalogAdapter().scan({
+        catalogEpoch: "test",
+        targetGeneration: 1,
+        mode: { kind: "complete" },
+        signal: new AbortController().signal,
+      });
+      const publicRows = await projectCatalogIdentities(
+        nativeCatalog.rows,
+        metadata,
+      );
+      expect(
+        publicRows.find((row) => row.nativeSessionId === nativeId)?.sessionId,
+      ).toBe(receipt.sessionId);
+      expect(
+        await projectCatalogIdentities(nativeCatalog.rows, metadata),
+      ).toEqual(publicRows);
+
+      const row = nativeCatalog.rows[0]!;
+      const lookup = createCatalogSessionLookup(
+        {
+          readPublishedProjectRows: async () => [
+            {
+              ...row,
+              nativeStorageScope: `${row.nativeStorageScope}-foreign`,
+              title: "Wrong store",
             },
-            body: JSON.stringify({
-              message: "continue",
-              provider: "antigravity",
-              mode: "default",
-            }),
-          },
-        );
-        expect(resume.status).toBe(200);
-        await vi.waitFor(() => {
-          active = app.supervisor.getProcessForSession(receipt.sessionId);
-          expect(active?.state.type).toBe("idle");
-          expect(JSON.stringify(active?.getMessageHistory())).toContain(
-            "Saved answer",
-          );
-          expect(JSON.stringify(active?.getMessageHistory())).toContain(
-            "Hello world",
-          );
-        });
+            { ...row, title: "Exact native title" },
+          ],
+        },
+        metadata,
+      );
+      expect((await lookup(projectId, receipt.sessionId))?.title).toBe(
+        "Exact native title",
+      );
+      expect(
+        await lookup(projectId, receipt.sessionId, "codex"),
+      ).toBeUndefined();
+      expect(
+        await lookup(
+          toUrlProjectId(join(directory, "foreign-project")),
+          receipt.sessionId,
+        ),
+      ).toBeUndefined();
+      expect(metadata.identities.resolveYa(nativeId)).toBeUndefined();
+      const reader = new AntigravitySessionReader({ projectPath: directory });
+      try {
         expect(
-          metadata.identities.resolveYa(receipt.sessionId)?.native?.id,
-        ).toBe(nativeId);
+          JSON.stringify(await reader.getSession(nativeId, projectId)),
+        ).toContain("Hello world");
+        expect(await readFile(log, "utf8")).not.toContain("session/load");
       } finally {
-        await active?.abort();
-        app.stopNotifications();
-        await app.disposeSessionReaders();
+        await reader.close();
       }
-    },
-  );
+      await active.abort();
+      app.stopNotifications();
+      await app.disposeSessionReaders();
+      vi.stubEnv("AGY_TEST_LARGE_REPLAY", "1");
+      app = boot();
+      const history = await (
+        await app.app.request(detailPath, {
+          headers: { "X-Yep-Anywhere": "true" },
+        })
+      ).json();
+      expect(JSON.stringify(history.messages)).toContain("Saved answer");
+      const reactivate = await app.app.request(`${detailPath}/reactivate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Yep-Anywhere": "true",
+        },
+        body: JSON.stringify({ provider: "antigravity" }),
+      });
+      expect(reactivate.status).toBe(200);
+      active = app.supervisor.getProcessForSession(receipt.sessionId);
+      if (!active) throw new Error("Reactivation has no active owner");
+      await waitForIdle(active, signal, (process) =>
+        process
+          .getMessageHistory()
+          .some(
+            (message) =>
+              message.type === "assistant" &&
+              message.message?.content === "Saved answer",
+          ),
+      );
+      expect(
+        (await readFile(log, "utf8"))
+          .split("\n")
+          .filter((method) => method === "session/prompt"),
+      ).toHaveLength(1);
+      await active.abort();
+      const resume = await app.app.request(
+        `/api/projects/${projectId}/sessions/${receipt.sessionId}/resume`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Yep-Anywhere": "true",
+          },
+          body: JSON.stringify({
+            message: "continue",
+            provider: "antigravity",
+            mode: "default",
+          }),
+        },
+      );
+      expect(resume.status).toBe(200);
+      active = app.supervisor.getProcessForSession(receipt.sessionId);
+      if (!active) throw new Error("Resume has no active owner");
+      await waitForIdle(active, signal);
+      const resumedHistory = JSON.stringify(active.getMessageHistory());
+      expect(resumedHistory).toContain("Saved answer");
+      expect(resumedHistory).toContain("Hello world");
+      expect(metadata.identities.resolveYa(receipt.sessionId)?.native?.id).toBe(
+        nativeId,
+      );
+    } catch (error) {
+      failure = error;
+      throw error;
+    } finally {
+      app.stopNotifications();
+      await Promise.allSettled(startup.mock.results.map(({ value }) => value));
+      startup.mockRestore();
+      const cleanup = await Promise.allSettled(
+        app.supervisor.getAllProcesses().map((process) => process.abort()),
+      );
+      const errors = cleanup.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      try {
+        await app.disposeSessionReaders();
+      } catch (error) {
+        errors.push(error);
+      }
+      if (errors.length > 0) {
+        throw new AggregateError(
+          failure === undefined ? errors : [failure, ...errors],
+          "Antigravity admission fixture cleanup failed",
+        );
+      }
+    }
+  }
 
   // Exact native signal status is POSIX-only; the exit-code path stays portable.
   it.each(

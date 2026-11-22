@@ -943,6 +943,11 @@ and the 1.5.14 candidate. The focused rerun with an independent ACP load also
 passed on both versions. Specifying the wrong candidate version was refused
 before native session startup.
 
+In the server suite, the Antigravity admission test observes the creation
+operation behind the durable receipt and the owner's idle event. Cleanup
+joins the operation and stops any registered owner before deleting fixture
+files. See `antigravity-admission-test-startup-window.md` in gap history.
+
 ## Linux Antigravity bootstrap prerequisite
 
 The legacy Antigravity ACP 1.4.5 qualification runner required the system group
