@@ -77,9 +77,16 @@ function copyTree(root, target, rel) {
  * renamed between the check and the copy (a SQLite checkpoint removes the
  * WAL): the staged files are discarded and `coherent` is false, so the
  * caller can retry. An error on a source that did not change, such as a
- * refused link, is thrown. `hooks` let tests act between the steps.
+ * refused link, is thrown. A `required` file that is absent when an
+ * attempt starts gives `missing` instead. `hooks` let tests act between
+ * the steps.
  */
-function stage(source, target, { files, trees = [], watched }, hooks = {}) {
+function stage(
+  source,
+  target,
+  { files, trees = [], watched, required = [] },
+  hooks = {},
+) {
   const root = realpathSync(source);
   const sameSource = () =>
     watched.every((rel, index) => identity(join(root, rel)) === before[index]);
@@ -93,6 +100,12 @@ function stage(source, target, { files, trees = [], watched }, hooks = {}) {
   };
   const before = watched.map((rel) => identity(join(root, rel)));
   discard();
+  // A required file that is gone (renamed or deleted) is not an error in
+  // the source; the caller reports the conversation and moves on.
+  const missing = required.filter(
+    (rel) => before[watched.indexOf(rel)] === null,
+  );
+  if (missing.length) return { coherent: false, missing };
   try {
     // Refuse before copying anything.
     const copies = files.flatMap((rel) => {
@@ -139,6 +152,7 @@ export function stageConversation(source, target, id, hooks) {
       files: [db],
       trees: [`brain/${id}`],
       watched: [db, `${db}-wal`, log(id)],
+      required: [db, log(id)],
     },
     hooks,
   );

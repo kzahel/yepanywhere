@@ -586,8 +586,10 @@ modification time) are compared before and after each copy. A copy that
 changed is retried twice and then reported inconclusive. That includes a
 file that vanished or was renamed between the check and the copy, such as
 a WAL a SQLite checkpoint removed; a failed or changed copy is discarded
-before a retry, and an error on an unchanged source, such as a refused
-link, stops the census. For each
+before a retry. A conversation whose database or full log is gone when an
+attempt starts, or whose full log is not in the staged copy, is reported
+inconclusive and the census continues. An error on an unchanged source,
+such as a refused link, stops the census. For each
 conversation it projects the copy's log and replays the copy through `agy
 acp` `session/load` into YA's cold transcript, observing for 500 ms after
 the load. It counts the replay's raw tool frames, recognizing a subagent's updates

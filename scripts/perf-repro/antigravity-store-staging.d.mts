@@ -15,5 +15,5 @@ export function stageConversation(
   target: string,
   id: string,
   hooks?: StagingHooks,
-): { coherent: boolean };
+): { coherent: boolean; missing?: string[] };
 export function assertContained(root: string): void;

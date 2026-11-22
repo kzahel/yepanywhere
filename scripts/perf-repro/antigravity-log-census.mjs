@@ -144,14 +144,18 @@ const model = await support.startModel();
 const profile = support.makeProfile(model);
 const scope = support.createScope();
 const report = { source, agy, conversations: {}, totals: {} };
-/** Stages until the source did not change during the copy, three tries. */
+/** Stages until the source did not change during the copy, three tries;
+ * the last attempt's result. */
 const coherently = (stage) => {
-  for (let attempt = 0; attempt < 3; attempt++)
-    if (stage().coherent) return true;
-  return false;
+  let result;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    result = stage();
+    if (result.coherent) break;
+  }
+  return result;
 };
 try {
-  if (!coherently(() => staging.stageSummaries(source, profile.store)))
+  if (!coherently(() => staging.stageSummaries(source, profile.store)).coherent)
     throw new Error("the summaries index changed during every copy");
   const conversations = join(profile.store, "conversations");
   const totals = {
@@ -176,18 +180,25 @@ try {
   for (const id of ids) {
     const entry = {};
     report.conversations[id] = entry;
-    // Database, WAL and log from one persisted state, or nothing.
-    if (
-      !coherently(() => staging.stageConversation(source, profile.store, id))
-    ) {
-      entry.inconclusive = "the conversation changed during every copy";
-      totals.inconclusive++;
-      continue;
-    }
+    // Database, WAL and log from one persisted state, or nothing. A
+    // conversation whose database or log is gone since enumeration is
+    // reported here; a refused link still stops the census.
+    const staged = coherently(() =>
+      staging.stageConversation(source, profile.store, id),
+    );
     const log = join(
       support.logsDir(profile.store, id),
       "transcript_full.jsonl",
     );
+    if (!staged.coherent || staging.identity(log) === null) {
+      entry.inconclusive = staged.missing
+        ? `gone since enumeration: ${staged.missing.join(", ")}`
+        : staged.coherent
+          ? "the full log was not staged"
+          : "the conversation changed during every copy";
+      totals.inconclusive++;
+      continue;
+    }
     const started = performance.now();
     const projected = await projectFile(log, id);
     const projectSeconds = (performance.now() - started) / 1000;
