@@ -9,6 +9,10 @@ import type {
 } from "../sessions/creation-attachments.js";
 import { observeAntigravitySummaries } from "../sessions/antigravity-summary-observation.js";
 import {
+  countInterruptibleRestartWorkers,
+  processHasActiveWork,
+} from "./restart-work.js";
+import {
   type AgentAuthRouter,
   RouterRefusedBeforeProvider,
   RouterUnavailable,
@@ -2942,11 +2946,12 @@ export class Supervisor {
           processHolder.process?.setAppliedPermissionMode(mode),
         onProviderRetentionChange: () =>
           this.handleProviderRetentionChanged(processHolder),
-        observeAntigravitySummaries:
-          activeProvider.name === "antigravity"
-            ? (scope, listener) =>
-                observeAntigravitySummaries(this.eventBus, scope, listener)
-            : undefined,
+        ...(activeProvider.name === "antigravity" && {
+          observeAntigravitySummaries: observeAntigravitySummaries.bind(
+            null,
+            this.eventBus,
+          ),
+        }),
         onToolApproval: async (toolName, input, opts) => {
           if (!processHolder.process) {
             return { behavior: "deny", message: "Process not ready" };
@@ -6446,23 +6451,6 @@ export class Supervisor {
     }
   }
 
-  private processHasActiveWork(process: Process): boolean {
-    if (
-      process.queuedCompactionBlocksInput ||
-      process.state.type === "in-turn" ||
-      process.state.type === "waiting-input"
-    ) {
-      return true;
-    }
-    return process.isRetainingProviderWork();
-  }
-
-  private processHasInterruptibleActiveWork(process: Process): boolean {
-    return (
-      this.processHasActiveWork(process) && !process.canDetachForServerReload()
-    );
-  }
-
   /**
    * Emit worker activity event for safe restart indicator.
    * Called when workers are added, removed, or change state.
@@ -6473,9 +6461,9 @@ export class Supervisor {
     this.requestMaintenanceSweep();
     if (!this.eventBus) return;
 
-    const interruptibleSessionCount = Array.from(
+    const interruptibleSessionCount = countInterruptibleRestartWorkers(
       this.processes.values(),
-    ).filter((p) => this.processHasInterruptibleActiveWork(p)).length;
+    );
     const queuedSessionMessageCount = this.getQueuedSessionMessageCount();
 
     const event: WorkerActivityEvent = {
@@ -6507,7 +6495,7 @@ export class Supervisor {
     const processes = Array.from(this.processes.values()).filter(
       (process) => !process.isTerminated,
     );
-    if (processes.some((process) => this.processHasActiveWork(process))) {
+    if (processes.some(processHasActiveWork)) {
       return 0;
     }
     if (
@@ -6877,9 +6865,9 @@ export class Supervisor {
     queuedSessionMessageCount: number;
     hasActiveWork: boolean;
   } {
-    const interruptibleSessionCount = Array.from(
+    const interruptibleSessionCount = countInterruptibleRestartWorkers(
       this.processes.values(),
-    ).filter((p) => this.processHasInterruptibleActiveWork(p)).length;
+    );
     return {
       activeWorkers: this.processes.size,
       interruptibleSessionCount,
