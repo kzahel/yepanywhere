@@ -71,12 +71,6 @@ import type {
   LoadedSession,
 } from "./types.js";
 
-interface NativeListEntry {
-  sessionId: string;
-  title?: string;
-  updatedAt?: string;
-}
-
 /** Read Google's native store: history from `agy`'s brain log, a page at a
  * time, and ACP `session/load` replay only when the log is missing or unknown.
  * No background watcher or polling: bounded reads are owned by explicit interest.
@@ -84,12 +78,7 @@ interface NativeListEntry {
 export class AntigravitySessionReader implements ISessionReader {
   private readonly directory: string;
   private readonly projectPath: string;
-  // One coalesced list per physical scope and at most eight active detail reads per cached reader.
-  private listing?: {
-    scope: string;
-    promise: Promise<{ scope: string; rows: NativeListEntry[] } | null>;
-  };
-  private listCache?: { scope: string; at: number; rows: NativeListEntry[] };
+  // At most eight active detail reads per cached reader.
   private details = new Map<string, Promise<LoadedSession | null>>();
   // The ACP fallback's session/load writes the store's summaries index, which
   // the provider watcher reports as a change and viewers refetch. Reuse a
@@ -231,68 +220,6 @@ export class AntigravitySessionReader implements ISessionReader {
     }
   }
 
-  private nativeList(): Promise<{
-    scope: string;
-    rows: NativeListEntry[];
-  } | null> {
-    let scope: string;
-    try {
-      scope = realpathSync(this.directory);
-    } catch {
-      return Promise.resolve(null);
-    }
-    if (
-      this.listCache &&
-      this.listCache.scope === scope &&
-      Date.now() - this.listCache.at < 5_000
-    ) {
-      return Promise.resolve({ scope, rows: this.listCache.rows });
-    }
-    if (this.listing?.scope === scope) return this.listing.promise;
-    const pending = (async (): Promise<{
-      scope: string;
-      rows: NativeListEntry[];
-    } | null> => {
-      const command = await this.resolveRuntimeForScope(scope);
-      if (!command) return null;
-      return this.withRuntime(
-        async (runtime) => {
-          if (!this.runtimeMatchesScopeSync(command, scope)) return null;
-          const result = await runtime.call<{
-            sessions?: NativeListEntry[];
-            nextCursor?: string;
-          }>("session/list", { cwd: this.projectPath });
-          if (result.nextCursor || (result.sessions?.length ?? 0) > 2_000)
-            throw new Error(
-              "Antigravity session list exceeds the experimental limit",
-            );
-          const rows = result.sessions ?? [];
-          let postScope: string | null = null;
-          try {
-            postScope = realpathSync(this.directory);
-          } catch {
-            postScope = null;
-          }
-          if (postScope !== scope) {
-            // Physical store rebound while session/list was in flight: discard.
-            return null;
-          }
-          this.listCache = { scope, at: Date.now(), rows };
-          return { scope, rows };
-        },
-        command,
-        scope,
-      );
-    })();
-    this.listing = { scope, promise: pending };
-    void pending
-      .finally(() => {
-        if (this.listing?.promise === pending) this.listing = undefined;
-      })
-      .catch(() => {});
-    return pending;
-  }
-
   async listSessions(projectId: UrlProjectId): Promise<SessionSummary[]> {
     const rows = this.catalogRows
       ? await this.catalogRows()
@@ -329,14 +256,13 @@ export class AntigravitySessionReader implements ISessionReader {
     id: string,
     projectId: UrlProjectId,
     metadata: NonNullable<Awaited<ReturnType<typeof readAntigravityMetadata>>>,
-    row?: NativeListEntry,
   ): SessionSummary {
     return {
       id,
       projectId,
       provider: "antigravity",
-      title: row?.title || metadata.title || "Antigravity session",
-      fullTitle: row?.title || metadata.title || null,
+      title: metadata.title || "Antigravity session",
+      fullTitle: metadata.title || null,
       createdAt: metadata.info.birthtime.toISOString(),
       updatedAt: new Date(metadata.updatedAtMs).toISOString(),
       messageCount: 0,
@@ -347,32 +273,18 @@ export class AntigravitySessionReader implements ISessionReader {
   private async summary(
     id: string,
     projectId: UrlProjectId,
-    row?: NativeListEntry,
   ): Promise<SessionSummary | null> {
     const metadata = await this.metadata(id);
     if (!metadata || metadata.isChild) return null;
-    return this.summaryFromMetadata(id, projectId, metadata, row);
+    return this.summaryFromMetadata(id, projectId, metadata);
   }
 
+  /** From the summaries index alone: a summary starts no `agy`. */
   async getSessionSummary(
     id: string,
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
-    const metadata = await this.metadata(id);
-    if (!metadata || metadata.isChild) return null;
-    const listed = await this.nativeList();
-    const row =
-      listed && listed.scope === metadata.scope
-        ? listed.rows.find((entry) => entry.sessionId === id)
-        : undefined;
-    // Revalidate after awaiting ACP so lineage committed mid-flight cannot
-    // promote a newly-linked child into a top-level summary, and discard ACP
-    // titles if the physical store rebound before final metadata validation.
-    const latest = await this.metadata(id);
-    if (!latest || latest.isChild) return null;
-    const matchingRow =
-      listed && listed.scope === latest.scope ? row : undefined;
-    return this.summaryFromMetadata(id, projectId, latest, matchingRow);
+    return this.summary(id, projectId);
   }
 
   private assertReadCapacity(): void {
@@ -1124,6 +1036,5 @@ export class AntigravitySessionReader implements ISessionReader {
     this.summariesReader = undefined;
     this.coldReads.clear();
     await Promise.all([...this.runtimes].map((runtime) => runtime.close()));
-    this.listCache = undefined;
   }
 }

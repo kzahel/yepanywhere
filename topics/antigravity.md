@@ -317,8 +317,9 @@ effects. Rejected native resume never falls back to `session/new` or replays
 queued input into another conversation.
 
 History comes from native file facts and `agy`'s brain log, with ACP
-`session/list` for titles and `session/load` only as a fallback, and no YA
-shadow transcript or protobuf decoder.
+`session/load` only as a fallback, and no YA shadow transcript or protobuf
+decoder. Session summaries take their title from the summaries index and
+start no `agy` (before plan 195 step 4 they asked ACP `session/list`).
 [Native storage](antigravity-native-storage.md) describes each file `agy`
 writes and the brain log's record format. `agy` records each conversation's
 workspace URIs, title and subagent lineage (`parent_conversation_id`,
@@ -437,12 +438,11 @@ owner exit, and is never persisted as a substitute transcript. Concurrent use
 of the same conversation in a separate editor/CLI is not qualified.
 
 App browsing uses the shared catalog and provider-root watcher described below.
-Native title reads and fallback replays own subprocesses; reader disposal closes
-them. Because every `session/load` writes the store's summaries index, which the
+Fallback replays own subprocesses; reader disposal closes them. Because every `session/load` writes the store's summaries index, which the
 provider watcher reports and viewers refetch, a fallback replay is reused
 until the conversation's files differ from their post-load state (at most four per project
-reader). Log reads cache nothing; a refetch rereads its page. Without this, opening a session could reload it repeatedly. Native title lookups coalesce and cache their ACP list for five seconds,
-cap at 2,000 entries and refuse unsupported pagination.
+reader). Without this, opening a session could reload it repeatedly. Log
+reads cache nothing; a refetch rereads its page.
 At most eight detail reads per cached reader may run concurrently. YA bounds
 the normalized history a fallback replay, a resume or a live session retains
 to 8 MiB and 10,000 messages, and each ACP frame to 16 MiB. Tool fields that YA does not display do not consume the

@@ -1918,17 +1918,16 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
         summariesReader.close();
       }
 
-      // 12 concurrent getSessionSummary calls MUST coalesce into 1 ACP session/list spawn.
-      await Promise.all(
+      // A summary comes from the summaries index and starts no ACP list.
+      const summaries = await Promise.all(
         Array.from({ length: 12 }, () =>
           reader.getSessionSummary(PARENT_ID, projectId),
         ),
       );
-      const listCount = (await readFile(listLog, "utf8"))
-        .trim()
-        .split("\n")
-        .filter(Boolean).length;
-      expect(listCount).toBe(1);
+      expect(summaries.map((summary) => summary?.title)).toEqual(
+        Array(12).fill("Parent"),
+      );
+      expect(await readFile(listLog, "utf8").catch(() => "")).toBe("");
 
       // Two-store isolation with the SAME UUID:
       // 1. Reader bound to Store B refuses ACP replay when active runtime targets Store A.
@@ -2088,41 +2087,6 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
           ).toBe(0);
         } finally {
           metaSpy.mockRestore();
-        }
-
-        // Mid-summary store rebind: if the symlink flips from Store A to Store B
-        // while nativeList() is in flight, Store A's ACP title ("Listed Parent")
-        // MUST be discarded and NEVER combined with Store B's metadata!
-        await unlink(rebindLink);
-        await symlink(f.conversationsDir, rebindLink);
-        const origSummaryMeta = (
-          rebindReader as unknown as { metadata(id: string): Promise<unknown> }
-        ).metadata.bind(rebindReader);
-        let summaryMetaCalls = 0;
-        const summaryMetaSpy = vi
-          .spyOn(
-            rebindReader as unknown as {
-              metadata(id: string): Promise<unknown>;
-            },
-            "metadata",
-          )
-          .mockImplementation(async (id: string) => {
-            summaryMetaCalls++;
-            if (summaryMetaCalls === 2) {
-              await unlink(rebindLink);
-              await symlink(storeB.conversationsDir, rebindLink);
-            }
-            return origSummaryMeta(id);
-          });
-        try {
-          const reboundSummary = await rebindReader.getSessionSummary(
-            PARENT_ID,
-            projectId,
-          );
-          expect(reboundSummary?.title).toBe("Store B Parent");
-          expect(reboundSummary?.title).not.toBe("Listed Parent");
-        } finally {
-          summaryMetaSpy.mockRestore();
         }
       } finally {
         await rebindReader.close();
