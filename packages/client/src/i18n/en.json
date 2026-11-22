@@ -2293,6 +2293,7 @@
   "processInfoExternalProcess": "Session controlled by external process (VS Code, CLI)",
   "processInfoNoActiveProcess": "No active process",
   "modalClose": "Close",
+  "toastDismiss": "Dismiss notification",
   "modalMinimize": "Minimize",
   "modalCancel": "Cancel",
   "gitStatusTitle": "Source Control",

@@ -144,16 +144,18 @@ for (const [tool, variants] of Object.entries(displayFixtures)) {
           variant,
         );
         for (const [operation, node] of displayOperations(prepared).entries()) {
-          const mounted = render(displayProviders(node));
+          const mounted = render(
+            displayProviders(<div data-testid="tool-operation">{node}</div>),
+          );
+          const output = mounted.getByTestId("tool-operation");
           expect(
-            mounted.container.querySelector('[data-tool-display="raw"]'),
+            output.querySelector('[data-tool-display="raw"]'),
             `${tool}/${variant}/${operation}`,
           ).toBeNull();
           const expected = expectations[operation];
           const label = `${tool}/${variant}/${displayOperationNames[operation]}`;
-          if (expected === null)
-            expect(mounted.container.innerHTML, label).toBe("");
-          else expect(mounted.container.textContent, label).toContain(expected);
+          if (expected === null) expect(output.innerHTML, label).toBe("");
+          else expect(output.textContent, label).toContain(expected);
           mounted.unmount();
         }
       });

@@ -159,9 +159,10 @@ test("warns before compacting an active Codex turn and enables it when idle", as
         .click();
       await composer.fill("/compact");
       await composer.press("Enter");
-      await expect(page.getByRole("alert")).toContainText(warning);
+      await expect(
+        page.getByRole("status").filter({ hasText: warning }),
+      ).toBeVisible();
       expect(compactRequests).toBe(0);
-      await page.getByRole("alert").click();
     }
 
     state = "idle";

@@ -207,23 +207,18 @@ for (const mobile of [false, true]) {
         .toBe(partial);
       await expect.poll(() => starts).toBe(1);
       expect(createdShares).toBe(0);
-      await expect(page.getByRole("alert")).toContainText(
-        "local paths remaining: 1",
-      );
-      // Capture disables animations, which otherwise completes the toast fade.
+      const copiedAlert = page.getByRole("alert").filter({
+        hasText: "local paths remaining: 1",
+      });
+      await expect(copiedAlert).toBeVisible();
       if (process.env.YEP_E2E_UI_CAPTURE_DIR)
-        await page.getByRole("alert").evaluate((element) => {
-          element.style.animation = "none";
-        });
+        await page.emulateMedia({ reducedMotion: "reduce" });
       await recordUiCapture(
         page,
         `public-copy-${mobile ? "phone" : "desktop"}`,
       );
-      await page
-        .getByRole("alert")
-        .getByText(/Copied;/)
-        .click();
-      await expect(page.getByRole("alert")).toHaveCount(0);
+      await page.getByRole("button", { name: "Dismiss notification" }).click();
+      await expect(copiedAlert).toHaveCount(0);
       expect(createdShares).toBe(0);
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
         partial,

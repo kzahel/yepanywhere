@@ -10,7 +10,7 @@ import { ToastContainer } from "../components/Toast";
 import {
   type Toast,
   type ToastAction,
-  getToastDurationMs,
+  isPriorityToast,
 } from "../hooks/useToast";
 import { generateUUID } from "../lib/uuid";
 
@@ -34,13 +34,13 @@ export function ToastProvider({ children }: ToastProviderProps) {
 
   const showToast = useCallback(
     (message: string, type: Toast["type"] = "info", action?: ToastAction) => {
-      const id = generateUUID();
-      setToasts((prev) => [...prev, { id, message, type, action }]);
-
-      const timeout = getToastDurationMs({ type, action });
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, timeout);
+      const toast = { id: generateUUID(), message, type, action };
+      setToasts((previous) => [
+        ...(isPriorityToast(toast)
+          ? previous
+          : previous.filter(isPriorityToast)),
+        toast,
+      ]);
     },
     [],
   );

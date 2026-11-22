@@ -1,80 +1,82 @@
 .container {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 56px);
-  bottom: auto;
-  left: 50%;
-  width: min(400px, calc(100dvw - 2 * var(--space-4)));
+  right: max(var(--space-3), env(safe-area-inset-right, 0px));
+  max-width: min(
+    22rem,
+    calc(
+      100dvw -
+      max(var(--space-3), env(safe-area-inset-left, 0px)) -
+      max(var(--space-3), env(safe-area-inset-right, 0px))
+    )
+  );
   z-index: 9;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: var(--space-2);
   pointer-events: none;
-  transform: translateX(-50%);
 }
 
-/* Desktop: stay below the header; if space is tight, cover scroll content. */
-@media (width >= 768px) {
-  .container {
-    top: calc(var(--space-4) + 48px);
-    right: var(--space-4);
-    bottom: auto;
-    left: auto;
-    transform: none;
-  }
+/* The fixed navigation shell owns a separate stacking context on phones. */
+:global(body):has([data-sidebar-overlay]) .routine {
+  opacity: 0;
+}
+
+.routine:empty {
+  position: absolute;
 }
 
 .toast {
-  max-width: 400px;
-  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
   font-size: var(--font-size-sm);
-  text-align: center;
-  cursor: pointer;
-  pointer-events: auto;
-  animation: fadeOut var(--toast-fade-duration, 4.5s) linear forwards;
 }
 
 .error {
-  color: #fff;
-  background: #dc2626;
+  border-inline-start: 3px solid var(--error-color);
 }
 
-.success {
-  color: #fff;
-  background: #16a34a;
+.check {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  color: var(--success-color);
 }
 
-.info {
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-}
-
-/* Toast with action button - flex layout */
-.toast:has(.action) {
+.label {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  text-align: left;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.message {
-  flex: 1;
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+  min-width: 0;
 }
 
-.action {
-  flex-shrink: 0;
+.controls > button {
+  pointer-events: auto;
 }
 
-@media (width < 768px) {
-  .toast:has(.action) {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .action {
-    align-self: flex-end;
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: fadeOut var(--toast-fade-duration) linear forwards;
   }
 }
 
@@ -82,10 +84,8 @@
   0%,
   75% {
     opacity: 1;
-    transform: translateY(0);
   }
   100% {
     opacity: 0;
-    transform: translateY(4px);
   }
 }

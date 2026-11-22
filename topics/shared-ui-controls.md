@@ -10,13 +10,18 @@ ownership, and [tooltip interactions](tooltip-interactions.md) for hints.
 
 ## Transient Feedback Lifetime
 
-In-page toasts remain click-to-dismiss alerts. Success and informational
-feedback uses a 4.5-second lifetime, or seven seconds when it includes an
-action. Error feedback remains for 12 seconds because it commonly carries the
-only explanation for a failed operation. The toast stays fully opaque for the
-first 75% of its lifetime and fades only near removal, so nominal lifetime and
-readable lifetime do not diverge. One duration resolver owns both the removal
-timer and CSS animation value.
+Routine success and informational toasts are compact notices at the upper
+right below the header. They use the current theme's raised surface, with
+a small checkmark for success. The latest routine notice replaces the
+previous one and clears after three seconds. It is announced as a status,
+allows pointer input to pass through, and is visually hidden while the
+sidebar drawer is open. The lifetime continues while the drawer is open.
+
+Errors and notices with an action appear ahead of routine notices, are
+announced as alerts, and have dismiss buttons. An action notice lasts seven
+seconds and an error lasts 12 seconds. Only the controls receive pointer
+input. Toasts stay fully opaque for the first 75% of their lifetime, then
+fade before removal. With reduced motion they stay opaque until removal.
 
 ## Desktop Dropdown Panel Placement
 

@@ -7,6 +7,7 @@ import {
   projectId,
   sessionId,
 } from "./support/session-page-harness.js";
+import { recordUiCapture } from "./support/ui-capture.js";
 
 /**
  * Pins what the session page's queued-message actions do today, before
@@ -384,10 +385,14 @@ test("Project Queue items in the session resume dispatch, cancel, edit into the 
   await expect(session.composer).toHaveValue("Project item to edit");
   await expect(row("Project item to edit")).toHaveCount(0);
 
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await row("Project item to steer")
     .getByRole("button", { name: "Steer Project Queue item now" })
     .click();
-  await expect(session.toast("Steered Project Queue item now.")).toBeVisible();
+  const routineToast = page.getByRole("status").filter({
+    hasText: "Steered Project Queue item now.",
+  });
+  await expect(routineToast).toBeVisible();
   expect(session.requests()).toEqual([
     "POST /project-queue/resume",
     `DELETE ${itemPath("pin-pq-cancel")}`,
@@ -399,6 +404,25 @@ test("Project Queue items in the session resume dispatch, cancel, edit into the 
     force: true,
     deliveryIntent: "steer",
   });
+
+  await page.setViewportSize({ width: 1000, height: 600 });
+  await recordUiCapture(page, "routine-toast-desktop");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(routineToast).toBeVisible();
+  const toastBox = (await routineToast.boundingBox())!;
+  expect(toastBox.width).toBeLessThan(280);
+  expect(toastBox.x + toastBox.width).toBeGreaterThan(350);
+  await expect(
+    routineToast.getByText("Steered Project Queue item now."),
+  ).toHaveCSS("pointer-events", "none");
+  await recordUiCapture(page, "routine-toast-phone");
+
+  await page.getByRole("button", { name: "Open sidebar" }).click();
+  await expect(routineToast).toHaveCSS("opacity", "0");
+  await recordUiCapture(page, "routine-toast-phone-sidebar");
+  await page.getByRole("link", { name: "Inbox", exact: true }).click();
+  await expect(page).toHaveURL(/\/inbox$/);
 });
 
 // The fixture provider does not steer from the composer, so the server's

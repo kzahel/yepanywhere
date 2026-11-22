@@ -409,10 +409,6 @@
       "count": 1,
       "reason": "Copied-state reset. gaps/copied-flash-timers-have-private-copies.md"
     },
-    "packages/client/src/contexts/ToastContext.tsx": {
-      "count": 1,
-      "reason": "Auto-dismiss for one toast; an early manual dismiss leaves the timer to fire as a no-op on the app-lifetime provider."
-    },
     "packages/client/src/hooks/useCodeFenceRenderers.tsx": {
       "count": 1,
       "reason": "Copied-state reset on a code fence's copy button. gaps/copied-flash-timers-have-private-copies.md"

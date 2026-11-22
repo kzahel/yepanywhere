@@ -10,9 +10,15 @@ export interface Toast {
   action?: ToastAction;
 }
 
-const TOAST_TIMEOUT_MS = 4500;
+const TOAST_TIMEOUT_MS = 3000;
 const ACTION_TOAST_TIMEOUT_MS = 7000;
 const ERROR_TOAST_TIMEOUT_MS = 12_000;
+
+export function isPriorityToast(
+  toast: Pick<Toast, "type" | "action">,
+): boolean {
+  return toast.type === "error" || toast.action !== undefined;
+}
 
 export function getToastDurationMs(
   toast: Pick<Toast, "type" | "action">,
