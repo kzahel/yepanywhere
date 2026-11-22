@@ -115,7 +115,10 @@ Version preferences apply after execution usability at launch.
 Antigravity candidates are `agy` executables launched as `agy acp` from their
 resolved symlink target. A candidate whose `agy --version` is below the
 [supported floor](antigravity.md#supported-runtime) carries an error naming
-that version, the floor and the update path. Selection changes, removed files and changed symlink targets are observed on
+that version, the floor and the update path. The version query runs without
+YA's own credentials and is killed after three seconds. Antigravity launches
+do not pass the execution gate, so Auto marks the candidate a launch uses: the
+first runnable `agy` on `PATH`, whatever its version. Selection changes, removed files and changed symlink targets are observed on
 resolution. Its offline execution recipe is currently **unsupported**, displayed
 separately from an execution failure. The selector does not expand Windows
 support or claim new Linux/native-model qualification for Antigravity.

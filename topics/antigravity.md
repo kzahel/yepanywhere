@@ -44,7 +44,9 @@ remains authoritative. Every candidate launches as `agy acp`; removed
 executables and changed symlink targets are observed on each resolution. A
 candidate whose `agy --version` is below the
 [supported floor](#supported-runtime) shows that version beside an error naming
-the floor and the update path.
+the floor and the update path. Auto marks the `agy` that a launch actually
+runs, the first runnable one on `PATH`, even when it is below the floor; select
+another installation explicitly to use it.
 Offline execution verification is currently unsupported and is reported as such,
 separately from authentication or an execution failure. No Windows support or new
 provider authentication/update mechanism is introduced by the selector.
@@ -62,22 +64,40 @@ not download, update or reconfigure the runtime.
 
 YA runs `agy` 1.5.13 or later, the [native test pin](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
 (`ANTIGRAVITY_MIN_VERSION`). The version comes from the `agentInfo.version`
-that ACP `initialize` reports, so the check costs no extra process. YA refuses
-a runtime below the floor, and one whose reported version is missing or has no
-`major.minor.patch`, rather than assuming it is current. An `agy` before 1.5
-has no `acp` subcommand and fails before `initialize`; YA then reads its
-`agy --version`, and a version below the floor gets the same refusal. If that
-answer is unreadable, the native failure stands.
+that ACP `initialize` reports, so a runtime that answers costs no extra
+process. The whole value must be a semantic version (`major.minor.patch`,
+optionally with a prerelease or build suffix). A prerelease ranks below its
+release, so `1.5.13-rc.1` is refused. A missing value, or one that merely
+contains a version, is refused rather than assumed current.
+
+An `agy` before 1.5 has no `acp` subcommand. When no ACP peer answers
+`initialize` (the process exits, writes something other than the protocol, or
+reaches the 30-second initialize timeout), YA runs `agy --version` once. That
+probe gets YA's provider environment without YA's own credentials, has three
+seconds, and is killed with its process group on its deadline or when the
+owner stops the runtime; YA waits for it to exit either way. A whole version
+below the floor gets the same refusal. Any other answer leaves the native
+failure as the error. A runtime that does answer `initialize`, including with
+an ACP error, is never probed, so its own error is kept.
 
 The refusal names the installed version, the required version and the update
 path, for example: "Antigravity requires agy 1.5.13 or later; the installed
 runtime reports version 1.4.5. Run \`agy update\`, or install the agy CLI."
 
 - **Provider status** reports the runtime unavailable rather than signed out.
-  The refusal is the model catalog's error, and the CLI installation list shows
-  the candidate's version with the same text.
-- **A refused start** ends the session with the refusal as its error, after
-  `initialize` and before any session is created, loaded or prompted.
+  The refusal is the model catalog's error, Provider Settings shows it under
+  the unavailable runtime, and the CLI installation list shows the
+  candidate's version with the same text. Status and a forced catalog refresh
+  read in the same request describe the same runtime.
+- **A saved creation**, from the app or the v0 API, is refused before its
+  provider starts. The creation records the known failure
+  `startup-unavailable`, delivery `not-admitted`, and the refusal as its
+  `failureDetail`, which the startup notice shows beside the saved prompt.
+  The v0 receipt is `failed` with `failure.code: "startup-unavailable"` and
+  the refusal as its message. Nothing reaches the runtime beyond `initialize`.
+- **A resumed or reactivated session** ends with the refusal as its error,
+  once `initialize` has answered or the version probe has run, and before any
+  session is loaded or prompted.
 - **History reads** that need ACP fail with the refusal.
 
 YA dropped the standalone ACP 1.4.x distribution (`agy_acp_server.par`) and

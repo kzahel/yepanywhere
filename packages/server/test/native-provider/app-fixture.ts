@@ -74,6 +74,8 @@ export async function nativeAppFixture(
     codexDeveloperInstructions?: string;
     additionalProviders?: readonly AppProvider[];
     providerMemoryLimitMiB?: number;
+    /** A controlled `agy` replacing the pinned one; its version is not checked. */
+    antigravityExecutable?: string;
     signal?: AbortSignal;
   } = {},
 ) {
@@ -244,7 +246,9 @@ export async function nativeAppFixture(
         VOICE_INPUT: "false",
         ...(antigravity
           ? {
-              ANTIGRAVITY_ACP_PATH: nativeExecutable("antigravity"),
+              ANTIGRAVITY_ACP_PATH:
+                options.antigravityExecutable ??
+                nativeExecutable("antigravity"),
               GEMINI_API_KEY: syntheticKey,
               GOOGLE_GEMINI_BASE_URL: model.url,
               AGY_CLI_DISABLE_AUTO_UPDATE: "1",
@@ -323,6 +327,7 @@ export async function nativeAppFixture(
     mark("profile files");
     for (const selected of enabledProviders) {
       assertOpen();
+      if (selected === "antigravity" && options.antigravityExecutable) continue;
       mark(`version ${selected} start`);
       const version = (
         await exec(nativeExecutable(selected), ["--version"], {

@@ -210,6 +210,32 @@ describe("ProvidersSettings additional models", () => {
     ).toBeDefined();
   });
 
+  it("explains an Antigravity runtime below the supported floor", () => {
+    const refusal =
+      'Antigravity requires agy 1.5.13 or later; the installed runtime reports an unrecognized version "next". Run `agy update`, or install the agy CLI.';
+    hookState.providers = [
+      {
+        name: "antigravity",
+        displayName: "Antigravity",
+        installed: false,
+        authenticated: false,
+        enabled: false,
+        models: [{ id: "default", name: "Antigravity default" }],
+        modelCatalog: { source: "fallback", error: refusal },
+      },
+    ];
+
+    render(<ProvidersSettings />);
+
+    const item = document.querySelector(
+      '[data-settings-item="provider-antigravity"]',
+    );
+    if (!(item instanceof HTMLElement))
+      throw new Error("expected Antigravity provider settings item");
+    expect(within(item).getByText("providersRuntimeUnavailable")).toBeDefined();
+    expect(within(item).getByText(refusal)).toBeDefined();
+  });
+
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();

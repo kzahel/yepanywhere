@@ -888,6 +888,7 @@ export function ProvidersSettings() {
         authenticated: serverInfo?.authenticated ?? false,
         enabled: serverInfo?.enabled ?? false,
         loginCommand: serverInfo?.loginCommand,
+        modelCatalogError: serverInfo?.modelCatalog?.error,
         supportsInAppLogin: serverInfo?.supportsInAppLogin === true,
         supportsHostTerminalLogin:
           serverInfo?.supportsHostTerminalLogin === true,
@@ -1109,6 +1110,13 @@ export function ProvidersSettings() {
                     )}
                   </div>
                   <p>{provider.metadata.description}</p>
+                  {provider.id === "antigravity" &&
+                    !provider.installed &&
+                    provider.modelCatalogError && (
+                      <p className={rowsStyles.hint}>
+                        {provider.modelCatalogError}
+                      </p>
+                    )}
                   {(provider.id === "claude" || provider.id === "codex") &&
                     provider.applicationDetected !== undefined && (
                       <p className={rowsStyles.hint}>

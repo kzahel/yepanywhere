@@ -144,6 +144,11 @@ export interface AuthStatus {
   user?: { email?: string; name?: string };
   /** Provider-specific command a user can run to authenticate. */
   loginCommand?: string;
+  /**
+   * Why an executable that was found cannot start sessions, phrased for the
+   * user. A saved creation records it as its startup failure detail.
+   */
+  unavailableReason?: string;
 }
 
 /** The provider CLI invocation that signs it in on this host. */

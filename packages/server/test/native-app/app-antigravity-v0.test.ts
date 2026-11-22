@@ -1,3 +1,6 @@
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, it, type TestContext } from "vitest";
 import { apiCommand } from "../support/api-command-request.js";
 import { nativeAppTestFixture } from "./fixture.js";
@@ -358,5 +361,88 @@ it.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
 it.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "tracks native Antigravity invoke_subagent children, background retention, and child transcript replay",
   exerciseAntigravitySubagent,
+  30_000,
+);
+
+async function exerciseRefusedAntigravity(context: TestContext) {
+  // An ACP peer that reports a version below the floor and logs any method
+  // past initialize, which a refused runtime must never receive.
+  const directory = await mkdtemp(join(tmpdir(), "ya-agy-floor-"));
+  context.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const agy = join(directory, "agy");
+  const log = join(directory, "methods.log");
+  await writeFile(
+    agy,
+    `#!${process.execPath}
+const fs = require('node:fs');
+if (process.argv.includes('--version')) { console.log('1.4.12'); process.exit(0); }
+require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
+  const m = JSON.parse(line);
+  fs.appendFileSync(${JSON.stringify(log)}, m.method + '\\n');
+  process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: { protocolVersion: 1, agentInfo: { version: '1.4.12' } } }) + '\\n');
+});
+`,
+  );
+  await chmod(agy, 0o755);
+  const app = await nativeAppTestFixture("antigravity", context, {
+    agentApiManagement: true,
+    antigravityExecutable: agy,
+  });
+  await app.ready();
+  const refusal =
+    "Antigravity requires agy 1.5.13 or later; the installed runtime reports version 1.4.12. Run `agy update`, or install the agy CLI.";
+  const { project } = await app.api("/projects", { path: app.project });
+
+  const requestId = crypto.randomUUID();
+  await app.api(`/projects/${project.id}/session-creations`, {
+    requestId,
+    provider: "antigravity",
+    message: "APP_MUST_NOT_SEND",
+    mode: "default",
+  });
+  await expect
+    .poll(
+      async () => (await app.api(`/session-creations/${requestId}`)).creation,
+    )
+    .toMatchObject({
+      state: "failed",
+      delivery: "not-admitted",
+      failure: "startup-unavailable",
+      failureDetail: refusal,
+    });
+
+  const request = apiCommand({
+    requestId: crypto.randomUUID(),
+    projectId: project.id,
+    provider: "antigravity",
+    prompt: "V0_MUST_NOT_SEND",
+  });
+  const response = await fetch(`${app.baseUrl}/v0/servers/self/sessions`, {
+    ...request,
+    method: "POST",
+    headers: { ...request.headers, "X-Yep-Anywhere": "true" },
+    signal: AbortSignal.timeout(5000),
+  });
+  expect(response.status, await response.clone().text()).toBe(202);
+  const { id } = await response.json();
+  await expect
+    .poll(async () => {
+      const receipt = await fetch(
+        `${app.baseUrl}/v0/servers/self/receipts/${id}`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      return receipt.json();
+    })
+    .toMatchObject({
+      state: "failed",
+      failure: { code: "startup-unavailable", message: refusal },
+    });
+  expect(await readFile(log, "utf8").catch(() => "")).not.toMatch(/session\//);
+  expect(app.model.requests).toEqual([]);
+}
+
+it.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
+  "refuses agy below the floor in app and v0 creation with the actionable reason",
+  exerciseRefusedAntigravity,
   30_000,
 );

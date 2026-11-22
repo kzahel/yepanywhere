@@ -76,6 +76,11 @@ account. The startup notice retains the prompt and advises reloading YA after
 a dependency update or checking the path and permissions of a custom executable.
 Older clients show the generic saved failure, and older servers still work
 with the existing generic message. No new capability is required.
+An installed provider that refuses with a stated reason, such as an
+[Antigravity runtime below its floor](antigravity.md#supported-runtime), is
+saved as `startup-unavailable` with that reason as `failureDetail`. The
+creation receipt returns the detail, as it does for router refusals, and the
+startup notice shows it beside the saved prompt.
 
 The form retains a source/account/draft-scoped recovery identity before sending,
 then opens the stable session on acceptance. Draft capture precedes async work.

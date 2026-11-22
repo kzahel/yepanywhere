@@ -1,10 +1,11 @@
 import { describeAntigravityCandidate } from "./providers/antigravity-launch.js";
-import { antigravityCliVersionRefusal } from "./providers/antigravity-version.js";
-import { execFile } from "node:child_process";
+import {
+  antigravityCliVersionRefusal,
+  readAgyVersion,
+} from "./providers/antigravity-version.js";
 import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, delimiter, join } from "node:path";
-import { promisify } from "node:util";
 import type {
   CliCandidate,
   CliInstallationAdapter,
@@ -15,8 +16,6 @@ import {
   probeCodexCliVersion,
 } from "./cli-detection.js";
 import { probeCodexExecution } from "./codex-execution-probe.js";
-
-const execFileAsync = promisify(execFile);
 
 /** npm launchers depend on Node and optional platform packages; keep those facts. */
 export function describeCodexCandidate(
@@ -181,20 +180,17 @@ export const antigravityInstallationAdapter: CliInstallationAdapter = {
     await Promise.all(
       candidates.map(async (candidate) => {
         if (candidate.error) return;
-        try {
-          candidate.version = (
-            await execFileAsync(candidate.launch.command, ["--version"], {
-              timeout: 3000,
-              maxBuffer: 4096,
-            })
-          ).stdout.trim();
-        } catch {
-          /* Executability and offline execution qualification stay separate. */
-          return;
-        }
-        candidate.error = antigravityCliVersionRefusal(candidate.version);
+        // Executability and offline execution qualification stay separate.
+        candidate.version = await readAgyVersion(candidate.launch.command);
+        if (candidate.version)
+          candidate.error = antigravityCliVersionRefusal(candidate.version);
       }),
     );
     return candidates;
   },
+  // Launch takes the first runnable `agy` in discovery order, like PATH.
+  autoSelect: (candidates) =>
+    candidates.find(
+      (candidate) => !describeAntigravityCandidate(candidate.path).error,
+    ),
 };

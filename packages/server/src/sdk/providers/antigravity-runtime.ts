@@ -7,8 +7,9 @@ import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
 import {
   AntigravityVersionError,
+  antigravityCliVersionRefusal,
   antigravityVersionRefusal,
-  probeAntigravityVersionRefusal,
+  readAgyVersion,
 } from "./antigravity-version.js";
 import type { SDKMessage } from "../types.js";
 
@@ -258,6 +259,9 @@ export async function findAntigravityRuntime(): Promise<AntigravityRuntimeComman
   return resolveAntigravityRuntime();
 }
 
+/** A JSON-RPC error response: the runtime is an ACP peer. */
+class AcpErrorResponse extends Error {}
+
 /** Native ACP transport. No authenticate/logout calls or credential inspection.
  * The retained shared ACP SDK predates this agent's usage_update notifications.
  * Keep this bounded transport local instead of changing frozen Gemini/Grok.
@@ -276,6 +280,9 @@ export class AntigravityRuntime {
   >();
   private exited: Promise<void> = Promise.resolve();
   private stopped = false;
+  // Aborted only by the owner's close(), never by an internal failure.
+  private readonly cancelled = new AbortController();
+  private versionProbe?: Promise<unknown>;
   onUpdate?: (
     update: AntigravityUpdate,
     sessionId: string,
@@ -331,7 +338,7 @@ export class AntigravityRuntime {
       buffer += chunk;
       if (Buffer.byteLength(buffer, "utf8") > 16 * 1024 * 1024) {
         this.fail(new Error("Antigravity protocol frame exceeds 16 MiB"));
-        void this.close();
+        void this.shutdown();
         return;
       }
       let end = buffer.indexOf("\n");
@@ -347,14 +354,14 @@ export class AntigravityRuntime {
             throw new Error("Expected a JSON-RPC object");
         } catch {
           this.fail(new Error("Invalid Antigravity protocol response"));
-          void this.close();
+          void this.shutdown();
           return;
         }
         try {
           this.receive(message);
         } catch (error) {
           this.fail(error instanceof Error ? error : new Error(String(error)));
-          void this.close();
+          void this.shutdown();
           return;
         }
       }
@@ -373,8 +380,18 @@ export class AntigravityRuntime {
         clientCapabilities: {},
       });
     } catch (error) {
-      if (this.stopped) throw error;
-      const refusal = await probeAntigravityVersionRefusal(command);
+      // `agy` before 1.5 has no `acp` subcommand, so it exits, stalls or
+      // prints no protocol before `initialize`; its `--version` still names
+      // it. A peer that answered, even with an error, keeps that error.
+      if (this.cancelled.signal.aborted || error instanceof AcpErrorResponse)
+        throw error;
+      const probe = readAgyVersion(command, this.cancelled.signal);
+      this.versionProbe = probe;
+      const version = await probe;
+      const refusal =
+        version === undefined
+          ? undefined
+          : antigravityCliVersionRefusal(version);
       throw refusal ? new AntigravityVersionError(refusal) : error;
     }
     const refusal = antigravityVersionRefusal(initialized.agentInfo?.version);
@@ -401,7 +418,7 @@ export class AntigravityRuntime {
           data?: { message?: string };
         };
         pending.reject(
-          new Error(
+          new AcpErrorResponse(
             error.data?.message ||
               error.message ||
               "Antigravity request failed",
@@ -464,7 +481,7 @@ export class AntigravityRuntime {
           timer = setTimeout(() => {
             this.pending.delete(id);
             reject(new Error(`Antigravity ${method} timed out`));
-            void this.close();
+            void this.shutdown();
           }, timeoutMs);
         try {
           this.send({ jsonrpc: "2.0", id, method, params });
@@ -491,7 +508,14 @@ export class AntigravityRuntime {
     this.pending.clear();
   }
 
+  /** Stop the runtime, including a version probe in progress, and wait for both. */
   async close(): Promise<void> {
+    this.cancelled.abort();
+    await this.shutdown();
+    await this.versionProbe;
+  }
+
+  private async shutdown(): Promise<void> {
     if (this.stopped) return this.exited;
     this.stopped = true;
     this.fail(new Error("Antigravity runtime closed"));

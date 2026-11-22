@@ -1204,41 +1204,80 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     },
   );
 
+  /**
+   * A controlled `agy`: `--version` prints `cliVersion` (or hangs, ignoring
+   * SIGTERM), and `agy acp` exits, answers initialize with `acpVersion`, or
+   * answers with a JSON-RPC error. Each launch, version query and method is
+   * logged, with `leaked` when a YA credential is visible to the child.
+   */
+  async function controlledAgy(options: {
+    cliVersion?: string;
+    hangOnVersion?: string;
+    acp: "exit" | { version?: string } | { error: string };
+  }) {
+    const path = join(directory, "controlled-bin", "agy");
+    await mkdir(join(directory, "controlled-bin"), { recursive: true });
+    await writeFile(
+      path,
+      `#!${process.execPath}
+const fs = require('node:fs');
+const log = line => fs.appendFileSync(${JSON.stringify(log)}, line + '\\n');
+const leaked = JSON.stringify(process.env).includes('YA_CANARY') ? ' leaked' : '';
+const options = ${JSON.stringify(options)};
+if (process.argv.includes('--version')) {
+  log('--version' + leaked);
+  if (options.hangOnVersion) {
+    fs.writeFileSync(options.hangOnVersion, String(process.pid));
+    process.on('SIGTERM', () => {});
+    setInterval(() => {}, 1000);
+  } else {
+    console.log(options.cliVersion ?? '');
+  }
+} else {
+  log('launch' + leaked);
+  if (options.acp === 'exit') {
+    console.error('unknown command "acp"');
+    process.exit(2);
+  }
+  require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
+    const m = JSON.parse(line);
+    log(m.method);
+    const reply = options.acp.error
+      ? { error: { code: -32000, message: options.acp.error } }
+      : { result: { protocolVersion: 1, agentInfo: options.acp.version ? { version: options.acp.version } : {} } };
+    process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...reply }) + '\\n');
+  });
+}
+`,
+    );
+    await chmod(path, 0o755);
+    vi.stubEnv("ANTIGRAVITY_ACP_PATH", path);
+    // Present in YA's environment; never in a child's.
+    vi.stubEnv("AUTH_COOKIE_SECRET", "YA_CANARY");
+    return path;
+  }
+
+  const refusalFor = (installed: string) =>
+    `Antigravity requires agy 1.5.13 or later; the installed runtime ${installed}. Run \`agy update\`, or install the agy CLI.`;
+
   // Each case is a real child: one answers initialize with an old or missing
   // version, the other is an agy too old to have an ACP server at all.
   (process.platform === "win32" ? it.skip : it).each([
-    ["1.4.5", "reports version 1.4.5"],
-    [undefined, "did not report a version"],
-    ["no-acp", "reports version 1.4.12"],
+    [{ acp: { version: "1.4.5" } }, "reports version 1.4.5"],
+    [{ acp: {} }, "did not report a version"],
+    [{ acp: "exit", cliVersion: "1.4.12" }, "reports version 1.4.12"],
   ] as const)(
-    "refuses agy below the floor (%s) in provider status and at start",
-    async (reported, installed) => {
-      const old = join(directory, "old-bin", "agy");
-      await mkdir(join(directory, "old-bin"));
-      await writeFile(
-        old,
-        `#!/usr/bin/env node
-const fs = require('node:fs');
-if (process.argv.includes('--version')) { console.log('${reported === "no-acp" ? "1.4.12" : (reported ?? "")}'); process.exit(0); }
-fs.appendFileSync(${JSON.stringify(log)}, 'launch\\n');
-if (${JSON.stringify(reported)} === 'no-acp') { console.error('unknown command "acp"'); process.exit(2); }
-require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
-  const m = JSON.parse(line);
-  fs.appendFileSync(${JSON.stringify(log)}, m.method + '\\n');
-  const agentInfo = ${JSON.stringify(reported)} ? { version: ${JSON.stringify(reported)} } : {};
-  process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: { protocolVersion: 1, agentInfo } }) + '\\n');
-});
-`,
-      );
-      await chmod(old, 0o755);
-      vi.stubEnv("ANTIGRAVITY_ACP_PATH", old);
-      const refusal = `Antigravity requires agy 1.5.13 or later; the installed runtime ${installed}. Run \`agy update\`, or install the agy CLI.`;
+    "refuses agy below the floor (%j) in provider status and at start",
+    async (behavior, installed) => {
+      await controlledAgy(behavior);
+      const refusal = refusalFor(installed);
 
       const provider = new AntigravityProvider();
       expect(await provider.getAuthStatus()).toEqual({
         installed: false,
         authenticated: false,
         enabled: false,
+        unavailableReason: refusal,
       });
       expect(provider.getModelCatalogStatus()?.error).toBe(refusal);
 
@@ -1253,11 +1292,129 @@ require('node:readline').createInterface({ input: process.stdin }).on('line', li
       } finally {
         await session.abort();
       }
-      // Nothing beyond initialize reaches a refused runtime.
-      const methods = (await readFile(log, "utf8")).trim().split("\n");
-      expect(methods.filter((line) => line !== "launch")).toEqual(
-        reported === "no-acp" ? [] : ["initialize", "initialize"],
+      // Nothing beyond initialize reaches a refused runtime, and a version
+      // query runs only when ACP never answered.
+      const lines = (await readFile(log, "utf8")).trim().split("\n");
+      expect(lines.filter((line) => line !== "launch")).toEqual(
+        behavior.acp === "exit"
+          ? ["--version", "--version"]
+          : ["initialize", "initialize"],
       );
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "describes an updated agy on the first forced refresh",
+    async () => {
+      await controlledAgy({ acp: { version: "1.4.12" } });
+      const provider = new AntigravityProvider();
+      expect((await provider.getAuthStatus()).installed).toBe(false);
+      await controlledAgy({ acp: { version: "1.5.13" } });
+      // The providers route reads status and a forced catalog together.
+      const [status] = await Promise.all([
+        provider.getAuthStatus(),
+        provider.getAvailableModels({ forceRefresh: true }),
+      ]);
+      expect(status.installed).toBe(true);
+      expect(status.unavailableReason).toBeUndefined();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "keeps an ACP peer's own initialize error instead of upgrade advice",
+    async () => {
+      const agy = await controlledAgy({
+        acp: { error: "Native profile is corrupt" },
+        cliVersion: "1.4.12",
+      });
+      const runtime = new AntigravityRuntime();
+      try {
+        await expect(runtime.connect(agy, directory, ["acp"])).rejects.toThrow(
+          /^Native profile is corrupt$/,
+        );
+      } finally {
+        await runtime.close();
+      }
+      expect((await readFile(log, "utf8")).trim().split("\n")).toEqual([
+        "launch",
+        "initialize",
+      ]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "stops a version probe that ignores SIGTERM when the runtime closes",
+    async () => {
+      const marker = join(directory, "probe.pid");
+      const agy = await controlledAgy({ acp: "exit", hangOnVersion: marker });
+      const runtime = new AntigravityRuntime();
+      const connecting = runtime.connect(agy, directory, ["acp"]);
+      const rejected = expect(connecting).rejects.toThrow("closed");
+      await vi.waitFor(() => readFile(marker, "utf8"), { timeout: 5_000 });
+      await runtime.close();
+      await rejected;
+      const pid = Number(await readFile(marker, "utf8"));
+      expect(() => process.kill(pid, 0)).toThrow();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "saves a refused app creation as a known startup failure carrying the refusal",
+    async () => {
+      await controlledAgy({ acp: { version: "1.4.12" } });
+      const metadata = createTestSessionMetadataService(
+        join(directory, "data"),
+      );
+      await metadata.initialize();
+      const app = createApp({
+        provider: new AntigravityProvider(),
+        dataDir: join(directory, "data"),
+        sessionMetadataService: metadata,
+        eventBus: new EventBus(),
+        authDisabled: true,
+        enabledProviders: ["antigravity"],
+      });
+      try {
+        const response = await app.app.request(
+          `/api/projects/${toUrlProjectId(directory)}/session-creations`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Yep-Anywhere": "true",
+            },
+            body: JSON.stringify({
+              requestId: "refused-floor",
+              message: "must not send",
+              provider: "antigravity",
+              mode: "default",
+            }),
+          },
+        );
+        expect(response.status).toBe(202);
+        await vi.waitFor(async () =>
+          expect(
+            (
+              await (
+                await app.app.request("/api/session-creations/refused-floor", {
+                  headers: { "X-Yep-Anywhere": "true" },
+                })
+              ).json()
+            ).creation,
+          ).toMatchObject({
+            state: "failed",
+            delivery: "not-admitted",
+            failure: "startup-unavailable",
+            failureDetail: refusalFor("reports version 1.4.12"),
+          }),
+        );
+        expect(await readFile(log, "utf8")).not.toMatch(
+          /session\/new|session\/prompt|leaked/,
+        );
+      } finally {
+        app.stopNotifications();
+        await app.disposeSessionReaders();
+      }
     },
   );
 });

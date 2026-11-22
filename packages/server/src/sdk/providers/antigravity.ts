@@ -118,7 +118,12 @@ export class AntigravityProvider implements AgentProvider {
     // An agy below the floor is not a usable runtime; its refusal, naming
     // both versions and the update path, is the catalog error.
     if (this.catalog?.unsupportedVersion)
-      return { installed: false, authenticated: false, enabled: false };
+      return {
+        installed: false,
+        authenticated: false,
+        enabled: false,
+        unavailableReason: this.catalog.error,
+      };
     const authenticated = !this.catalog?.error;
     return { installed: true, authenticated, enabled: authenticated };
   }
@@ -157,13 +162,15 @@ export class AntigravityProvider implements AgentProvider {
   async getAvailableModels(options?: {
     forceRefresh?: boolean;
   }): Promise<ModelInfo[]> {
+    // Join a read in progress first, so status and models read in the same
+    // refresh describe the same runtime.
+    if (this.catalogRead) return this.catalogRead;
     if (
       !options?.forceRefresh &&
       this.catalog &&
       Date.now() - this.catalog.at < 60_000
     )
       return this.catalog.models;
-    if (this.catalogRead) return this.catalogRead;
     this.catalogRead = this.readModels();
     try {
       return await this.catalogRead;

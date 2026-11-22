@@ -440,7 +440,11 @@ known failure. [Provider memory admission](provider-memory-admission.md)
 reports a verified pre-spawn refusal as `failed` with
 `failure.code: "capacity_unavailable"`. A Claude executable that is missing or
 cannot run is also a known pre-spawn failure with
-`failure.code: "claude-executable-unavailable"` and recovery guidance.
+`failure.code: "claude-executable-unavailable"` and recovery guidance. An
+installed provider that refuses before starting with a stated reason, such as
+an [Antigravity runtime below its floor](antigravity.md#supported-runtime),
+is a known pre-spawn failure with `failure.code: "startup-unavailable"` and
+that reason as its message.
 An exception after reservation or a queued startup failure without a verified
 refusal is uncertain. Never
 generate a new retry key merely to escape that uncertainty. Unique live-owner API-input

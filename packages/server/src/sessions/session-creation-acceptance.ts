@@ -37,6 +37,9 @@ export function sessionCreationReceipt(
       ...(saved.attempt.kind ? { kind: saved.attempt.kind } : {}),
       ...(saved.request.intent ? { initialInputExpected: false as const } : {}),
       ...(saved.attempt.failure ? { failure: saved.attempt.failure } : {}),
+      ...(saved.attempt.failureDetail
+        ? { failureDetail: saved.attempt.failureDetail }
+        : {}),
     },
     serverTimestamp: Date.now(),
   };

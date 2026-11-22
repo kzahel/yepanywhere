@@ -22,28 +22,30 @@ const starting: SessionCreationStatus = {
   updatedAt: "2026-11-04T00:00:00Z",
 };
 
-it("shows the specific router refusal as text alongside the saved prompt", () => {
-  render(
-    <SessionCreationNotice
-      creation={{
-        ...starting,
-        state: "failed",
-        failure: "router-refused",
-        failureDetail:
-          "no eligible pool account: quota stale; check Pools and usage",
-      }}
-      prompt="Saved original"
-      onRefresh={async () => {}}
-    />,
-    { wrapper: I18nProvider },
-  );
-  expect(
-    screen.getByText(
-      "no eligible pool account: quota stale; check Pools and usage",
-    ),
-  ).toBeTruthy();
-  expect(screen.getByText("Saved original")).toBeTruthy();
-});
+it.each([
+  [
+    "router-refused",
+    "no eligible pool account: quota stale; check Pools and usage",
+  ],
+  [
+    "startup-unavailable",
+    "Antigravity requires agy 1.5.13 or later; the installed runtime reports version 1.4.12. Run `agy update`, or install the agy CLI.",
+  ],
+] as const)(
+  "shows the specific %s refusal as text alongside the saved prompt",
+  (failure, failureDetail) => {
+    render(
+      <SessionCreationNotice
+        creation={{ ...starting, state: "failed", failure, failureDetail }}
+        prompt="Saved original"
+        onRefresh={async () => {}}
+      />,
+      { wrapper: I18nProvider },
+    );
+    expect(screen.getByText(failureDetail)).toBeTruthy();
+    expect(screen.getByText("Saved original")).toBeTruthy();
+  },
+);
 let visibility: DocumentVisibilityState;
 beforeEach(() => {
   vi.useFakeTimers();

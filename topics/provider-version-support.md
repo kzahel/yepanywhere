@@ -90,8 +90,9 @@ YA has no general minimum-version mechanism. Antigravity has the only
 declared floor. These version facts reach the user:
 
 - Antigravity refuses `agy` below 1.5.13, or one reporting no recognizable
-  version, in provider status and at session start, naming both versions and
-  `agy update` ([supported runtime](antigravity.md#supported-runtime)).
+  version, in provider status, Provider Settings, saved app and v0 creation,
+  and at session start, naming both versions and `agy update`
+  ([supported runtime](antigravity.md#supported-runtime)).
 - Pi refuses to start a session when `pi --version` is unrecognizable, and
   shows that error in the session.
 - Codex's mismatch with `expectedVersion` is a server-log advisory only. Its
@@ -104,8 +105,9 @@ the required version, and the update path. A floor must never surface as an
 unexplained protocol failure. Where a provider has no such surface, prefer
 the version gate or tip-only record above to raising a floor. Antigravity's
 floor uses existing fields: provider status reports the runtime unavailable
-with the refusal as its model catalog error, and its CLI installation
-candidate shows the version beside the same error.
+with the refusal as its model catalog error, its CLI installation candidate
+shows the version beside the same error, and a refused saved creation records
+`startup-unavailable` with the refusal as its failure detail.
 
 ## Known Tip-Only Behavior
 

@@ -1049,6 +1049,7 @@ export class SessionCreationStore {
   failBeforeEffects(
     fence: CreationAttemptFence,
     failure: NonNullable<CreationAttempt["failure"]>,
+    failureDetail?: string,
   ): CreationAttempt {
     if (
       ![
@@ -1064,7 +1065,16 @@ export class SessionCreationStore {
       const current = this.assertCurrent(fence);
       if (!["saved", "queued"].includes(current.attempt.state))
         throw new SessionCreationConflict();
-      return this.update(fence, "failed", "not-admitted", failure);
+      return this.update(
+        fence,
+        "failed",
+        "not-admitted",
+        failure,
+        fence.generation,
+        undefined,
+        undefined,
+        failureDetail,
+      );
     });
   }
   /**

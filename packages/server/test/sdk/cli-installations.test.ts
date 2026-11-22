@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CliInstallationService,
   type CliCandidate,
@@ -18,6 +18,7 @@ import {
 import { fnmCodexPaths } from "../../src/sdk/fnm-codex-discovery.js";
 import { describeAntigravityCandidate } from "../../src/sdk/providers/antigravity-launch.js";
 import { antigravityInstallationAdapter } from "../../src/sdk/cli-installation-adapters.js";
+import { resolveAntigravityRuntime } from "../../src/sdk/providers/antigravity-runtime.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -219,5 +220,46 @@ it.skipIf(process.platform === "win32")(
       error:
         "Antigravity requires agy 1.5.13 or later; the installed runtime reports version 1.4.12. Run `agy update`, or install the agy CLI.",
     });
+  },
+);
+
+it.skipIf(process.platform === "win32")(
+  "shows the agy that Auto launches, without YA credentials, even below the floor",
+  async () => {
+    const f = await fixture();
+    const agy = async (directory: string, version: string) => {
+      await mkdir(join(f.root, directory));
+      const path = join(f.root, directory, "agy");
+      // A leaked credential would replace the version and change the result.
+      await writeFile(
+        path,
+        `#!/bin/sh\necho "\${AUTH_COOKIE_SECRET:-${version}}"\n`,
+        { mode: 0o755 },
+      );
+      return path;
+    };
+    const old = await agy("first", "1.4.12");
+    const current = await agy("second", "1.5.13");
+    vi.stubEnv("PATH", `${join(f.root, "first")}:${join(f.root, "second")}`);
+    vi.stubEnv("AUTH_COOKIE_SECRET", "leaked");
+    vi.stubEnv("ANTIGRAVITY_ACP_PATH", undefined);
+    try {
+      const service = new CliInstallationService(
+        f.root,
+        [antigravityInstallationAdapter],
+        () => ({}),
+        undefined,
+        coordinator,
+      );
+      const inventory = await service.inventory("antigravity");
+      expect(inventory.candidates).toMatchObject([
+        { path: old, version: "1.4.12", selected: true },
+        { path: current, version: "1.5.13", selected: false },
+      ]);
+      expect(inventory.candidates[0]?.error).toContain("1.5.13 or later");
+      expect(resolveAntigravityRuntime()?.command).toBe(await realpath(old));
+    } finally {
+      vi.unstubAllEnvs();
+    }
   },
 );

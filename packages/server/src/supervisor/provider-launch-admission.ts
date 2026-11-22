@@ -27,6 +27,11 @@ export class ClaudeExecutableUnavailable extends Error {
   }
 }
 
+/** An installed provider refused before any effect, with the user's next step. */
+export class ProviderStartupUnavailable extends Error {
+  readonly outcome = "startup-unavailable";
+}
+
 export function assertSavedProviderReady(
   store: SessionCreationStore,
   fence: CreationAttemptFence,
@@ -38,6 +43,11 @@ export function assertSavedProviderReady(
   if (!auth.installed && providerName === "claude") {
     const error = new ClaudeExecutableUnavailable();
     store.failBeforeEffects(fence, error.outcome);
+    throw error;
+  }
+  if (!auth.installed && auth.unavailableReason) {
+    const error = new ProviderStartupUnavailable(auth.unavailableReason);
+    store.failBeforeEffects(fence, error.outcome, error.message);
     throw error;
   }
   if (

@@ -37,6 +37,11 @@ export interface CliInstallationAdapter {
   installationFamily: string;
   /** Bump when the recipe or the meaning of a successful check changes. */
   probeRevision: string;
+  /**
+   * The candidate an Auto launch actually runs, for a family whose launch
+   * does not go through resolve(). Without it, Auto shows the first usable one.
+   */
+  autoSelect?(candidates: readonly CliCandidate[]): CliCandidate | undefined;
   discover(explicitPath?: string): Promise<CliCandidate[]>;
   contextKey(): string;
   rescan?(): void;
@@ -247,13 +252,16 @@ export class CliInstallationService {
             verificationError: retained?.error,
           });
         }
+        const automatic = adapter.autoSelect?.(candidates);
         const selected = selection
           ? candidates.find((candidate) => candidate.path === selection)
-          : (candidates.find(
-              (c) => !c.error && c.verification === "verified",
-            ) ??
-            candidates.find((c) => !c.error && c.verification !== "failed") ??
-            candidates[0]);
+          : adapter.autoSelect
+            ? candidates.find((candidate) => candidate === automatic)
+            : (candidates.find(
+                (c) => !c.error && c.verification === "verified",
+              ) ??
+              candidates.find((c) => !c.error && c.verification !== "failed") ??
+              candidates[0]);
         if (selected) selected.selected = true;
         return { family, selection, managed: Boolean(managed), candidates };
       },
