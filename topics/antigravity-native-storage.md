@@ -49,12 +49,15 @@ Not examined: `implicit/`, `daemon/`, `persistent_terminals/`, `cache/`,
 ### Conversation database
 
 `conversations/<id>.db` is the only complete record of a conversation, and by
-inference the one `agy` continues from. On a stopped conversation, ACP
-`session/load` and `session/resume` left this database, its WAL and the brain
-log unchanged, but they do write store-wide files (see
-[what reopening writes](#what-load-and-resume-write)). What a second process
-does to a conversation that a live owner is writing is not measured, which is
-why YA still never runs a load beside a live owner.
+inference the one `agy` continues from. In every snapshot taken around an
+ACP `session/load` or `session/resume` of a stopped conversation, this
+database's content and the brain log matched their state before launch.
+While `agy` ran, an empty WAL and a shared-memory file sat beside the
+database, and `agy` wrote store-wide files (see
+[what load and resume write](#what-load-and-resume-write)). Snapshots show
+the files at those moments, not that nothing was written between them. What
+a second process does to a conversation that a live owner is writing is not
+measured, which is why YA still never runs a load beside a live owner.
 Its tables:
 
 ```text
@@ -112,21 +115,24 @@ conversations, including `ERROR_MESSAGE` and 17.
   through the file. It is not contiguous: the log can skip a step.
 - **Coverage.** The database has 1,272 steps and the log has 1,271 records.
   The missing step, 1144, is an `ERROR_MESSAGE` (17) that sits where a turn
-  stopped, an hour before the user's next "Continue". The census below found
-  the log skipping only error and interrupted steps.
+  stopped, an hour before the user's next "Continue". In the
+  [census](#step_index-gaps-and-undo), every step the log omitted was either
+  an interrupted step (database `status` 6) or an `ERROR_MESSAGE`.
 - **Tools.** A `tool_calls` entry is `{name, args}` with no call ID, and the
   ACP tool call ID does not name the step either (see
-  [tool call IDs](#tool-call-ids)). The
-  records after a `PLANNER_RESPONSE` with *k* tool calls are *k* `GENERIC`
-  records, one result per call in order. This held for all 297 such planner
-  records, 778 calls in total. Argument values are strings, integers and
-  booleans.
-- **Results.** A result is rendered text that starts with `Created At:` and
-  `Completed At:` lines. Its `status` is `DONE`, `ERROR` or `RUNNING`. The 55
-  `RUNNING` records are launches of background tasks; the log does not
-  rewrite them when the task ends. In the probes the end arrived as a new
-  `SYSTEM_MESSAGE` about 20 ms after ACP's completed `tool_call_update`,
-  followed by the wake's `PLANNER_RESPONSE`.
+  [tool call IDs](#tool-call-ids)). A `PLANNER_RESPONSE` with *k* calls and
+  the `GENERIC` records after it form a *group*. In the saved session all 297
+  groups (778 calls) were complete: *k* results, one per call, in call order.
+  Not every group is complete; see [reading a tool group](#reading-a-tool-group).
+  Argument values are strings, integers and booleans.
+- **Results.** A finished result is rendered text that starts with
+  `Created At:` and `Completed At:` lines; its `status` is `DONE` or `ERROR`.
+  The 55 `RUNNING` records are launches of background tasks. They have a
+  `Created At:` line and "Tool is running as a background task with task id:
+  `<conversation>/task-<n>`", and no `Completed At:` line. The log does not
+  rewrite them. When the task ends, `agy` appends a `SYSTEM_MESSAGE` whose
+  text is a `[Message]` naming that task id with "finished with result:" (or
+  "was canceled with result:"), then the wake's `PLANNER_RESPONSE`.
 - **Compaction.** A `CHECKPOINT` record carries the summary the model resumes
   from. Records from before all three checkpoints are still in the file.
 - **Children.** A child's log starts with a `SYSTEM_MESSAGE` at step 0. The
@@ -139,6 +145,35 @@ conversations, including `ERROR_MESSAGE` and 17.
 
 The same record keys appear on a conversation created 2026-11-03 and on those
 created with 1.5.14. Only first records were compared across versions.
+
+#### Reading a tool group
+
+Seen on this host: the 297 complete groups above, 200 more complete groups
+across eleven other conversations, and one group that is cut short. In
+`918445a8`, step 555 has ten `edit_file` calls. Steps 556–563 are eight
+results, and step 566 is the next turn's `USER_INPUT`. Database steps 564 and
+565 are `GENERIC` steps with `status` 6 and are not logged. The eight results
+all name the file the calls edit, at ascending line numbers and ascending
+`Created At` times. That is consistent with the first eight calls' results
+in order, but nothing in the log proves which call each result answers.
+
+A reader that projects groups should therefore:
+
+- Treat a group as complete when *k* `GENERIC` records follow the planner
+  record, and pair results with calls in order.
+- Treat a group as interrupted when a record of any other type follows after
+  *m* < *k* results. Assign the *m* results, in order, to the first *m*
+  calls. The other *k* − *m* calls have no result: show them as interrupted
+  calls with no output, neither pending nor failed with invented text.
+- Never look past the next non-`GENERIC` record for a result. A `GENERIC`
+  record with no open group is unknown; none was found on this host.
+- Treat a group still open at the end of the file as in progress while the
+  conversation has a live owner (results are appended as tools finish, see
+  [measurements](#how-far-a-record-trails-its-acp-event)), and as interrupted
+  once it is stopped. None was found at the end of a stopped log here.
+
+The database can confirm an interrupted group (the missing results are
+`step_type` 132 with `status` 6), but the rule needs only the log.
 
 ### What the log has and lacks against ACP replay
 
@@ -155,122 +190,151 @@ created with 1.5.14. Only first records were compared across versions.
 
 ## Measurements — plan 195 step 2
 
-Recorded 2026-11-22 on macOS arm64. The probe runs real `agy` against the
-scripted GenAI model on an owned profile, drives ACP directly and polls the
-log every millisecond. Run it from `packages/server`:
+Recorded 2026-11-22 on one macOS arm64 host. The probe runs real `agy`
+against the scripted GenAI model on an owned profile and drives ACP
+directly. Run it from `packages/server`:
 
 ```bash
 pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-native-probe.mjs measure [--agy <path>]
-pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-native-probe.mjs resume-large --turns 1005 --compact-every 40 --file-kb 16
+pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-native-probe.mjs resume-large [--agy <path>] --turns 1005 --compact-every 40 --file-kb 16
 pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-native-probe.mjs coverage [--store <antigravity-cli>]
 ```
 
-`measure` ran twice on each of `agy` 1.5.13 (the pin) and 1.5.14, with the
-same results except where noted. `coverage` reads a store without changing
-it: it copies each database and reads only `idx`, `step_type` and `status`.
+Each figure below comes from one `measure` run and one `resume-large` run on
+each of `agy` 1.5.13 (the pin) and 1.5.14, unless a version is named.
+Single runs on one host show what happened, not a distribution.
 
 ### How far a record trails its ACP event
 
-A record is written once, when its step ends, and appears in
-`transcript_full.jsonl` and `transcript.jsonl` within the same 2 ms. While a
-step runs, ACP has streamed it and the log has nothing. The log therefore
-trails the live stream by the length of the step in progress, without bound
-for a long model response or a long foreground tool, and then by a few
-milliseconds.
+The probe polls both logs every millisecond and keeps each record's bytes.
+It pairs a record with the event it reports by identity: the prompt text
+for `USER_INPUT`, a scripted marker for model output and checkpoints, and,
+for a tool result, the ACP tool call whose input equals the record's call
+arguments. The delays are differences between first observations, so they
+include the poll interval and ACP dispatch to the probe. They are not
+`agy`'s write latency.
 
-| Record | Written | After its anchor |
+On both versions a record appeared once, when its step had ended. While a
+model response streams, or a foreground tool runs, ACP has reported it and
+the log has nothing. A response held for 400 ms appeared 403–411 ms after
+its first chunk. A two-second foreground command's result appeared 3–4 ms
+after ACP reported it complete. After the step ends:
+
+| Record | Paired with | Observed delay |
 | --- | --- | --- |
-| `USER_INPUT` | Before the first model request | 6–33 ms after `session/prompt` is sent |
-| `PLANNER_RESPONSE` | When the model response ends | 1–8 ms after the last chunk; 400 ms after the first chunk of a response held for 400 ms. A response with tool calls is logged about 2 ms *before* ACP's `tool_call`. |
-| `GENERIC` | When the tool ends | 1–2 ms after the terminal `tool_call_update` |
-| `GENERIC` `RUNNING` | When a command goes to the background | About 500 ms after launch and before ACP reports it complete; never rewritten |
-| `SYSTEM_MESSAGE` | A background task's end, or a reminder before a turn | 10–23 ms after the completed `tool_call_update`; a reminder 3 ms after its `USER_INPUT` |
-| `CHECKPOINT` | When the summary response ends | 0–2 ms, before the continuation request |
-| `ERROR_MESSAGE` | On `session/cancel`, with the cancelled response | 2–8 ms after the cancel |
+| `USER_INPUT` | `session/prompt` sent | 8–34 ms, before the first model request |
+| `PLANNER_RESPONSE` | The scripted response's end | 1–9 ms; 1–6 ms after its last ACP chunk |
+| `PLANNER_RESPONSE` with calls | ACP's first `tool_call` for those calls | Seen 0–5 ms *before* it |
+| `GENERIC` | The same call ID reported completed | 1–4 ms; in an earlier 1.5.14 run, 2 ms before it |
+| `GENERIC` `RUNNING` | The call's launch | 507–516 ms, about 1 s before ACP reported the task complete |
+| `SYSTEM_MESSAGE`, task end | The background call reported completed | 21–31 ms |
+| `SYSTEM_MESSAGE`, reminder | Its turn's `USER_INPUT` record | 3–4 ms |
+| `CHECKPOINT` | The summary response's end | 1 ms, before the continuation request |
+| `PLANNER_RESPONSE`, cancelled | `session/cancel` sent | 10–11 ms |
+| `ERROR_MESSAGE` | `session/cancel` sent | 16–17 ms |
 
-A cancelled response keeps its partial text: 1.5.13 logs it `DONE`, 1.5.14
-logs it `ERROR` with `error: "context canceled by user"`. When the owner is
-stopped mid-response the way YA stops it (SIGTERM to the process group),
-1.5.13 logs the partial response `DONE` and the next model request includes
-it. 1.5.14 leaves that step in the database with `status` 6, writes no
-record, and omits it from the next request.
+Also observed:
+
+- `transcript.jsonl` gained each record within 2.5 ms of
+  `transcript_full.jsonl`, joined by `step_index`.
+- After the run, each record's bytes in both logs, including the `RUNNING`
+  record after its wake, matched the bytes first observed. Earlier
+  in-between states were not checked.
+- A cancelled response keeps its partial text: 1.5.13 logs it `DONE`, 1.5.14
+  logs it `ERROR` with `error: "context canceled by user"`.
+- When the owner is stopped mid-response the way YA stops it (SIGTERM to the
+  process group), 1.5.13 logs the partial response `DONE`, and the next model
+  request includes it. 1.5.14 leaves that step in the database with
+  `status` 6 and writes no record, and the next request omits it.
 
 ### What load and resume write
 
-`session/load` and `session/resume` were each run on a stopped conversation,
-with the size, modification time and SHA-256 of every file under the store
-taken before and after. On both versions, at 24 steps and at 7,261 steps:
+Each leg restores an identical copy of the stopped store, then snapshots the
+size, modification time and SHA-256 of every file under it before launch,
+after `initialize`, after the reopen's stream has been quiet for 500 ms, and
+after `agy` exits. No prompt is sent in that leg; a separate leg on another
+fresh copy checks the next model request. The same set appeared on both
+versions, for `session/load` and `session/resume`, on the 28-step `measure`
+conversation and the 7,261-step one:
 
-- **Unchanged:** the conversation database's content, the brain log, its
-  chunks and every other `brain/<id>/` file.
-- **Written while `agy` runs:** an empty WAL and a shared-memory file beside
-  the conversation database, and a 16 KB WAL beside
-  `conversation_summaries.db`. After `agy` exits, the index's content is
-  unchanged but its modification time is new.
-- **Store-wide files:** `jetbox_summaries_proto.pb` is rewritten, sometimes
-  with new content of the same size. `cache/onboarding.json` gets a new
-  modification time. Each launch adds `log/acp-server-<time>-<pid>.log`, and
-  1.5.13 sometimes adds an empty `crashes/crash_<pid>_<uuid>.log`.
+| Between | Changes |
+| --- | --- |
+| Before launch → after `initialize` | A new `log/acp-server-<time>-<pid>.log` |
+| After `initialize` → after the reopen | Beside the conversation database, a 0-byte WAL and a 32 KiB shared-memory file appear. Beside `conversation_summaries.db`, a 16 KiB WAL and a shared-memory file appear. An empty `crashes/crash_<pid>_<uuid>.log` appears. `cache/onboarding.json` and `jetbox_summaries_proto.pb` get new modification times; in one 1.5.13 leg the latter got new content of the same size. |
+| After the reopen → after exit | Every sidecar and the crash log are gone. `conversation_summaries.db` has the same content and a new modification time. |
+| Before launch → after exit | The conversation database's content, the brain log, its chunks and every other `brain/<id>/` file match. |
 
-A repeated load writes the same set. YA's provider-root watcher observes
-`conversation_summaries.db` and its WAL, so a cold read still produces a
-change notification.
+Matching snapshots show the files matched at those four moments. They do not
+show that nothing was written in between. YA's provider-root watcher observes
+`conversation_summaries.db` and its WAL, so a cold read produces a change
+notification.
 
 ### Resume on a large compacted conversation
 
-Real `agy` built a conversation of 1,005 turns: each turn read four 16 KiB
-files and replied, and every 40th turn compacted. The result was 7,261 steps,
-25 checkpoints, a 62 MB full log, an 18.7 MB short log and a 143 MB database.
-Building took 418 s; a turn took about 70 ms at the start and 460 ms (median)
-across the run. At that rate real `agy` cannot reach the 500 MB scale target,
-so the [generator](#scale-target-generator) builds that file from record
-shapes.
+Real `agy` built a conversation of 1,005 turns on each version. Each turn
+read four 16 KiB files and replied, and every 40th turn compacted. Each
+build had 7,261 steps, 25 checkpoints, a 62.2 MB full log and an 18.7 MB
+short log; the database was 143.0 MB on 1.5.13 and 142.5 MB on 1.5.14. A
+build took 396–405 s: the first turn took about 21 ms, the median 435–441 ms.
+At that rate real `agy` cannot reach the 500 MB scale target, so the
+[generator](#scale-target-generator) builds that file from record shapes.
 
-| On 1.5.13 | `session/resume` | `session/load` |
-| --- | --- | --- |
-| Response | 41 ms | 238 ms |
-| Stream quiet | 137 ms | 316 ms |
-| Updates streamed | 2 (commands, session info) | 3,531, 1.38 MB |
-| `agy` resident memory, idle → peak | 128 → 314 MB | 125 → 353 MB |
-| Conversation files changed | None | None |
-| Next model request | 355 KB, with the newest reply and the latest summary, without the compacted first turn | The same |
+| 7,261 steps | `session/resume` 1.5.13 | 1.5.14 | `session/load` 1.5.13 | 1.5.14 |
+| --- | ---: | ---: | ---: | ---: |
+| Response | 37 ms | 37 ms | 227 ms | 235 ms |
+| Last update | 129 ms | 132 ms | 298 ms | 312 ms |
+| Updates streamed | 2 | 2 | 3,529 | 3,528 |
+| Bytes streamed | 2.4 KB | 2.4 KB | 1.38 MB | 1.38 MB |
+| `agy` group RSS, idle → peak | 128 → 307 MB | 126 → 295 MB | 125 → 362 MB | 126 → 331 MB |
 
-A first run of 1,000 turns, whose last turn was a compaction, measured
-146 ms and 329 ms to respond and peaks of 299 and 380 MB. On the short
-`measure` conversation, the request after resume carried the same prior
-context as the live owner's request after compaction: the summary, earlier
-user prompts and the newest reply. The memory figures are `agy`'s own, not
-YA's. Not measured: 1.5.14 at this size.
+Resume's two updates were the command list and session info. In each case
+the next model request was 354 KB, and its conversation `contents` held the
+newest reply and the latest summary marker, and neither the previous
+summary's marker nor the first turn's prompt. Load and resume requests
+differed by 2 bytes. The memory figures are `agy`'s own, sampled every
+25 ms, not YA's.
+
+On the 28-step conversation, after load or resume, and in the live owner's
+request right after compaction, the `contents` held the summary, the
+earlier user prompts and the newest reply, but not earlier assistant
+replies.
 
 ### Tool call IDs
 
-Every ACP `toolCallId` observed was a random UUID: auto-approved `read_file`
-calls, `write_file` and `run_command` calls that asked permission (the
-permission request carries the same ID), and calls under
-`--dangerously-skip-permissions`, on both versions. None had the form
+Every ACP `toolCallId` observed was a version-4 UUID, on both versions: two
+auto-approved `read_file` calls, three calls that asked permission
+(`write_file` and two `run_command`; the permission request carried the same
+ID), and one call under `--dangerously-skip-permissions`. None had the form
 `<sessionId>:<plannerStep>`. A live tool call can be tied to its log record
-only by order: the *k* results after a planner record with *k* calls.
+only through its arguments or its position in the group.
 
-`agy` sends `session/request_permission` with a string JSON-RPC ID, which
-YA's transport refuses; see the
+`agy` sends `session/request_permission` with a string JSON-RPC ID (three per
+run here), which YA's transport refuses; see the
 [permission gap](../gaps/antigravity-permission-requests-with-string-ids-are-refused.md).
 
 ### `step_index`, gaps and undo
 
-`step_index` strictly increased across a cancel, a background wake, a
-compaction, `session/resume`, and an owner stopped mid-response, and always
-equalled the database `idx`. It is not contiguous. The census of this host's
-store found 15 conversations with a log (three more were never prompted),
-all strictly increasing, and eight database steps with no record:
+In the probe runs `step_index` strictly increased across a cancel, a
+background wake, a compaction, `session/resume` and an owner stopped
+mid-response, and always equalled the database `idx`. It is not contiguous.
+
+The census streams each log once, keeping step indexes and counts, and reads
+a private copy of the database's plain columns. A conversation whose
+database, WAL or log changes while it is read is reported inconclusive. On
+this host's store it read 15 databases: 12 with a log and three never
+prompted. None was inconclusive. All 12 logs strictly increase. Eight
+database steps have no record:
 
 | `step_type` | `status` | Steps | Reproduced |
 | ---: | ---: | ---: | --- |
 | 15 (`PLANNER_RESPONSE`) | 6 | 4 | Yes: a 1.5.14 owner stopped mid-response |
-| 132 (`GENERIC`) | 6 | 2 | No |
+| 132 (`GENERIC`) | 6 | 2 | No; they are the two missing results of the cut-short group in `918445a8` |
 | 17 (`ERROR_MESSAGE`) | 3 | 2 | No: a cancel's `ERROR_MESSAGE` was logged on both versions |
 
-The saved repro's unlogged step is one of the two `ERROR_MESSAGE` steps. Why
-those two were not logged is unknown.
+The census also found 497 complete tool groups, one cut-short group (see
+[reading a tool group](#reading-a-tool-group)), no group open at the end of
+a log, and no result outside a group. The saved repro's unlogged step is one
+of the two `ERROR_MESSAGE` steps. Why those two were not logged is unknown.
 
 `agy` 1.5.13 and 1.5.14 advertise no undo or rewind command over ACP, and YA
 offers no rewind for Antigravity, so a conversation YA owns is never undone.
@@ -281,22 +345,41 @@ record, and falls back to ACP.
 ### Live session retention
 
 [`native-live-retention.test.ts`](../packages/server/test/native-provider/native-live-retention.test.ts)
-runs 600 turns of the same work on each provider, a short prompt and a
-4 KiB reply, and samples YA's heap after a full GC. The Process replay
-window, which is time-bounded and common to every provider, and the
-fixture's own logs are emptied before each sample.
+runs 600 turns of the same work on each provider: a short prompt and a
+4 KiB reply. It samples YA's heap after a full GC at turns 1, 150, 300, 450
+and 600. Before each sample it empties three things: the Process replay
+window (time-bounded and common to every provider), the fixture's event log
+and the scripted model's request log. It reads the heap before copying
+Antigravity's projection to count it, so the copy is not charged. Growth is
+taken from the warm sample at turn 150 to turn 600. These runs used Node
+24.22.1 on this host. Codex 0.171.0 ran three times and Antigravity 1.5.13
+twice:
 
-| 600 turns | Heap at turn 1 | Heap at turn 600 | Growth per turn | Retained history |
-| --- | ---: | ---: | ---: | --- |
-| Codex 0.171.0 | 73.7 MB | 73.0 MB | none (−1 KB) | None outside the replay window |
-| Antigravity 1.5.13 | 73.5 MB | 79.1 MB | 9.4 KB | 1,201 messages, 2.78 MB of JSON, plus a cloned copy per message |
+| Turns 150 → 600 | Heap after GC | Growth | Antigravity projection |
+| --- | --- | ---: | --- |
+| Codex, three runs | 76.1 → 73.6 MB, every run | −2.5 MB | None |
+| Antigravity, two runs | 73.1 → 76.2 MB, every run | +3.1 MB | 301 → 1,201 messages; 695,480 → 2,775,380 bytes of JSON |
 
-The bar for [step 6](../docs/tactical/195-antigravity-native-history.md#6--bound-live-session-memory)
-is Codex's: retained memory that does not grow with turn count. Antigravity
-grows about 4.6 KB of history per such turn. It would reach the 8 MiB cap
-after roughly 1,800 of them, and at that point the session is stopped
-mid-turn. The controlled-peer test "today: a live session that passes 8 MiB
-across turns is torn down mid-turn" records that.
+Codex's samples moved within 73.1–76.3 MB with no upward trend. Its highest
+sample after turn 150 was 0.16 MB above the warm one, and its largest swing
+between samples was 3 MB. Antigravity's heap rose at every sample. Its
+projection grew by exactly 4,622 bytes of JSON per turn in both runs. At that
+rate it would reach the 8 MiB cap after about 1,800 such turns, and the
+session would then be stopped mid-turn. The controlled-peer test "today: a
+live session that passes 8 MiB across turns is torn down mid-turn" records
+that.
+
+The bar for
+[step 6](../docs/tactical/195-antigravity-native-history.md#6--bound-live-session-memory),
+on this harness, has two parts:
+
+- **Structural, free of heap noise.** The projection's message count and
+  serialized bytes at turn 600 do not exceed a bound fixed independently of
+  turn count. Today they grow linearly.
+- **Heap.** In each of at least two runs, the turn-600 sample is no more
+  than 1 MB above the turn-150 sample, as with every Codex run here.
+  Antigravity is 3.1 MB above today. A single heap sample on one host is not
+  evidence by itself.
 
 ### Scale target generator
 
@@ -304,12 +387,22 @@ across turns is torn down mid-turn" records that.
 writes a conversation of any size, and
 `scripts/perf-repro/antigravity-scale-log.mjs --out <dir> --verify` runs it
 from `packages/server` with `pnpm exec tsx --conditions source`. It copies
-real record shapes, including key order, tool pairing, `RUNNING` and `ERROR`
-results, checkpoints, the shortened log's markers and steps the log skips;
-the text is filler. Its database holds only the plain step columns, so real
-`agy` cannot load it. The default target took 1.3 s to write on this host:
-100,000 steps, a 500 MB full log, a 330 MB short log, 49 checkpoints and
-three skipped steps.
+the observed record shapes: key order, complete tool groups, `ERROR`
+results, background launches without a completion line followed by their
+`[Message]` wake and its reply, reminders, checkpoints, the shortened log's
+markers, and planner steps the log skips. The text is filler. The file
+always ends on a complete group. `--interrupted-group-every <steps>` adds
+groups cut short as in `918445a8`: the last results are database-only steps
+with `status` 6, and the next record is the next turn's `USER_INPUT`.
+`--verify` checks strictly increasing `step_index` and that each group is
+complete, except the interrupted groups requested.
+
+Its database holds only the plain step columns, so real `agy` cannot load
+it. With `--interrupted-group-every 30000`, the default target took 1.4 s to
+write on this host: 99,992 records, a 499.7 MB full log, a 336 MB short log,
+49 checkpoints, 1,190 wakes, three skipped planner steps and three
+interrupted groups. A census of it read all of it in 1.0 s at a 290 MB peak
+resident size.
 
 ## Runtime identity
 
@@ -395,8 +488,12 @@ The existing readers follow these constraints, and a new reader should too:
 
 ## Open questions
 
-- How real `agy` behaves past the 62 MB log it built here. It slowed to
-  about 460 ms a turn, so the 500 MB target is generated.
+- How real `agy` behaves past the 62 MB log it built here. Its median turn
+  was about 440 ms, so the 500 MB target is generated.
+- Whether a cut-short group's results always answer its first calls in
+  order. The one example found is consistent with that, but does not prove
+  it.
+- What `agy` writes between the snapshot moments of a load or resume.
 - Why two `ERROR_MESSAGE` steps on this host were not logged, when a cancel's
   is.
 - Whether a load beside a live owner writes the conversation's files.

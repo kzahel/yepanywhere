@@ -17,10 +17,12 @@ import { providers } from "./selection.js";
  *     test/native-provider/native-live-retention.test.ts --maxWorkers=1
  *
  * Every turn is the same scripted work: a short prompt and a 4 KiB reply.
- * Retained heap is sampled after a full GC, with the Process replay window
+ * Heap is sampled after a full GC, with the Process replay window
  * (time-bounded and shared by every provider), the fixture's event log and
- * the scripted model's request log emptied first, so the samples count what
- * the provider path keeps.
+ * the scripted model's request log emptied first, and before Antigravity's
+ * projection is copied for counting, so the copy is not charged. Growth is
+ * taken from the first sample after warm-up (one interval) to the final
+ * turn, which is always sampled. Heap samples on one host are diagnostic.
  */
 const turns = Number(process.env.YEP_NATIVE_RETENTION_TURNS ?? 200);
 const reply = "R".repeat(4096);
@@ -59,18 +61,21 @@ describe
       // The scripted model keeps every request body, each the whole history.
       f.model.requests.length = 0;
       for (let pass = 0; pass < 3; pass++) gc();
+      const heapUsed = process.memoryUsage().heapUsed;
+      // Copied only after the heap was read; the copy is then released.
       const history = scope
         ? antigravityLiveHistory(scope, f.nativeId())
         : undefined;
       return {
         turn,
-        heapUsed: process.memoryUsage().heapUsed,
-        liveHistoryMessages: history?.length,
-        liveHistoryBytes: history
+        heapUsed,
+        projectionMessages: history?.length,
+        projectionJsonBytes: history
           ? Buffer.byteLength(JSON.stringify(history))
           : undefined,
       };
     };
+    const interval = Math.max(1, Math.floor(turns / 4));
     const samples = [];
     const started = performance.now();
     for (let turn = 1; turn <= turns; turn++) {
@@ -81,22 +86,25 @@ describe
       (await f.model.next()).finish(`${reply} ${turn}`);
       await f.output(`${reply} ${turn}`);
       await f.idle();
-      if (turn === 1 || turn % Math.max(1, turns / 4) === 0)
+      if (turn === 1 || turn % interval === 0 || turn === turns)
         samples.push(await sample(turn));
     }
-    const first = samples[0]!;
+    const warm = samples.find((entry) => entry.turn >= interval)!;
     const last = samples.at(-1)!;
     console.info(
       JSON.stringify({
         measurement: "native-live-retention",
         provider,
         version: f.version,
+        node: process.version,
         turns,
         replyBytes: reply.length,
         seconds: Math.round((performance.now() - started) / 100) / 10,
         samples,
+        warmTurn: warm.turn,
+        heapGrowthFromWarm: last.heapUsed - warm.heapUsed,
         heapGrowthPerTurn: Math.round(
-          (last.heapUsed - first.heapUsed) / (last.turn - first.turn),
+          (last.heapUsed - warm.heapUsed) / Math.max(1, last.turn - warm.turn),
         ),
       }),
     );

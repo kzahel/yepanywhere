@@ -2,7 +2,8 @@
 // steps, built from real record shapes. Run by hand from packages/server:
 //   pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-scale-log.mjs \
 //     --out <empty dir> [--steps 100000] [--bytes 500000000] [--id <uuid>]
-//     [--cwd <project>] [--checkpoint-every 2000] [--skip-every 25000] [--verify]
+//     [--cwd <project>] [--checkpoint-every 2000] [--skip-every 25000]
+//     [--interrupted-group-every <steps>] [--verify]
 // Writes <out>/antigravity-cli/{brain,conversations,conversation_summaries.db}
 // so YA's readers can open it with --gemini-dir <out>. Real agy cannot load
 // it (no protobuf payloads); use antigravity-native-probe.mjs resume-large
@@ -41,6 +42,7 @@ const result = await writeAntigravityScaleConversation({
   targetBytes: Number(option("bytes", 500_000_000)),
   checkpointEvery: Number(option("checkpoint-every", 2000)),
   skipEvery: Number(option("skip-every", 25_000)),
+  interruptedGroupEvery: Number(option("interrupted-group-every", 0)),
 });
 const report = {
   ...result,
@@ -48,12 +50,28 @@ const report = {
 };
 
 if (argv.includes("--verify")) {
-  // The invariants a log reader may rely on: strictly increasing step_index
-  // and k results after a planner record with k tool calls.
+  // The invariants a log reader may rely on: strictly increasing
+  // step_index, and k results after a planner record with k tool calls. A
+  // group with fewer results is accepted only where the generator was asked
+  // for an interrupted group, and only when another record type (or the
+  // end of the file) follows it.
   const verifyStarted = performance.now();
+  const interrupted = new Map(
+    result.interruptedGroups.map((group) => [group.planner, group]),
+  );
   let previous = -1;
-  let expectedResults = 0;
+  let open;
   let lines = 0;
+  let shortGroups = 0;
+  const closeShort = (where) => {
+    const expected = interrupted.get(open.planner);
+    assert(
+      expected && expected.logged === open.results,
+      `planner ${open.planner} has ${open.results} of ${open.calls} results before ${where}`,
+    );
+    shortGroups++;
+    open = undefined;
+  };
   for await (const line of createInterface({
     input: createReadStream(result.fullPath),
     crlfDelay: Number.POSITIVE_INFINITY,
@@ -64,18 +82,24 @@ if (argv.includes("--verify")) {
       `step ${record.step_index} not increasing`,
     );
     previous = record.step_index;
-    if (expectedResults > 0) {
-      assert.equal(
-        record.type,
-        "GENERIC",
-        `step ${record.step_index} breaks pairing`,
-      );
-      expectedResults--;
-    } else if (record.type === "PLANNER_RESPONSE")
-      expectedResults = record.tool_calls?.length ?? 0;
     lines++;
+    if (record.type === "GENERIC") {
+      assert(open, `step ${record.step_index} is a result with no open group`);
+      if (++open.results === open.calls) open = undefined;
+      continue;
+    }
+    if (open) closeShort(`step ${record.step_index}`);
+    if (record.type === "PLANNER_RESPONSE" && record.tool_calls?.length)
+      open = {
+        planner: record.step_index,
+        calls: record.tool_calls.length,
+        results: 0,
+      };
   }
+  if (open) closeShort("the end of the file");
   assert.equal(lines, result.records);
+  assert.equal(shortGroups, result.interruptedGroups.length);
+  report.verifiedInterruptedGroups = shortGroups;
   report.verifySeconds =
     Math.round((performance.now() - verifyStarted) / 100) / 10;
 }

@@ -6,8 +6,10 @@ import { writeAntigravitySummaries } from "./antigravity-store.js";
 /**
  * Writes a synthetic `agy` conversation at any size for plan 195's scale
  * target (about 500 MB and 100,000 steps). Record keys, key order, field
- * types, tool pairing, truncation markers and step skips copy what real
- * `agy` 1.5.13 and 1.5.14 write; see topics/antigravity-native-storage.md.
+ * types, tool pairing, background launches and their wakes, truncation
+ * markers and step skips copy what real `agy` 1.5.13 and 1.5.14 write; see
+ * topics/antigravity-native-storage.md. The file always ends on a complete
+ * tool group unless interrupted groups are requested.
  * Text is filler. Real `agy` cannot load the result: the conversation
  * database holds only the plain `idx`, `step_type` and `status` columns.
  */
@@ -22,8 +24,14 @@ export interface AntigravityScaleOptions {
   targetBytes: number;
   /** Steps between compaction checkpoints; 0 for none. */
   checkpointEvery?: number;
-  /** Steps between interrupted steps the log omits; 0 for none. */
+  /** Steps between interrupted planner steps the log omits; 0 for none. */
   skipEvery?: number;
+  /**
+   * Steps between interrupted tool groups: a planner record with k calls
+   * followed by fewer than k results and then the next turn's USER_INPUT,
+   * the missing results being database-only steps. 0 (default) for none.
+   */
+  interruptedGroupEvery?: number;
   /** Also write the shortened `transcript.jsonl` (default true). */
   shortLog?: boolean;
   /** Replace the store's summaries index with this conversation (default true). */
@@ -39,6 +47,9 @@ export interface AntigravityScaleResult {
   records: number;
   checkpoints: number;
   skipped: number[];
+  /** Groups whose last `calls - logged` results are database-only. */
+  interruptedGroups: Array<{ planner: number; calls: number; logged: number }>;
+  wakes: number;
   lastStep: number;
 }
 
@@ -56,6 +67,8 @@ export const ANTIGRAVITY_STEP_TYPES = {
 const DONE_STATUS = 3;
 const INTERRUPTED_STATUS = 6;
 const TRUNCATE_ABOVE = 4096;
+const SYSTEM_PREFIX =
+  "The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.\n\n<SYSTEM_MESSAGE>\n";
 const TRUNCATE_KEEP = 2048;
 
 function prng(seed: number): () => number {
@@ -141,6 +154,7 @@ export async function writeAntigravityScaleConversation(
   const random = prng(options.seed ?? 195);
   const checkpointEvery = options.checkpointEvery ?? 2000;
   const skipEvery = options.skipEvery ?? 25_000;
+  const interruptedGroupEvery = options.interruptedGroupEvery ?? 0;
   const logs = join(
     options.store,
     "brain",
@@ -176,6 +190,8 @@ export async function writeAntigravityScaleConversation(
   const base = Date.UTC(2026, 10, 1);
   const types: Array<[number, number, number]> = [];
   const skipped: number[] = [];
+  const interruptedGroups: AntigravityScaleResult["interruptedGroups"] = [];
+  let wakes = 0;
   let checkpoints = 0;
   let records = 0;
   let step = 0;
@@ -201,9 +217,13 @@ export async function writeAntigravityScaleConversation(
     cache_read_tokens: Math.floor(random() * 500_000),
     output_tokens: 10 + Math.floor(random() * 2000),
   });
+  const taskLog = (task: string) =>
+    `file://${options.store}/brain/${options.id}/.system_generated/tasks/${task}.log`;
+  const remaining = () => options.steps - step;
   let turn = 0;
   let nextSkip = skipEvery;
-  while (step < options.steps) {
+  let nextInterrupted = interruptedGroupEvery || Number.POSITIVE_INFINITY;
+  while (remaining() > 0) {
     turn++;
     if (step > 0)
       correction = Math.min(
@@ -221,19 +241,21 @@ export async function writeAntigravityScaleConversation(
       },
       ANTIGRAVITY_STEP_TYPES.USER_INPUT,
     );
-    if (random() < 0.3 && step < options.steps)
+    if (random() < 0.3 && remaining() > 0)
       await emit(
         {
           ...head("SYSTEM_MESSAGE", "SYSTEM"),
-          content: `The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.\n\n<SYSTEM_MESSAGE>\n${text(`STEP_${step}`, 0.5)}\n</SYSTEM_MESSAGE>`,
+          content: `${SYSTEM_PREFIX}${text(`STEP_${step} Reminder:`, 0.5)}\n</SYSTEM_MESSAGE>`,
         },
         ANTIGRAVITY_STEP_TYPES.SYSTEM_MESSAGE,
       );
+    const tasks: Array<{ task: string; command: string }> = [];
+    let interrupted = false;
     const rounds = 1 + Math.floor(random() * 6);
-    for (let round = 0; round < rounds && step < options.steps; round++) {
+    for (let round = 0; round < rounds && remaining() > 0; round++) {
       if (skipEvery > 0 && step >= nextSkip) {
         nextSkip += skipEvery;
-        // An interrupted step: in the database, never in the log.
+        // An interrupted planner step: in the database, never in the log.
         types.push([
           step,
           ANTIGRAVITY_STEP_TYPES.PLANNER_RESPONSE,
@@ -243,18 +265,33 @@ export async function writeAntigravityScaleConversation(
         step++;
         continue;
       }
-      const calls = 1 + Math.floor(random() * 4);
+      // Never start a group that cannot be completed within the budget.
+      let calls = Math.min(1 + Math.floor(random() * 4), remaining() - 1);
+      if (calls < 1) break;
+      // An interrupted group, as in a real log: its last results are
+      // database steps with status 6, and the next record is USER_INPUT.
+      let logged = calls;
+      if (step >= nextInterrupted && remaining() >= 4) {
+        nextInterrupted += interruptedGroupEvery;
+        calls = Math.min(Math.max(calls, 3), remaining() - 1);
+        logged = 1 + Math.floor(random() * (calls - 1));
+        interrupted = true;
+      }
+      const planner = step;
+      const commands: string[] = [];
       await emit(
         {
           ...head("PLANNER_RESPONSE", "MODEL"),
           ...usage(),
           thinking: text(`STEP_${step} thinking`, 0.6),
-          tool_calls: Array.from({ length: calls }, (_, call) =>
-            call % 2
+          tool_calls: Array.from({ length: calls }, (_, call) => {
+            const command = `pnpm test step-${step}-${call}`;
+            commands.push(command);
+            return call % 2
               ? {
                   name: "run_command",
                   args: {
-                    CommandLine: `pnpm test step-${step}-${call}`,
+                    CommandLine: command,
                     WaitMsBeforeAsync: 5000,
                     toolSummary: "run tests",
                   },
@@ -264,15 +301,28 @@ export async function writeAntigravityScaleConversation(
                   args: {
                     Path: join(options.cwd, `src/file-${step}-${call}.ts`),
                   },
-                },
-          ),
+                };
+          }),
         },
         ANTIGRAVITY_STEP_TYPES.PLANNER_RESPONSE,
       );
-      for (let call = 0; call < calls && step < options.steps; call++) {
+      for (let call = 0; call < logged; call++) {
         const failed = random() < 0.02;
         const running = !failed && call % 2 === 1 && random() < 0.05;
         const at = timestamp(base, step);
+        if (running) {
+          // A background launch: no completion line; its end is a later wake.
+          const task = `${options.id}/task-${step}`;
+          tasks.push({ task, command: commands[call]! });
+          await emit(
+            {
+              ...head("GENERIC", "MODEL", "RUNNING"),
+              content: `Created At: ${at}\nTool is running as a background task with task id: ${task}\nTask Description: ${commands[call]}\nTask logs are available at: ${taskLog(`task-${step}`)}`,
+            },
+            ANTIGRAVITY_STEP_TYPES.GENERIC,
+          );
+          continue;
+        }
         const content = `Created At: ${at}\nCompleted At: ${at}\n${text(`STEP_${step} result`, 1.6)}`;
         await emit(
           failed
@@ -286,15 +336,25 @@ export async function writeAntigravityScaleConversation(
                 created_at: at,
                 content,
               }
-            : {
-                ...head("GENERIC", "MODEL", running ? "RUNNING" : "DONE"),
-                content,
-              },
+            : { ...head("GENERIC", "MODEL"), content },
           ANTIGRAVITY_STEP_TYPES.GENERIC,
         );
       }
+      if (interrupted) {
+        for (let call = logged; call < calls; call++) {
+          types.push([
+            step,
+            ANTIGRAVITY_STEP_TYPES.GENERIC,
+            INTERRUPTED_STATUS,
+          ]);
+          step++;
+        }
+        interruptedGroups.push({ planner, calls, logged });
+        break;
+      }
     }
-    if (step < options.steps)
+    if (interrupted) continue;
+    if (remaining() > 0)
       await emit(
         {
           ...head("PLANNER_RESPONSE", "MODEL"),
@@ -303,10 +363,31 @@ export async function writeAntigravityScaleConversation(
         },
         ANTIGRAVITY_STEP_TYPES.PLANNER_RESPONSE,
       );
+    // Each finished background task wakes the conversation, as observed.
+    for (const { task } of tasks) {
+      if (remaining() < 2) break;
+      const at = timestamp(base, step);
+      await emit(
+        {
+          ...head("SYSTEM_MESSAGE", "SYSTEM"),
+          content: `${SYSTEM_PREFIX}[Message] timestamp=${at} sender=${task} priority=MESSAGE_PRIORITY_HIGH content=Task id "${task}" finished with result:\nCommand exited with code 0.\n\nCommand output:\n${text(`STEP_${step} output`, 0.5)}\n\nLog: ${taskLog(task.split("/")[1]!)}\n</SYSTEM_MESSAGE>`,
+        },
+        ANTIGRAVITY_STEP_TYPES.SYSTEM_MESSAGE,
+      );
+      wakes++;
+      await emit(
+        {
+          ...head("PLANNER_RESPONSE", "MODEL"),
+          ...usage(),
+          content: text(`WAKE_REPLY STEP_${step}`, 0.3),
+        },
+        ANTIGRAVITY_STEP_TYPES.PLANNER_RESPONSE,
+      );
+    }
     if (
       checkpointEvery > 0 &&
       step >= (checkpoints + 1) * checkpointEvery &&
-      step < options.steps
+      remaining() > 0
     ) {
       checkpoints++;
       const { model: _model, ...tokens } = usage();
@@ -338,6 +419,8 @@ export async function writeAntigravityScaleConversation(
     records,
     checkpoints,
     skipped,
+    interruptedGroups,
+    wakes,
     lastStep: step - 1,
   };
 }

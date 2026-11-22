@@ -278,9 +278,10 @@ children from a bounded read-only projection of `brain/<id>/.../transcript.jsonl
 through `session/load` only after revalidating project-eligible lineage. When several workspace URIs are listed
 (`/private/tmp/x`, `/tmp/x`), the last is the cwd the client supplied and
 matches YA's project binding. Reading never sends a prompt or auth request.
-Unknown/foreign project files are not adopted. A native load or resume of a
-stopped conversation leaves its database and brain log unchanged, but `agy`
-writes store-wide files, including the summaries index
+Unknown/foreign project files are not adopted. Around a native load or
+resume of a stopped conversation, snapshots found its database content and
+brain log unchanged, but `agy` adds temporary database sidecars and writes
+store-wide files, including the summaries index
 ([measured](antigravity-native-storage.md#what-load-and-resume-write)). The `agy` 1.5.13 ACP stream and replay
 report file-read tool identity, location and status, while the file contents
 stay in native model context.
@@ -450,8 +451,10 @@ watches or process-to-session correlation. Grok and OpenCode do not gain
 a new root watcher here; their existing invalidation and explicit catalog refresh
 behavior remains. Legacy Gemini execution and historical readers remain intact.
 Focused Antigravity observation remains unavailable. Database/WAL notifications
-alone do not authorize automatic `session/load`, which can update native
-continuation metadata. The next slice needs owner-aware history acquisition,
+alone do not authorize automatic `session/load`: it starts `agy`, which writes
+store-wide files and the summaries index, and its effect beside a live owner
+is unmeasured ([native storage](antigravity-native-storage.md#what-load-and-resume-write)).
+The next slice needs owner-aware history acquisition,
 a process budget shared across readers, and WAL-aware source versions before
 turning those notifications into automatic history refresh. The local owner
 map and per-reader limits do not establish those install-wide guarantees.
@@ -530,8 +533,9 @@ Before the first discovery pass, the concrete splits were:
    database and protocol-backed sources. Reuse current coalescing, cancellation,
    source-version and disposal owners. Bound native subprocess allocation
    across readers, not just inside each reader. Antigravity's `session/load`
-   may mutate continuation state: consult the incumbent provider owner before
-   replay, keeping that native constraint explicit. Reusing the existing
+   writes store-wide native files, and what it does beside a live owner is
+   unmeasured: consult the incumbent provider owner before replay, keeping
+   that native constraint explicit. Reusing the existing
    provider-session owner is preferable to expanding the preview's isolated
    in-process ownership map into a second lifecycle system. Shared-host support
    needs its own qualification; a local memory guard is not a cross-process lock.
