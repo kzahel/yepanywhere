@@ -295,6 +295,45 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
         expect(replay).toContain("AGY_WAKE_FINISHED_BEFORE_SAFE_RELOAD");
         expect(replay).toContain("AGY_PATIENT_FINISHED_BEFORE_SAFE_RELOAD");
         expect(reopened.transcriptComplete).toBeUndefined();
+
+        // Resume on the replacement backend (plan 195 step 5: from the log,
+        // with no replay), then reload again with the resumed owner idle.
+        await app.api(`/projects/${projectId}/sessions/${sessionId}/resume`, {
+          message: "AGY_RESUMED_AFTER_RELOAD",
+          provider: "antigravity",
+          mode: "bypassPermissions",
+        });
+        const resumed = await app.model.next();
+        expect(JSON.stringify(resumed.body)).toContain(
+          "AGY_PATIENT_BEFORE_SAFE_RELOAD",
+        );
+        resumed.finish("AGY_RESUMED_TURN_DONE");
+        await expect
+          .poll(async () => (await ownedSession(app, sessionId)).state)
+          .toBe("idle");
+        const once = (messages: Array<{ message?: { content?: unknown } }>) =>
+          [
+            "AGY_PATIENT_FINISHED_BEFORE_SAFE_RELOAD",
+            "AGY_RESUMED_AFTER_RELOAD",
+            "AGY_RESUMED_TURN_DONE",
+          ].map(
+            (marker) =>
+              messages.filter((message) =>
+                JSON.stringify(message.message?.content ?? "").includes(marker),
+              ).length,
+          );
+        const resumedView = await app.api(
+          `/projects/${projectId}/sessions/${sessionId}`,
+        );
+        expect(once(resumedView.messages)).toEqual([1, 1, 1]);
+        const resumedBackend = await app.processes();
+        await app.api("/dev/safe-restart", {});
+        await waitForReplacement(app, resumedBackend);
+        expect((await ownedSession(app, sessionId)).state).toBe("not-running");
+        const final = await app.api(
+          `/projects/${projectId}/sessions/${sessionId}`,
+        );
+        expect(once(final.messages)).toEqual([1, 1, 1]);
         expect(app.model.failures).toEqual([]);
       },
     );

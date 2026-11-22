@@ -72,17 +72,20 @@ export function ownerBoundary(
 
 /**
  * Whether a read taken under `before` still describes the conversation once
- * it returns under `after`: the same open owner, or no open owner either
- * time. An owner that only started meanwhile has written nothing (it writes
- * only after it opens and is prompted), so a cold read stays valid; one
- * that opened, or closed, makes the read describe a different split.
+ * it returns under `after`: the same open owner at the same boundary, or no
+ * open owner either time. An owner that only started meanwhile has written
+ * nothing (it writes only after it opens and is prompted), so a cold read
+ * stays valid; one that opened, closed or moved its boundary makes the read
+ * describe a different split.
  */
 export function sameAntigravitySplit(
   before: AntigravityOwnerView | undefined,
   after: AntigravityOwnerView | undefined,
 ): boolean {
   return before?.state === "open"
-    ? after?.state === "open" && after.owner === before.owner
+    ? after?.state === "open" &&
+        after.owner === before.owner &&
+        after.boundary?.end === before.boundary?.end
     : after?.state !== "open";
 }
 
