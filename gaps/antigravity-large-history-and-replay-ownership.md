@@ -3,14 +3,17 @@
 Since plan 195 step 4, opening a stopped conversation reads a bounded page of
 its brain log and starts no `agy`
 ([cold history from the log](../topics/antigravity.md#cold-history-from-the-log)).
-Resuming it, and the fallback for a missing or unknown log, still use ACP
-`session/load`. That operation streams the whole conversation
+Since step 5, resuming it uses ACP `session/resume`, which replays nothing:
+the resumed session's earlier history is read from the log through its
+resume point ([resume](../topics/antigravity.md#resume-and-the-live-view)).
+Only the fallback for a missing or unknown log, for viewing or resuming,
+still uses ACP `session/load`. That operation streams the whole conversation
 and writes store-wide native files. Snapshots around a load of a stopped
 conversation found its database content and log unchanged. YA's bounded native tail read checks
-that replay reached the saved text. For resume and the fallback, YA still
+that replay reached the saved text. For the fallback, YA still
 accumulates normalized history in memory and rejects replay beyond 8 MiB or
-10,000 messages. The live projection
-has the same cap. The limits apply to what YA retains, so the native database's
+10,000 messages. The live projection has the same cap, counted from the
+resume point (step 6 bounds it). The limits apply to what YA retains, so the native database's
 size alone cannot tell whether a session fits. See the
 [reader](../packages/server/src/sessions/antigravity-reader.ts#L359),
 [replay](../packages/server/src/sdk/providers/antigravity-replay.ts#L32),
@@ -26,7 +29,9 @@ If Antigravity moves to a Provider Host worker, the backend must be able to see
 that worker's ownership before opening history. Otherwise it can start a
 competing `session/load` against the same conversation. Concurrent use by
 independent YA servers or a separate native editor or CLI is unqualified.
-[Ownership guard](../packages/server/src/sdk/providers/antigravity-runtime.ts#L159)
+A resuming owner is visible to readers from the moment its provider
+iterator runs, so a fallback read never loads ahead of it (step 5).
+[Ownership guard](../packages/server/src/sdk/providers/antigravity-owners.ts)
 
 The [saved long-session repro](../topics/native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
 reopened 820 YA messages on `agy` 1.5.14. Its native database is about 41 MiB,
@@ -50,7 +55,8 @@ Plan 195 step 2 reproduced both limits with the controlled peer, as tests
 named "today: …" in `antigravity.test.ts`: a replay over 8 MiB fails open and
 resume, and a live session that passes the cap is stopped mid-turn. Step 4
 flipped the open half: a history over 8 MiB opens and pages from the log
-with no `session/load`. It also
+with no `session/load`. Step 5 flipped the resume half: it resumes with no
+replayed message retained. The live cap remains for step 6. It also
 measured real `agy` 1.5.13 and 1.5.14 on a 7,261-step compacted
 conversation: `session/resume` answered in 37 ms with no replayed history
 and kept the compacted context. The ownership races remain unreproduced.

@@ -715,6 +715,78 @@ describe("Antigravity log windows", () => {
     expect(ids(window.messages)).toContain(resultId);
   });
 
+  it("reads an oversized record whose status is not followed by a comma or brace as unknown", async () => {
+    await mkdir(join(logPath, ".."), { recursive: true });
+    const oversized = (separator: string) =>
+      `{"step_index":5,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE"${separator}"created_at":"${at}","content":"${"z".repeat(17 * MiB)}"}\n`;
+    for (const [separator, status] of [
+      [",", "known"],
+      ["x", "unknown"],
+      ["", "unknown"],
+    ] as const) {
+      await writeFile(
+        logPath,
+        `${JSON.stringify(prompt(0))}\n${oversized(separator)}${JSON.stringify(reply(6, "LATE"))}\n`,
+      );
+      const window = await read({ kind: "complete" });
+      expect(window.status, JSON.stringify(separator)).toBe(status);
+    }
+  });
+
+  it("reads the log only through a resume boundary, and checks the record there", async () => {
+    await put([prompt(0), reply(1, "BEFORE_RESUME")]);
+    const resumed = await known({ kind: "latest", compactions: 2 });
+    const boundary = resumed.last!;
+    expect(boundary).toEqual({
+      step: 1,
+      end: (await readFile(logPath)).length,
+    });
+    // The resumed owner's turn is logged after the boundary.
+    await appendFile(
+      logPath,
+      `${JSON.stringify(prompt(2))}\n${JSON.stringify(reply(3, "AFTER_RESUME"))}\n`,
+    );
+    const options = { boundary };
+    expect(
+      textOf(
+        (await known({ kind: "latest", compactions: 2 }, options)).messages,
+      ),
+    ).toEqual(["PROMPT_0", "BEFORE_RESUME"]);
+    expect(
+      textOf((await known({ kind: "complete" }, options)).messages),
+    ).toEqual(["PROMPT_0", "BEFORE_RESUME"]);
+    const after = await known(
+      { kind: "after", messageId: `${ID}:step-0`, compactions: 2 },
+      options,
+    );
+    expect(after.anchor).toBe("found");
+    expect(textOf(after.messages)).toEqual(["PROMPT_0", "BEFORE_RESUME"]);
+    const before = await known(
+      { kind: "before", messageId: `${ID}:step-1:text`, compactions: 2 },
+      options,
+    );
+    expect(textOf(before.messages)).toEqual(["PROMPT_0"]);
+    // A step after the boundary is not in this log's view.
+    expect(
+      (
+        await known(
+          { kind: "before", messageId: `${ID}:step-3:text`, compactions: 2 },
+          options,
+        )
+      ).anchor,
+    ).toBe("missed");
+    // A boundary the file no longer matches makes the log unknown.
+    for (const wrong of [
+      { step: 2, end: boundary.end },
+      { step: 1, end: boundary.end - 1 },
+      { step: 1, end: boundary.end + 10_000 },
+    ])
+      expect(
+        (await read({ kind: "latest", compactions: 2 }, { boundary: wrong }))
+          .status,
+      ).toBe("unknown");
+  });
+
   it("reports a missing log, and one with no complete record, as missing", async () => {
     expect((await read({ kind: "latest", compactions: 2 })).status).toBe(
       "missing",

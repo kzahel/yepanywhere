@@ -332,18 +332,17 @@ no alternate authentication or provider transcript store is introduced.
   turn idle or ended rather than working or awaiting input. A record arriving
   while reads are refused is itself treated as dropped. The refusal is not
   permanent for the lifetime of the lease.
-- An Antigravity owner's live rows carry IDs its brain log does not use
-  (until plan 195 step 6), and while an owner is live the reader serves its
-  own history instead of the log. A durable snapshot therefore belongs to
-  the owner generation it was read under. Any owner change (an owner
-  attaching to a stopped conversation, departing by terminating, or being
-  replaced) takes the next durable read even if the new owner is working. A
-  read during which the generation changed is discarded and read again
-  (three attempts, then the read fails), so it neither publishes nor
-  consumes a departure. The read after a departure replaces every row the
-  departed owner contributed: the view is what a cold reader shows, without
-  text the log lacks. Claude and Codex keep their generation-neutral,
-  ID-based reconciliation.
+- An Antigravity owner's live rows carry IDs its brain log does not use.
+  While an owner lives, the reader serves the log only through that
+  owner's resume point and the owner's rows after it
+  ([resume and the live view](antigravity.md#resume-and-the-live-view)),
+  so a durable snapshot and the owner's live rows never hold the same step
+  under two IDs, whichever owner (or none) it was read under; an owner
+  attaching or starting needs no extra read. When an owner departs
+  (terminates or is replaced), the next durable read is taken even if a new
+  owner is working, and it replaces every row the departed owner
+  contributed: the view is what a cold reader shows, without text the log
+  lacks. Claude and Codex keep their ID-based reconciliation.
 - A newly created exact managed Claude/Codex session can precede its retained
   catalog row. Its bounded replay is available with incomplete coverage and
   unknown earlier history. Re-resolve on later reads/catalog invalidations and

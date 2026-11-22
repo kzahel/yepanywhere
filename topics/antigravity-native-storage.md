@@ -822,6 +822,30 @@ unexplained. A log append with no later database write would not be
 observed
 ([gap](../gaps/antigravity-log-only-append-not-observed.md)).
 
+## Resuming from the log — plan 195 step 5
+
+Resume reads the log's latest page (back to two checkpoints or 4 MiB, as a
+viewer's first read). When it is known, YA calls `session/resume`, then
+reads the latest page again and records its last complete record, step and
+byte end, as the owner's resume point (the first read's when the second
+is not known). Windows for that owner pass the resume point: the window
+ends at its byte offset, and the record just before that offset, which
+must end in a newline, must carry that `step_index`, or the log is
+unknown. Records `agy` appends after it (the resumed owner's own turns)
+are not read for that owner's view.
+
+Observed with real `agy` 1.5.13 and 1.5.14 and the scripted model (the
+cold-resume and model-selection cases in
+[`native-lifecycle.test.ts`](../packages/server/test/native-provider/native-lifecycle.test.ts)):
+`session/resume` answered with the configuration options a load returns,
+so the selected model and effort were applied as before; the next model
+request held the prior turns and the tool result; no `session/load` was
+sent; and while the resumed owner lived, a complete read showed the turn
+before the resume point and the resumed prompt and reply once each. The
+step 2 measurements of `session/resume` (no history streamed, the log and
+database unchanged, the summaries index's time changed) still apply; a
+resume therefore still produces a summaries-index change notification.
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
@@ -843,7 +867,8 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | [Catalog adapter and metadata](../packages/server/src/sessions/antigravity-metadata.ts) | `conversations/<id>.db` and `-wal` file facts | Discovery and source versions. The database is never opened. |
 | [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
 | [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
-| `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay or a resume must reach. |
+| `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | Whether a resume can use `session/resume`, and its resume point: the latest page must read as known, and its last record is the boundary ([step 5](#resuming-from-the-log--plan-195-step-5)). |
+| `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay, or a fallback resume, must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
 | [Compaction check](../packages/server/src/sdk/providers/antigravity-compaction.ts) | `transcript.jsonl` | A new completed `CHECKPOINT` confirms `/compact`. |
@@ -852,9 +877,11 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 The other named log readers are in
 [`antigravity-subagent-links.ts`](../packages/server/src/sessions/antigravity-subagent-links.ts)
 and each read is bounded to 4 MiB. The projection reads nothing itself.
-Cold history, root and child, comes from the log; a live session's from its
-owner's in-memory projection; and ACP `session/load` replay only when a log
-is missing or unknown, as [identity and history](antigravity.md#identity-and-history)
+Cold history, root and child, comes from the log. A live session resumed
+from the log is the log through its resume point and its owner's
+in-memory rows after it; a new session's, or one resumed through the
+fallback, is its owner's projection. ACP `session/load` replay runs only
+when a log is missing or unknown, as [identity and history](antigravity.md#identity-and-history)
 describes. [Provider history facts](provider-history-facts.md#consumers) lists
 these readers among YA's history consumers.
 

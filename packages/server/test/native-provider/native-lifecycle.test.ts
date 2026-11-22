@@ -433,6 +433,15 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       mark("resume-source");
       const source = await f.source();
       mark("resume-start");
+      // Plan 195 step 5: resume replays no history (session/resume).
+      const call = AntigravityRuntime.prototype.call;
+      const nativeCalls: string[] = [];
+      const calls = vi
+        .spyOn(AntigravityRuntime.prototype, "call")
+        .mockImplementation(function (this: AntigravityRuntime, ...args) {
+          nativeCalls.push(args[0]);
+          return call.apply(this, args);
+        });
       await f.restart({
         resumeSessionId: id,
         nativeResumeSource: source,
@@ -458,6 +467,31 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       await f.output("COLD_RESUME_DONE");
       await f.idle();
       expect(f.nativeId()).toBe(id);
+      if (provider === "antigravity") {
+        // While the resumed owner lives, its view is the log through the
+        // resume point and its own rows after it: each turn once.
+        const live = (
+          (await f.history())!.data.session as {
+            messages: Array<{ message?: { content?: unknown } }>;
+          }
+        ).messages;
+        for (const marker of [
+          "BEFORE_COLD_RESTART",
+          "AFTER_COLD_RESTART",
+          "COLD_RESUME_DONE",
+        ])
+          expect(
+            live.filter((message) =>
+              String(JSON.stringify(message.message?.content ?? "")).includes(
+                marker,
+              ),
+            ),
+            marker,
+          ).toHaveLength(1);
+        expect(nativeCalls).toContain("session/resume");
+        expect(nativeCalls).not.toContain("session/load");
+      }
+      calls.mockRestore();
       mark("resumed-stop");
       await f.stop();
       await verifyAgyReplayOrder(f, "COLD_RESUME_DONE");

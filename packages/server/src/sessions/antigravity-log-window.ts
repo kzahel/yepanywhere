@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import type { AntigravityLogBoundary } from "../sdk/providers/antigravity-owners.js";
 import type { Message } from "../supervisor/types.js";
 import {
   ANTIGRAVITY_LOG_RECORD_BYTES,
@@ -61,6 +62,8 @@ export type AntigravityLogWindow =
       anchor?: "found" | "missed";
       /** The conversation's first prompt, when it was read. */
       firstPrompt?: string;
+      /** For a latest page: the last record it read to. */
+      last?: AntigravityLogBoundary;
       bytesRead: number;
       /** The most line bytes the read held at once. */
       heldPeak: number;
@@ -76,6 +79,11 @@ export interface AntigravityLogWindowOptions {
   /** A tool group the log ends inside is still running. */
   ownerLive: boolean;
   request: AntigravityLogWindowRequest;
+  /**
+   * Read the log as if it ended after this record: a resumed owner's
+   * boundary. A log whose record there is not that step is unknown.
+   */
+  boundary?: AntigravityLogBoundary;
   pageBytes?: number;
   /** Tests: runs after an attempt's reads, before its source check. */
   afterRead?: (attempt: number) => Promise<void> | void;
@@ -154,10 +162,23 @@ class WindowRead {
     private readonly conversationId: string,
     private readonly ownerLive: boolean,
     private readonly pageBytes: number,
+    private readonly boundary?: AntigravityLogBoundary,
   ) {}
 
   async run(request: AntigravityLogWindowRequest): Promise<Read> {
     this.end = await this.source.completeEnd();
+    if (this.boundary) {
+      const { step, end } = this.boundary;
+      if (end > this.end)
+        throw new UnknownLog("the log is shorter than its resume point");
+      const newline = end > 0 ? await this.source.read(end - 1, 1) : undefined;
+      const line =
+        newline?.[0] === 10 ? await this.source.lineBefore(end) : undefined;
+      if (!line || (await this.source.head(line)).step !== step)
+        throw new UnknownLog("the log changed before its resume point");
+      this.source.release(line);
+      this.end = end;
+    }
     if (this.end === 0) return { status: "missing" };
     switch (request.kind) {
       case "complete":
@@ -173,6 +194,14 @@ class WindowRead {
 
   firstPrompt(): Promise<string | undefined> {
     return this.source.firstPrompt(this.end);
+  }
+
+  /** The last record the window reads to. */
+  async last(): Promise<AntigravityLogBoundary | undefined> {
+    const line = await this.source.lineBefore(this.end);
+    if (!line) return undefined;
+    this.source.release(line);
+    return { step: (await this.source.head(line)).step, end: this.end };
   }
 
   /**
@@ -489,14 +518,18 @@ export async function readAntigravityLogWindow(
         options.conversationId,
         options.ownerLive,
         options.pageBytes ?? ANTIGRAVITY_LOG_PAGE_BYTES,
+        options.boundary,
       );
       let read: Read;
       try {
         read = await window.run(options.request);
-        if (read.status === "known")
+        if (read.status === "known") {
           read.firstPrompt = read.omittedPrefix
             ? await window.firstPrompt()
             : firstUserText(read.messages);
+          if (options.request.kind === "latest")
+            read.last = await window.last();
+        }
       } catch (error) {
         if (!(error instanceof UnknownLog)) throw error;
         read = { status: "unknown", reason: error.message };
@@ -526,4 +559,31 @@ export async function readAntigravityLogWindow(
     reason: "the log was replaced or truncated during every read",
     bytesRead,
   };
+}
+
+export type AntigravityResumePoint =
+  | { status: "known"; boundary: AntigravityLogBoundary }
+  | { status: "missing" }
+  | { status: "unknown"; reason: string };
+
+/**
+ * Where a stopped conversation resumes from its log: its last complete
+ * record, provided the latest page (what a viewer is shown first) reads as
+ * known. A missing or unknown log has no resume point.
+ */
+export async function readAntigravityResumePoint(
+  scope: string,
+  conversationId: string,
+): Promise<AntigravityResumePoint> {
+  const window = await readAntigravityLogWindow({
+    scope,
+    conversationId,
+    ownerLive: false,
+    request: { kind: "latest", compactions: 2 },
+  });
+  if (window.status === "missing") return window;
+  if (window.status === "unknown") return window;
+  return window.last
+    ? { status: "known", boundary: window.last }
+    : { status: "unknown", reason: "the log has no last record" };
 }

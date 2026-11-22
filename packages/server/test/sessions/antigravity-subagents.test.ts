@@ -25,6 +25,7 @@ import { AntigravityProvider } from "../../src/sdk/providers/antigravity.js";
 import { AntigravityBackground } from "../../src/sdk/providers/antigravity-background.js";
 import { AntigravitySubagentTracker } from "../../src/sdk/providers/antigravity-subagent-tracker.js";
 import { AntigravityTranscript } from "../../src/sdk/providers/antigravity-transcript.js";
+import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import {
   correlateAntigravitySubagentCalls,
@@ -2218,6 +2219,46 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       const child = await reader.getAgentSession(CHILD_ID, PARENT_ID);
       expect(child?.status).toBe("completed");
       expect(JSON.stringify(child?.messages)).toContain("CHILD_LOG_REPLY");
+      // The parent resumes: its log through the resume point and the
+      // owner's rows after it are one view, so the child it spawned before
+      // stays linked and the last reply before the resume is the excerpt.
+      const logged = await fs.promises.readFile(
+        join(
+          f.brainDir,
+          PARENT_ID,
+          ".system_generated",
+          "logs",
+          "transcript_full.jsonl",
+        ),
+      );
+      const owner = ownAntigravitySession(
+        await realpath(f.conversationsDir),
+        PARENT_ID,
+      );
+      owner.open({ step: 5, end: logged.length });
+      owner.record({
+        type: "user",
+        uuid: "resumed-prompt",
+        message: { role: "user", content: "Continue" },
+      });
+      try {
+        expect(await reader.getAgentMappings(PARENT_ID)).toEqual([
+          expect.objectContaining({ toolUseId: tool(0), agentId: CHILD_ID }),
+        ]);
+        expect(await reader.getLastAgentExcerpt(PARENT_ID)).toBe("PARENT_DONE");
+        const resumed = await reader.getSession(
+          PARENT_ID,
+          toUrlProjectId(f.project),
+          undefined,
+          { tailCompactions: 2 },
+        );
+        expect(resumed!.data.session.messages.map((m) => m.uuid)).toEqual([
+          ...loaded!.data.session.messages.map((m) => m.uuid),
+          "resumed-prompt",
+        ]);
+      } finally {
+        owner.release();
+      }
       // A long child is read as its latest page, not whole.
       await writeLog(CHILD_ID, [
         record(0, "USER_INPUT", {

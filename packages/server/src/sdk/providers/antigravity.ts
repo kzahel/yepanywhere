@@ -32,6 +32,7 @@ import {
   modelCatalogError,
 } from "./model-catalog-status.js";
 import {
+  claimAntigravityStart,
   ownAntigravitySession,
   ownAntigravitySessionAfterReads,
 } from "./antigravity-owners.js";
@@ -57,7 +58,7 @@ import {
 } from "./antigravity-models.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
 import { AntigravityVersionError } from "./antigravity-version.js";
-import { loadAntigravityReplay } from "./antigravity-replay.js";
+import { resumeAntigravitySession } from "./antigravity-resume.js";
 import { AntigravityBackground } from "./antigravity-background.js";
 import {
   canProbeAntigravityUsage,
@@ -281,12 +282,15 @@ export class AntigravityProvider implements AgentProvider {
       throw new Error(
         "Use Antigravity's native /plan command with the default permission mode",
       );
-    if (options.nativeResumeSource) {
-      await this.validateResumeSource(
-        options,
-        await this.getNewSessionNamespace(),
-      );
-    }
+    const namespace =
+      options.resumeSessionId || options.nativeResumeSource
+        ? await this.getNewSessionNamespace()
+        : undefined;
+    if (options.nativeResumeSource && namespace)
+      await this.validateResumeSource(options, namespace);
+    // A resumed owner is starting from the moment its iterator runs (see
+    // claimAntigravityStart), keyed by the store the resume names.
+    const startScope = namespace?.storageScope;
     const controls: AntigravityControls = { commands: [] };
     const queue = Object.assign(new MessageQueue(), {
       setConfigurationInputHeld(held: boolean) {
@@ -324,6 +328,7 @@ export class AntigravityProvider implements AgentProvider {
         controls,
         resolveReady,
         rejectReady,
+        startScope,
       ),
       ...(this.supportsSteering
         ? {
@@ -479,6 +484,7 @@ export class AntigravityProvider implements AgentProvider {
     controls: AntigravityControls,
     resolveReady: () => void,
     rejectReady: (error: Error) => void,
+    startScope?: string,
   ): AsyncIterableIterator<SDKMessage> {
     let settledReady = false;
     const markReady = () => {
@@ -511,6 +517,11 @@ export class AntigravityProvider implements AgentProvider {
       changed();
     };
     signal.addEventListener("abort", stop, { once: true });
+    // Taken as the iterator first runs, which is before Process registers it.
+    const releaseStart =
+      startScope && options.resumeSessionId
+        ? claimAntigravityStart(startScope, options.resumeSessionId)
+        : undefined;
     try {
       if (signal.aborted) return;
       const command = await findAntigravityRuntime();
@@ -578,9 +589,6 @@ export class AntigravityProvider implements AgentProvider {
         throw new Error(
           "This agy runtime does not support native Agent API instructions",
         );
-      const replay = options.resumeSessionId
-        ? new AntigravityTranscript(options.resumeSessionId)
-        : undefined;
       const observeCommands = (update: AntigravityUpdate) => {
         if (
           update.sessionUpdate !== "available_commands_update" ||
@@ -618,23 +626,22 @@ export class AntigravityProvider implements AgentProvider {
           : {}),
       };
       runtime.onUpdate = observeCommands;
-      const setup =
-        options.resumeSessionId && replay
-          ? (
-              await loadAntigravityReplay({
-                runtime,
-                scope: namespace.storageScope,
-                params: { ...setupParams, sessionId: options.resumeSessionId },
-                transcript: replay,
-                onUpdate: observeCommands,
-                authorize: () => !signal.aborted,
-              })
-            )?.setup
-          : await runtime.call<AntigravitySessionSetup>(
+      const opened = options.resumeSessionId
+        ? await resumeAntigravitySession({
+            runtime,
+            scope: namespace.storageScope,
+            params: { ...setupParams, sessionId: options.resumeSessionId },
+            onUpdate: observeCommands,
+            authorize: () => !signal.aborted,
+          })
+        : {
+            setup: await runtime.call<AntigravitySessionSetup>(
               "session/new",
               setupParams,
-            );
-      if (!setup) return;
+            ),
+          };
+      if (!opened) return;
+      const { setup, boundary, replay } = opened;
       // A failed resume is terminal; never create a fresh native conversation.
       const id = parseNativeSessionId(
         options.resumeSessionId || setup.sessionId,
@@ -807,7 +814,9 @@ export class AntigravityProvider implements AgentProvider {
         );
       if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
         await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
-      for (const message of replay?.messages ?? []) owner.record(message);
+      for (const message of replay ?? []) owner.record(message);
+      owner.open(boundary);
+      releaseStart?.();
       markReady();
       yield {
         type: "system",
@@ -817,8 +826,7 @@ export class AntigravityProvider implements AgentProvider {
         model: resolvedModel,
         slash_command_inventory: controls.commands,
       };
-      for (const message of replay?.messages ?? [])
-        yield { ...message, isReplay: true };
+      for (const message of replay ?? []) yield { ...message, isReplay: true };
       const updates: SDKMessage[] = [];
       const publish = (
         converted: SDKMessage,
@@ -1264,6 +1272,7 @@ export class AntigravityProvider implements AgentProvider {
       await input.return?.();
       await runtime.close();
       owner?.release();
+      releaseStart?.();
     }
   }
 }

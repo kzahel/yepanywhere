@@ -1,4 +1,5 @@
 import {
+  appendFile,
   mkdir,
   mkdtemp,
   realpath,
@@ -11,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 
@@ -247,5 +249,197 @@ describe("Antigravity reader over the log", () => {
     expect(await first).toBeNull();
     expect(await second).not.toBeNull();
     expect(runtime).toHaveBeenCalledTimes(1);
+  });
+
+  /** Holds the reader's next log read, once it has read, until it returns. */
+  function duringNextLogRead(
+    target: AntigravitySessionReader,
+    during: () => Promise<void> | void,
+  ) {
+    const internals = target as unknown as {
+      readLog(...args: unknown[]): Promise<unknown>;
+    };
+    const original = internals.readLog.bind(target);
+    let armed = true;
+    return vi
+      .spyOn(internals, "readLog")
+      .mockImplementation(async (...args: unknown[]) => {
+        const result = await original(...args);
+        if (armed) {
+          armed = false;
+          await during();
+        }
+        return result;
+      });
+  }
+  const uuids = (
+    loaded: Awaited<ReturnType<AntigravitySessionReader["getSession"]>>,
+  ) => loaded?.data.session.messages.map((message) => message.uuid);
+  const logged = prompt("Ask") + reply(1, "Reply");
+  const resumedAt = { step: 1, end: Buffer.byteLength(logged) };
+
+  it("reads again when an owner resumes during a cold read, so its logged turn is not shown twice", async () => {
+    const conversations = await store("a", logged);
+    const scope = await realpath(conversations);
+    const target = reader(conversations);
+    const owner = ownAntigravitySession(scope, ID);
+    try {
+      duringNextLogRead(target, async () => {
+        // The resumed owner opens and agy logs its prompt, read as cold.
+        owner.open(resumedAt);
+        owner.record({
+          type: "user",
+          uuid: "live-prompt",
+          message: { role: "user", content: "Next" },
+        });
+        await appendFile(
+          join(
+            root,
+            "a",
+            "brain",
+            ID,
+            ".system_generated",
+            "logs",
+            "transcript_full.jsonl",
+          ),
+          line({
+            step_index: 2,
+            source: "USER_EXPLICIT",
+            type: "USER_INPUT",
+            status: "DONE",
+            created_at: at,
+            content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
+          }),
+        );
+      });
+      const loaded = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        {
+          tailCompactions: 2,
+        },
+      );
+      expect(uuids(loaded)).toEqual([
+        `${ID}:step-0`,
+        `${ID}:step-1:text`,
+        "live-prompt",
+      ]);
+    } finally {
+      owner.release();
+    }
+    // Once the owner has gone, the log alone shows the turn, once.
+    expect(
+      texts(
+        await target.getSession(ID, toUrlProjectId(project), undefined, {
+          tailCompactions: 2,
+        }),
+      ),
+    ).toEqual(["Ask", "Reply", "Next"]);
+  });
+
+  it("shows a live tool call and its result once when the result arrives while a page is read", async () => {
+    const conversations = await store("a", logged);
+    const scope = await realpath(conversations);
+    const target = reader(conversations);
+    const owner = ownAntigravitySession(scope, ID);
+    owner.open(resumedAt);
+    const call = {
+      type: "assistant" as const,
+      uuid: "live-call",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "tool_use", id: "tool-1", name: "read_file", input: {} },
+        ],
+      },
+    };
+    owner.record(call);
+    try {
+      duringNextLogRead(target, () => {
+        owner.record({
+          type: "user",
+          uuid: "live-result",
+          message: {
+            role: "user",
+            content: [
+              { type: "tool_result", tool_use_id: "tool-1", content: "done" },
+            ],
+          },
+        });
+      });
+      const loaded = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        {
+          tailCompactions: 2,
+        },
+      );
+      expect(uuids(loaded)).toEqual([
+        `${ID}:step-0`,
+        `${ID}:step-1:text`,
+        "live-call",
+        "live-result",
+      ]);
+      // A page before the live call is the log through the boundary.
+      const older = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        {
+          tailCompactions: 2,
+          beforeMessageId: "live-call",
+        },
+      );
+      expect(uuids(older)).toEqual([
+        `${ID}:step-0`,
+        `${ID}:step-1:text`,
+        "live-call",
+        "live-result",
+      ]);
+      expect(older?.readWindow).toMatchObject({
+        kind: "log-page",
+        before: false,
+      });
+      // A page before a log row is the log alone.
+      const logPage = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        {
+          tailCompactions: 2,
+          beforeMessageId: `${ID}:step-1:text`,
+        },
+      );
+      expect(uuids(logPage)).toEqual([`${ID}:step-0`]);
+      expect(logPage?.readWindow).toMatchObject({
+        kind: "log-page",
+        before: true,
+      });
+      // A catch-up from a live row is the live rows; from a log row, the
+      // log after it and the live rows.
+      expect(
+        uuids(
+          await target.getSession(ID, toUrlProjectId(project), "live-call", {
+            tailCompactions: 2,
+          }),
+        ),
+      ).toEqual(["live-call", "live-result"]);
+      expect(
+        uuids(
+          await target.getSession(ID, toUrlProjectId(project), `${ID}:step-0`, {
+            tailCompactions: 2,
+          }),
+        ),
+      ).toEqual([
+        `${ID}:step-0`,
+        `${ID}:step-1:text`,
+        "live-call",
+        "live-result",
+      ]);
+    } finally {
+      owner.release();
+    }
   });
 });

@@ -929,7 +929,9 @@ version. Record the baseline and candidate results separately.
 
 - **Native protocol and behavior.** Actual `agy` runs the production adapter's
   model, steering, cancellation, tools, compaction, and resume scenarios.
-  The cold-resume case checks that the final assistant text precedes the
+  The cold-resume case resumes with `session/resume`, sends no
+  `session/load`, and checks the resumed session's view. It then checks, for
+  the replay fallback, that the final assistant text precedes the
   `session/load` response in the received frame order, even when both frames
   arrive in the same stdout read. It independently checks that the reader
   returns the persisted output.
@@ -994,6 +996,15 @@ whose projection must match the reader's ACP replay apart from the
 [listed differences](antigravity-native-storage.md#comparison-with-acp-replay).
 The selection passed with 48 cases and 3 skipped on 2026-11-22, with the
 1.5.13 pin and with the 1.5.14 candidate, on Node 25.8.2.
+
+Plan 195 step 5 (resume without replay) changed what two cases assert
+without adding cases. The cold-resume case now requires `session/resume`
+and no `session/load` on the resume path, and, while the resumed owner
+lives, a complete read that shows the turn before the resume point and the
+resumed prompt and reply once each; the `session/load` frame-order check
+after it still qualifies the fallback. The model-selection case's cold
+launch now resumes with `session/resume` and still reapplies the model and
+effort.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup

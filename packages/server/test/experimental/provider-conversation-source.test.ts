@@ -12,7 +12,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
+import {
+  claimAntigravityStart,
+  ownAntigravitySession,
+} from "../../src/sdk/providers/antigravity-owners.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 import {
@@ -209,17 +212,21 @@ describe("an Antigravity conversation source", () => {
   });
   /** A stand-in owner process whose events the test sends. */
   function owner(rows: Row[], state = "in-turn") {
-    let listener: ((event: { type: string }) => void) | undefined;
+    type Listener = (event: { type: string; message?: Row }) => void;
+    const listeners = new Set<Listener>();
     return {
-      emit: (type: string) => listener?.({ type }),
+      emit: (type: string, message?: Row) => {
+        if (type === "message" && message) rows.push(message);
+        for (const listener of listeners) listener({ type, message });
+      },
       process: {
         sessionId: nativeId,
         provider: "antigravity",
         state: { type: state },
         registerViewer: () => () => {},
-        subscribe: (cb: typeof listener) => {
-          listener = cb;
-          return () => {};
+        subscribe: (cb: Listener) => {
+          listeners.add(cb);
+          return () => listeners.delete(cb);
         },
         getMessageHistory: () => rows,
       },
@@ -246,7 +253,9 @@ describe("an Antigravity conversation source", () => {
       row(`${nativeId}:2`, "user", "yes"),
       row(`${nativeId}:3`, "user", "QUEUED_PROMPT"),
     ];
+    // A new session's owner: its projection is the whole history.
     const native = ownAntigravitySession(scope, nativeId);
+    native.open();
     for (const message of live) native.record(message as never);
     let current: ReturnType<typeof owner> | undefined = owner(live);
     let changed: (() => void) | undefined;
@@ -304,19 +313,34 @@ describe("an Antigravity conversation source", () => {
     }
   });
 
-  it("takes a fresh baseline when a replacement owner attaches in turn", async () => {
-    const {
-      reader,
-      row: source,
-      scope,
-    } = await setup(
-      prompt + record(1, "PLANNER_RESPONSE", { content: "Reply" }),
+  const logged = prompt + record(1, "PLANNER_RESPONSE", { content: "Reply" });
+  /** The boundary `session/resume` records for `logged`. */
+  const resumedAt = { step: 1, end: Buffer.byteLength(logged) };
+  /** What `agy` appends for a turn that ends after the resume. */
+  const nextTurn =
+    record(2, "USER_INPUT", {
+      content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
+    }) + record(3, "PLANNER_RESPONSE", { content: "Reply 2" });
+  const logPath = () =>
+    join(
+      dir,
+      "antigravity-cli",
+      "brain",
+      nativeId,
+      ".system_generated",
+      "logs",
+      "transcript_full.jsonl",
     );
+  const coldIds = [`${nativeId}:step-0`, `${nativeId}:step-1:text`];
+
+  it("joins a resumed owner's rows after the log's history, each once", async () => {
+    const { reader, row: source, scope } = await setup(logged);
     const first = [
       row(`${nativeId}:0`, "user", "Ask"),
       row(`${nativeId}:1`, "assistant", "Reply"),
     ];
     const firstOwner = ownAntigravitySession(scope, nativeId);
+    firstOwner.open();
     for (const message of first) firstOwner.record(message as never);
     let current = owner(first);
     const open = createProviderConversationSource({
@@ -327,22 +351,23 @@ describe("an Antigravity conversation source", () => {
     const abort = new AbortController();
     try {
       const view = await open(nativeId, () => {}, abort.signal);
-      await view.read(abort.signal);
-      // A replacement replays the same history under its own IDs, in turn.
+      expect(uuids(await view.read(abort.signal))).toEqual(
+        first.map((m) => m.uuid),
+      );
+      // The first owner departs; a replacement resumes from the log, in turn.
       firstOwner.release();
       current.emit("terminated");
-      const second = [
-        row(`${nativeId}:r0`, "user", "Ask"),
-        row(`${nativeId}:r1`, "assistant", "Reply"),
-        row(`${nativeId}:r2`, "user", "Next"),
-      ];
+      const second = [row(`${nativeId}:r0`, "user", "Next")];
       const secondOwner = ownAntigravitySession(scope, nativeId);
+      secondOwner.open(resumedAt);
       for (const message of second) secondOwner.record(message as never);
       current = owner(second);
-      const during = await view.read(abort.signal);
-      expect(during.messages.map((m) => m.uuid)).toEqual(
-        second.map((m) => m.uuid),
-      );
+      // The log gains the resumed turn's prompt; the owner's row serves it.
+      await appendFile(logPath(), nextTurn);
+      expect(uuids(await view.read(abort.signal))).toEqual([
+        ...coldIds,
+        `${nativeId}:r0`,
+      ]);
       secondOwner.release();
       view.close();
     } finally {
@@ -371,14 +396,8 @@ describe("an Antigravity conversation source", () => {
   const uuids = (input: { messages: readonly { uuid?: string }[] }) =>
     input.messages.map((m) => m.uuid);
 
-  it("re-reads when the first resumed owner attaches over a cold baseline", async () => {
-    const {
-      reader,
-      row: source,
-      scope,
-    } = await setup(
-      prompt + record(1, "PLANNER_RESPONSE", { content: "Reply" }),
-    );
+  it("shows the prior turn once, before the new prompt, to an observer reading while the resumed owner starts", async () => {
+    const { reader, row: source, scope } = await setup(logged);
     let current: ReturnType<typeof owner> | undefined;
     const open = createProviderConversationSource({
       readerFactory: () => reader,
@@ -389,51 +408,75 @@ describe("an Antigravity conversation source", () => {
     try {
       // One observer holds a stopped baseline in the log's IDs.
       const settled = await open(nativeId, () => {}, abort.signal);
-      expect(uuids(await settled.read(abort.signal))).toEqual([
-        `${nativeId}:step-0`,
-        `${nativeId}:step-1:text`,
+      expect(uuids(await settled.read(abort.signal))).toEqual(coldIds);
+      // The resumed process is registered and in turn, its prompt queued,
+      // while its provider has only started: no native session is open.
+      const release = claimAntigravityStart(scope, nativeId);
+      const prompt = row("prompt-uuid", "user", "Next");
+      current = owner([prompt]);
+      const starting = await open(nativeId, () => {}, abort.signal);
+      expect(uuids(await starting.read(abort.signal))).toEqual([
+        ...coldIds,
+        "prompt-uuid",
       ]);
-      // Another's cold read is in flight when the owner attaches in turn.
-      const held = holdNextRead(reader);
-      const racing = await open(nativeId, () => {}, abort.signal);
-      const reading = racing.read(abort.signal);
-      await held.entered;
-      const resumed = [
-        row(`${nativeId}:0`, "user", "Ask"),
-        row(`${nativeId}:1`, "assistant", "Reply"),
-        row(`${nativeId}:2`, "user", "Next"),
-      ];
+      // The owner opens at the log's last record; its prompt and the reply
+      // it is still producing are live rows.
       const native = ownAntigravitySession(scope, nativeId);
-      for (const message of resumed) native.record(message as never);
-      current = owner(resumed);
+      native.open(resumedAt);
+      release();
+      native.record(prompt as never);
+      const reply = row("reply-uuid", "assistant", "Reply 2 (growing)");
+      native.record(reply as never);
+      // agy logs the prompt as soon as it is submitted.
+      await appendFile(
+        logPath(),
+        record(2, "USER_INPUT", {
+          content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
+        }),
+      );
+      current.emit("message", reply);
+      // A third observer's first read is held while the log moves on.
+      const held = holdNextRead(reader);
+      const late = await open(nativeId, () => {}, abort.signal);
+      const reading = late.read(abort.signal);
+      await held.entered;
+      await appendFile(
+        logPath(),
+        record(3, "PLANNER_RESPONSE", { content: "Reply 2" }),
+      );
       held.release();
-      // Both show the owner's turns once, never beside the log's copies.
-      const expected = resumed.map((m) => m.uuid);
-      expect(uuids(await reading)).toEqual(expected);
-      expect(uuids(await settled.read(abort.signal))).toEqual(expected);
-      expect(uuids(await racing.read(abort.signal))).toEqual(expected);
+      const expected = [...coldIds, "prompt-uuid", "reply-uuid"];
+      const shownAs = ["Ask", "Reply", "Next", "Reply 2 (growing)"];
+      // Each observer: the old reply belongs to the old prompt, once.
+      for (const input of [
+        await reading,
+        await settled.read(abort.signal),
+        await starting.read(abort.signal),
+      ]) {
+        expect(uuids(input), JSON.stringify(uuids(input))).toEqual(expected);
+        expect(shown(input.messages)).toEqual(shownAs);
+      }
+      // Idle: every observer reads again and keeps the same rows.
+      current.process.state = { type: "idle" };
+      current.emit("complete");
+      for (const view of [settled, starting, late])
+        expect(uuids(await view.read(abort.signal))).toEqual(expected);
       native.release();
-      settled.close();
-      racing.close();
+      for (const view of [settled, starting, late]) view.close();
     } finally {
       abort.abort();
       await reader.close();
     }
   });
 
-  it("re-reads when a replacement owner attaches during the read after a departure", async () => {
-    const {
-      reader,
-      row: source,
-      scope,
-    } = await setup(
-      prompt + record(1, "PLANNER_RESPONSE", { content: "Reply" }),
-    );
+  it("shows a departed owner's turns from the log once a resumed owner attaches during the read", async () => {
+    const { reader, row: source, scope } = await setup(logged);
     const first = [
       row(`${nativeId}:0`, "user", "Ask"),
       row(`${nativeId}:1`, "assistant", "Reply"),
     ];
     const firstOwner = ownAntigravitySession(scope, nativeId);
+    firstOwner.open();
     for (const message of first) firstOwner.record(message as never);
     const a = owner(first);
     let current: ReturnType<typeof owner> | undefined = a;
@@ -452,23 +495,20 @@ describe("an Antigravity conversation source", () => {
         expect(uuids(await view.read(abort.signal))).toEqual(
           first.map((m) => m.uuid),
         );
-      // A departs; the cold read after it is in flight when B attaches.
+      // A departs; the cold read after it is in flight when B resumes.
       firstOwner.release();
       a.emit("terminated");
       current = undefined;
       const held = holdNextRead(reader);
       const reading = views[0]!.read(abort.signal);
       await held.entered;
-      const second = [
-        row(`${nativeId}:r0`, "user", "Ask"),
-        row(`${nativeId}:r1`, "assistant", "Reply"),
-        row(`${nativeId}:r2`, "user", "Next"),
-      ];
+      const second = [row(`${nativeId}:r0`, "user", "Next")];
       const secondOwner = ownAntigravitySession(scope, nativeId);
+      secondOwner.open(resumedAt);
       for (const message of second) secondOwner.record(message as never);
       current = owner(second);
       held.release();
-      const expected = second.map((m) => m.uuid);
+      const expected = [...coldIds, `${nativeId}:r0`];
       expect(uuids(await reading)).toEqual(expected);
       // Both observers agree, and stay so while B is in turn.
       for (const view of views)

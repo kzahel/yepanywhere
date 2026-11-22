@@ -389,10 +389,11 @@ export interface AntigravityLogHead {
 /**
  * Every observed record begins with these keys in this order: an optional
  * `error` after `status`, then `created_at`. The identity fields suffice: a
- * long error leaves the error and time out of the head.
+ * long error leaves the error and time out of the head. The status value
+ * must end its member (a comma or closing brace follows).
  */
 const HEAD =
-  /^\{"step_index":(0|[1-9]\d{0,15}),"source":"([A-Z_]{1,32})","type":"([A-Z_]{1,32})","status":"([A-Z_]{1,32})"(?:,"error":"((?:[^"\\]|\\.){0,256})")?(?:,"created_at":"([^"\\]{1,64})"[,}])?/;
+  /^\{"step_index":(0|[1-9]\d{0,15}),"source":"([A-Z_]{1,32})","type":"([A-Z_]{1,32})","status":"([A-Z_]{1,32})"(?=[,}])(?:,"error":"((?:[^"\\]|\\.){0,256})")?(?:,"created_at":"([^"\\]{1,64})"[,}])?/;
 
 /** A record's leading fields, or undefined when they are not in that form. */
 export function parseAntigravityLogHead(

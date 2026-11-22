@@ -20,7 +20,7 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
-| Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing but [SQLite's sidecars for the summaries index](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md); see [cold history from the log](#cold-history-from-the-log). ACP replay is the fallback for a missing or unknown log. Resume and that fallback keep collecting ACP history after an early load response until they observe the persisted text tail; a missing expected tail fails the operation. |
+| Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing but [SQLite's sidecars for the summaries index](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md); see [cold history from the log](#cold-history-from-the-log). Resume uses ACP `session/resume`, which replays nothing: the resumed session's view is the log through its resume point plus the owner's own rows ([resume](#resume-and-the-live-view)). ACP `session/load` replay is the fallback for a missing or unknown log, for viewing and for resume; it keeps collecting ACP history after an early load response until it observes the persisted text tail, and a missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
 | Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions. Real `agy` cases cover Allow, Deny and Stop for the tested `write_file` and `run_command` calls, and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
@@ -318,7 +318,8 @@ queued input into another conversation.
 
 History comes from native file facts and `agy`'s brain log, with ACP
 `session/load` only as a fallback, and no YA shadow transcript or protobuf
-decoder. Session summaries take their title from the summaries index, or
+decoder. Resume uses ACP `session/resume` when the log is readable, so a
+resumed session's earlier history is read from the log as well. Session summaries take their title from the summaries index, or
 for an untitled row from the log's first prompt, and start no `agy` (before
 plan 195 step 4 they asked ACP `session/list`).
 [Native storage](antigravity-native-storage.md) describes each file `agy`
@@ -464,11 +465,11 @@ It never reads the shortened `transcript.jsonl`.
   read. A v0 window whose page was cut by bytes reports incomplete coverage
   with earlier history in scope and a byte limit, not compaction scope.
 
-A live YA owner still serves its own in-memory projection, with its own IDs
-(plan 195 step 6 changes that). After the owner exits, a client's catch-up
-from a live ID misses and takes the log's latest page. A v0 observer that
-outlives the owner replaces all of that owner's rows with what the log
-holds ([simple client API](simple-client-api.md)).
+A live YA owner's rows keep their own IDs; how a view joins them to the
+log is in [resume and the live view](#resume-and-the-live-view). After the
+owner exits, a client's catch-up from a live ID misses and takes the log's
+latest page. A v0 observer that outlives the owner replaces all of that
+owner's rows with what the log holds ([simple client API](simple-client-api.md)).
 
 A stopped page refreshes when YA's watcher sees the conversation's database
 or WAL change, not the brain log. With 1.5.13 and 1.5.14, each log append
@@ -478,29 +479,87 @@ event read every record. A log append with no later database write (an
 external program, or a future `agy`) would leave a stopped page stale until
 its next refresh ([gap](../gaps/antigravity-log-only-append-not-observed.md)).
 
-### Fallback replay and resume
+### Resume and the live view
 
-The preview uses a local in-process owner, even when the shared provider host
-is enabled. Cold resume calls native `session/load` before sending new input.
-ACP v1 orders history notifications before the load response. The saved-session
-repro on `agy` 1.5.14 observed late history notifications after that response.
-When a native brain log supplies recent replayable content, YA requires that
-content to arrive before publishing or caching cold history or dispatching the
-first resumed prompt. The bounded read prefers the unabridged
-`transcript_full.jsonl` when present. YA surfaces an incomplete replay if the
-stream closes or its expected tail fails to arrive. YA uses the ACP load
-response for stores without a text witness. If a witness is malformed,
-abbreviated or unreadable, history remains available with incomplete
-coverage. The snapshot is reused for the same native conversation version to
-avoid a load and file-change loop. A session reactivated without a prompt
-stays idle through replay.
+Plan 195 step 5. Resuming a stopped conversation (a resume, a reactivation,
+or the reconnect after a scheduled reload) reads the log's latest page
+first, as a viewer's first read would.
+
+- **Known log.** YA calls ACP `session/resume`, which replays no history
+  (qualified on `agy` 1.5.13 and 1.5.14 at 7,261 steps: about 37 ms, the
+  same compacted context as a load,
+  [measured](antigravity-native-storage.md#resume-on-a-large-compacted-conversation)).
+  When it returns, the log's last complete record (its `step_index` and the
+  byte offset after its newline) is the owner's **resume point**. The
+  owner's in-memory projection starts empty there and retains nothing
+  replayed. Model, effort and mode are applied to the resumed session as
+  for a load, and no saved-tail check runs (there is no replay to check).
+- **Missing or unknown log.** The named fallback: `session/load`, whose
+  replay must reach the saved text tail and becomes the owner's retained
+  history, under the 8 MiB / 10,000-message limit below. A conversation
+  with no log at all also takes this path, because YA cannot tell one never
+  prompted (whose replay is empty) from one whose log is gone without
+  decoding its database; the viewer keeps seeing the history it could see
+  before. Plan 195 step 8 decides this fallback's future.
+
+While a resumed owner lives, every reader joins two sources, each row from
+exactly one, with no row twice and none missing at the resume point:
+
+- the log **through the resume point**, a page at a time with
+  [step IDs](#cold-history-from-the-log); a window reads the file as if it
+  ended there, and a log whose record at the resume point is no longer that
+  step is unknown (the view is then the owner's rows alone, reported
+  incomplete);
+- then **the owner's rows**, under their live IDs: everything it produced
+  since, including steps the log has also recorded since, which are served
+  from the owner until it exits.
+
+| Read | Answer |
+| --- | --- |
+| Latest page, overlay catch-up, v0 window | The log's latest page through the resume point, then every live row; the route cuts compaction scope across both. |
+| Older page before a log row | The log's page before it, as when stopped. |
+| Older page before a live row | The latest log page and the live rows; the route cuts before the row. |
+| Catch-up after a log row | The log from that row's page to the resume point, then every live row. |
+| Catch-up after a live row the owner holds | The live rows; any other ID misses and gets the latest page as a replacement. |
+| Complete history | The whole log through the resume point, then every live row. |
+| Hover excerpt | The owner's latest prose, else the joined latest page. |
+| Agent mappings | The joined latest page. |
+
+A read that an owner opened or closed under is read again, so a page never
+mixes one owner's split with another's. A new session's owner, and one
+resumed through the fallback, have no resume point: their projection is the
+whole history, as before step 5. Plan 195 step 6 bounds live memory by
+moving the resume point forward as the log catches up.
+
+A resumed owner is **starting** from the moment its provider iterator runs,
+before it is registered or holds the native lease, until its session is
+open. While it starts, a read of a known log is served from the log
+(nothing has been written past it), and a read that would need the ACP
+fallback waits for the owner and then serves its view: the fallback refuses
+while an owner is starting or open, checked again right before it would
+send `session/load`. The preview uses a local in-process owner, even when
+the shared provider host is enabled.
+
+### Fallback replay
+
+ACP v1 orders history notifications before the load response. The
+saved-session repro on `agy` 1.5.14 observed late history notifications
+after that response. When a native brain log supplies recent replayable
+content, YA requires that content to arrive before publishing or caching
+fallback history or dispatching the first prompt of a fallback resume. The
+bounded read prefers the unabridged `transcript_full.jsonl` when present.
+YA surfaces an incomplete replay if the stream closes or its expected tail
+fails to arrive. YA uses the ACP load response for stores without a text
+witness. If a witness is malformed, abbreviated or unreadable, history
+remains available with incomplete coverage. The snapshot is reused for the
+same native conversation version to avoid a load and file-change loop. A
+session reactivated without a prompt stays idle through replay.
 [ACP load ordering](https://agentclientprotocol.com/protocol/v1/session-setup#loading-sessions)
-Resume waits for an in-progress history read of the same conversation to
-release it and refuses a second live owner. While that owner lives, detail
-reads use its bounded native-event projection. This
-in-memory view survives YA's short transport replay window, is discarded on
-owner exit, and is never persisted as a substitute transcript. Concurrent use
-of the same conversation in a separate editor/CLI is not qualified.
+Resume waits for an in-progress fallback read of the same conversation to
+release it and refuses a second live owner. Owner projections survive YA's
+short transport replay window, are discarded on owner exit, and are never
+persisted as a substitute transcript. Concurrent use of the same
+conversation in a separate editor/CLI is not qualified.
 
 App browsing uses the shared catalog and provider-root watcher described below.
 Fallback replays own subprocesses; reader disposal closes them. Because every `session/load` writes the store's summaries index, which the
@@ -509,13 +568,14 @@ until the conversation's files differ from their post-load state (at most four p
 reader). Without this, opening a session could reload it repeatedly. Log
 reads cache nothing; a refetch rereads its page.
 At most eight detail reads per cached reader may run concurrently. YA bounds
-the normalized history a fallback replay, a resume or a live session retains
-to 8 MiB and 10,000 messages, and each ACP frame to 16 MiB. Tool fields that YA does not display do not consume the
-history budget or prevent resume. If the retained history exceeds its limit,
-YA reports the history-limit error. Larger-corpus/bounded native
-replay support is a prerequisite to removing these preview limits.
+the normalized history a fallback replay, a fallback resume or a live
+session retains to 8 MiB and 10,000 messages, and each ACP frame to 16 MiB.
+Tool fields that YA does not display do not consume the history budget or
+prevent a fallback resume. If the retained history exceeds its limit, YA
+reports the history-limit error. A resume from the log retains nothing
+replayed, so a history of any size resumes.
 The live projection has the same 8 MiB/10,000-message limit, counted across
-the whole run including replayed history. A session that passes it is stopped
+the whole run, including the replay of a fallback resume. A session that passes it is stopped
 mid-turn: YA ends the native process without `session/cancel` and the session
 ends with the history-limit error. It is retained only for an owned provider
 session and adds no timers or background history reads.
@@ -528,10 +588,10 @@ Live messages carry arrival timestamps; detail reads of a live owner see
 committed content only. `agy` echoes each submitted prompt as
 `user_message_chunk` during the turn; YA already published that turn's user
 message, so the live projection ignores the echo, while `session/load` replay
-keeps native user chunks as history. Detail reads of live and replayed history
-return the complete history for anchored (`afterMessageId`) requests, and log
-reads return the anchor's page onward, leaving the anchor for the detail
-route to find; a pre-sliced list would read as an anchor miss and the client
+keeps native user chunks as history. Detail reads of an owner's whole projection
+or a replay return the complete history for anchored (`afterMessageId`)
+requests, and log and joined reads return the anchor's page onward, leaving
+the anchor for the detail route to find; a pre-sliced list would read as an anchor miss and the client
 would replace its window with the tail. Native readers report no owner; a live
 YA owner, not the reader, establishes ownership.
 ACP does not provide YA's durable input UUID, so exact live-to-history user-turn
