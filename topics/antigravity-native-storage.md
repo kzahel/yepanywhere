@@ -342,8 +342,8 @@ permission request carried the same ID), and one call under
 only through its arguments or its position in the group.
 
 `agy` sends `session/request_permission` with a string JSON-RPC ID (four in
-each second run), which YA's transport refuses; see the
-[permission gap](../gaps/antigravity-permission-requests-with-string-ids-are-refused.md).
+each second run). YA's transport accepts it since plan 195 step 2b; see
+[vanilla execution](antigravity.md#vanilla-execution).
 
 ### `step_index`, gaps and undo
 

@@ -976,6 +976,14 @@ which the selection skips unless `YEP_NATIVE_RETENTION_MEASURE=1`. The
 selection passed with 41 cases and 3 skipped on 2026-11-22, with the 1.5.13
 pin and with the 1.5.14 candidate.
 
+Plan 195 step 2b (permission requests with string IDs) added
+`native-antigravity-permissions.test.ts`: four real-`agy` cases for default
+mode (Allow and Deny), accept-edits, bypass and the refused Plan mode. It also
+added three controlled-peer cases: the approval case now runs with a string
+and a numeric ID, there is a cancelled pending approval, and a string-ID
+decoy response. The selection passed with 48 cases and 3 skipped on
+2026-11-22, with the 1.5.13 pin and with the 1.5.14 candidate.
+
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
 joins the operation and stops any registered owner before deleting fixture

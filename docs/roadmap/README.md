@@ -679,9 +679,9 @@ Step 1 has landed: YA runs `agy` 1.5.13 or later only and refuses older
 runtimes by name, and the standalone runtime and its store are gone.
 Step 2 has landed: the history limits have flip-ready tests, the log's
 behavior is [measured](../../topics/antigravity-native-storage.md#measurements--plan-195-step-2),
-and `session/resume` qualified on a large compacted conversation. It found
-that YA refuses `agy`'s permission requests
-([gap](../../gaps/antigravity-permission-requests-with-string-ids-are-refused.md)).
+and `session/resume` qualified on a large compacted conversation. Step 2b
+fixed what step 2 found: YA refused `agy`'s permission requests, which carry
+string IDs, so every prompted tool was denied without a prompt.
 
 **Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
 leave provider discovery and execution. Both IDs remain in readable history.

@@ -1,8 +1,8 @@
 # Antigravity history from the native log
 
 Status: proposed 2026-11-22. The goal and the decisions below are agreed with
-the maintainer. Steps 1 and 2 are done; the [progress table](#progress)
-tracks the rest.
+the maintainer. Steps 1, 2 and 2b are done; the
+[progress table](#progress) tracks the rest.
 
 This plan resolves the
 [large-history and replay-ownership gap](../../gaps/antigravity-large-history-and-replay-ownership.md).
@@ -139,6 +139,25 @@ write 500 MB, generate the large file from real record shapes and use real
 
 Done when each question has an answer or a stated fallback.
 
+### 2b — accept agy's permission requests
+
+Added after step 2: the [regression fence](#the-regression-fence) names
+permissions, and step 2 found them broken. `agy` sends
+`session/request_permission` with a string JSON-RPC ID, which YA answered
+with "Unsupported client method" without asking the user, so `agy` denied
+every tool that asks permission in a session not launched with bypass.
+
+- Recognize a client-bound request whatever its ID type, and echo the ID
+  unchanged. Responses to YA's own requests still match only YA's IDs.
+- When YA cancels a turn, answer its pending permission requests as
+  cancelled and withdraw their prompts.
+- Tests: real `agy` in default mode asks for a `write_file`; Allow writes
+  the file, Deny does not, and the session continues after each. Accept-edits
+  writes without asking and asks for a command, bypass asks for nothing, and
+  YA's Plan mode is refused. The controlled peer uses string IDs, as `agy`
+  does, and also covers a numeric ID, cancellation of a pending request,
+  and a decoy response carrying a string ID.
+
 ### 3 — project the log into YA messages
 
 A new module turns log records into normalized messages. It is not wired to
@@ -244,7 +263,8 @@ conversation and the host can hold it.
 | Step | Status | Notes |
 | --- | --- | --- |
 | 1 — remove the standalone runtime | Done 2026-11-22 | `agy` 1.5.13 floor read from ACP `initialize`, with an `agy --version` fallback when `acp` is missing. Status, CLI installations and refused starts name both versions and `agy update`. The Linux `nobody` alias was confirmed unneeded on Ubuntu 24.04 before removal. Review round 1 added the owned, credential-filtered version probe, the saved and v0 creation refusal, and Auto/launch agreement. [Contract](../../topics/antigravity.md#supported-runtime). |
-| 2 — reproduce the limits and measure the unknowns | Done 2026-11-22 | Repros are controlled-peer tests named "today: …" for steps 4 to 6 to flip. Answers are in [native storage measurements](../../topics/antigravity-native-storage.md#measurements--plan-195-step-2): a record appears once its step ends, so the log trails by the step in progress; snapshots around load and resume found the conversation's database content and log unchanged, with temporary sidecars and store-wide writes; `session/resume` qualified at 7,261 compacted steps on 1.5.13 and 1.5.14 (33–37 ms, no replay, compacted context kept); tool call IDs are random; `step_index` increases but skips interrupted and error steps (type 17 is `ERROR_MESSAGE`); [tool results pair with calls by step index](../../topics/antigravity-native-storage.md#reading-a-tool-group) (P+1+*i* is call *i*; a missing step is an interrupted result; any other shape makes the log unknown); Codex's heap shows no upward trend over 600 turns, Antigravity's projection grows 4.6 KB a turn. Real `agy` reached a 440 ms median turn, so the 500 MB target is generated from record shapes. Review rounds made the reopen legs identical, streamed the census, fixed the retention sampling, moved group pairing to step indexes and recorded that a reopen can change the summaries index's content. Found the [permission-ID gap](../../gaps/antigravity-permission-requests-with-string-ids-are-refused.md). |
+| 2 — reproduce the limits and measure the unknowns | Done 2026-11-22 | Repros are controlled-peer tests named "today: …" for steps 4 to 6 to flip. Answers are in [native storage measurements](../../topics/antigravity-native-storage.md#measurements--plan-195-step-2): a record appears once its step ends, so the log trails by the step in progress; snapshots around load and resume found the conversation's database content and log unchanged, with temporary sidecars and store-wide writes; `session/resume` qualified at 7,261 compacted steps on 1.5.13 and 1.5.14 (33–37 ms, no replay, compacted context kept); tool call IDs are random; `step_index` increases but skips interrupted and error steps (type 17 is `ERROR_MESSAGE`); [tool results pair with calls by step index](../../topics/antigravity-native-storage.md#reading-a-tool-group) (P+1+*i* is call *i*; a missing step is an interrupted result; any other shape makes the log unknown); Codex's heap shows no upward trend over 600 turns, Antigravity's projection grows 4.6 KB a turn. Real `agy` reached a 440 ms median turn, so the 500 MB target is generated from record shapes. Review rounds made the reopen legs identical, streamed the census, fixed the retention sampling, moved group pairing to step indexes and recorded that a reopen can change the summaries index's content. Found the permission defect that step 2b fixes. |
+| 2b — accept agy's permission requests | Done 2026-11-22 | The transport accepts string and numeric request IDs and echoes them back; a cancelled turn answers its pending permission requests as cancelled. Real `agy` 1.5.13 and 1.5.14: default mode asks, Allow writes, Deny ends the turn without writing, accept-edits asks only for commands, bypass never asks, Plan is refused. [Contract](../../topics/antigravity.md#vanilla-execution). |
 | 3 — project the log into YA messages | Not started | |
 | 4 — serve cold history from the log | Not started | |
 | 5 — resume without replaying history | Not started | |
@@ -253,7 +273,7 @@ conversation and the host can hold it.
 | 8 — decide the ACP replay fallback | Not started | |
 | 9 — move the owner into the Provider Host | Not started | |
 
-Steps 1 to 3 are independent of each other. Step 4 needs step 3. Steps 5 and
+Steps 1 to 3 are independent of each other, and step 2b of all others. Step 4 needs step 3. Steps 5 and
 6 need steps 2 and 4. Step 7 needs step 4, step 8 needs step 5, and step 9
 needs step 6.
 

@@ -509,8 +509,12 @@ export class AntigravityProvider implements AgentProvider {
         }
         await this.validateResumeSource(options, namespace);
       }
-      runtime.onPermission = (params) =>
-        this.permission(params, options, signal);
+      runtime.onPermission = (params, requestSignal) =>
+        this.permission(
+          params,
+          options,
+          AbortSignal.any([signal, requestSignal]),
+        );
       // agy offers no bypass mode; that session's server skips permissions.
       const skipPermissions = options.permissionMode === "bypassPermissions";
       // Pin the concrete profile path passed to ACP to the verified physical

@@ -321,7 +321,7 @@ async function measure() {
     };
     report.recheck = { full: full.recheck(), short: short.recheck() };
     report.toolCallIds = toolCallIds(id, agent.updates, agent.permissions);
-    report.permissionStringIds = agent.permissions.stringIds ?? 0;
+    report.permissionIdTypes = agent.permissions.idTypes;
     report.records = full.seen.map(({ step, type, status, record }) => ({
       step,
       type,

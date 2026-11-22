@@ -22,7 +22,7 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Reader and resume keep collecting ACP history after an early load response until they observe the persisted text tail. A missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
-| Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission replies are implemented for numeric request IDs, but `agy` sends string IDs, so YA refuses its requests and `agy` denies the tool without a prompt ([gap](../gaps/antigravity-permission-requests-with-string-ids-are-refused.md)). Inline images/documents, rewind and fork remain unavailable. |
+| Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions; real `agy` cases cover Allow, Deny and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
 The [native lifecycle tests](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
 use real `agy` with a scripted model. They cover idle reap and scheduled
@@ -198,7 +198,16 @@ bypass-permissions launches that session's server with
 `--dangerously-skip-permissions` and keeps the native `default` mode. YA's Plan permission mode is refused; use native `/plan`.
 Permission replies use the actual offered option IDs and never promote Allow
 once to Allow always. Native fixed-choice questions require an offered answer.
-Missing handlers and interrupted requests cancel. Stop requests native
+Missing handlers and interrupted requests cancel. A permission request is
+recognized whatever its JSON-RPC ID type (`agy` 1.5.13 and 1.5.14 send
+strings), and the answer echoes that ID unchanged; responses match YA's own
+requests only by YA's own IDs. In `agy`'s default mode, `write_file` and
+`run_command` ask; in accept-edits only `run_command` asks; bypass asks for
+nothing. After Allow the tool runs and the turn continues. After Deny the
+tool does not run, its result is an error, and `agy` ends the turn without
+asking the model again; the next message starts a new turn. Interrupting a
+turn answers its pending permission requests as cancelled and withdraws
+their prompts, as ACP asks of a client. Stop requests native
 `session/cancel`; hard abort closes the owned process group and waits for exit.
 
 Initial support covers text and file references. Inline image/document blocks

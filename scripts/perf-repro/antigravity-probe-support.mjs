@@ -191,13 +191,13 @@ export function restoreStore(profile, pristine) {
 
 /**
  * One `agy acp` process with timestamped ACP updates, closed by `scope`.
- * Permission requests arrive with string JSON-RPC IDs, which YA's transport
- * refuses (see the permission-ID gap), so the probe answers them itself.
+ * `decide(params, signal)` may return an option kind for a permission
+ * request (default `allow_once`), or "cancelled".
  */
 export async function startAgy(
   scope,
   profile,
-  { agy, t0, skipPermissions = false, verbose = false },
+  { agy, t0, skipPermissions = false, verbose = false, decide },
 ) {
   const runtime = new AntigravityRuntime();
   scope.defer(() => runtime.close());
@@ -220,33 +220,29 @@ export async function startAgy(
       bytes: JSON.stringify(update).length,
     });
   };
-  const answer = async (params) => {
+  // YA's own transport answers permission requests; the probe allows once
+  // unless `decide` says otherwise, and records each request's ID type.
+  const idTypes = [];
+  runtime.onPermission = async (params, signal) => {
     permissions.push({
       t: now() - t0,
       toolCallId: params.toolCall?.toolCallId,
       title: params.toolCall?.title,
     });
-    const allow = params.options?.find((entry) => entry.kind === "allow_once");
-    return { outcome: { outcome: "selected", optionId: allow?.optionId } };
+    const kind = (await decide?.(params, signal)) ?? "allow_once";
+    if (kind === "cancelled") return { outcome: { outcome: "cancelled" } };
+    const option = params.options?.find((entry) => entry.kind === kind);
+    return { outcome: { outcome: "selected", optionId: option?.optionId } };
   };
-  runtime.onPermission = answer;
   const receive = runtime.receive.bind(runtime);
   runtime.receive = (message) => {
     if (verbose && message.method && message.method !== "session/update")
       console.error("frame", JSON.stringify(message).slice(0, 400));
-    if (
-      message.method === "session/request_permission" &&
-      typeof message.id === "string"
-    ) {
-      permissions.stringIds = (permissions.stringIds ?? 0) + 1;
-      void answer(message.params ?? {}).then((result) => {
-        if (runtime.alive)
-          runtime.send({ jsonrpc: "2.0", id: message.id, result });
-      });
-      return;
-    }
+    if (message.method === "session/request_permission")
+      idTypes.push(typeof message.id);
     return receive(message);
   };
+  permissions.idTypes = idTypes;
   let initialize;
   const callMethod = runtime.call.bind(runtime);
   runtime.call = async (method, params, timeout) => {
