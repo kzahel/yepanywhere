@@ -72,6 +72,10 @@ readline.createInterface({input:process.stdin}).on('line', line => {
    for (let tool = 0; tool < 9; tool++)
     update({sessionUpdate:'tool_call',toolCallId:'replayed-'+tool,title:'Saved tool',status:'completed',content});
   }
+  // Displayed history, unlike undisplayed tool fields, counts toward YA's cap.
+  if (process.env.AGY_TEST_OVERSIZED_REPLAY)
+   for (let chunk = 0; chunk < 9; chunk++)
+    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'z'.repeat(1024*1024)}});
   update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Saved answer'}});
   return reply(m.id,{});
  }
@@ -89,6 +93,11 @@ readline.createInterface({input:process.stdin}).on('line', line => {
    return send({jsonrpc:'2.0',id:100,method:'session/request_permission',params:{sessionId:id,
     toolCall:{toolCallId:'tool-1',title:'Write file',kind:'edit'},
     options:[{optionId:'native-allow',name:'Allow',kind:'allow_once'},{optionId:'native-deny',name:'Deny',kind:'reject_once'}]}});
+  }
+  if(m.params.prompt[0].text === 'big') {
+   for (let chunk = 0; chunk < 3; chunk++)
+    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'y'.repeat(1024*1024)}});
+   return reply(m.id,{stopReason:'end_turn'});
   }
   if(m.params.prompt[0].text === 'wait') {
    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Waiting'}});
@@ -767,6 +776,92 @@ describe("Antigravity native process boundary", () => {
     // Multiple peer launches shared a 5s test deadline that was exhausted
     // while qualifying the native suites under concurrent load.
     10_000,
+  );
+
+  // Plan 195 records today's limits here. Step 4 flips the open half (cold
+  // history comes from the log), step 5 the resume half (resume retains no
+  // replayed history); both then assert success with bounded retained bytes.
+  it.skipIf(process.platform === "win32")(
+    "today: a displayed replay over 8 MiB fails on open and on resume",
+    async () => {
+      const root = join(store, "conversations");
+      await mkdir(root, { recursive: true });
+      await writeFile(join(root, `${nativeId}.db`), "native fixture");
+      vi.stubEnv("AGY_TEST_OVERSIZED_REPLAY", "1");
+      const limit = "Antigravity replay exceeds the experimental history limit";
+      const reader = new AntigravitySessionReader({ projectPath: directory });
+      try {
+        await expect(
+          reader.getSession(nativeId, toUrlProjectId(directory)),
+        ).rejects.toThrow(limit);
+      } finally {
+        await reader.close();
+      }
+      const session = await new AntigravityProvider().startSession({
+        cwd: directory,
+        resumeSessionId: nativeId,
+        initialMessage: { text: "must not send" },
+      });
+      try {
+        const messages: SDKMessage[] = [];
+        for await (const message of session.iterator) messages.push(message);
+        expect(messages).toEqual([{ type: "error", error: limit }]);
+      } finally {
+        await session.abort();
+      }
+      // The runtime is torn down mid-replay; nothing is prompted.
+      expect((await readFile(log, "utf8")).trim().split("\n")).toEqual([
+        "initialize",
+        "session/load",
+        "initialize",
+        "session/load",
+      ]);
+    },
+  );
+
+  // Plan 195 step 6 flips this: retained history stays bounded and the
+  // session keeps running however much it has written.
+  it.skipIf(process.platform === "win32")(
+    "today: a live session that passes 8 MiB across turns is torn down mid-turn",
+    async () => {
+      const session = await new AntigravityProvider().startSession({
+        cwd: directory,
+        initialMessage: { text: "big", uuid: "turn-1" },
+      });
+      try {
+        const results: number[] = [];
+        let error: SDKMessage | undefined;
+        let committed = 0;
+        for await (const message of session.iterator) {
+          if (message.type === "assistant" && !message._isStreaming)
+            committed++;
+          if (message.type === "error") error = message;
+          if (message.type !== "result") continue;
+          results.push(committed);
+          session.queue.push({
+            text: "big",
+            uuid: `turn-${results.length + 1}`,
+          });
+        }
+        // Each turn is 3 MiB of displayed text, so the third crosses the
+        // owner's cumulative 8 MiB cap. Recording throws inside the native
+        // update handler, which fails the pending prompt and stops `agy`.
+        expect(results).toEqual([1, 2]);
+        expect(error).toEqual({
+          type: "error",
+          error:
+            "Antigravity live history exceeds the experimental history limit",
+        });
+        expect(session.isProcessAlive?.()).toBe(false);
+        const methods = (await readFile(log, "utf8")).trim().split("\n");
+        expect(
+          methods.filter((method) => method === "session/prompt"),
+        ).toHaveLength(3);
+        expect(methods).not.toContain("session/cancel");
+      } finally {
+        await session.abort();
+      }
+    },
   );
 
   it.skipIf(process.platform === "win32")(
