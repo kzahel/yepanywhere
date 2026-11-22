@@ -75,8 +75,9 @@ export function antigravityCliVersionRefusal(
 /**
  * Run `<command> --version` as an owned child: YA credentials are filtered
  * from its environment, and the deadline or `signal` kills its process group
- * and waits for the leader to exit. The group is also killed once the
- * version is read, so a helper the command left behind does not outlive it.
+ * and waits for the leader to exit. The group is killed once more as the
+ * leader's exit is handled, so a same-group helper does not outlive it; the
+ * group is never signalled after that.
  * Resolves the trimmed output, or undefined when the command fails, is
  * cancelled or runs out of time.
  */
@@ -106,16 +107,16 @@ export function readAgyVersion(
       settled = true;
       clearTimeout(deadline);
       signal?.removeEventListener("abort", kill);
-      // The group outlives its leader: end any helper it left behind.
-      signalProcessTree(child, "SIGKILL");
       child.stdout?.destroy();
       resolve(value);
     };
+    // The group id is only safe to signal while it is anchored: before the
+    // leader's exit has been handled. After that a reused pid could name an
+    // unrelated group, so only the pipe is released.
     function kill() {
       killed = true;
+      if (exited) return finish(undefined);
       signalProcessTree(child, "SIGKILL");
-      // An exited leader was already reaped; a live one finishes on exit.
-      if (exited) finish(undefined);
     }
     const deadline = setTimeout(kill, deadlineMs);
     signal?.addEventListener("abort", kill, { once: true });
@@ -127,6 +128,9 @@ export function readAgyVersion(
     child.once("error", () => finish(undefined));
     child.once("exit", () => {
       exited = true;
+      // Once, at once: same-group helpers die whether or not they hold the
+      // pipe. A helper in its own session has left the group and is not YA's.
+      signalProcessTree(child, "SIGKILL");
       if (killed) finish(undefined);
     });
     child.once("close", (code) =>

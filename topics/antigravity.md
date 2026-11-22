@@ -77,9 +77,12 @@ An `agy` before 1.5 has no `acp` subcommand. When no ACP peer answers
 reaches the 30-second initialize timeout), YA runs `agy --version` once. That
 probe gets YA's provider environment without YA's own credentials, has three
 seconds, and is killed with its process group on its deadline or when the
-owner stops the runtime; YA waits for it to exit either way. The group is
-also killed once the version is read, so a helper the command started in its
-group does not outlive the probe, even after the command itself exits. A whole version
+owner stops the runtime; YA waits for it to exit either way. YA signals the
+group only while its id is anchored: on deadline or stop while the command is
+still running, and once as the command's exit is handled, so same-group
+helpers die whether or not they hold its output. After that YA sends no
+signal; a deadline or stop then only releases the pipe. A helper that started
+its own session has left the group and is not stopped by YA. A whole version
 below the floor gets the same refusal. Any other answer leaves the native
 failure as the error. A runtime that does answer `initialize`, including with
 an ACP error, is never probed, so its own error is kept.

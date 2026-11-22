@@ -82,21 +82,25 @@ describe.skipIf(process.platform === "win32")("agy --version probe", () => {
     expect(await readAgyVersion(agy)).toBe("1.5.13");
   });
 
-  // The wrapper prints a version, starts a helper in its own process group
-  // and exits first; the helper must not outlive the probe.
+  // The wrapper prints a version and starts a helper in its process group.
+  // On deadline and cancel the leader is still alive, so the group is
+  // signalled then; on completion the leader exits first and the group is
+  // signalled as its exit is handled, whether or not the helper holds stdout.
   it.each([
-    ["deadline", "holds stdout", undefined],
-    ["cancel", "holds stdout", undefined],
-    ["completion", "closes its streams", "1.5.13"],
+    ["deadline", "waits for it", "holds stdout", undefined],
+    ["cancel", "waits for it", "holds stdout", undefined],
+    ["completion", "exits", "holds stdout", "1.5.13"],
+    ["completion", "exits", "closes its streams", "1.5.13"],
   ] as const)(
-    "ends a same-group helper left by an exited leader on %s (helper %s)",
-    async (ending, streams, expected) => {
+    "ends a same-group helper on %s when the leader %s (helper %s)",
+    async (ending, leader, streams, expected) => {
       const marker = join(directory, "helper.pid");
       const redirect = streams === "holds stdout" ? "" : " >/dev/null 2>&1";
+      const last = leader === "exits" ? "exit 0" : "wait";
       const agy = join(directory, "agy");
       await writeFile(
         agy,
-        `#!/bin/sh\necho 1.5.13\nsleep 60${redirect} &\necho $! > ${JSON.stringify(marker)}\nexit 0\n`,
+        `#!/bin/sh\necho 1.5.13\nsleep 60${redirect} &\necho $! > ${JSON.stringify(marker)}\n${last}\n`,
       );
       await chmod(agy, 0o755);
       const controller = new AbortController();
@@ -116,6 +120,33 @@ describe.skipIf(process.platform === "win32")("agy --version probe", () => {
       });
     },
   );
+
+  it("sends no group signal after the leader's exit has been handled", async () => {
+    // The helper starts its own session and holds stdout past the deadline.
+    const marker = join(directory, "helper.pid");
+    const agy = await script(
+      "agy",
+      `const fs = require('node:fs');
+fs.writeSync(1, '1.5.13\\n');
+const helper = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { detached: true, stdio: ['ignore', 'inherit', 'ignore'] });
+fs.writeFileSync(${JSON.stringify(marker)}, String(helper.pid));
+process.exit(0);`,
+    );
+    const kill = vi.spyOn(process, "kill");
+    let helper = 0;
+    try {
+      expect(await readAgyVersion(agy, undefined, 1_000)).toBeUndefined();
+      helper = Number(await readFile(marker, "utf8"));
+      // Only the signal sent while handling the leader's exit.
+      expect(
+        kill.mock.calls.filter(([pid]) => typeof pid === "number" && pid < 0),
+      ).toHaveLength(1);
+      expect(() => process.kill(helper, 0)).not.toThrow();
+    } finally {
+      kill.mockRestore();
+      if (helper) process.kill(helper, "SIGKILL");
+    }
+  });
 
   it.each(["deadline", "cancel"] as const)(
     "kills and reaps a probe that ignores SIGTERM on %s",
