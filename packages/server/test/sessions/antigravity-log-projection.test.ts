@@ -66,26 +66,36 @@ const system = (
 const wrap = (text: string) =>
   `The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.\n\n<SYSTEM_MESSAGE>\n${text}\n</SYSTEM_MESSAGE>`;
 
-async function* chunks(text: string, size = 7) {
-  const bytes = Buffer.from(text);
+async function* chunks(bytes: Buffer, size = 7) {
   for (let i = 0; i < bytes.length; i += size)
     yield bytes.subarray(i, i + size);
 }
 
-function project(
-  records: Array<Record<string, unknown> | string>,
-  options: { ownerLive?: boolean; tail?: string } = {},
+type Line = Record<string, unknown> | string | Buffer;
+const bytesOf = (line: Line) =>
+  Buffer.isBuffer(line)
+    ? line
+    : Buffer.from(typeof line === "string" ? line : JSON.stringify(line));
+
+async function project(
+  records: Line[],
+  options: { ownerLive?: boolean; tail?: Line } = {},
 ) {
-  const text =
-    records
-      .map((record) =>
-        typeof record === "string" ? record : JSON.stringify(record),
-      )
-      .join("\n") + `\n${options.tail ?? ""}`;
-  return projectAntigravityLog(antigravityLogLines(chunks(text)), {
-    conversationId: ID,
-    ownerLive: options.ownerLive ?? false,
-  });
+  const bytes = Buffer.concat(
+    [...records.flatMap((line) => [bytesOf(line), Buffer.from("\n")])].concat(
+      options.tail === undefined ? [] : [bytesOf(options.tail)],
+    ),
+  );
+  const result = await projectAntigravityLog(
+    antigravityLogLines(chunks(bytes)),
+    {
+      conversationId: ID,
+      ownerLive: options.ownerLive ?? false,
+    },
+  );
+  // The projection reports its own throws as unknown; none may happen here.
+  expect(result.status === "unknown" && result.error).toBeFalsy();
+  return result;
 }
 
 /** One line per message: its ID suffix and what it shows. */
@@ -236,10 +246,24 @@ describe("Antigravity log projection", () => {
       ],
     },
     {
-      name: "an unterminated last line is not a record yet",
+      name: "an unterminated last line is not a record yet, even mid-character",
       records: [user(0, "A")],
-      tail: '{"step_index":1,"source":"MO',
+      tail: Buffer.from([
+        ...Buffer.from('{"step_index":1,"content":"'),
+        0xe2,
+        0x82,
+      ]),
       expected: ["step-0 user A"],
+    },
+    {
+      name: "user text keeps literal tags, and settings changes are dropped",
+      records: [
+        {
+          ...user(0, "x"),
+          content: `<USER_REQUEST>\nsay </USER_REQUEST> and <SYSTEM_MESSAGE> \u20ac\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: ${at}.\n</ADDITIONAL_METADATA>\n<USER_SETTINGS_CHANGE>\nThe user changed setting.\n</USER_SETTINGS_CHANGE>`,
+        },
+      ],
+      expected: ["step-0 user say </USER_REQUEST> and <SYSTEM_MESSAGE> \u20ac"],
     },
   ])("$name", async ({ records, tail, expected }) => {
     const projected = await project(records, { tail });
@@ -305,6 +329,47 @@ describe("Antigravity log projection", () => {
     {
       name: "a call without args",
       records: [planner(0, { tool_calls: [{ name: "read_file" }] })],
+    },
+    { name: "tool_calls null", records: [planner(0, { tool_calls: null })] },
+    {
+      name: "an inherited type name",
+      records: [{ step_index: 0, type: "constructor", created_at: at }],
+    },
+    {
+      name: "a type that is an object",
+      records: [{ ...user(0, "A"), type: { toString: null } }],
+    },
+    {
+      name: "a source that is an object",
+      records: [{ ...user(0, "A"), source: { toString: null } }],
+    },
+    {
+      name: "invalid UTF-8 in a complete line",
+      records: [
+        (() => {
+          const json = JSON.stringify(planner(0, { content: "A_B" }));
+          const at = json.indexOf("A_B") + 1;
+          return Buffer.concat([
+            Buffer.from(json.slice(0, at)),
+            Buffer.from([0xff]),
+            Buffer.from(json.slice(at + 1)),
+          ]);
+        })(),
+      ],
+    },
+    {
+      name: "a system message outside its wrapper",
+      records: [
+        system(0, "SYSTEM_MESSAGE", {
+          content: "<SYSTEM_MESSAGE>\nx\n</SYSTEM_MESSAGE>",
+        }),
+      ],
+    },
+    {
+      name: "text after a user request's known blocks",
+      records: [
+        { ...user(0, "A"), content: `${user(0, "A").content}\nTRAILING` },
+      ],
     },
   ])("makes the log unknown on $name", async ({ records }) => {
     expect((await project(records)).status).toBe("unknown");

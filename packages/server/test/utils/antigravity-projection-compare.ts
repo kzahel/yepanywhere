@@ -95,10 +95,19 @@ function same(a: ComparedItem, b: ComparedItem): boolean {
   );
 }
 
-/** Mismatches after a longest-common-subsequence alignment of the items. */
+/** Table cells the alignment may use (4 bytes each), after the equal
+ * prefix and suffix are set aside. */
+const ALIGNMENT_BUDGET = 25_000_000;
+
+/**
+ * Mismatches after a longest-common-subsequence alignment of the items.
+ * When the unequal middle exceeds the work budget, it is reported as one
+ * "not compared" mismatch rather than aligned.
+ */
 export function compareProjectionWithReplay(
   projection: readonly Message[],
   replay: readonly Message[],
+  budget = ALIGNMENT_BUDGET,
 ): {
   projection: ComparedItem[];
   replay: ComparedItem[];
@@ -106,32 +115,50 @@ export function compareProjectionWithReplay(
 } {
   const a = comparedItems(projection, "projection");
   const b = comparedItems(replay, "replay");
-  const width = b.length + 1;
-  const table = new Uint32Array((a.length + 1) * width);
-  for (let i = a.length - 1; i >= 0; i--)
-    for (let j = b.length - 1; j >= 0; j--)
-      table[i * width + j] = same(a[i]!, b[j]!)
-        ? table[(i + 1) * width + j + 1]! + 1
-        : Math.max(table[(i + 1) * width + j]!, table[i * width + j + 1]!);
+  let start = 0;
+  while (start < a.length && start < b.length && same(a[start]!, b[start]!))
+    start++;
+  let endA = a.length;
+  let endB = b.length;
+  while (endA > start && endB > start && same(a[endA - 1]!, b[endB - 1]!)) {
+    endA--;
+    endB--;
+  }
   const mismatches: ProjectionMismatch[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && same(a[i]!, b[j]!)) {
+  const width = endB - start + 1;
+  if ((endA - start + 1) * width > budget) {
+    mismatches.push({
+      kind: "not compared: over the alignment budget",
+      projection: start,
+      replay: start,
+    });
+    return { projection: a, replay: b, mismatches };
+  }
+  // table[(i - start) * width + (j - start)]: LCS length of a[i..endA), b[j..endB).
+  const table = new Uint32Array((endA - start + 1) * width);
+  const cell = (i: number, j: number) => (i - start) * width + (j - start);
+  for (let i = endA - 1; i >= start; i--)
+    for (let j = endB - 1; j >= start; j--)
+      table[cell(i, j)] = same(a[i]!, b[j]!)
+        ? table[cell(i + 1, j + 1)]! + 1
+        : Math.max(table[cell(i + 1, j)]!, table[cell(i, j + 1)]!);
+  let i = start;
+  let j = start;
+  while (i < endA || j < endB) {
+    if (i < endA && j < endB && same(a[i]!, b[j]!)) {
       i++;
       j++;
       continue;
     }
     // Unmatched items at the same point with the same kind differ in value.
     const skipA =
-      i < a.length &&
-      (j >= b.length ||
-        table[(i + 1) * width + j]! >= table[i * width + j + 1]!);
+      i < endA &&
+      (j >= endB || table[cell(i + 1, j)]! >= table[cell(i, j + 1)]!);
     if (
-      i < a.length &&
-      j < b.length &&
+      i < endA &&
+      j < endB &&
       a[i]!.kind === b[j]!.kind &&
-      table[(i + 1) * width + j + 1] === table[i * width + j]
+      table[cell(i + 1, j + 1)] === table[cell(i, j)]
     ) {
       mismatches.push({
         kind:

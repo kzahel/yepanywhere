@@ -217,7 +217,7 @@ The forward read is at most *k* + 1 records and the backward read at most
 | Per-step time, model, token counts | Yes | Not compared |
 | Tool name | `agy`'s (`read_file`) | ACP's title (`File notes.txt`, the command line) |
 | Tool call ID, ACP kind, locations | No | Yes; the ID is random |
-| Tool results | Rendered text | Each call once, as a completed `tool_call`; commands carry `rawOutput`, file reads none |
+| Tool results | Rendered text | Each call once, as a `tool_call` with its final status; edits and commands carry `rawOutput`, file reads none; no `tool_call_update` |
 | A step only in the database | Absent | Replayed |
 | A step still in progress | Absent until it ends | Not measured |
 
@@ -483,7 +483,7 @@ reader returns. No reader uses it yet; plan 195 step 4 wires it.
 
 | Record | Messages, by ID |
 | --- | --- |
-| `USER_INPUT` | `<id>:step-<n>`: user text, the `<USER_REQUEST>` block's content without the newlines that wrap it. The metadata blocks after it are dropped, as ACP replay drops them. |
+| `USER_INPUT` | `<id>:step-<n>`: user text, the `<USER_REQUEST>` block's content without the newlines that wrap it. Literal tags inside the text are kept. The `<ADDITIONAL_METADATA>` and `<USER_SETTINGS_CHANGE>` blocks after it are dropped, as ACP replay drops them. |
 | `PLANNER_RESPONSE` | `<id>:step-<n>:thinking`, then `<id>:step-<n>:text`, each present only when non-empty, both with the record's `model`. Then call *i*'s `tool_use`, ID `<id>:step-<n>:tool-<i>`, in message `<tool id>:call`, under `agy`'s tool name and its `args` as input; `invoke_subagent` becomes `spawn_agent` with the input YA already normalizes for it. An `error` field adds an `error` message `<id>:step-<n>:error`. |
 | `GENERIC` | `<tool id>:result`: a `tool_result` for its call, with the record's `content` unchanged (including `agy`'s `Created At:` lines) and `is_error` for status `ERROR`. A `RUNNING` launch is a normal result. |
 | Missing result step | No message. The call's `tool_use` message carries `orphanedToolUseIds` with its ID, which clients show as an incomplete call whose result is unavailable. |
@@ -499,13 +499,29 @@ tool call IDs.
 
 The log is **unknown**, and the caller falls back, on:
 
-- a line that is not JSON, other than an unterminated final line (an append
-  in progress, which is not a record yet), or an empty line;
+- a complete line that is not valid UTF-8, is not JSON, or is empty. An
+  unterminated final line is an append in progress, not a record, even
+  when it ends inside a character;
 - a `step_index` that does not increase;
 - a type, source, status, field or field type outside the table in
-  [brain log](#brain-log), including `truncated_fields` (the shortened log
-  is never projected) and a `USER_INPUT` without a `<USER_REQUEST>` block;
+  [brain log](#brain-log): an explicit `null` is not an absent field
+  (`tool_calls: null` is unknown), and `truncated_fields` is unknown, so
+  the shortened log is never projected;
+- a wrapper outside the observed forms. A `USER_INPUT` is
+  `<USER_REQUEST>\n…\n</USER_REQUEST>` followed by at most an
+  `<ADDITIONAL_METADATA>` block and then a `<USER_SETTINGS_CHANGE>` block.
+  A `SYSTEM_MESSAGE` is the fixed "The following is a <SYSTEM_MESSAGE> not
+  actually sent by the user…" preamble, then `<SYSTEM_MESSAGE>\n…\n</SYSTEM_MESSAGE>`
+  ending the content. All 39 user inputs and 202 system messages in this
+  host's 12 logs, and those of the native case on both versions, have
+  these forms;
 - any tool-group shape the [group rule](#reading-a-tool-group) calls unknown.
+
+No record content can make the projection throw: fields are read as own
+keys with their types checked first, and diagnostics coerce no value. Its
+entry points are also total: if the projection itself throws, the result
+is unknown with the thrown `error` attached, which the unit tests require
+to be absent.
 
 A group the log ends inside is in progress when the caller says the owner is
 live, and its missing results are interrupted otherwise.
@@ -522,25 +538,66 @@ the windows of a log together produce exactly the whole log's messages; a
 test checks this at every record boundary of a generated log with both
 interrupted-group shapes.
 
+What the reader in step 4 must add, because a window's messages are
+rendered on their own:
+
+- **A call and its result must load together.** The shared client
+  projection drops a `tool_result` whose `tool_use` is not in the loaded
+  messages, so a page that starts with `GENERIC` records shows nothing for
+  them. Keep a group in one page, or carry the pairing context on the
+  existing wire.
+- **Anchors map to records.** A `:result` ID names its planner step P and
+  call *i*; its record is at step P+1+*i*. Other IDs name their record's
+  step.
+- **Context is bounded.** The look back is at most *k* records when the
+  window starts with a `GENERIC`, and *k*+1 when it starts right after a
+  group's *k* results, since the rule reads back to the planner whatever
+  the first record is. Read context with a byte budget. A spent budget is
+  not the end of the log: it must not turn a missing result into an
+  interrupted one, and the page falls back instead.
+- **Checks cover only observed records.** A window sees only its own
+  records and its context, so a rewind elsewhere in the file, such as a
+  later step 1 after step 100, is not detected by a window that never
+  reads it.
+- **Child links need verification.** An `invoke_subagent` result is the
+  raw text naming the child's `conversationId`. The cold renderer needs a
+  verified `agent_id`, so the reader must apply its existing
+  lineage-checked enrichment.
+
+Memory for one window is its messages, one buffered line and one open
+group.
+
 ### Comparison with ACP replay
 
 The census
 (`scripts/perf-repro/antigravity-log-census.mjs census`, run from
-`packages/server` with `pnpm exec tsx --conditions source`) copies a store's
-conversations, summaries index and brain directories into an owned profile.
-For each conversation with a full log it projects the copy's log and
-replays the copy through `agy acp` `session/load` into YA's cold transcript,
-then compares them after removing the expected differences that
+`packages/server` with `pnpm exec tsx --conditions source`) stages each
+conversation into an owned profile as independent regular files: its
+database with its WAL and its brain directory, and once the summaries
+index with its WAL. Staging refuses any link in those parts of the
+source, and the census refuses to start `agy` while anything in the
+profile resolves outside it, so no `session/load` can open a source file.
+The source's database, WAL and log identities (device, inode, size,
+modification time) are compared before and after each copy. A copy that
+changed is retried twice and then reported inconclusive. For each
+conversation it projects the copy's log and replays the copy through `agy
+acp` `session/load` into YA's cold transcript, observing for 500 ms after
+the load. It counts the replay's raw tool frames and YA's normalized
+results, then compares the projection and transcript after removing the expected differences that
 [`antigravity-projection-compare.ts`](../packages/server/test/utils/antigravity-projection-compare.ts)
 lists: IDs, tool names (ACP titles), the projection's results, system
 messages, checkpoints, errors, timestamps and models, and replay's habit of
 joining consecutive user inputs (with nothing between) or the text or
-thinking of consecutive steps (with "\n\n") into one message. It reports
-classes and steps, not content.
+thinking of consecutive steps (with "\n\n") into one message. Its
+alignment has a work budget of 25 million table cells after the equal
+prefix and suffix; a larger middle is reported as "not compared". It
+reports classes and steps, not content.
 
-On 2026-11-22, with `agy` 1.5.13 replaying this host's store (12 logs,
-written by 1.5.13 and 1.5.14), every log projected as known: 2,105 records
-and 8,037,744 bytes, each log read once in full, in 0.04 s. What remained:
+On 2026-11-22, with `agy` 1.5.13 and separately 1.5.14 replaying this
+host's store (12 logs, written by 1.5.13 and 1.5.14) on Node 24.22.1, no
+conversation was inconclusive and every log projected as known: 2,105
+records and 8,037,744 bytes, each log read once in full, in 0.03 s. Both
+binaries gave the same results. What remained:
 
 | Class | Where | Cause |
 | --- | --- | --- |
@@ -548,9 +605,18 @@ and 8,037,744 bytes, each log read once in full, in 0.04 s. What remained:
 | Text, thinking or user input only in replay, and the joins around them | Five conversations, six steps | Steps only in the database. Four are planner steps stopped mid-response (`status` 6, three of them the same scheduling probe's last reply), which replay sends with their partial text. Two are unlogged `ERROR_MESSAGE` steps, which replay sends as assistant text starting "⚠ Individual quota reached". |
 
 Nothing else differed: user text, assistant text, thinking, the order of
-calls and every call's input matched. Replay carried no ordinary tool
-result, because YA's cold transcript keeps nothing from a completed
-`tool_call`.
+calls and every call's input matched.
+
+Cold replay reported each ordinary call once, as a `tool_call` with its
+final status: 1,093 calls, 19 of them `failed`. 705 carried `rawOutput`
+(475 edits and 230 commands); file reads carried none. There were no
+ordinary `tool_call_update` frames, including in the 500 ms after each
+load response. YA's cold transcript makes a `tool_result` only from a
+`tool_call_update` or a subagent's call, so it held no ordinary
+`tool_result` row. Cold history today shows every ordinary call without its
+result, although replay sends the output of edits and commands. The
+comparison removes results by design, so these counts, not the comparison,
+establish it.
 
 YA's own replay check rejected four of the twelve replays ("saved replay
 tail did not arrive"), so YA cannot open those conversations cold today:
@@ -583,7 +649,12 @@ records, `--interrupted-group-every 30000 --interior-gap-group-every 40000`)
 it took 0.54–0.58 s per run on this host with Node 25.8.2: 174,000–186,000
 records and 869–930 MB per second, producing 158,641 messages. The process
 peaked at 1.3 GB resident because a whole-log projection holds every
-message; a page holds only its own.
+message; a page holds only its own. After review round 1 added the UTF-8
+and wrapper checks, three runs on Node 24.22.1 took 0.61–0.63 s
+(158,000–163,000 records and 792–814 MB per second, the same 158,641
+messages) and peaked at 1.9 GB resident. The reviewer's run of 1,935 windows of
+at most 256 KiB over the same log produced the same counts at 162 MB peak
+resident.
 
 ## Runtime identity
 

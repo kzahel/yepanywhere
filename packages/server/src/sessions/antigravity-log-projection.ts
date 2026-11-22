@@ -16,6 +16,24 @@ export interface AntigravityLogLine {
   end: number;
   /** False only for a final line without a newline: an append in progress. */
   terminated: boolean;
+  /** The line's bytes are not valid UTF-8; `text` then has replacements. */
+  invalidUtf8?: true;
+}
+
+const strictUtf8 = new TextDecoder("utf-8", { fatal: true });
+
+/** Decodes without a second pass unless a replacement character appears. */
+function decodeLine(
+  bytes: Buffer,
+): Pick<AntigravityLogLine, "text" | "invalidUtf8"> {
+  const text = bytes.toString("utf8");
+  if (!text.includes("\uFFFD")) return { text };
+  try {
+    strictUtf8.decode(bytes);
+    return { text };
+  } catch {
+    return { text, invalidUtf8: true };
+  }
 }
 
 /** Splits a byte stream into lines without decoding a line twice. */
@@ -34,13 +52,12 @@ export async function* antigravityLogLines(
       newline >= 0;
       newline = bytes.indexOf(10, from)
     ) {
-      const text = pending.length
-        ? Buffer.concat([...pending, bytes.subarray(from, newline)]).toString(
-            "utf8",
-          )
-        : bytes.toString("utf8", from, newline);
+      const line = bytes.subarray(from, newline);
+      const decoded = decodeLine(
+        pending.length ? Buffer.concat([...pending, line]) : line,
+      );
       const end = position + newline;
-      yield { text, start: pendingStart, end, terminated: true };
+      yield { ...decoded, start: pendingStart, end, terminated: true };
       pending = [];
       from = newline + 1;
       pendingStart = position + from;
@@ -48,6 +65,7 @@ export async function* antigravityLogLines(
     if (from < bytes.length) pending.push(bytes.subarray(from));
     position += bytes.length;
   }
+  // An unterminated tail may end inside a character; it is not a record.
   if (pending.length)
     yield {
       text: Buffer.concat(pending).toString("utf8"),
@@ -80,64 +98,126 @@ export type AntigravityLogRecord = {
       status: "DONE" | "ERROR" | "RUNNING";
       content: string;
     }
+  /** The text inside the `<SYSTEM_MESSAGE>` wrapper. */
   | { type: "SYSTEM_MESSAGE"; content: string }
   | { type: "CHECKPOINT"; content: string }
   | { type: "ERROR_MESSAGE"; error: string }
 );
 
+type RecordType = AntigravityLogRecord["type"];
+interface Shape {
+  source: string;
+  statuses: readonly string[];
+  /** The one field the type cannot lack. */
+  required?: string;
+  /** Optional fields besides the common ones. */
+  keys: readonly string[];
+}
+
 const TOKEN_KEYS = ["input_tokens", "cache_read_tokens", "output_tokens"];
 const COMMON_KEYS = ["step_index", "source", "type", "status", "created_at"];
-/** Source, statuses and optional keys per type, as observed on 1.5.13 and 1.5.14. */
-const SHAPES: Record<
-  string,
-  { source: string; statuses: string[]; keys: string[] }
-> = {
-  USER_INPUT: { source: "USER_EXPLICIT", statuses: ["DONE"], keys: [] },
-  PLANNER_RESPONSE: {
-    source: "MODEL",
-    statuses: ["DONE", "ERROR"],
-    keys: [
-      "model",
-      "content",
-      "thinking",
-      "tool_calls",
-      "error",
-      ...TOKEN_KEYS,
-    ],
-  },
-  GENERIC: {
-    source: "MODEL",
-    statuses: ["DONE", "ERROR", "RUNNING"],
-    keys: ["error", "media"],
-  },
-  SYSTEM_MESSAGE: { source: "SYSTEM", statuses: ["DONE"], keys: [] },
-  CHECKPOINT: { source: "SYSTEM", statuses: ["DONE"], keys: TOKEN_KEYS },
-  ERROR_MESSAGE: { source: "SYSTEM", statuses: ["DONE"], keys: ["content"] },
-};
-const REQUIRED: Record<string, string> = {
-  USER_INPUT: "content",
-  GENERIC: "content",
-  SYSTEM_MESSAGE: "content",
-  CHECKPOINT: "content",
-  ERROR_MESSAGE: "error",
-};
+/** As observed on 1.5.13 and 1.5.14. */
+const SHAPES = new Map<string, Shape>([
+  [
+    "USER_INPUT",
+    {
+      source: "USER_EXPLICIT",
+      statuses: ["DONE"],
+      required: "content",
+      keys: [],
+    },
+  ],
+  [
+    "PLANNER_RESPONSE",
+    {
+      source: "MODEL",
+      statuses: ["DONE", "ERROR"],
+      keys: [
+        "model",
+        "content",
+        "thinking",
+        "tool_calls",
+        "error",
+        ...TOKEN_KEYS,
+      ],
+    },
+  ],
+  [
+    "GENERIC",
+    {
+      source: "MODEL",
+      statuses: ["DONE", "ERROR", "RUNNING"],
+      required: "content",
+      keys: ["error", "media"],
+    },
+  ],
+  [
+    "SYSTEM_MESSAGE",
+    { source: "SYSTEM", statuses: ["DONE"], required: "content", keys: [] },
+  ],
+  [
+    "CHECKPOINT",
+    {
+      source: "SYSTEM",
+      statuses: ["DONE"],
+      required: "content",
+      keys: TOKEN_KEYS,
+    },
+  ],
+  [
+    "ERROR_MESSAGE",
+    {
+      source: "SYSTEM",
+      statuses: ["DONE"],
+      required: "error",
+      keys: ["content"],
+    },
+  ],
+]);
 const STRING_KEYS = new Set(["model", "content", "thinking", "error"]);
 const USER_OPEN = "<USER_REQUEST>\n";
 const USER_CLOSE = "\n</USER_REQUEST>";
-const SYSTEM_BODY = /^[\s\S]*?<SYSTEM_MESSAGE>\n([\s\S]*)\n<\/SYSTEM_MESSAGE>$/;
+/** The blocks observed after a request, each at most once. */
+const USER_TRAILER =
+  /^(?:\n<ADDITIONAL_METADATA>\n(?:(?!<\/?ADDITIONAL_METADATA>)[\s\S])*\n<\/ADDITIONAL_METADATA>)?(?:\n<USER_SETTINGS_CHANGE>\n(?:(?!<\/?USER_SETTINGS_CHANGE>)[\s\S])*\n<\/USER_SETTINGS_CHANGE>)?$/;
+const SYSTEM_OPEN =
+  "The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.\n\n<SYSTEM_MESSAGE>\n";
+const SYSTEM_CLOSE = "\n</SYSTEM_MESSAGE>";
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 
+/** A diagnostic for an arbitrary JSON value that coerces nothing. */
+function describe(value: unknown): string {
+  return typeof value === "string"
+    ? JSON.stringify(value.length > 40 ? `${value.slice(0, 40)}…` : value)
+    : value === null
+      ? "null"
+      : Array.isArray(value)
+        ? "an array"
+        : typeof value;
+}
+
 /**
  * One log line as a record, or the reason it is not one YA recognizes. A
- * key, source, status or field type outside what was observed is a reason,
- * so a later `agy` that adds content makes the log unknown rather than
- * silently projecting less.
+ * key, source, status, field type or wrapper outside what was observed is a
+ * reason, so a later `agy` that adds content makes the log unknown rather
+ * than silently projecting less. Never throws.
  */
 export function parseAntigravityLogRecord(
   line: string,
 ): AntigravityLogRecord | { unknown: string } {
+  try {
+    return parseRecord(line);
+  } catch (error) {
+    // A bug, not a record shape; callers still fall back.
+    return {
+      unknown: `the projection failed: ${error instanceof Error ? error.message : describe(error)}`,
+    };
+  }
+}
+
+function parseRecord(line: string): AntigravityLogRecord | { unknown: string } {
   let raw: unknown;
   try {
     raw = JSON.parse(line);
@@ -145,78 +225,121 @@ export function parseAntigravityLogRecord(
     return { unknown: "a line is not JSON" };
   }
   if (!isObject(raw)) return { unknown: "a line is not a JSON object" };
-  const { step_index: step, type, source, status, created_at } = raw;
-  if (!Number.isSafeInteger(step) || (step as number) < 0)
+  const field = (key: string): unknown =>
+    Object.hasOwn(raw, key) ? raw[key] : undefined;
+  const step = field("step_index");
+  if (typeof step !== "number" || !Number.isSafeInteger(step) || step < 0)
     return { unknown: "a record has no valid step_index" };
-  const shape = typeof type === "string" ? SHAPES[type] : undefined;
-  if (!shape) return { unknown: `unrecognized record type ${String(type)}` };
+  const type = field("type");
+  const shape = typeof type === "string" ? SHAPES.get(type) : undefined;
+  if (typeof type !== "string" || !shape)
+    return { unknown: `record type ${describe(type)} at step ${step}` };
   const at = `${type} at step ${step}`;
-  if (source !== shape.source || !shape.statuses.includes(status as string))
-    return { unknown: `${at} has source ${source} and status ${status}` };
-  if (typeof created_at !== "string")
+  const source = field("source");
+  const status = field("status");
+  if (
+    source !== shape.source ||
+    typeof status !== "string" ||
+    !shape.statuses.includes(status)
+  )
+    return {
+      unknown: `${at} has source ${describe(source)} and status ${describe(status)}`,
+    };
+  const createdAt = field("created_at");
+  if (typeof createdAt !== "string")
     return { unknown: `${at} has no created_at` };
-  const required = REQUIRED[type as string];
   for (const key of Object.keys(raw)) {
     if (
       !COMMON_KEYS.includes(key) &&
-      key !== required &&
+      key !== shape.required &&
       !shape.keys.includes(key)
     )
-      return { unknown: `${at} has an unrecognized field ${key}` };
+      return { unknown: `${at} has an unrecognized field ${describe(key)}` };
     const value = raw[key];
     if (
       (STRING_KEYS.has(key) && typeof value !== "string") ||
       (TOKEN_KEYS.includes(key) && typeof value !== "number") ||
-      (key === "media" && !Array.isArray(value))
+      (key === "media" && !Array.isArray(value)) ||
+      (key === "tool_calls" && !Array.isArray(value))
     )
-      return { unknown: `${at} has an unexpected ${key}` };
+      return { unknown: `${at} has ${describe(value)} for ${key}` };
   }
-  if (required && typeof raw[required] !== "string")
-    return { unknown: `${at} has no ${required}` };
-  const base = { step: step as number, createdAt: created_at };
-  switch (type) {
+  if (shape.required && typeof field(shape.required) !== "string")
+    return { unknown: `${at} has no ${shape.required}` };
+  const base = { step, createdAt };
+  const text = (key: string) => field(key) as string | undefined;
+  switch (type as RecordType) {
     case "USER_INPUT": {
-      const content = raw.content as string;
+      const content = text("content")!;
       const close = content.lastIndexOf(USER_CLOSE);
-      if (!content.startsWith(USER_OPEN) || close < USER_OPEN.length - 1)
-        return { unknown: `${at} has no USER_REQUEST` };
-      return { ...base, type, text: content.slice(USER_OPEN.length, close) };
+      if (
+        !content.startsWith(USER_OPEN) ||
+        close < USER_OPEN.length - 1 ||
+        !USER_TRAILER.test(content.slice(close + USER_CLOSE.length))
+      )
+        return { unknown: `${at} is not a USER_REQUEST in the observed form` };
+      return {
+        ...base,
+        type: "USER_INPUT",
+        text: content.slice(
+          USER_OPEN.length,
+          Math.max(close, USER_OPEN.length),
+        ),
+      };
     }
     case "PLANNER_RESPONSE": {
-      const calls = raw.tool_calls ?? [];
+      const calls = (field("tool_calls") as unknown[] | undefined) ?? [];
       if (
-        !Array.isArray(calls) ||
         !calls.every(
           (call) =>
             isObject(call) &&
             Object.keys(call).length === 2 &&
+            Object.hasOwn(call, "name") &&
             typeof call.name === "string" &&
+            Object.hasOwn(call, "args") &&
             isObject(call.args),
         )
       )
         return { unknown: `${at} has unexpected tool_calls` };
+      const optional = (key: "model" | "content" | "thinking" | "error") =>
+        text(key) ? { [key]: text(key) } : {};
       return {
         ...base,
-        type,
+        type: "PLANNER_RESPONSE",
         calls: calls as ToolCall[],
-        ...(raw.model !== undefined ? { model: raw.model as string } : {}),
-        ...(raw.content ? { content: raw.content as string } : {}),
-        ...(raw.thinking ? { thinking: raw.thinking as string } : {}),
-        ...(raw.error ? { error: raw.error as string } : {}),
+        ...optional("model"),
+        ...optional("content"),
+        ...optional("thinking"),
+        ...optional("error"),
       };
     }
     case "GENERIC":
       return {
         ...base,
-        type,
+        type: "GENERIC",
         status: status as "DONE" | "ERROR" | "RUNNING",
-        content: raw.content as string,
+        content: text("content")!,
       };
-    case "SYSTEM_MESSAGE":
+    case "SYSTEM_MESSAGE": {
+      const content = text("content")!;
+      if (
+        !content.startsWith(SYSTEM_OPEN) ||
+        !content.endsWith(SYSTEM_CLOSE) ||
+        content.length < SYSTEM_OPEN.length + SYSTEM_CLOSE.length
+      )
+        return {
+          unknown: `${at} is not a SYSTEM_MESSAGE in the observed form`,
+        };
+      return {
+        ...base,
+        type: "SYSTEM_MESSAGE",
+        content: content.slice(SYSTEM_OPEN.length, -SYSTEM_CLOSE.length),
+      };
+    }
     case "CHECKPOINT":
-      return { ...base, type, content: raw.content as string };
+      return { ...base, type: "CHECKPOINT", content: text("content")! };
     default:
-      return { ...base, type: "ERROR_MESSAGE", error: raw.error as string };
+      return { ...base, type: "ERROR_MESSAGE", error: text("error")! };
   }
 }
 
@@ -240,7 +363,9 @@ export function antigravityStepToolId(
 
 export type AntigravityLogProjectionResult =
   | { status: "known"; messages: Message[] }
-  | { status: "unknown"; reason: string };
+  /** `error` is set only when the projection itself threw: a bug, which
+   * callers still treat as unknown and tests must not see. */
+  | { status: "unknown"; reason: string; error?: unknown };
 
 interface OpenGroup {
   step: number;
@@ -271,6 +396,7 @@ export class AntigravityLogProjection {
   private previous?: number;
   private group?: OpenGroup;
   private failure?: string;
+  private error?: unknown;
 
   constructor(private readonly conversationId: string) {}
 
@@ -284,32 +410,58 @@ export class AntigravityLogProjection {
   }
 
   add(record: AntigravityLogRecord): boolean {
-    return this.take(record, true);
+    return this.guard(() => this.take(record, true));
   }
 
   observe(record: AntigravityLogRecord): boolean {
-    return this.take(record, false);
+    return this.guard(() => this.take(record, false));
   }
 
   /** Parses and adds one line; an unterminated final line is not a record yet. */
   addLine(line: AntigravityLogLine): boolean {
-    if (this.failure) return false;
-    if (!line.terminated) return true;
-    if (!line.text) return this.fail("the log has an empty line");
-    const record = parseAntigravityLogRecord(line.text);
-    return "unknown" in record ? this.fail(record.unknown) : this.add(record);
+    return this.guard(() => {
+      if (!line.terminated) return true;
+      if (line.invalidUtf8) return this.fail("a line is not valid UTF-8");
+      if (!line.text) return this.fail("the log has an empty line");
+      const record = parseAntigravityLogRecord(line.text);
+      return "unknown" in record
+        ? this.fail(record.unknown)
+        : this.take(record, true);
+    });
   }
 
   /**
    * Ends the projection. `ownerLive` applies when the log ended inside a
    * group: its missing results are still running under a live owner and are
-   * interrupted once the conversation has stopped.
+   * interrupted once the conversation has stopped. The caller must not
+   * report a spent read budget as the end of the log.
    */
   finish(options: { ownerLive: boolean }): AntigravityLogProjectionResult {
-    if (!this.failure && !options.ownerLive) this.closeGroup();
+    if (!options.ownerLive)
+      this.guard(() => {
+        this.closeGroup();
+        return true;
+      });
     return this.failure
-      ? { status: "unknown", reason: this.failure }
+      ? {
+          status: "unknown",
+          reason: this.failure,
+          ...(this.error === undefined ? {} : { error: this.error }),
+        }
       : { status: "known", messages: this.messages };
+  }
+
+  /** Every entry point is total: a throw becomes an unknown log. */
+  private guard(run: () => boolean): boolean {
+    if (this.failure) return false;
+    try {
+      return run();
+    } catch (error) {
+      this.error = error;
+      return this.fail(
+        `the projection failed: ${error instanceof Error ? error.message : describe(error)}`,
+      );
+    }
   }
 
   private fail(reason: string): false {
@@ -327,7 +479,6 @@ export class AntigravityLogProjection {
   }
 
   private take(record: AntigravityLogRecord, project: boolean): boolean {
-    if (this.failure) return false;
     this.records++;
     const { step } = record;
     if (this.previous !== undefined && step <= this.previous)
@@ -467,7 +618,7 @@ export class AntigravityLogProjection {
           uuid: id(),
           timestamp,
           content: "System message",
-          details: [SYSTEM_BODY.exec(record.content)?.[1] ?? record.content],
+          details: [record.content],
         });
         return;
       case "CHECKPOINT":

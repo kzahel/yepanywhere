@@ -5,21 +5,25 @@
 //   pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-log-census.mjs \
 //     project <transcript_full.jsonl> [--repeat 3]
 //
-// census: copies the store (default ~/.gemini/antigravity-cli) into an owned
-// profile, so no session/load ever runs against a conversation another
-// process may own. For each conversation with a full log it projects the
-// copy's log, replays the copy through `agy acp` session/load into YA's
-// AntigravityTranscript, and reports bytes read, records decoded and every
-// mismatch class left after the expected differences documented in
+// census: stages each conversation of a store (default
+// ~/.gemini/antigravity-cli) into an owned profile as independent regular
+// files (antigravity-store-staging.mjs): the database with its WAL and the
+// brain directory, checked unchanged across the copy, else inconclusive.
+// A link in the source is refused, and agy never starts while anything in
+// the profile resolves outside it, so no session/load can reach a
+// conversation another process may own. For each conversation it projects
+// the copy's log, replays the copy through `agy acp` session/load into
+// YA's AntigravityTranscript, and reports bytes read, records decoded, the
+// replay's raw tool frames and normalized ordinary tool_result rows, and
+// every mismatch class left after the expected differences documented in
 // packages/server/test/utils/antigravity-projection-compare.ts. The report
 // names steps and classes only, never content.
 //
 // project: projects one log and reports records and MB per second.
 import {
-  cpSync,
   createReadStream,
-  existsSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -115,38 +119,70 @@ const { loadAntigravityReplay } = await import(
   join(server, "src/sdk/providers/antigravity-replay.ts")
 );
 
-const source = resolve(
-  option("store", join(homedir(), ".gemini", "antigravity-cli")),
+const staging = await import(
+  join(repo, "scripts/perf-repro/antigravity-store-staging.mjs")
+);
+const { isAntigravityInvokeSubagent } = await import(
+  join(server, "src/sessions/antigravity-subagent-links.ts")
+);
+
+const source = realpathSync(
+  resolve(option("store", join(homedir(), ".gemini", "antigravity-cli"))),
 );
 const agy = option("agy", support.defaultAgy());
+const brain = join(source, "brain");
+const ids = readdirSync(brain, { withFileTypes: true })
+  .filter(
+    (entry) =>
+      /^[0-9a-f-]{36}$/.test(entry.name) &&
+      staging.identity(
+        join(support.logsDir(source, entry.name), "transcript_full.jsonl"),
+      ) !== null,
+  )
+  .map((entry) => entry.name);
 const model = await support.startModel();
 const profile = support.makeProfile(model);
 const scope = support.createScope();
 const report = { source, agy, conversations: {}, totals: {} };
+/** Stages until the source did not change during the copy, three tries. */
+const coherently = (stage) => {
+  for (let attempt = 0; attempt < 3; attempt++)
+    if (stage().coherent) return true;
+  return false;
+};
 try {
-  // Only the conversation files and the index; never the runtime's own state.
-  for (const entry of ["conversations", "brain", "conversation_summaries.db"])
-    if (existsSync(join(source, entry)))
-      cpSync(join(source, entry), join(profile.store, entry), {
-        recursive: true,
-        preserveTimestamps: true,
-      });
+  if (!coherently(() => staging.stageSummaries(source, profile.store)))
+    throw new Error("the summaries index changed during every copy");
   const conversations = join(profile.store, "conversations");
-  const ids = readdirSync(join(profile.store, "brain")).filter((id) =>
-    existsSync(
-      join(support.logsDir(profile.store, id), "transcript_full.jsonl"),
-    ),
-  );
   const totals = {
     conversations: ids.length,
+    inconclusive: 0,
     bytes: 0,
     records: 0,
     projectSeconds: 0,
     unknown: 0,
     replayFailed: 0,
+    frames: {
+      ordinaryToolCalls: 0,
+      failedToolCalls: 0,
+      withRawOutput: {},
+      ordinaryToolCallUpdates: 0,
+      subagentToolCalls: 0,
+    },
+    normalizedOrdinaryResults: 0,
     classes: {},
   };
   for (const id of ids) {
+    const entry = {};
+    report.conversations[id] = entry;
+    // Database, WAL and log from one persisted state, or nothing.
+    if (
+      !coherently(() => staging.stageConversation(source, profile.store, id))
+    ) {
+      entry.inconclusive = "the conversation changed during every copy";
+      totals.inconclusive++;
+      continue;
+    }
     const log = join(
       support.logsDir(profile.store, id),
       "transcript_full.jsonl",
@@ -157,21 +193,43 @@ try {
     totals.bytes += projected.bytes;
     totals.records += projected.records;
     totals.projectSeconds += projectSeconds;
-    const entry = {
+    Object.assign(entry, {
       logBytes: statSync(log).size,
       bytesRead: projected.bytes,
       recordsDecoded: projected.records,
       projectMs: Math.round(projectSeconds * 1000),
       status: projected.status,
       ...(projected.reason ? { reason: projected.reason } : {}),
-    };
-    report.conversations[id] = entry;
+    });
     if (projected.status !== "known") {
       totals.unknown++;
       continue;
     }
     entry.projectedMessages = projected.messages.length;
     const transcript = new AntigravityTranscript(id);
+    const frames = totals.frames;
+    const count = (update) => {
+      if (
+        update.sessionUpdate !== "tool_call" &&
+        update.sessionUpdate !== "tool_call_update"
+      )
+        return;
+      if (isAntigravityInvokeSubagent(update)) {
+        frames.subagentToolCalls++;
+        return;
+      }
+      if (update.sessionUpdate === "tool_call_update") {
+        frames.ordinaryToolCallUpdates++;
+        return;
+      }
+      frames.ordinaryToolCalls++;
+      if (update.status === "failed") frames.failedToolCalls++;
+      if (update.rawOutput !== undefined)
+        frames.withRawOutput[update.kind ?? "none"] =
+          (frames.withRawOutput[update.kind ?? "none"] ?? 0) + 1;
+    };
+    // Never start agy while anything in the profile leads outside it.
+    staging.assertContained(profile.root);
     const agent = await support.startAgy(scope, profile, {
       agy,
       t0: support.now(),
@@ -183,6 +241,7 @@ try {
           scope: conversations,
           params: { sessionId: id, cwd: profile.project, mcpServers: [] },
           transcript,
+          onUpdate: count,
         }),
         `session/load ${id}`,
         60_000,
@@ -193,9 +252,32 @@ try {
       entry.replayError = String(error?.message ?? error);
       totals.replayFailed++;
     } finally {
+      // Late frames still reach the transcript and the counts.
+      await support.sleep(500);
       await agent.runtime.close();
     }
     entry.replayMessages = transcript.messages.length;
+    const spawns = new Set(
+      transcript.messages.flatMap((message) =>
+        Array.isArray(message.message?.content)
+          ? message.message.content
+              .filter(
+                (block) =>
+                  block.type === "tool_use" && block.name === "spawn_agent",
+              )
+              .map((block) => block.id)
+          : [],
+      ),
+    );
+    entry.normalizedOrdinaryResults = transcript.messages.filter(
+      (message) =>
+        Array.isArray(message.message?.content) &&
+        message.message.content.some(
+          (block) =>
+            block.type === "tool_result" && !spawns.has(block.tool_use_id),
+        ),
+    ).length;
+    totals.normalizedOrdinaryResults += entry.normalizedOrdinaryResults;
     const compared = compareProjectionWithReplay(
       projected.messages,
       transcript.messages,
