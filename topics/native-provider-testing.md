@@ -1004,7 +1004,11 @@ lives, a complete read that shows the turn before the resume point and the
 resumed prompt and reply once each; the `session/load` frame-order check
 after it still qualifies the fallback. The model-selection case's cold
 launch now resumes with `session/resume` and still reapplies the model and
-effort.
+effort. The safe-reload app case now also resumes on the replacement
+backend and reloads the resumed session. Three controlled-peer cases were
+added to `antigravity.test.ts` and one "today" case flipped. The selection
+passed with 52 cases and 3 skipped on 2026-11-23, with the 1.5.13 pin and
+with the 1.5.14 candidate, on Node 24.22.1.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
