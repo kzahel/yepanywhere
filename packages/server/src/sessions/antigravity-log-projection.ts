@@ -187,7 +187,8 @@ const SYSTEM_CLOSE = "\n</SYSTEM_MESSAGE>";
 /** `agy`'s inbox delivery, as a wake and a notice begin. */
 const INBOX_MESSAGE = "[Message] ";
 /** The time lines `agy` puts before a tool's output; the step has its time. */
-const RESULT_TIMES = /^(?:(?:Created|Completed) At: [^\n]*\n)+/;
+const RESULT_TIMES =
+  /^(?:(?:Created|Completed) At: \d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)\n)+/;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -400,14 +401,19 @@ export class AntigravityLogProjection {
   records = 0;
   private previous?: number;
   private group?: OpenGroup;
+  /** A projected planner error, dropped if an ERROR_MESSAGE follows. */
+  private plannerError?: Message;
   private failure?: string;
   private error?: unknown;
 
   constructor(private readonly conversationId: string) {}
 
-  /** A planner record projected here has calls whose outcome is unknown. */
+  /**
+   * A planner record projected here has calls whose outcome is unknown, or
+   * an error that the next record may report instead.
+   */
   get awaitingGroup(): boolean {
-    return !this.failure && !!this.group?.calls;
+    return !this.failure && (!!this.group?.calls || !!this.plannerError);
   }
 
   get unknown(): string | undefined {
@@ -529,6 +535,13 @@ export class AntigravityLogProjection {
       return this.fail(
         `${record.type} at step ${step} is inside the calls of step ${this.group.step}`,
       );
+    const plannerError = this.plannerError;
+    this.plannerError = undefined;
+    if (plannerError && record.type === "ERROR_MESSAGE") {
+      // The step after a failed response reports the same failure.
+      const index = this.messages.lastIndexOf(plannerError);
+      if (index >= 0) this.messages.splice(index, 1);
+    }
     if (record.type === "PLANNER_RESPONSE" && record.calls.length)
       this.group = {
         step,
@@ -607,8 +620,15 @@ export class AntigravityLogProjection {
             }),
           );
         });
-        // `error` was observed only on a 1.5.14 cancel, whose ERROR_MESSAGE
-        // step reports the same cause; one row per turn end is shown.
+        // A 1.5.14 cancel logs its cause here and again as the next step's
+        // ERROR_MESSAGE; this row stays only if no ERROR_MESSAGE follows.
+        if (record.error)
+          this.plannerError = this.push({
+            type: "error",
+            uuid: id("error"),
+            timestamp,
+            error: record.error,
+          });
         return;
       }
       case "SYSTEM_MESSAGE":

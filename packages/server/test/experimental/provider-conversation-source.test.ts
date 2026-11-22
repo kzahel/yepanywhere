@@ -1,9 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, open as openFile, rm } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  open as openFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-runtime.js";
+import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
+import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 import { createProviderConversationSource } from "../../src/experimental/provider-conversation-source.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
@@ -116,4 +126,172 @@ it("opens a Codex conversation from its compact tail when the rollout is too lar
   expect(texts).toContain("after compaction");
   expect(texts).not.toContain("before compaction");
   expect(input.sourceCoverage.earlierOutsideScope).toBe("yes");
+});
+
+describe("an Antigravity conversation source", () => {
+  const nativeId = "c0ffee00-0000-4000-8000-000000000198";
+  const at = "2026-11-22T08:00:00Z";
+  const record = (step: number, type: string, fields: object) =>
+    `${JSON.stringify({
+      step_index: step,
+      source:
+        type === "USER_INPUT"
+          ? "USER_EXPLICIT"
+          : type === "GENERIC" || type === "PLANNER_RESPONSE"
+            ? "MODEL"
+            : "SYSTEM",
+      type,
+      status: "DONE",
+      created_at: at,
+      ...fields,
+    })}\n`;
+  async function setup(log: string) {
+    const project = await realpath(await mkdtemp(join(dir, "project-")));
+    const store = join(dir, "antigravity-cli");
+    const conversations = join(store, "conversations");
+    const logs = join(store, "brain", nativeId, ".system_generated", "logs");
+    await mkdir(logs, { recursive: true });
+    await writeAntigravitySummaries(store, [{ id: nativeId, cwd: project }]);
+    await writeFile(join(conversations, `${nativeId}.db`), "db");
+    await writeFile(join(logs, "transcript_full.jsonl"), log);
+    const scope = await realpath(conversations);
+    const reader = new AntigravitySessionReader({
+      projectPath: project,
+      sessionsDir: scope,
+    });
+    const row: SessionCatalogRow = {
+      sessionId: nativeId,
+      catalogFamily: "antigravity",
+      storeKey: "test",
+      projectId: toUrlProjectId(project),
+      projectPath: project,
+      projectIdentityKey: project,
+      updatedAt: at,
+      fidelity: "tail",
+      sourceVersion: "1",
+      location: { kind: "file", path: join(scope, `${nativeId}.db`) },
+      nativeStorageScope: scope,
+    };
+    return { reader, row, scope };
+  }
+  const prompt = record(0, "USER_INPUT", {
+    content: "<USER_REQUEST>\nAsk\n</USER_REQUEST>",
+  });
+
+  it("replaces a departed owner's rows with the log, keeping text the log never got", async () => {
+    const { reader, row, scope } = await setup(
+      prompt + record(1, "PLANNER_RESPONSE", { content: "Logged reply" }),
+    );
+    const live = [
+      {
+        uuid: `${nativeId}:0`,
+        timestamp: at,
+        type: "user",
+        message: { role: "user", content: "Ask" },
+      },
+      {
+        uuid: `${nativeId}:1`,
+        timestamp: at,
+        type: "assistant",
+        message: { role: "assistant", content: "Logged reply" },
+      },
+      {
+        uuid: `${nativeId}:2`,
+        timestamp: at,
+        type: "assistant",
+        message: { role: "assistant", content: "CUT_OFF_PARTIAL" },
+      },
+    ];
+    const owner = ownAntigravitySession(scope, nativeId);
+    for (const message of live) owner.record(message as never);
+    let listener: ((event: { type: string }) => void) | undefined;
+    let running:
+      | {
+          sessionId: string;
+          provider: string;
+          state: { type: string };
+          registerViewer(): () => void;
+          subscribe(cb: typeof listener): () => void;
+          getMessageHistory(): typeof live;
+        }
+      | undefined = {
+      sessionId: nativeId,
+      provider: "antigravity",
+      state: { type: "in-turn" },
+      registerViewer: () => () => {},
+      subscribe: (cb) => {
+        listener = cb;
+        return () => {};
+      },
+      getMessageHistory: () => live,
+    };
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => row,
+      getProcess: () => running as never,
+    });
+    const abort = new AbortController();
+    try {
+      const source = await open(nativeId, () => {}, abort.signal);
+      const during = await source.read(abort.signal);
+      expect(during.messages.map((m) => m.uuid)).toEqual(
+        live.map((m) => m.uuid),
+      );
+      // The owner ends mid-turn with no idle read between.
+      owner.release();
+      running = undefined;
+      listener?.({ type: "terminated" });
+      const after = await source.read(abort.signal);
+      expect(
+        after.messages.map((m) => [
+          m.uuid,
+          (m as { message?: { content?: unknown } }).message?.content,
+        ]),
+      ).toEqual([
+        [`${nativeId}:step-0`, "Ask"],
+        [`${nativeId}:step-1:text`, "Logged reply"],
+        [`${nativeId}:2`, "CUT_OFF_PARTIAL"],
+      ]);
+      source.close();
+    } finally {
+      abort.abort();
+      await reader.close();
+    }
+  });
+
+  it("reports a page cut by bytes as incomplete within the requested scope", async () => {
+    const big = "r".repeat(2 * 1024 * 1024);
+    const { reader, row } = await setup(
+      prompt +
+        record(1, "PLANNER_RESPONSE", {
+          tool_calls: [0, 1, 2].map(() => ({ name: "read_file", args: {} })),
+        }) +
+        [2, 3, 4]
+          .map((step) => record(step, "GENERIC", { content: big }))
+          .join("") +
+        record(5, "PLANNER_RESPONSE", { content: "Short final reply" }),
+    );
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => row,
+      getProcess: () => undefined,
+    });
+    const abort = new AbortController();
+    try {
+      const source = await open(nativeId, () => {}, abort.signal);
+      const input = await source.read(abort.signal);
+      expect(JSON.stringify(input.messages)).toContain("Short final reply");
+      expect(JSON.stringify(input.messages)).not.toContain('"Ask"');
+      expect(input.sourceCoverage).toMatchObject({
+        complete: false,
+        earlierInScope: true,
+        earlierOutsideScope: "unknown",
+      });
+      expect(input.sourceCoverage.limitedBy).toContain("bytes");
+      source.close();
+    } finally {
+      abort.abort();
+      await reader.close();
+    }
+  });
 });

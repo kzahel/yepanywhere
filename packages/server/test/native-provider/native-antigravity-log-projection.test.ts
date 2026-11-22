@@ -166,9 +166,11 @@ describe.skipIf(!providers.includes("antigravity"))(
         "conversation_summaries.db-wal",
         "conversation_summaries.db-shm",
       ];
+      // A newly created WAL must be empty; then neither sidecar is compared.
+      if (!(sidecars[0]! in before) && sidecars[0]! in afterView)
+        expect(afterView[sidecars[0]!]).toMatch(/^0 /);
       for (const name of sidecars)
         if (!(name in before)) delete afterView[name];
-      expect(afterView[sidecars[0]!] ?? "0 ").toMatch(/^0 /);
       expect(afterView).toEqual(before);
 
       const projected = await projectAntigravityLog(
@@ -253,6 +255,13 @@ describe.skipIf(!providers.includes("antigravity"))(
         expect.stringContaining("Tool is running as a background task"),
       ]);
       expect(projected.messages.some((m) => m.orphanedToolUseIds)).toBe(false);
+      // The cancel shows one error on both versions: 1.5.14's planner error
+      // is reported again by the ERROR_MESSAGE after it.
+      expect(
+        projected.messages
+          .filter((message) => message.type === "error")
+          .map((message) => message.uuid),
+      ).toEqual([expect.stringMatching(new RegExp(`^${id}:step-\\d+$`))]);
       const others = projected.messages.filter(
         (message) => message.type === "system" || message.type === "error",
       );

@@ -20,7 +20,7 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
-| Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing; see [cold history from the log](#cold-history-from-the-log). ACP replay is the fallback for a missing or unknown log. Resume and that fallback keep collecting ACP history after an early load response until they observe the persisted text tail; a missing expected tail fails the operation. |
+| Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing but [SQLite's sidecars for the summaries index](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md); see [cold history from the log](#cold-history-from-the-log). ACP replay is the fallback for a missing or unknown log. Resume and that fallback keep collecting ACP history after an early load response until they observe the persisted text tail; a missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
 | Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions. Real `agy` cases cover Allow, Deny and Stop for the tested `write_file` and `run_command` calls, and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
@@ -318,8 +318,9 @@ queued input into another conversation.
 
 History comes from native file facts and `agy`'s brain log, with ACP
 `session/load` only as a fallback, and no YA shadow transcript or protobuf
-decoder. Session summaries take their title from the summaries index and
-start no `agy` (before plan 195 step 4 they asked ACP `session/list`).
+decoder. Session summaries take their title from the summaries index, or
+for an untitled row from the log's first prompt, and start no `agy` (before
+plan 195 step 4 they asked ACP `session/list`).
 [Native storage](antigravity-native-storage.md) describes each file `agy`
 writes and the brain log's record format. `agy` records each conversation's
 workspace URIs, title and subagent lineage (`parent_conversation_id`,
@@ -366,29 +367,51 @@ It never reads the shortened `transcript.jsonl`.
   a call and its results load together. A page whose records show nothing
   (only reminders) extends to the page before it. Older pages report
   `hasOlderMessages` with their first message as the cursor, as other
-  providers' pages do. A read without compact-tail options (full history,
-  restart sources) projects the whole log.
+  providers' pages do. A catch-up from a durable overlay's ID (a recap,
+  local-command or synthetic-done row) reads the latest page too.
+- **Whole-log reads** happen only when a caller asks for complete history:
+  a detail read with `fullHistory=1` (including the saved full-history
+  preference and opt-in aside polling and hydration),
+  public-share capture, restart and handoff sources, the maintenance
+  comparison and opt-in instruction restoration.
 - **Message IDs** come from step indexes: `<id>:step-<n>` with `:thinking`,
-  `:text`, or a call's `:tool-<i>:call` and `:tool-<i>:result`. A page has
-  the same IDs however it was reached. `beforeMessageId` and
+  `:text`, `:error`, or a call's `:tool-<i>:call` and `:tool-<i>:result`. A
+  page has the same IDs however it was reached. `beforeMessageId` and
   `afterMessageId` accept each form; a `:result` names the record at step
   P+1+*i* of planner P's call *i*. An ID from before this change (positional
   `<id>:<n>`, or an ACP tool call ID) misses cleanly: an older page is empty
   and reports no older history, and a catch-up gets the latest page as a
   replacement window. A catch-up further back than one page does the same.
-- **Cost.** A page reads its own bytes plus a bounded context: at most one
-  tool group before it and one after it, a search by halves for a cursor,
-  and append-only source checks. Each read stops at 32 MiB; a spent budget
-  makes the log unknown, never shorter. A file replaced or truncated during
-  a read is read again, up to three times, then unknown. Reads are
-  read-only, start no process and take no ownership guard.
+- **Large records.** A record larger than 16 MiB, and each result of a tool
+  group whose results together exceed 16 MiB, is shown as a placeholder
+  with its step's usual ID that says the step is too large to show; a
+  planner placeholder keeps its call names, so its calls and results still
+  pair. The rule depends only on the file, so every page and the complete
+  read agree, and everything before and after stays reachable by paging.
+  Size never makes a log unknown or starts a fallback.
+- **Cost.** A page reads its own bytes, its context (at most one tool group
+  before it and the records that resolve a group after it), a search by
+  halves for a cursor that crosses each long line once, and append-only
+  source checks. A record over the limit is scanned, never held: crossing
+  one costs its size in reads with fixed memory. A file replaced or
+  truncated while it is opened or read is read again, up to three times,
+  then unknown. Reads are read-only, start no process and take no
+  ownership guard; the summaries index read is the one exception to
+  writing nothing
+  ([SQLite sidecars](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md)).
 - **Fallback.** A missing log, one with no complete record, or an unknown one
-  (any record outside the observed shapes, among the records the window
-  read) falls back to ACP `session/load` replay of the whole conversation,
-  which keeps its 8 MiB / 10,000-message limit. The fallback never starts
-  beside a live owner. Validation covers only the records a page reads, so a
+  (malformed content: any record outside the observed shapes, among the
+  records the window read; or a file that kept changing) falls back to ACP
+  `session/load` replay of the whole conversation, which keeps its 8 MiB /
+  10,000-message limit. Requests for the same conversation share one
+  replay whatever window each asked for. The fallback never starts beside a
+  live owner. Validation covers only the records a page reads (an
+  oversized record's keys, kinds, call list and text start), so a
   malformed record elsewhere in the file does not affect a page that does
   not read it.
+- **Store binding.** A read is published only for the store the reader is
+  still bound to: if its conversations directory now resolves to another
+  store, or the reader closed, the read returns nothing.
 - **What cold history shows**, unlike replay: tool results, checkpoints,
   `agy`'s tool names, each step's time and model, interrupted calls, and
   `ERROR_MESSAGE` records as errors (after a Stop too, where the live view
@@ -396,22 +419,39 @@ It never reads the shortened `transcript.jsonl`.
   collapsed "System message" rows; reminders `agy` adds to the model's
   context are not shown, as the live view and other providers' injected
   instructions are not. A tool result's leading `Created At:` and
-  `Completed At:` lines are dropped. A 1.5.14 cancel shows one error, the
-  `ERROR_MESSAGE`, not also its planner step's `error`. Replay shows steps
-  the log lacks (database-only replies and quota errors); the log view does
-  not.
+  `Completed At:` lines with `agy`'s timestamps are dropped; other output
+  that starts with those words is kept. A planner response's `error` is an
+  error row unless the next record is an `ERROR_MESSAGE` reporting it, as
+  on a 1.5.14 cancel, which shows one error.
+- **What it no longer shows.** Steps that exist only in the conversation
+  database, which ACP replay showed: replies cut off when the owner was
+  stopped mid-response (1.5.14) and some quota errors. The step 3 census
+  found six such steps in five of twelve local conversations
+  ([census](antigravity-native-storage.md#comparison-with-acp-replay)). This
+  is the accepted cost of reading the log without decoding the database.
 - **Children.** An `invoke_subagent` result is shown as the `spawn_agent`
   `{agent_id}` result that makes the row expandable with Open only when the
   child it names is a direct child of the conversation in the summaries
   index; calls and results pair by step, so no argument correlation is used.
+  Expanding or opening a child shows its log's latest page (back to two
+  checkpoints or about 4 MiB), with the step in progress missing while it
+  runs. The agent-session response has no field for earlier content not
+  loaded, so a longer child's earlier steps are not shown, as before this
+  change (a 4 MiB tail while running, an 8 MiB replay cap once stopped).
 - **Title, hover and v0.** The detail title is the first prompt, read from
-  the log's first records. The hover excerpt and the v0 conversation source
+  the log's first records. A summary whose index row has no title takes it
+  from the same bounded read of the log's start; listings do not read the
+  log, so an untitled row lists as "Antigravity session", where ACP's list
+  could name it before. The hover excerpt and the v0 conversation source
   use the latest page; an excerpt not found in it is unknown, never a full
-  read.
+  read. A v0 window whose page was cut by bytes reports incomplete coverage
+  with earlier history in scope and a byte limit, not compaction scope.
 
 A live YA owner still serves its own in-memory projection, with its own IDs
 (plan 195 step 6 changes that). After the owner exits, a client's catch-up
-from a live ID misses and takes the log's latest page.
+from a live ID misses and takes the log's latest page. A v0 observer that
+outlives the owner replaces the owner's rows with the log's, keeping only
+text the log does not hold (a reply cut off before its step was logged).
 
 ### Fallback replay and resume
 

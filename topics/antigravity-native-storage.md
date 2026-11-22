@@ -485,8 +485,8 @@ serves cold history.
 | Record | Messages, by ID |
 | --- | --- |
 | `USER_INPUT` | `<id>:step-<n>`: user text, the `<USER_REQUEST>` block's content without the newlines that wrap it. Literal tags inside the text are kept. The `<ADDITIONAL_METADATA>` and `<USER_SETTINGS_CHANGE>` blocks after it are dropped, as ACP replay drops them. |
-| `PLANNER_RESPONSE` | `<id>:step-<n>:thinking`, then `<id>:step-<n>:text`, each present only when non-empty, both with the record's `model`. Then call *i*'s `tool_use`, ID `<id>:step-<n>:tool-<i>`, in message `<tool id>:call`, under `agy`'s tool name and its `args` as input; `invoke_subagent` becomes `spawn_agent` with the input YA already normalizes for it. An `error` field adds no message (step 4): it was seen only on a 1.5.14 cancel, whose `ERROR_MESSAGE` reports the same cause. |
-| `GENERIC` | `<tool id>:result`: a `tool_result` for its call, with the record's `content` after its leading `Created At:` and `Completed At:` lines (step 4; often two pairs), and `is_error` for status `ERROR`. A `RUNNING` launch is a normal result. |
+| `PLANNER_RESPONSE` | `<id>:step-<n>:thinking`, then `<id>:step-<n>:text`, each present only when non-empty, both with the record's `model`. Then call *i*'s `tool_use`, ID `<id>:step-<n>:tool-<i>`, in message `<tool id>:call`, under `agy`'s tool name and its `args` as input; `invoke_subagent` becomes `spawn_agent` with the input YA already normalizes for it. An `error` field adds an `error` message `<id>:step-<n>:error`, unless the next record that is not a `GENERIC` is an `ERROR_MESSAGE`, which reports the same failure (a 1.5.14 cancel); a window ending at the planner reads that record to decide. |
+| `GENERIC` | `<tool id>:result`: a `tool_result` for its call, with the record's `content` after its leading `Created At:` and `Completed At:` lines with `agy`'s RFC 3339 timestamps (step 4; often two pairs; other text starting with those words stays), and `is_error` for status `ERROR`. A `RUNNING` launch is a normal result. |
 | Missing result step | No message. The call's `tool_use` message carries `orphanedToolUseIds` with its ID, which clients show as an incomplete call whose result is unavailable. |
 | `SYSTEM_MESSAGE` | An inbox delivery, whose text inside `<SYSTEM_MESSAGE>` begins `[Message] ` (a task's wake, a notice): `<id>:step-<n>`, an `informational` system message labelled "System message" with that text as its detail. Any other system message, such as the reminder that accompanies most user turns, adds no message (step 4). |
 | `CHECKPOINT` | `<id>:step-<n>`: a `compact_boundary` with the record's content as `compactSummaryText`, as Codex readers mark compaction. |
@@ -671,52 +671,93 @@ resident.
 ## Serving cold history — plan 195 step 4
 
 [`antigravity-log-window.ts`](../packages/server/src/sessions/antigravity-log-window.ts)
-reads one window of `transcript_full.jsonl` for the reader; the
-[provider contract](antigravity.md#cold-history-from-the-log) owns what users
-see. A window:
+reads one window of `transcript_full.jsonl` for the reader, through
+[`antigravity-log-source.ts`](../packages/server/src/sessions/antigravity-log-source.ts);
+the [provider contract](antigravity.md#cold-history-from-the-log) owns what
+users see. A window:
 
 - **Latest page.** Reads lines backward from the last newline (an
   unterminated tail is not a record) until the requested checkpoint, the
-  file's start, or 4 MiB, then backs off to the oldest record read that is
-  not a `GENERIC`, so a page never starts inside a tool group. A single
-  record or group larger than the page is read whole.
+  file's start, or 4 MiB of records, then backs off to the oldest record
+  read that is not a `GENERIC`, so a page never starts inside a tool group.
+  A single record or group larger than the page is read whole, within the
+  record limit below. A page that shows nothing extends to the one before
+  it, continuing the same backward read, so a run of hidden reminders is
+  read once.
 - **Context.** Reads back further to the last record that is not a
   `GENERIC` (at most *k*+1 records) and observes it, as the
-  [window rule](#windows) requires. A page that ends inside a group observes
-  forward until the group resolves.
+  [window rule](#windows) requires. An older page observes the records
+  after its cursor that resolve a planner's calls or error.
 - **Cursor.** Finds a message's record by halving the byte range on the
   `{"step_index":N,` prefix every observed record begins with (a record
-  without it is unknown), then reading forward below 256 KiB. The older page
-  includes the cursor's own record and is cut before the cursor message, so
-  every ID form ends a page exactly, including a `:result` and a later part
-  of a planner record.
-- **Budget and identity.** One request reads at most 32 MiB, counting
-  context, search, lookahead and probes; a spent budget is unknown. Before
-  reading it takes the
+  without it is unknown), then reading forward below 256 KiB. Where a probe
+  landed in a long line, the search remembers that no newline lies there,
+  so each long line is scanned once per request. The older page includes
+  the cursor's own record and is cut before the cursor message, so every ID
+  form ends a page exactly, including a `:result` and a later part of a
+  planner record.
+- **Record limit.** A line over 16 MiB is never held. Its bounds are found
+  by scanning, and a [fixed-memory scan](../packages/server/src/sessions/antigravity-log-oversized.ts)
+  reads its top-level keys and kinds, short fields, the first 8 KiB of each
+  text field and its tool calls' names. The rebuilt record (text replaced
+  by a notice, calls with empty arguments) goes through the same parser, so
+  an unknown key, kind, source, status, wrapper start or call shape is still
+  unknown. The results of a tool group whose results together exceed 16 MiB
+  are placeholders from their first bytes alone. Both rules depend only on
+  the file's layout, so every window and the complete read agree. Observed
+  records other than planners are read from their first 512 bytes only.
+- **Identity.** Opening the file, taking the
   [append-only fence](claude.md#transcript-acquisition-and-retention)
   the Claude and Codex readers use (device, inode, size, and the first and
-  last KiB); afterwards a file whose identity changed, that shrank, or whose
-  probes differ is read again, up to three attempts, then unknown. Appends
-  during a read are fine: the window ends at the size it opened.
+  last KiB) and reading are one attempt. A file whose identity changed, that
+  shrank, vanished or whose probes differ, during any of those, is read
+  again from scratch, up to three attempts, then unknown. Appends during a
+  read are fine: the window ends at the size it opened.
 - **Missing.** No file, an empty file or no complete record.
+- **What a request costs.** No fixed byte budget: size alone never makes a
+  log unknown, because a whole-history replay is the wrong answer to a
+  large record. A request reads its page, its context, the search probes,
+  and any record it crosses: a line over the limit is read twice (to find
+  its bounds and to summarize it) with fixed memory. Bytes are counted as
+  they arrive, across attempts. Held at once: the page's records (4 MiB),
+  at most one tool group's results (16 MiB) and one other record (16 MiB),
+  one partial line up to the limit, and a read chunk of at most 1 MiB.
+  Chunks of a line are joined once, when its newline is found.
 
 Measured 2026-11-22 on one macOS arm64 host, Node 24.22.1, on the generated
-500 MB target (499,969,963 bytes, 99,990 records, 49 checkpoints,
+500 MB target (499,976,470 bytes, 99,990 records, 49 checkpoints,
 `--interrupted-group-every 30000 --interior-gap-group-every 40000`), with two
-checkpoints requested:
+checkpoints requested, after review round 1:
 
 | Window | Bytes read | Messages | Time |
 | --- | ---: | ---: | ---: |
-| Latest page | 5,312,512 | 1,247 | 7–13 ms |
-| The page before it | 6,558,136 | 1,293 | 9–10 ms |
-| The next older page | 6,230,456 | 1,337 | 9–11 ms |
-| Catch-up from the newest message | 1,244,607 | 7 | 1–2 ms |
-| A cursor its record lacks (a miss) | 6,164,960 | 0 | 9 ms |
-| The whole log (a complete read) | 500,039,595 | 156,614 | 670–745 ms, 845–876 MB resident |
+| Latest page | 5,312,512 | 1,247 | 10 ms |
+| The page before it | 6,351,589 | 1,293 | 10 ms |
+| The next older page | 6,321,364 | 1,336 | 9 ms |
+| Catch-up from the newest message | 1,277,162 | 7 | 1 ms |
+| A cursor its record lacks (a miss) | 6,257,927 | 0 | 8 ms |
+| The whole log (a complete read) | 500,046,102 | 156,614 | 709 ms; resident peak 192 → 832 MiB |
 
 A page reads about its 4 MiB plus one read chunk (up to 1 MiB); a cursor
 adds about 30 probes of one record each. The unit test asserts the first
-three rows' bounds on this target.
+three rows' bounds on this target. Other unit cases, each a few records
+around one large one:
+
+- A 12 MiB reply before a short final reply: the final reply's page, then
+  the 12 MiB reply in full from Load older's cursor, which read under
+  26 MiB (the search crossed the line once, showing it read it again).
+- A 24 MiB reply: a cursor in the short reply before it pages normally; the
+  24 MiB reply is a placeholder.
+- A 34 MiB reply of text that repeats `{"step_index":27,`: the latest page
+  reaches past its placeholder, and paging gives the complete read.
+- 400 hidden reminders of 90 KiB (35 MiB) after a prompt: the latest page
+  is the prompt, reading under 40 MiB, each byte about once.
+
+The reviewer's retry case (a 33 MiB record, the head changed after every
+attempt) now reads 69 MB an attempt, 208 MB in all, and raises the
+process's resident peak from 69 to 162 MiB; it was 101 MB and 628 MiB
+before. Unchanged, the same file reads 69 MB and shows the record as a
+placeholder.
 
 All 12 logs in this host's store read as known. Paging backward with two
 checkpoints a page gave exactly each whole-log projection, including the

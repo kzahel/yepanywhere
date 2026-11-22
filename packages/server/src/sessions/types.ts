@@ -186,6 +186,8 @@ export interface LoadedSession {
         kind: "log-page";
         omittedPrefix: boolean;
         before: boolean;
+        /** What ended the page: its compaction scope, or its byte budget. */
+        cut?: "compactions" | "bytes";
       }
     | {
         kind: "compact-tail";

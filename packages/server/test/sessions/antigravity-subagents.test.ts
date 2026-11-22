@@ -2218,6 +2218,22 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       const child = await reader.getAgentSession(CHILD_ID, PARENT_ID);
       expect(child?.status).toBe("completed");
       expect(JSON.stringify(child?.messages)).toContain("CHILD_LOG_REPLY");
+      // A long child is read as its latest page, not whole.
+      await writeLog(CHILD_ID, [
+        record(0, "USER_INPUT", {
+          content: "<USER_REQUEST>\nCHILD_FIRST_PROMPT\n</USER_REQUEST>",
+        }),
+        ...Array.from({ length: 3000 }, (_, i) =>
+          record(i + 1, "PLANNER_RESPONSE", {
+            content: `CHILD_REPLY_${i + 1} ${"x".repeat(4096)}`,
+          }),
+        ),
+      ]);
+      const long = await reader.getAgentSession(CHILD_ID, PARENT_ID);
+      const shown = JSON.stringify(long?.messages);
+      expect(shown).toContain("CHILD_REPLY_3000 ");
+      expect(shown).not.toContain("CHILD_FIRST_PROMPT");
+      expect(long!.messages.length).toBeLessThan(1100);
       expect(
         await reader.getAgentSession(FOREIGN_CHILD_ID, PARENT_ID),
       ).toBeNull();

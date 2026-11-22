@@ -110,6 +110,12 @@ export function createProviderConversationSource(
           signal,
         },
       );
+      // A provider page cut by bytes left earlier records of the requested
+      // scope unread: that is a byte limit, not the compaction scope.
+      const byteCut =
+        loaded.readWindow?.kind === "log-page" &&
+        loaded.readWindow.omittedPrefix &&
+        loaded.readWindow.cut === "bytes";
       return {
         sessionId: row.sessionId,
         activity: "unknown",
@@ -117,10 +123,25 @@ export function createProviderConversationSource(
         ...window,
         sourceCoverage: {
           ...window.sourceCoverage,
-          complete: loaded.transcriptComplete ?? window.sourceCoverage.complete,
-          earlierOutsideScope: loaded.readWindow?.omittedPrefix
-            ? "yes"
-            : window.sourceCoverage.earlierOutsideScope,
+          complete: byteCut
+            ? false
+            : (loaded.transcriptComplete ?? window.sourceCoverage.complete),
+          earlierOutsideScope: byteCut
+            ? "unknown"
+            : loaded.readWindow?.omittedPrefix
+              ? "yes"
+              : window.sourceCoverage.earlierOutsideScope,
+          ...(byteCut
+            ? {
+                earlierInScope: true,
+                limitedBy: [
+                  ...new Set([
+                    ...(window.sourceCoverage.limitedBy ?? []),
+                    "bytes" as const,
+                  ]),
+                ],
+              }
+            : {}),
         },
       };
     },

@@ -218,6 +218,19 @@ describe("Antigravity log projection", () => {
       ],
     },
     {
+      name: "a planner's error with no ERROR_MESSAGE after it",
+      records: [
+        user(0, "C"),
+        planner(1, { content: "", error: "quota refused" }, "ERROR"),
+        user(2, "NEXT"),
+      ],
+      expected: [
+        "step-0 user C",
+        "step-1:error error quota refused",
+        "step-2 user NEXT",
+      ],
+    },
+    {
       name: "a group cut short, then the next turn (a Deny result ends its turn)",
       records: [
         planner(4, calls("write_file", "edit_file", "edit_file")),
@@ -289,6 +302,15 @@ describe("Antigravity log projection", () => {
     ).toEqual([
       expect.objectContaining({ content: "exit 0\nCreated At: kept" }),
     ]);
+    // Output that itself begins with those labels, not native times, stays.
+    const text = "Created At: the top of the file\nCompleted At: soon\nbody";
+    const literal = await project([
+      planner(0, calls("run_command")),
+      { ...result(1), content: text },
+    ]);
+    expect(
+      literal.status === "known" && literal.messages[1]!.message!.content,
+    ).toEqual([expect.objectContaining({ content: text })]);
   });
 
   it("leaves calls open at the end running under a live owner and interrupted once stopped", async () => {

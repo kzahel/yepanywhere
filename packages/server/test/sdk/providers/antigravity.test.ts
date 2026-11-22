@@ -940,6 +940,25 @@ describe("Antigravity native process boundary", () => {
             )
           ).messages,
         ).toEqual([]);
+        // A catch-up from a durable overlay's ID reads a bounded page too.
+        await metadata.addLocalCommandMessage(nativeId, {
+          type: "system",
+          subtype: "local_command",
+          content: "/status",
+          timestamp: "2027-01-01T00:00:00.000Z",
+          uuid: "overlay-1",
+          id: "overlay-1",
+        });
+        const reads = vi.spyOn(
+          AntigravitySessionReader.prototype,
+          "getSession",
+        );
+        const overlay = await get("?afterMessageId=overlay-1");
+        expect(overlay.messages).toEqual([]);
+        expect(reads.mock.calls.at(-1)?.[3]).toMatchObject({
+          tailCompactions: 2,
+        });
+        reads.mockRestore();
       } finally {
         app.stopNotifications();
         await app.disposeSessionReaders();

@@ -593,9 +593,12 @@ export function registerSessionDetailRoute(
         process?.state.type === "waiting-input"
           ? { ownedTurnInProgress: true }
           : {}),
+        // A catch-up from a durable overlay's ID keeps the bounded read: the
+        // overlay is found in the newest window, not in a complete history.
         ...(!fullHistory &&
         ((!afterMessageId && effectiveTailCompactions !== undefined) ||
-          providerAfterMessageId)
+          providerAfterMessageId ||
+          overlayCursor)
           ? {
               tailCompactions:
                 effectiveTailCompactions ??
@@ -975,6 +978,7 @@ export function registerSessionDetailRoute(
     if (
       loadedSession.readWindow?.omittedPrefix &&
       loadedSession.readWindow.kind !== "log-page" &&
+      !overlayCursor &&
       !incrementalAnchorFound &&
       (!paginationInfo?.hasOlderMessages ||
         paginationInfo.truncatedBeforeMessageId === undefined)
@@ -997,7 +1001,8 @@ export function registerSessionDetailRoute(
     }
     if (
       loadedSession.readWindow?.kind === "log-page" &&
-      !incrementalAnchorFound
+      !incrementalAnchorFound &&
+      !overlayCursor
     )
       paginationInfo = withLogPageCursor(
         session.messages,

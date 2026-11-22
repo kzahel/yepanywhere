@@ -33,6 +33,7 @@ import {
   antigravityLogRequest,
   antigravityLogSpawnCalls,
   linkAntigravityLogChildren,
+  readAntigravityFirstPrompt,
 } from "./antigravity-log-history.js";
 import {
   type AntigravityLogWindow,
@@ -80,6 +81,10 @@ export class AntigravitySessionReader implements ISessionReader {
   private readonly projectPath: string;
   // At most eight active detail reads per cached reader.
   private details = new Map<string, Promise<LoadedSession | null>>();
+  private replays = new Map<
+    string,
+    Promise<{ entries: SDKMessage[]; model?: string; complete: boolean } | null>
+  >();
   // The ACP fallback's session/load writes the store's summaries index, which
   // the provider watcher reports as a change and viewers refetch. Reuse a
   // replay until the files differ from their post-load state, so it cannot loop.
@@ -279,12 +284,25 @@ export class AntigravitySessionReader implements ISessionReader {
     return this.summaryFromMetadata(id, projectId, metadata);
   }
 
-  /** From the summaries index alone: a summary starts no `agy`. */
+  /**
+   * From the summaries index, and for an untitled row the first prompt in
+   * the log's first records: a summary starts no `agy`.
+   */
   async getSessionSummary(
     id: string,
     projectId: UrlProjectId,
   ): Promise<SessionSummary | null> {
-    return this.summary(id, projectId);
+    const metadata = await this.metadata(id);
+    if (!metadata || metadata.isChild) return null;
+    const summary = this.summaryFromMetadata(id, projectId, metadata);
+    if (!metadata.title) {
+      const prompt = await readAntigravityFirstPrompt(metadata.scope, id);
+      if (prompt) {
+        summary.title = prompt.slice(0, 120);
+        summary.fullTitle = prompt;
+      }
+    }
+    return summary;
   }
 
   private assertReadCapacity(): void {
@@ -528,88 +546,119 @@ export class AntigravitySessionReader implements ISessionReader {
       complete = cached.complete;
     }
     if (!entries) {
-      // Refuse ACP replay if the active runtime targets a different physical
-      // store than the verified scope (even if both stores share a UUID).
-      const command = await this.resolveRuntimeForScope(scope);
-      if (!command) return null;
-      if (beforeLoad && !beforeLoad()) return null;
-      if (antigravitySessionOwned(scope, id)) return null;
-      const owner = ownAntigravitySession(scope, id, {
-        historyRead: true,
-      });
-      const transcript = new AntigravityTranscript(id);
-      let aborted = false;
-      try {
-        await this.withRuntime(
-          async (runtime) => {
-            // Never prompt, authenticate, or allocate a replacement when reading history.
-            const loaded = await loadAntigravityReplay({
-              runtime,
-              scope,
-              params: { sessionId: id, cwd, mcpServers: [] },
-              transcript,
-              // Revalidate synchronously immediately before sending session/load.
-              authorize: () =>
-                !this.closed &&
-                this.runtimeMatchesScopeSync(command, scope) &&
-                (!beforeLoad || beforeLoad()),
-            });
-            aborted = !loaded;
-            complete = loaded?.complete ?? false;
-            model = loaded?.setup.models?.currentModelId;
-          },
-          command,
-          scope,
-        );
-      } finally {
-        owner.release();
+      // Callers for one conversation share one replay, whatever window each
+      // asked for: a second caller never claims a second native owner.
+      let pending = this.replays.get(cacheKey);
+      if (!pending) {
+        pending = this.replay(id, scope, cwd, enrichSubagents, beforeLoad);
+        const settled = pending;
+        this.replays.set(cacheKey, settled);
+        void settled
+          .finally(() => {
+            if (this.replays.get(cacheKey) === settled)
+              this.replays.delete(cacheKey);
+          })
+          .catch(() => {});
       }
-      if (aborted) return null;
-      const subagentCalls = enrichSubagents
-        ? transcript.listSubagentCalls()
-        : [];
-      if (subagentCalls.length > 0) {
-        const descendants = this.readVerifiedDescendantsSync(scope, id);
-        const directChildIds = new Set<string>();
-        for (const row of descendants.values()) {
-          if (row.parentConversationId === id) {
-            directChildIds.add(row.conversationId);
-          }
-        }
-        if (directChildIds.size > 0) {
-          const launches = await readAntigravitySubagentLaunches(scope, id);
-          const correlated = correlateAntigravitySubagentCalls(
-            subagentCalls,
-            launches,
-            directChildIds,
-          );
-          for (const [toolUseId, launch] of correlated) {
-            transcript.enrichSubagentResult(
-              toolUseId,
-              launch.childId,
-              launch.role,
-            );
-          }
-        }
-      }
-      entries = transcript.messages;
-      const loaded = await this.metadata(id);
-      this.coldReads.delete(cacheKey);
-      if (!loaded || loaded.scope !== scope) {
-        // Store rebound or disappeared mid-replay: discard the replay so the
-        // old store's transcript can never leak into or pollute the new store.
-        return null;
-      }
-      this.coldReads.set(cacheKey, {
-        version: loaded.sourceVersion,
-        entries,
-        model,
-        complete,
-      });
-      // A few recently opened sessions per project; each is bounded.
-      if (this.coldReads.size > 4)
-        this.coldReads.delete(this.coldReads.keys().next().value!);
+      return pending;
     }
+    return { entries, model, complete };
+  }
+
+  /** The ACP fallback: one `session/load` replay, refused beside an owner. */
+  private async replay(
+    id: string,
+    scope: string,
+    cwd: string,
+    enrichSubagents: boolean,
+    beforeLoad?: () => boolean,
+  ): Promise<{
+    entries: SDKMessage[];
+    model?: string;
+    complete: boolean;
+  } | null> {
+    const cacheKey = `${scope}\0${id}`;
+    let complete = true;
+    let model: string | undefined;
+    // Refuse ACP replay if the active runtime targets a different physical
+    // store than the verified scope (even if both stores share a UUID).
+    const command = await this.resolveRuntimeForScope(scope);
+    if (!command) return null;
+    if (beforeLoad && !beforeLoad()) return null;
+    if (antigravitySessionOwned(scope, id)) return null;
+    const owner = ownAntigravitySession(scope, id, {
+      historyRead: true,
+    });
+    const transcript = new AntigravityTranscript(id);
+    let aborted = false;
+    try {
+      await this.withRuntime(
+        async (runtime) => {
+          // Never prompt, authenticate, or allocate a replacement when reading history.
+          const loaded = await loadAntigravityReplay({
+            runtime,
+            scope,
+            params: { sessionId: id, cwd, mcpServers: [] },
+            transcript,
+            // Revalidate synchronously immediately before sending session/load.
+            authorize: () =>
+              !this.closed &&
+              this.runtimeMatchesScopeSync(command, scope) &&
+              (!beforeLoad || beforeLoad()),
+          });
+          aborted = !loaded;
+          complete = loaded?.complete ?? false;
+          model = loaded?.setup.models?.currentModelId;
+        },
+        command,
+        scope,
+      );
+    } finally {
+      owner.release();
+    }
+    if (aborted) return null;
+    const subagentCalls = enrichSubagents ? transcript.listSubagentCalls() : [];
+    if (subagentCalls.length > 0) {
+      const descendants = this.readVerifiedDescendantsSync(scope, id);
+      const directChildIds = new Set<string>();
+      for (const row of descendants.values()) {
+        if (row.parentConversationId === id) {
+          directChildIds.add(row.conversationId);
+        }
+      }
+      if (directChildIds.size > 0) {
+        const launches = await readAntigravitySubagentLaunches(scope, id);
+        const correlated = correlateAntigravitySubagentCalls(
+          subagentCalls,
+          launches,
+          directChildIds,
+        );
+        for (const [toolUseId, launch] of correlated) {
+          transcript.enrichSubagentResult(
+            toolUseId,
+            launch.childId,
+            launch.role,
+          );
+        }
+      }
+    }
+    const entries = transcript.messages;
+    const loaded = await this.metadata(id);
+    this.coldReads.delete(cacheKey);
+    if (!loaded || loaded.scope !== scope) {
+      // Store rebound or disappeared mid-replay: discard the replay so the
+      // old store's transcript can never leak into or pollute the new store.
+      return null;
+    }
+    this.coldReads.set(cacheKey, {
+      version: loaded.sourceVersion,
+      entries,
+      model,
+      complete,
+    });
+    // A few recently opened sessions per project; each is bounded.
+    if (this.coldReads.size > 4)
+      this.coldReads.delete(this.coldReads.keys().next().value!);
     return { entries, model, complete };
   }
 
@@ -619,14 +668,28 @@ export class AntigravitySessionReader implements ISessionReader {
     request: AntigravityLogWindowRequest,
   ): Promise<LoadedSession | null> {
     const metadata = await this.metadata(id);
-    if (!metadata || metadata.isChild) return null;
+    if (
+      !metadata ||
+      metadata.isChild ||
+      (this.nativeStorageScope && metadata.scope !== this.nativeStorageScope)
+    )
+      return null;
     // A live owner serves its own projection (plan 195 step 6 changes that).
     const window = antigravityLiveHistory(metadata.scope, id)
       ? undefined
       : await this.readLog(metadata.scope, id, request, false);
     if (window?.status === "known") {
-      const summary = await this.summary(id, projectId);
-      if (!summary) return null;
+      // Publish only what the store bound now holds, from a reader still
+      // open: a rebind during the read leaves the old store's messages unused.
+      const latest = await this.metadata(id);
+      if (
+        this.closed ||
+        !latest ||
+        latest.isChild ||
+        latest.scope !== metadata.scope
+      )
+        return null;
+      const summary = this.summaryFromMetadata(id, projectId, latest);
       const { messages } = window;
       if (window.firstPrompt !== undefined) {
         summary.title = window.firstPrompt.slice(0, 120);
@@ -649,6 +712,7 @@ export class AntigravitySessionReader implements ISessionReader {
                 kind: "log-page" as const,
                 omittedPrefix: window.omittedPrefix,
                 before: request.kind === "before",
+                ...(window.cut ? { cut: window.cut } : {}),
               },
             }),
         data: { provider: "antigravity", session: { messages } },
@@ -985,10 +1049,12 @@ export class AntigravitySessionReader implements ISessionReader {
     };
     const running = () => !settled() || antigravitySessionOwned(scope, agentId);
     const live = running();
+    // The latest page, as a tail: the agent-session contract has no signal
+    // for earlier content, so older steps of a long child are not shown.
     const window = await this.readLog(
       scope,
       agentId,
-      { kind: "complete" },
+      { kind: "latest", compactions: 2 },
       live,
     );
     if (window.status === "known" || live) {

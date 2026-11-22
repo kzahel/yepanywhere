@@ -3520,8 +3520,10 @@ describe("Sessions metadata route", () => {
     );
     expect(response.status).toBe(200);
 
+    // The overlay ID is not the provider's, but the read stays bounded.
     expect(getSession).toHaveBeenCalledWith("sess-1", project.id, undefined, {
       includeOrphans: false,
+      tailCompactions: 2,
     });
     const json = await response.json();
     expect(json.messages).toEqual([]);
