@@ -376,3 +376,9 @@ passes, 94 skips and only the 11 separately known Claude executable-version
 guards. No Rendez/watch source, assertion, timeout or retry changed. Evidence:
 `/tmp/p190/durable/server-final.log`, `focused-final.log`, `server-complete.log`.
 The intermittent finding remains open.
+
+2026-11-22: plan 195 step 1's workspace run, and its reviewer's separate
+run, missed the second nested delivery at line 364 (1 observed, 2 expected)
+on macOS, with Node 25.8.2 and Node 24.22.1 respectively. Focused reruns
+passed. The Antigravity slice changes no Rendez source, fixture, assertion or
+timeout; both runs stay red.
