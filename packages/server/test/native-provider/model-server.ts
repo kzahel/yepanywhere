@@ -100,6 +100,16 @@ export class Exchange {
     );
   }
 
+  /** Raw Gemini candidate parts, such as a thought or several calls in one
+   * response; `final` ends the response. */
+  geminiParts(parts: unknown[], final: boolean) {
+    if (this.wire !== "gemini")
+      throw Error("geminiParts needs the Gemini wire");
+    this.start();
+    this.gemini(parts, final);
+    if (final) this.end();
+  }
+
   partial(text: string) {
     this.start();
     const itemId = `msg_${this.id}`;

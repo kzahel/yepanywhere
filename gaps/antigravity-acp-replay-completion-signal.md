@@ -16,4 +16,14 @@ requires the whole history before the load response. The original long
 session emitted intermediate usage updates, so those updates cannot locate
 the replay boundary. See [Antigravity history](../topics/antigravity.md#identity-and-history).
 
+The plan 195 step 3 census found the text witness itself refusing
+complete replays. On a copy of one host's store, YA's loader rejected four
+of twelve replays with "saved replay tail did not arrive", so those
+conversations cannot be opened cold. In three, the replay joins a reply that
+exists only in the database to the log's last text, so the joined message
+no longer ends with the witness. In one, the witness is a `USER_INPUT`
+record, which the check compares in its wrapped `<USER_REQUEST>` form with
+the unwrapped replayed text.
+[Census](../topics/antigravity-native-storage.md#comparison-with-acp-replay)
+
 Found in review of the long cold-replay fix on 2026-11-22.

@@ -174,8 +174,8 @@ at its end) occurs is not known: none was seen.
 Rule for a reader that projects groups:
 
 - A planner record at step P with *k* calls owns steps P+1..P+*k*. A
-  `GENERIC` record at step P+1+*i* is call *i*'s result. Arrival order alone
-  is not used.
+  `GENERIC` record at step P+1+*i* is call *i*'s result, *i* counting the
+  calls from zero in `tool_calls` order. Arrival order alone is not used.
 - A step in P+1..P+*k* with no record, once a non-`GENERIC` record after
   P+*k* has arrived, is that call's interrupted result. Show the call as
   interrupted with no output, neither pending nor failed with invented text.
@@ -192,6 +192,19 @@ Rule for a reader that projects groups:
 The database can confirm an interrupted result (`step_type` 132,
 `status` 6), but the rule needs only the log.
 
+A reader that reads part of the log, such as one page, applies the rule
+with records from outside its part:
+
+- A part that starts with `GENERIC` records must first read backward to the
+  last record before it that is not `GENERIC`. Only that record can own
+  them; until it is found, no result in the part may be called orphaned.
+- A part that ends inside a group must read forward until a record past
+  P+*k* arrives or the log ends, because a call's interrupted state is known
+  only then.
+
+The forward read is at most *k* + 1 records and the backward read at most
+*k*.
+
 ### What the log has and lacks against ACP replay
 
 | | Brain log | ACP `session/load` replay |
@@ -200,9 +213,12 @@ The database can confirm an interrupted result (`step_type` 132,
 | Read without side effects | Yes | No: it starts `agy`, which writes store-wide files |
 | Cost of the latest page | The tail of a file | The whole conversation |
 | Compaction boundaries | `CHECKPOINT` records | Omitted |
+| System messages and `ERROR_MESSAGE` records | Yes | Omitted when logged; see [step 3](#projection--plan-195-step-3) |
 | Per-step time, model, token counts | Yes | Not compared |
+| Tool name | `agy`'s (`read_file`) | ACP's title (`File notes.txt`, the command line) |
 | Tool call ID, ACP kind, locations | No | Yes; the ID is random |
-| Tool results | Rendered text | ACP content blocks |
+| Tool results | Rendered text | Each call once, as a completed `tool_call`; commands carry `rawOutput`, file reads none |
+| A step only in the database | Absent | Replayed |
 | A step still in progress | Absent until it ends | Not measured |
 
 ## Measurements — plan 195 step 2
@@ -457,6 +473,118 @@ missing an interior result. `--verify` passed. The census of it took 0.9 s
 at a 144 MB peak resident size and classified those five as three groups missing a
 suffix and two with a gap, beside 23,481 complete groups.
 
+## Projection — plan 195 step 3
+
+[`antigravity-log-projection.ts`](../packages/server/src/sessions/antigravity-log-projection.ts)
+turns `transcript_full.jsonl` records into the messages the Antigravity
+reader returns. No reader uses it yet; plan 195 step 4 wires it.
+
+### What each record becomes
+
+| Record | Messages, by ID |
+| --- | --- |
+| `USER_INPUT` | `<id>:step-<n>`: user text, the `<USER_REQUEST>` block's content without the newlines that wrap it. The metadata blocks after it are dropped, as ACP replay drops them. |
+| `PLANNER_RESPONSE` | `<id>:step-<n>:thinking`, then `<id>:step-<n>:text`, each present only when non-empty, both with the record's `model`. Then call *i*'s `tool_use`, ID `<id>:step-<n>:tool-<i>`, in message `<tool id>:call`, under `agy`'s tool name and its `args` as input; `invoke_subagent` becomes `spawn_agent` with the input YA already normalizes for it. An `error` field adds an `error` message `<id>:step-<n>:error`. |
+| `GENERIC` | `<tool id>:result`: a `tool_result` for its call, with the record's `content` unchanged (including `agy`'s `Created At:` lines) and `is_error` for status `ERROR`. A `RUNNING` launch is a normal result. |
+| Missing result step | No message. The call's `tool_use` message carries `orphanedToolUseIds` with its ID, which clients show as an incomplete call whose result is unavailable. |
+| `SYSTEM_MESSAGE` | `<id>:step-<n>`: an `informational` system message labelled "System message", with the text inside `<SYSTEM_MESSAGE>` as its detail. Wakes and reminders both appear this way. |
+| `CHECKPOINT` | `<id>:step-<n>`: a `compact_boundary` with the record's content as `compactSummaryText`, as Codex readers mark compaction. |
+| `ERROR_MESSAGE` | `<id>:step-<n>`: an `error` message with the record's `error`. |
+
+Every message has the record's `created_at` as its timestamp and the
+conversation ID as `session_id`. IDs depend only on step indexes, which
+skip steps, so a page has the same IDs however it was reached. They differ
+from today's cold IDs, which count replayed messages and use ACP's random
+tool call IDs.
+
+The log is **unknown**, and the caller falls back, on:
+
+- a line that is not JSON, other than an unterminated final line (an append
+  in progress, which is not a record yet), or an empty line;
+- a `step_index` that does not increase;
+- a type, source, status, field or field type outside the table in
+  [brain log](#brain-log), including `truncated_fields` (the shortened log
+  is never projected) and a `USER_INPUT` without a `<USER_REQUEST>` block;
+- any tool-group shape the [group rule](#reading-a-tool-group) calls unknown.
+
+A group the log ends inside is in progress when the caller says the owner is
+live, and its missing results are interrupted otherwise.
+
+### Windows
+
+A window is a run of records the caller projects. Records outside it are
+observed: they update the group state and checks, and produce no messages.
+Following the [group rule for parts](#reading-a-tool-group), a window that
+does not start the file observes the records from the last non-`GENERIC`
+record before it, and a window that ends inside a group it projected
+observes the following records until the group resolves. With that context,
+the windows of a log together produce exactly the whole log's messages; a
+test checks this at every record boundary of a generated log with both
+interrupted-group shapes.
+
+### Comparison with ACP replay
+
+The census
+(`scripts/perf-repro/antigravity-log-census.mjs census`, run from
+`packages/server` with `pnpm exec tsx --conditions source`) copies a store's
+conversations, summaries index and brain directories into an owned profile.
+For each conversation with a full log it projects the copy's log and
+replays the copy through `agy acp` `session/load` into YA's cold transcript,
+then compares them after removing the expected differences that
+[`antigravity-projection-compare.ts`](../packages/server/test/utils/antigravity-projection-compare.ts)
+lists: IDs, tool names (ACP titles), the projection's results, system
+messages, checkpoints, errors, timestamps and models, and replay's habit of
+joining consecutive user inputs (with nothing between) or the text or
+thinking of consecutive steps (with "\n\n") into one message. It reports
+classes and steps, not content.
+
+On 2026-11-22, with `agy` 1.5.13 replaying this host's store (12 logs,
+written by 1.5.13 and 1.5.14), every log projected as known: 2,105 records
+and 8,037,744 bytes, each log read once in full, in 0.04 s. What remained:
+
+| Class | Where | Cause |
+| --- | --- | --- |
+| Thinking and calls only in the projection, and text joined differently around them | `466c3170`, steps 0–299 (66 thinking blocks, 189 calls) | Replay sent those steps' user and assistant text but not their thinking or calls. In the database exactly those steps have `status` 5, where every other finished step has 3 (or 7 for a failed result). What status 5 means is unknown; it is not a checkpoint, the first of which is at step 378. |
+| Text, thinking or user input only in replay, and the joins around them | Five conversations, six steps | Steps only in the database. Four are planner steps stopped mid-response (`status` 6, three of them the same scheduling probe's last reply), which replay sends with their partial text. Two are unlogged `ERROR_MESSAGE` steps, which replay sends as assistant text starting "⚠ Individual quota reached". |
+
+Nothing else differed: user text, assistant text, thinking, the order of
+calls and every call's input matched. Replay carried no ordinary tool
+result, because YA's cold transcript keeps nothing from a completed
+`tool_call`.
+
+YA's own replay check rejected four of the twelve replays ("saved replay
+tail did not arrive"), so YA cannot open those conversations cold today:
+three whose replay joins a database-only reply to the log's last text, and
+one whose last text is a `USER_INPUT`, which the check compares with its
+whole wrapped content. See the
+[replay completion gap](../gaps/antigravity-acp-replay-completion-signal.md).
+
+[`native-antigravity-log-projection.test.ts`](../packages/server/test/native-provider/native-antigravity-log-projection.test.ts)
+runs real `agy` with the scripted model through thinking, text, one call,
+two calls in one response, a background command and its wake, a cancel, a
+compaction and a last turn. After the owner stops, it requires the
+projection and the reader's ACP replay to have no mismatch after the
+expected differences, and checks what only the projection has: each call's
+result under its step's ID, the `RUNNING` launch, the wake, the cancel's
+error and the checkpoint's summary. It passes on 1.5.13 and 1.5.14. The
+cancel logged as described in [how far a record
+trails](#how-far-a-record-trails-its-acp-event): on 1.5.13 the partial text
+`DONE` and an `ERROR_MESSAGE` "The stream was interrupted. Please continue
+the task you were working on."; on 1.5.14 the partial text `ERROR` with
+`error: "context canceled by user"` and an `ERROR_MESSAGE` "API error
+(attempt 1): context canceled by user", so the projection shows two errors.
+Replay showed the partial text on both versions and neither error.
+
+### Throughput
+
+`antigravity-log-census.mjs project <log> --repeat 3` streams one log
+through the projection. On the 500,072,946-byte generated target (99,990
+records, `--interrupted-group-every 30000 --interior-gap-group-every 40000`)
+it took 0.54–0.58 s per run on this host with Node 25.8.2: 174,000–186,000
+records and 869–930 MB per second, producing 158,641 messages. The process
+peaked at 1.3 GB resident because a whole-log projection holds every
+message; a page holds only its own.
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
@@ -482,10 +610,11 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
 | `readAntigravityReadOnlyTranscript` | `transcript.jsonl` | The transcript of a running child: text and thinking only. |
 | [Compaction check](../packages/server/src/sdk/providers/antigravity-compaction.ts) | `transcript.jsonl` | A new completed `CHECKPOINT` confirms `/compact`. |
+| [Log projection](../packages/server/src/sessions/antigravity-log-projection.ts) | `transcript_full.jsonl`, from the caller | Messages from records ([step 3](#projection--plan-195-step-3)). Not used by any reader yet. |
 
-The log readers are in
+The named log readers are in
 [`antigravity-subagent-links.ts`](../packages/server/src/sessions/antigravity-subagent-links.ts)
-and each read is bounded to 4 MiB. Root history, cold or live, does not come
+and each read is bounded to 4 MiB. The projection reads nothing itself. Root history, cold or live, does not come
 from the log: it comes from ACP `session/load` or the live owner's in-memory
 projection, as [identity and history](antigravity.md#identity-and-history)
 describes. [Provider history facts](provider-history-facts.md#consumers) lists
@@ -552,6 +681,8 @@ The existing readers follow these constraints, and a new reader should too:
 - What `presence/<id>.lock` means. The one file observed was empty and
   dated 2026-11-03, although conversations had run since.
 - What the full-text index's step byte offsets address.
+- What database `status` 5 means, and why ACP replay omits the thinking and
+  calls of those steps but keeps their text.
 
 The [large-history gap](../gaps/antigravity-large-history-and-replay-ownership.md)
 is the reason these matter: it asks whether the log can serve a bounded,

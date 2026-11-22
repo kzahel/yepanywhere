@@ -565,9 +565,10 @@ export async function scanLog(path) {
       return;
     }
     if (open) {
-      unknown("non-GENERIC record inside a group's steps", step);
+      // Name the group whose steps this record is inside.
       lastClosed = open;
       open = undefined;
+      unknown("non-GENERIC record inside a group's steps", step);
     }
     const calls = Array.isArray(record.tool_calls)
       ? record.tool_calls.length

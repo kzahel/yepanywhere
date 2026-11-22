@@ -1,7 +1,7 @@
 # Antigravity history from the native log
 
 Status: proposed 2026-11-22. The goal and the decisions below are agreed with
-the maintainer. Steps 1, 2 and 2b are done; the
+the maintainer. Steps 1, 2, 2b and 3 are done; the
 [progress table](#progress) tracks the rest.
 
 This plan resolves the
@@ -208,7 +208,10 @@ log is missing or unknown.
   file sizes and times after a view. One browser check loads older pages on
   a long conversation, with the sequential typing check at that volume.
 - Visible changes: checkpoints appear in cold history, and cold message IDs
-  change. Update the provider contract.
+  change. Step 3 found more: ordinary tool results (cold replay has none),
+  system messages, errors, timestamps and models appear; tools show `agy`'s
+  name instead of ACP's title; and `invoke_subagent` results still need the
+  reader's verified child enrichment. Update the provider contract.
 
 ### 5 — resume without replaying history
 
@@ -281,7 +284,7 @@ conversation and the host can hold it.
 | 1 — remove the standalone runtime | Done 2026-11-22 | `agy` 1.5.13 floor read from ACP `initialize`, with an `agy --version` fallback when `acp` is missing. Status, CLI installations and refused starts name both versions and `agy update`. The Linux `nobody` alias was confirmed unneeded on Ubuntu 24.04 before removal. Review round 1 added the owned, credential-filtered version probe, the saved and v0 creation refusal, and Auto/launch agreement. [Contract](../../topics/antigravity.md#supported-runtime). |
 | 2 — reproduce the limits and measure the unknowns | Done 2026-11-22 | Repros are controlled-peer tests named "today: …" for steps 4 to 6 to flip. Answers are in [native storage measurements](../../topics/antigravity-native-storage.md#measurements--plan-195-step-2): a record appears once its step ends, so the log trails by the step in progress; snapshots around load and resume found the conversation's database content and log unchanged, with temporary sidecars and store-wide writes; `session/resume` qualified at 7,261 compacted steps on 1.5.13 and 1.5.14 (33–37 ms, no replay, compacted context kept); tool call IDs are random; `step_index` increases but skips interrupted and error steps (type 17 is `ERROR_MESSAGE`); [tool results pair with calls by step index](../../topics/antigravity-native-storage.md#reading-a-tool-group) (P+1+*i* is call *i*; a missing step is an interrupted result; any other shape makes the log unknown); Codex's heap shows no upward trend over 600 turns, Antigravity's projection grows 4.6 KB a turn. Real `agy` reached a 440 ms median turn, so the 500 MB target is generated from record shapes. Review rounds made the reopen legs identical, streamed the census, fixed the retention sampling, moved group pairing to step indexes and recorded that a reopen can change the summaries index's content. Found the permission defect that step 2b fixes. |
 | 2b — accept agy's permission requests | Done 2026-11-22 | One owner handles inbound permission requests (`antigravity-permission-requests.ts`): any JSON-RPC ID type, echoed once; identity-checked replies; a 32-request cap; intake closed when the connection ends. A request belongs to its tool call: terminal evidence withdraws it, Stop withdraws every waiting request on the connection and cancels delayed requests for calls running at Stop, and a turn's or command's result withdraws requests raised during it, while later ones are held until YA reports it is idle (one release point for turns and queued commands such as `/compact`). Steer is closed from Stop until the cancelled prompt returns. Responses need exactly one valid body. Real `agy` 1.5.13 and 1.5.14: default mode asks, Allow writes, Deny ends the turn without writing, Stop withdraws a waiting write and input sent right after is delivered, accept-edits asks only for the tested command, bypass never asks, Plan is refused. Child permission routing is unqualified ([gap](../../gaps/antigravity-child-permission-routing-unqualified.md)). [Contract](../../topics/antigravity.md#vanilla-execution). |
-| 3 — project the log into YA messages | Not started | |
+| 3 — project the log into YA messages | Done 2026-11-22 | `antigravity-log-projection.ts`, not wired: a line iterator, a strict record parser and a projection with step-derived IDs (`<id>:step-<n>[:thinking\|:text\|:error]`, tools `<id>:step-<P>:tool-<i>`). Interrupted calls carry `orphanedToolUseIds`, checkpoints are `compact_boundary`, system messages `informational`, `ERROR_MESSAGE` an `error`. Windows observe the records from the last non-`GENERIC` record before them and read ahead while a group they projected is open; windows reproduce the whole projection at every boundary of a generated log. The native case matches ACP replay on 1.5.13 and 1.5.14 apart from the listed differences. The census of this host's store projected all 12 logs; the remaining differences are database-only steps and one conversation's `status` 5 steps, whose thinking and calls replay omits. Cold ACP replay carries no ordinary tool results, and YA's replay check rejects 4 of the 12 conversations ([gap](../../gaps/antigravity-acp-replay-completion-signal.md)). 500 MB projects in 0.55 s. [Findings](../../topics/antigravity-native-storage.md#projection--plan-195-step-3). |
 | 4 — serve cold history from the log | Not started | |
 | 5 — resume without replaying history | Not started | |
 | 6 — bound live session memory | Not started | |

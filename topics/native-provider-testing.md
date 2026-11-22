@@ -988,6 +988,13 @@ server suite runs. They are not part of this selection. The selection passed
 with 47 cases and 3 skipped on 2026-11-22, with the 1.5.13 pin and with the
 1.5.14 candidate, on Node 24.22.1.
 
+Plan 195 step 3 (the brain-log projection) added
+`native-antigravity-log-projection.test.ts`: one real-`agy` conversation
+whose projection must match the reader's ACP replay apart from the
+[listed differences](antigravity-native-storage.md#comparison-with-acp-replay).
+The selection passed with 48 cases and 3 skipped on 2026-11-22, with the
+1.5.13 pin and with the 1.5.14 candidate, on Node 25.8.2.
+
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
 joins the operation and stops any registered owner before deleting fixture
