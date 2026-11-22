@@ -1,0 +1,237 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { captureLeaderStartTime } from "../../../client/e2e/support/process-lifecycle.js";
+import { appBarrier } from "../native-provider/app-fixture.js";
+import type { Exchange } from "../native-provider/model-server.js";
+import { nativeAppTestFixture } from "./fixture.js";
+
+type App = Awaited<ReturnType<typeof nativeAppTestFixture>>;
+// The existing Antigravity native app cases use the same wrapper setup.
+const caseBudget = { timeout: 30_000 };
+
+async function ownedSession(app: App, sessionId: string) {
+  const response = await fetch(
+    `${app.baseUrl}/v0/servers/self/sessions/${sessionId}`,
+    { signal: AbortSignal.timeout(5000) },
+  );
+  expect(response.status, await response.clone().text()).toBe(200);
+  return response.json();
+}
+
+async function armWake(app: App, turn: Exchange) {
+  turn.tool("schedule", { DurationSeconds: 3, Prompt: "AGY_GAP_WAKE" });
+  return app.model.next();
+}
+
+async function holdWake(app: App, sessionId: string, waiting: Exchange) {
+  waiting.finish("AGY_GAP_WAITING");
+  await expect
+    .poll(async () => (await ownedSession(app, sessionId)).state)
+    .toBe("background");
+  const wake = await app.model.next();
+  expect(JSON.stringify(wake.body)).toContain("AGY_GAP_WAKE");
+  return wake;
+}
+
+async function expectReloadInterruption(
+  app: App,
+  before: Awaited<ReturnType<App["processes"]>>,
+  sessionId: string,
+  held: Exchange,
+) {
+  const after = await appBarrier(async () => {
+    const processes = await app.processes();
+    return processes.backend !== before.backend && processes;
+  }, "Antigravity backend replacement");
+  expect(after.wrapper).toBe(before.wrapper);
+  await appBarrier(async () => {
+    const session = await ownedSession(app, sessionId);
+    return session.state === "not-running";
+  }, "interrupted Antigravity owner after reload");
+  await held.cancelled;
+  expect(app.output()).toContain("after API request");
+  const log = await readFile(join(app.root, "logs", "server.log"), "utf8");
+  expect(log.includes("Received SIGHUP")).toBe(true);
+  expect(app.model.failures).toEqual([]);
+}
+
+// These local reproductions assert the observed defects until they are fixed.
+describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
+  "Antigravity gap reproductions",
+  () => {
+    it(
+      "reports verified idle with a detached native reply still streaming",
+      caseBudget,
+      async (context) => {
+        const app = await nativeAppTestFixture("antigravity", context, {
+          agentApiManagement: true,
+        });
+        await app.ready();
+        const session = await app.create("AGY_GAP_LIVENESS");
+        const turn = await app.model.next();
+        const waiting = await armWake(app, turn);
+        const metadataPath = `/projects/${session.projectId}/sessions/${session.sessionId}/metadata`;
+        waiting.finish("AGY_GAP_WAITING");
+        await expect
+          .poll(async () => (await ownedSession(app, session.sessionId)).state)
+          .toBe("background");
+        expect((await app.api(metadataPath)).processState).toBe("idle");
+
+        const wake = await app.model.next();
+        expect(JSON.stringify(wake.body)).toContain("AGY_GAP_WAKE");
+        const live = await app.connect(session.sessionId);
+        wake.partial("AGY_GAP_DETACHED_PARTIAL");
+        await live.wait("AGY_GAP_DETACHED_PARTIAL");
+        expect((await ownedSession(app, session.sessionId)).state).toBe("idle");
+        const snapshot = await app.connect(session.sessionId);
+        await snapshot.wait('"derivedStatus":"verified-idle"');
+
+        await app.api("/settings", { idleReapHours: 0 }, "PUT");
+        live.ws.close();
+        snapshot.ws.close();
+        await appBarrier(async () => {
+          const current = await ownedSession(app, session.sessionId);
+          return current.state === "not-running";
+        }, "held native wake reaped after last viewer leaves");
+        await wake.cancelled;
+        expect(app.model.failures).toEqual([]);
+      },
+    );
+
+    it(
+      "sends a patient message before a held native child completes",
+      caseBudget,
+      async (context) => {
+        const app = await nativeAppTestFixture("antigravity", context, {
+          agentApiManagement: true,
+        });
+        await app.ready();
+        const { sessionId } = await app.create("AGY_GAP_PATIENT_PARENT");
+        const turn = await app.model.next();
+        turn.tool("invoke_subagent", {
+          TypeName: "research",
+          Role: "Test researcher",
+          Prompt: "AGY_GAP_PATIENT_CHILD",
+        });
+        const first = await app.model.next();
+        const second = await app.model.next();
+        const [parent, child] = JSON.stringify(first.body).includes(
+          "AGY_GAP_PATIENT_PARENT",
+        )
+          ? [first, second]
+          : [second, first];
+        expect(JSON.stringify(parent.body)).toContain("AGY_GAP_PATIENT_PARENT");
+        expect(JSON.stringify(child.body)).toContain("AGY_GAP_PATIENT_CHILD");
+        expect(JSON.stringify(child.body)).not.toContain(
+          "AGY_GAP_PATIENT_PARENT",
+        );
+
+        const queued = await app.api(`/sessions/${sessionId}/messages`, {
+          message: "AGY_GAP_PATIENT_NEXT",
+          deferred: true,
+          messageMetadata: { deliveryIntent: "patient", patienceSeconds: 120 },
+        });
+        expect(queued).toMatchObject({ queued: true, deferred: true });
+        expect(queued.deferredMessages).toContainEqual(
+          expect.objectContaining({
+            kind: "patient",
+            metadata: expect.objectContaining({
+              deliveryIntent: "patient",
+              patienceSeconds: 120,
+            }),
+          }),
+        );
+        parent.finish("AGY_GAP_PARENT_FOREGROUND_DONE");
+        const delivered = await app.model.next();
+        expect(JSON.stringify(delivered.body)).toContain(
+          "AGY_GAP_PATIENT_NEXT",
+        );
+        delivered.finish("AGY_GAP_PATIENT_NEXT_DONE");
+        child.finish("AGY_GAP_PATIENT_CHILD_DONE");
+        expect(app.model.failures).toEqual([]);
+      },
+    );
+
+    it(
+      "waits for a foreground turn but reloads during a held detached wake",
+      caseBudget,
+      async (context) => {
+        const app = await nativeAppTestFixture("antigravity", context, {
+          agentApiManagement: true,
+        });
+        await app.ready();
+        const { sessionId } = await app.create("AGY_GAP_RELOAD");
+        const turn = await app.model.next();
+        const before = await app.processes();
+        expect(await app.api("/dev/safe-restart", {})).toMatchObject({
+          status: "scheduled",
+          blockers: [{ type: "active-sessions", count: 1 }],
+        });
+        expect(
+          await app.api("/dev/safe-restart", undefined, "DELETE"),
+        ).toMatchObject({
+          status: "idle",
+        });
+
+        const wake = await holdWake(app, sessionId, await armWake(app, turn));
+        const live = await app.connect(sessionId);
+        wake.partial("AGY_GAP_BEFORE_RELOAD");
+        await live.wait("AGY_GAP_BEFORE_RELOAD");
+        expect(await app.api("/dev/safe-restart")).toMatchObject({
+          canRestartNow: true,
+          blockers: [],
+        });
+        expect(await app.api("/dev/safe-restart", {})).toMatchObject({
+          status: "restarting",
+        });
+        await expectReloadInterruption(app, before, sessionId, wake);
+      },
+    );
+
+    it(
+      "reloads after new foreground work enters during the wrapper handoff",
+      caseBudget,
+      async (context) => {
+        const app = await nativeAppTestFixture("antigravity", context, {
+          agentApiManagement: true,
+        });
+        await app.ready();
+        const { sessionId } = await app.create("AGY_GAP_WARM_OWNER");
+        (await app.model.next()).finish("AGY_GAP_WARM_DONE");
+        await expect
+          .poll(async () => (await ownedSession(app, sessionId)).state)
+          .toBe("idle");
+        const before = await app.processes();
+        const wrapperStart = await captureLeaderStartTime(before.wrapper);
+        expect(wrapperStart).toBeTruthy();
+
+        // Hold the test-owned wrapper before it can acknowledge the reload.
+        process.kill(before.wrapper, "SIGSTOP");
+        const reload = app.api("/dev/safe-restart", {});
+        void reload.catch(() => undefined);
+        let lateTurn: Exchange;
+        try {
+          await expect
+            .poll(async () => (await app.api("/dev/safe-restart")).status)
+            .toBe("restarting");
+          await app.api(`/sessions/${sessionId}/messages`, {
+            message: "AGY_GAP_LATE_INPUT",
+          });
+          lateTurn = await app.model.next();
+          expect(JSON.stringify(lateTurn.body)).toContain("AGY_GAP_LATE_INPUT");
+          expect(await app.api("/dev/safe-restart")).toMatchObject({
+            status: "restarting",
+            blockers: [{ type: "active-sessions", count: 1 }],
+          });
+        } finally {
+          if ((await captureLeaderStartTime(before.wrapper)) === wrapperStart) {
+            process.kill(before.wrapper, "SIGCONT");
+          }
+        }
+        await reload;
+        await expectReloadInterruption(app, before, sessionId, lateTurn);
+      },
+    );
+  },
+);

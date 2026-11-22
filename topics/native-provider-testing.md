@@ -902,6 +902,47 @@ owns current contracts and qualification. The evidence does not change queue
 defaults or justify removing implicit YA concatenation without identity/policy
 qualification.
 
+### Checking an Antigravity upgrade candidate
+
+Run the same local-model cases with the checked-in pin and with the candidate
+binary. The fixtures check the executable's reported version and launch it
+with a private profile and a scripted GenAI server. Both candidate variables
+are required to select a different version. The checksum-pinned CI artifact
+remains the default.
+
+```bash
+pnpm test:providers:install antigravity
+YEP_NATIVE_TEST_PROVIDERS=antigravity YEP_NATIVE_APP_TESTS=1 \
+  YEP_NATIVE_ANTIGRAVITY_GAP_REPROS=1 pnpm --filter @yep-anywhere/server test \
+  test/native-provider test/native-app/app-antigravity-v0.test.ts \
+  test/native-app/app-antigravity-gap-repros.test.ts \
+  test/sdk/providers/antigravity.test.ts --maxWorkers=1
+```
+
+Rerun the command with `YEP_NATIVE_TEST_ANTIGRAVITY_PATH` set to the candidate
+`agy` executable and `YEP_NATIVE_TEST_ANTIGRAVITY_VERSION` set to its exact
+version. Record the baseline and candidate results separately.
+
+- **Native protocol and behavior.** Actual `agy` runs the production adapter's
+  model, steering, cancellation, tools, compaction, and resume scenarios.
+  The cold-resume case checks that the final assistant text precedes the
+  `session/load` response in the received frame order, even when both frames
+  arrive in the same stdout read. It independently checks that the reader
+  returns the persisted output.
+- **YA contract faults.** The controlled ACP peer holds the final replay frame
+  until a test releases it. The opt-in replay and app repros assert the current
+  failures. When fixing a gap, change its characterization to assert the
+  intended contract. A changed outcome is evidence to investigate during an
+  upgrade.
+- **Native history depth.** The short native replay checks the wire order for
+  its own transcript. The [saved-session probe](../gaps/antigravity-cold-replay-drops-the-transcript-tail.md)
+  remains the native acceptance case for the long replay cutoff.
+
+On 2026-11-22, the 29 selected cases passed on macOS arm64 with the 1.5.13 pin
+and the 1.5.14 candidate. The focused rerun with an independent ACP load also
+passed on both versions. Specifying the wrong candidate version was refused
+before native session startup.
+
 ## Linux Antigravity bootstrap prerequisite
 
 The legacy Antigravity ACP 1.4.5 qualification runner required the system group

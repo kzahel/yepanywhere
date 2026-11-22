@@ -517,3 +517,4 @@
 
 - v0-catalog-read-cost - v0 session operations that read the whole session catalog on the main event loop; single-session lookups moved to the native-id index first, lists and misses remain.
 - antigravity-subagents - Native Antigravity (agy) invoke_subagent child exclusion, durable SQL child relationships, child transcript reading, and background retention.
+- antigravity-acp-reliability - Native upgrade qualification, transcript replay, detached work, patient delivery, and safe reload.

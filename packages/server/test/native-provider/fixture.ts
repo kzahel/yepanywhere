@@ -44,7 +44,7 @@ import {
   type NativeProcessDiagnostic,
 } from "./native-process-diagnostics.js";
 import {
-  expectedVersions,
+  expectedNativeVersion,
   isClaude,
   isCodex,
   nativeExecutable,
@@ -84,6 +84,7 @@ export async function nativeFixture(
 ) {
   // Resolve before scrubbing env, so an explicit owned test executable is preserved.
   const executable = nativeExecutable(provider);
+  const expectedVersion = expectedNativeVersion(provider);
   const root = await realpath(
     await mkdtemp(
       join(
@@ -496,10 +497,9 @@ export async function nativeFixture(
         { cwd: project, env: environment, timeout: 5000 },
       )
     ).stdout.trim();
-    const expected = expectedVersions[provider];
-    if (!version.split(/\s+/).includes(expected))
+    if (!version.split(/\s+/).includes(expectedVersion))
       throw Error(
-        `Native ${provider} version mismatch: expected ${expected}; got ${version}`,
+        `Native ${provider} version mismatch: expected ${expectedVersion}; got ${version}`,
       );
     if (provider === "claude") adapter = new ClaudeProvider();
     else if (provider === "claude-ollama") {

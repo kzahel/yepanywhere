@@ -38,7 +38,7 @@ const id = '${nativeId}';
 const root = path.join(process.env.GEMINI_HOME, 'antigravity-acp', 'conversations');
 const send = value => process.stdout.write(JSON.stringify(value)+'\\n');
 const reply = (id, result) => send({jsonrpc:'2.0', id, result});
-const update = value => send({jsonrpc:'2.0',method:'session/update',params:{sessionId:id,update:value}});
+const update = (value, meta) => send({jsonrpc:'2.0',method:'session/update',params:{sessionId:id,update:value,_meta:meta}});
 let prompt;
 readline.createInterface({input:process.stdin}).on('line', line => {
  const m = JSON.parse(line);
@@ -54,6 +54,16 @@ readline.createInterface({input:process.stdin}).on('line', line => {
   return send({jsonrpc:'2.0',id:m.id,error:{code:-32000,message:'Native resume refused'}});
  if(m.method === 'session/load') {
   update({sessionUpdate:'user_message_chunk',content:{type:'text',text:'Original question'}});
+  const replayGate = process.env.AGY_TEST_REPLAY_GATE;
+  if (replayGate) {
+   update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Saved prefix'}});
+   const watcher = fs.watch(path.dirname(replayGate), () => {
+    if (!fs.existsSync(replayGate)) return;
+    watcher.close();
+    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:' Final replay frame'}},{isReplay:true});
+   });
+   return reply(m.id,{});
+  }
   if (process.env.AGY_TEST_LARGE_REPLAY) {
    const content = [{type:'content',content:{type:'text',text:'x'.repeat(1024*1024)}}];
    for (let tool = 0; tool < 9; tool++)
@@ -554,6 +564,67 @@ describe("Antigravity native process boundary", () => {
           await other.getSession(nativeId, toUrlProjectId(tmpdir())),
         ).toBeNull();
         await other.close();
+      } finally {
+        await reader.close();
+      }
+    },
+  );
+
+  it.runIf(
+    process.platform !== "win32" &&
+      process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1",
+  )(
+    "caches a cold replay prefix while the peer is holding the final frame",
+    async () => {
+      const root = join(
+        directory,
+        "native-home",
+        "antigravity-acp",
+        "conversations",
+      );
+      await mkdir(root, { recursive: true });
+      await writeFile(
+        join(root, `${nativeId}.meta`),
+        JSON.stringify({ cwd: directory }),
+      );
+      await writeFile(join(root, `${nativeId}.db`), "native fixture");
+      const replayGate = join(directory, "release-final-frame");
+      vi.stubEnv("AGY_TEST_REPLAY_GATE", replayGate);
+
+      const runtime = new AntigravityRuntime();
+      const finalFrame = Promise.withResolvers<string>();
+      runtime.onUpdate = (update, id) => {
+        if (id === nativeId && update.content?.text === " Final replay frame")
+          finalFrame.resolve(update.content.text);
+      };
+      try {
+        await runtime.connect(executable, directory);
+        await runtime.call("session/load", {
+          sessionId: nativeId,
+          cwd: directory,
+          mcpServers: [],
+        });
+        await writeFile(replayGate, "release");
+        await expect(finalFrame.promise).resolves.toBe(" Final replay frame");
+      } finally {
+        await runtime.close();
+        await rm(replayGate, { force: true });
+      }
+
+      const reader = new AntigravitySessionReader({ projectPath: directory });
+      const projectId = toUrlProjectId(directory);
+      try {
+        const first = await reader.getSession(nativeId, projectId);
+        const second = await reader.getSession(nativeId, projectId);
+        for (const result of [first, second]) {
+          const history = JSON.stringify(result);
+          expect(history).toContain("Saved prefix");
+          expect(history).not.toContain("Final replay frame");
+        }
+        const loads = (await readFile(log, "utf8"))
+          .split("\n")
+          .filter((line) => line === "session/load");
+        expect(loads).toHaveLength(2);
       } finally {
         await reader.close();
       }

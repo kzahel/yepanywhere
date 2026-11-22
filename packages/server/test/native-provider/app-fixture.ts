@@ -20,7 +20,7 @@ import {
 } from "../../../client/e2e/support/process-lifecycle.js";
 import { stopProviderHostRuntime } from "../../../client/e2e/support/provider-host-runtime.js";
 import { modelServer, syntheticKey } from "./model-server.js";
-import { nativeExecutable, expectedVersions } from "./runtimes.js";
+import { expectedNativeVersion, nativeExecutable } from "./runtimes.js";
 
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const exec = promisify(execFile);
@@ -332,8 +332,11 @@ export async function nativeAppFixture(
           signal: options.signal,
         })
       ).stdout.trim();
-      if (!version.split(/\s+/).includes(expectedVersions[selected]))
-        throw Error(`Unexpected native ${selected} version ${version}`);
+      const expected = expectedNativeVersion(selected);
+      if (!version.split(/\s+/).includes(expected))
+        throw Error(
+          `Native ${selected} version mismatch: expected ${expected}; got ${version}`,
+        );
       mark(`version ${selected} complete`);
     }
     assertOpen();
