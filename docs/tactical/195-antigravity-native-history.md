@@ -149,23 +149,28 @@ every tool that asks permission in a session not launched with bypass.
 
 - Recognize a client-bound request whatever its ID type, and echo the ID
   unchanged. Responses to YA's own requests still match only YA's IDs.
-- A request belongs to the native work that raised it. When YA cancels a
-  turn, answer that conversation's pending requests as cancelled and
-  withdraw their prompts; answer requests that arrive before the cancelled
-  prompt returns as cancelled without a prompt; withdraw any still open
-  when a prompt returns. Requests outside a YA prompt stay answerable.
+- A request belongs to its tool call. Terminal evidence for the call
+  withdraws it. Stop withdraws every waiting request on the connection and
+  marks the running tool calls cancelled, so a delayed request for one of
+  them is answered cancelled without a prompt. A turn's result withdraws
+  the requests raised during it, and a request arriving between the last
+  prompt's answer and the result asks after the result is published.
+- From Stop until the cancelled prompt returns, input is queued rather
+  than steered.
 - One owner gives each request exactly one answer, caps pending requests,
   releases each approval's listeners, and closes intake when the connection
-  ends. Envelopes are validated before dispatch.
+  ends. Envelopes and response bodies are validated before dispatch.
 - Tests: real `agy` in default mode asks for a `write_file`; Allow writes
   the file, Deny does not, and the session continues after each. Accept-edits
   writes without asking and asks for a command, bypass asks for nothing, and
-  YA's Plan mode is refused, and Stop withdraws a waiting write. A
-  controlled peer sends string IDs, as `agy` does, and covers a numeric
-  ID, Stop with a prompt open or a request arriving late, a late answer
-  while deferred input waits, root and child requests, duplicate and reused
-  IDs, approval retention, malformed frames, connection loss and a frame
-  sent during shutdown.
+  YA's Plan mode is refused, and Stop withdraws a waiting write while input
+  sent right after it is delivered. A controlled peer sends string IDs, as
+  `agy` does, and covers Stop with a request open or arriving late, for
+  foreground and detached work. It also covers: a later wake that still
+  asks; a wake's request in the same write as a prompt's response; a late
+  answer while deferred input waits; root and child requests; duplicate and
+  reused IDs; approval retention; malformed frames and response bodies;
+  connection loss and a frame sent during shutdown.
 
 ### 3 — project the log into YA messages
 
@@ -273,7 +278,7 @@ conversation and the host can hold it.
 | --- | --- | --- |
 | 1 — remove the standalone runtime | Done 2026-11-22 | `agy` 1.5.13 floor read from ACP `initialize`, with an `agy --version` fallback when `acp` is missing. Status, CLI installations and refused starts name both versions and `agy update`. The Linux `nobody` alias was confirmed unneeded on Ubuntu 24.04 before removal. Review round 1 added the owned, credential-filtered version probe, the saved and v0 creation refusal, and Auto/launch agreement. [Contract](../../topics/antigravity.md#supported-runtime). |
 | 2 — reproduce the limits and measure the unknowns | Done 2026-11-22 | Repros are controlled-peer tests named "today: …" for steps 4 to 6 to flip. Answers are in [native storage measurements](../../topics/antigravity-native-storage.md#measurements--plan-195-step-2): a record appears once its step ends, so the log trails by the step in progress; snapshots around load and resume found the conversation's database content and log unchanged, with temporary sidecars and store-wide writes; `session/resume` qualified at 7,261 compacted steps on 1.5.13 and 1.5.14 (33–37 ms, no replay, compacted context kept); tool call IDs are random; `step_index` increases but skips interrupted and error steps (type 17 is `ERROR_MESSAGE`); [tool results pair with calls by step index](../../topics/antigravity-native-storage.md#reading-a-tool-group) (P+1+*i* is call *i*; a missing step is an interrupted result; any other shape makes the log unknown); Codex's heap shows no upward trend over 600 turns, Antigravity's projection grows 4.6 KB a turn. Real `agy` reached a 440 ms median turn, so the 500 MB target is generated from record shapes. Review rounds made the reopen legs identical, streamed the census, fixed the retention sampling, moved group pairing to step indexes and recorded that a reopen can change the summaries index's content. Found the permission defect that step 2b fixes. |
-| 2b — accept agy's permission requests | Done 2026-11-22 | One owner handles inbound permission requests (`antigravity-permission-requests.ts`): any JSON-RPC ID type, echoed once; identity-checked replies; a 32-request cap; prompts withdrawn on Stop, on their prompt returning and on connection loss; requests after Stop answered cancelled without a prompt; envelopes validated before dispatch. Real `agy` 1.5.13 and 1.5.14: default mode asks, Allow writes, Deny ends the turn without writing, Stop withdraws a waiting write, accept-edits asks only for the tested command, bypass never asks, Plan is refused. Review round 1 added the ownership, retention, ID-reuse, teardown and envelope fixes. [Contract](../../topics/antigravity.md#vanilla-execution). |
+| 2b — accept agy's permission requests | Done 2026-11-22 | One owner handles inbound permission requests (`antigravity-permission-requests.ts`): any JSON-RPC ID type, echoed once; identity-checked replies; a 32-request cap; intake closed when the connection ends. A request belongs to its tool call: terminal evidence withdraws it, Stop withdraws every waiting request on the connection and cancels delayed requests for calls running at Stop, and a turn's result withdraws requests raised during it while later ones ask after the result. Steer is closed from Stop until the cancelled prompt returns. Responses need exactly one valid body. Real `agy` 1.5.13 and 1.5.14: default mode asks, Allow writes, Deny ends the turn without writing, Stop withdraws a waiting write and input sent right after is delivered, accept-edits asks only for the tested command, bypass never asks, Plan is refused. Child permission routing is unqualified ([gap](../../gaps/antigravity-child-permission-routing-unqualified.md)). [Contract](../../topics/antigravity.md#vanilla-execution). |
 | 3 — project the log into YA messages | Not started | |
 | 4 — serve cold history from the log | Not started | |
 | 5 — resume without replaying history | Not started | |

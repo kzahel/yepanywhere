@@ -82,6 +82,8 @@ interface AntigravityControls {
   inputHeld?: boolean;
   onInputHoldChanged?: () => void;
   reconcileSubagents?: (options?: { silent?: boolean }) => void;
+  /** From Stop until the cancelled prompts return, nothing is steered in. */
+  stopping?: boolean;
 }
 
 export class AntigravityProvider implements AgentProvider {
@@ -356,6 +358,9 @@ export class AntigravityProvider implements AgentProvider {
       },
       interrupt: async () => {
         if (!controls.id || !runtime.alive) return false;
+        // A follow-up sent now falls back to the queue: agy refuses a
+        // prompt while it is cancelling the current one.
+        if (controls.steer) controls.stopping = true;
         runtime.cancel(controls.id);
         return true;
       },
@@ -904,6 +909,8 @@ export class AntigravityProvider implements AgentProvider {
           return result;
         } finally {
           compacting = false;
+          runtime.endingTurn();
+          runtime.turnEnded();
           reconcileRoot();
           changed();
         }
@@ -1128,8 +1135,8 @@ export class AntigravityProvider implements AgentProvider {
               0,
             )
             .then((response) => {
-              usage = response.usage ?? usage;
-              if (!signal.aborted && response.stopReason === "end_turn") {
+              usage = response?.usage ?? usage;
+              if (!signal.aborted && response?.stopReason === "end_turn") {
                 if (steer) {
                   options.onNativeInputConsumed?.(id, inputId);
                   queue.acknowledgeNativeSteer(steer);
@@ -1142,7 +1149,10 @@ export class AntigravityProvider implements AgentProvider {
               failure ??= error;
             })
             .finally(() => {
-              if (--pending === 0) controls.steer = undefined;
+              if (--pending === 0) {
+                controls.steer = undefined;
+                controls.stopping = false;
+              }
               changed();
             });
           changed();
@@ -1152,6 +1162,7 @@ export class AntigravityProvider implements AgentProvider {
           if (
             signal.aborted ||
             !runtime.alive ||
+            controls.stopping ||
             inputHeld() ||
             failure ||
             pending >= 8 ||
@@ -1216,7 +1227,9 @@ export class AntigravityProvider implements AgentProvider {
           yield updates.shift()!;
         }
         if (failure) throw failure;
+        runtime.endingTurn();
         yield { type: "result", session_id: id, usage };
+        runtime.turnEnded();
       }
     } catch (error) {
       failReady(error);

@@ -38,19 +38,27 @@ const readline = require('node:readline');
 const id = '${nativeId}';
 const child = '${childId}';
 const log = line => fs.appendFileSync(process.env.AGY_TEST_LOG, line + '\\n');
-const send = value => process.stdout.write(JSON.stringify(value) + '\\n');
+const frame = value => JSON.stringify(value) + '\\n';
+const send = value => process.stdout.write(frame(value));
 const reply = (rid, result) => send({ jsonrpc: '2.0', id: rid, result });
-const update = text => send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: id, update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } } } });
-const ask = (rid, sessionId = id) => send({ jsonrpc: '2.0', id: rid, method: 'session/request_permission', params: { sessionId,
-  toolCall: { toolCallId: 'tool-' + rid, title: 'Write file ' + rid, kind: 'edit' },
+const chunk = text => ({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: id, update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } } } });
+const update = text => send(chunk(text));
+// agy announces a tool call before asking about it, and reports its end.
+const toolCall = (tool, status, sessionId = id) => ({ jsonrpc: '2.0', method: 'session/update', params: { sessionId,
+  update: { sessionUpdate: status === 'in_progress' ? 'tool_call' : 'tool_call_update', toolCallId: tool, title: 'Write file ' + tool, status } } });
+const request = (rid, tool = 'tool-' + rid, sessionId = id) => ({ jsonrpc: '2.0', id: rid, method: 'session/request_permission', params: { sessionId,
+  toolCall: { toolCallId: tool, title: 'Write file ' + rid, kind: 'edit' },
   options: [{ optionId: 'native-allow', name: 'Allow', kind: 'allow_once' }, { optionId: 'native-deny', name: 'Deny', kind: 'reject_once' }] } });
+const ask = (rid, tool = 'tool-' + rid, sessionId = id) => { send(toolCall(tool, 'in_progress', sessionId)); send(request(rid, tool, sessionId)); };
+// Several frames in one stdout write.
+const write = (...values) => process.stdout.write(values.map(frame).join(''));
 let prompt, text, cancelled = false, many = 0;
 const answers = new Map();
 const finish = stopReason => { const p = prompt; prompt = undefined; if (p !== undefined) reply(p, { stopReason }); };
 // A cancelled prompt returns only once agy has both the cancel and the answer.
 const settleCancel = rid => { if (cancelled && answers.has(rid)) finish('cancelled'); };
 process.on('SIGTERM', () => {
-  if (process.env.AGY_TEST_ASK_ON_SIGTERM) ask('on-sigterm');
+  if (process.env.AGY_TEST_ASK_ON_SIGTERM) send(request('on-sigterm'));
   setTimeout(() => process.exit(0), 50);
 });
 readline.createInterface({ input: process.stdin }).on('line', line => {
@@ -59,6 +67,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     const outcome = m.result ? (m.result.outcome?.optionId ?? m.result.outcome?.outcome) : 'error ' + m.error?.code;
     log('answer ' + JSON.stringify(m.id) + ' ' + outcome);
     answers.set(m.id, outcome);
+    // agy takes a moment to wind a cancelled prompt down.
+    if (text === 'follow') return cancelled && setTimeout(() => settleCancel('1'), 200);
     if (text === 'hold' || text === 'child' || text === 'reuse-a') return settleCancel('1');
     if (text === 'reuse-b' || text === 'dup' || text === 'approve') return setTimeout(() => finish('end_turn'), 100);
     if (text === 'many') return ++many < 20 ? ask('m' + (many + 1)) : (update('MANY_DONE'), finish('end_turn'));
@@ -78,14 +88,40 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     return reply(m.id, { sessionId: id, models: { currentModelId: 'native-default', availableModels: [] } });
   }
   if (m.method === 'session/prompt') {
+    // Like agy, refuse a second prompt while one is being worked on.
+    if (prompt !== undefined)
+      return send({ jsonrpc: '2.0', id: m.id, error: { code: -32000, message: 'A prompt is already active' } });
     prompt = m.id; text = m.params.prompt[0].text; cancelled = false; answers.clear();
-    if (text === 'hold' || text === 'reuse-a' || text === 'reuse-b' || text === 'approve') return ask('1');
-    if (text === 'child') { ask('1'); return ask('2', child); }
-    if (text === 'dup') { ask('1'); return ask('1'); }
+    // reuse-b reuses the request ID for a new tool call (agy's IDs are fresh UUIDs).
+    if (text === 'reuse-b') return ask('1', 'tool-1b');
+    if (['hold', 'follow', 'reuse-a', 'approve'].includes(text)) return ask('1');
+    if (text === 'child') { ask('1'); return ask('2', 'tool-2', child); }
+    if (text === 'dup') { ask('1'); return send(request('1')); }
     if (text === 'many') return ask('m1');
-    if (text === 'late') return update('Waiting');
+    if (text === 'late') { send(toolCall('tool-1', 'in_progress')); return update('Waiting'); }
+    if (text === 'wake') {
+      update('Hello');
+      finish('end_turn');
+      // Detached work starts its own tool call after the foreground turn.
+      return setTimeout(() => { send(toolCall('wake-1', 'in_progress')); update('WAKE_RUNNING'); }, 50);
+    }
+    if (text === 'same-write') {
+      // The prompt's response and a wake's request reach YA in one write.
+      const p = prompt; prompt = undefined;
+      return write(chunk('Hello'), { jsonrpc: '2.0', id: p, result: { stopReason: 'end_turn' } }, toolCall('wake-3', 'in_progress'), request('w3', 'wake-3'));
+    }
+    if (text === 'same-write-cancel') return update('Waiting');
+    if (text === 'decoy-body') {
+      // None of these answers the prompt: no body, two bodies, an invalid error.
+      send({ jsonrpc: '2.0', id: m.id });
+      send({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'refusal' }, error: {} });
+      send({ jsonrpc: '2.0', id: m.id, error: {} });
+      update('BODY_DONE');
+      return finish('end_turn');
+    }
+    if (text === 'null-result') { update('NULL_DONE'); prompt = undefined; return reply(m.id, null); }
     if (text === 'exit') {
-      for (let i = 1; i <= 100; i++) ask('x' + i);
+      for (let i = 1; i <= 100; i++) send(request('x' + i));
       return process.stdout.write('', () => process.exit(0));
     }
     if (text === 'malformed') {
@@ -101,9 +137,20 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (m.method === 'session/cancel') {
     cancelled = true;
     // As if the request had been raised before the cancel but its frame
-    // reached YA only after it.
-    if (text === 'late') { ask('1'); return finish('cancelled'); }
-    if (text === 'hold' || text === 'child' || text === 'reuse-a') return settleCancel('1');
+    // reached YA only after it; agy then reports the call failed.
+    if (text === 'late') { send(request('1')); send(toolCall('tool-1', 'failed')); return finish('cancelled'); }
+    if (text === 'wake') {
+      send(request('w1', 'wake-1'));
+      send(toolCall('wake-1', 'failed'));
+      // A later, independent wake.
+      return setTimeout(() => ask('w2', 'wake-2'), 100);
+    }
+    if (text === 'same-write-cancel') {
+      const p = prompt; prompt = undefined;
+      return write({ jsonrpc: '2.0', id: p, result: { stopReason: 'cancelled' } }, toolCall('wake-4', 'in_progress'), request('w4', 'wake-4'));
+    }
+    if (text === 'follow') return answers.has('1') && setTimeout(() => settleCancel('1'), 200);
+    if (['hold', 'child', 'reuse-a'].includes(text)) return settleCancel('1');
     return finish('cancelled');
   }
   if ('id' in m) reply(m.id, {});
@@ -178,6 +225,8 @@ describe("Antigravity permission requests", () => {
       queue: session.queue,
       abortFn: session.abort,
       interruptFn: session.interrupt,
+      steerFn: session.steer,
+      steerUsesMessageQueue: session.steerUsesMessageQueue,
       isProcessAlive: session.isProcessAlive,
       deferredDelivery: {
         joinWindowSeconds: 0,
@@ -278,27 +327,17 @@ describe("Antigravity permission requests", () => {
     }
   });
 
-  it("root Stop withdraws the root conversation's prompt and leaves a child's open", async () => {
-    const asked: Array<{
-      title: string;
-      signal: AbortSignal;
-      answer(allow: boolean): void;
-    }> = [];
+  // One runtime connection is one YA session, and YA's Process shows one
+  // approval queue for it, so Stop withdraws every waiting request, also
+  // one that names a child conversation (see the child-routing gap).
+  it("root Stop withdraws every waiting request on the connection, including a child's", async () => {
+    const asked: Array<{ title: string; signal: AbortSignal }> = [];
     const session = await new AntigravityProvider().startSession({
       cwd: directory,
       initialMessage: { text: "child", uuid: randomUUID() },
-      onToolApproval: (tool, input, { signal }) =>
+      onToolApproval: (tool, _input, { signal }) =>
         new Promise((resolve) => {
-          asked.push({
-            title: tool,
-            signal,
-            answer: (allow) =>
-              resolve(
-                allow
-                  ? { behavior: "allow", updatedInput: input }
-                  : { behavior: "deny" },
-              ),
-          });
+          asked.push({ title: tool, signal });
           signal.addEventListener("abort", () => resolve({ behavior: "deny" }));
         }),
     });
@@ -307,17 +346,101 @@ describe("Antigravity permission requests", () => {
       await vi.waitFor(() => expect(asked).toHaveLength(2));
       expect(await session.interrupt?.()).toBe(true);
       expect((await done).at(-1)?.type).toBe("result");
-      const root = asked.find((entry) => entry.title === "Write file 1")!;
-      const child = asked.find((entry) => entry.title === "Write file 2")!;
-      expect(root.signal.aborted).toBe(true);
-      expect(child.signal.aborted).toBe(false);
-      child.answer(true);
+      expect(asked.map((entry) => entry.signal.aborted)).toEqual([true, true]);
+      expect((await answers()).sort()).toEqual([
+        'answer "1" cancelled',
+        'answer "2" cancelled',
+      ]);
+    } finally {
+      await session.abort();
+    }
+  });
+
+  it("Stop during detached work cancels its delayed request; a later independent wake can still ask", async () => {
+    const asked: string[] = [];
+    const session = await new AntigravityProvider().startSession({
+      cwd: directory,
+      initialMessage: { text: "wake", uuid: randomUUID() },
+      onToolApproval: async (tool, input) => {
+        asked.push(tool);
+        return { behavior: "allow", updatedInput: input };
+      },
+    });
+    try {
+      expect((await untilResult(session)).at(-1)?.type).toBe("result");
+      // The wake's tool call is running in agy; nothing has asked yet.
+      for (;;) {
+        const { value } = await session.iterator.next();
+        if (JSON.stringify(value).includes("WAKE_RUNNING")) break;
+      }
+      expect(await session.interrupt?.()).toBe(true);
       await vi.waitFor(async () =>
         expect(await answers()).toEqual([
-          'answer "1" cancelled',
-          'answer "2" native-allow',
+          'answer "w1" cancelled',
+          'answer "w2" native-allow',
         ]),
       );
+      // Only the independent wake reached the user.
+      expect(asked).toEqual(["Write file w2"]);
+    } finally {
+      await session.abort();
+    }
+  });
+
+  it("a wake's request in the same write as the prompt's response is asked, visibly, once the turn ends", async () => {
+    const { proc, session, until } = await owned("same-write");
+    try {
+      await until(() => proc.state.type === "waiting-input");
+      const request = proc.getPendingInputRequest()!;
+      expect(request.toolName).toBe("Write file w3");
+      expect(proc.respondToInput(request.id, "approve")).toBe(true);
+      await vi.waitFor(async () =>
+        expect(await answers()).toEqual(['answer "w3" native-allow']),
+      );
+    } finally {
+      await session.abort();
+    }
+  });
+
+  it("a wake's request in the same write as a cancelled response is new work and asks", async () => {
+    const { proc, session, until } = await owned("same-write-cancel");
+    try {
+      await until(() =>
+        JSON.stringify(proc.getMessageHistory()).includes("Waiting"),
+      );
+      await proc.interrupt();
+      await until(() => proc.state.type === "waiting-input");
+      const request = proc.getPendingInputRequest()!;
+      expect(request.toolName).toBe("Write file w4");
+      expect(proc.respondToInput(request.id, "approve")).toBe(true);
+      await vi.waitFor(async () =>
+        expect(await answers()).toEqual(['answer "w4" native-allow']),
+      );
+    } finally {
+      await session.abort();
+    }
+  });
+
+  it("input sent right after Stop is queued, not steered, and delivered once the prompt settles", async () => {
+    const { proc, session, until } = await owned("follow");
+    try {
+      await until(() => proc.state.type === "waiting-input");
+      await proc.interrupt();
+      expect(proc.queueMessage({ text: "FOLLOW_UP" }).success).toBe(true);
+      await until(
+        () =>
+          proc.state.type === "idle" &&
+          JSON.stringify(proc.getMessageHistory()).includes("Hello"),
+      );
+      const methods = await lines();
+      // agy refuses an overlapping prompt; YA never sent one.
+      expect(methods.filter((line) => line === "session/prompt")).toHaveLength(
+        2,
+      );
+      expect(methods.indexOf("session/cancel")).toBeLessThan(
+        methods.lastIndexOf("session/prompt"),
+      );
+      expect(await answers()).toEqual(['answer "1" cancelled']);
     } finally {
       await session.abort();
     }
@@ -407,6 +530,25 @@ describe("Antigravity permission requests", () => {
       expect(session.isProcessAlive?.()).toBe(true);
     } finally {
       off();
+      await session.abort();
+    }
+  });
+
+  it("only a response with exactly one valid body answers a call", async () => {
+    const session = await new AntigravityProvider().startSession({
+      cwd: directory,
+      initialMessage: { text: "decoy-body", uuid: randomUUID() },
+    });
+    try {
+      const messages = await untilResult(session);
+      expect(messages.at(-1)).toMatchObject({ type: "result" });
+      expect(JSON.stringify(messages)).toContain("BODY_DONE");
+      session.queue.push({ text: "null-result", uuid: randomUUID() });
+      // A prompt answered with a null result neither crashes nor errors.
+      const next = await untilResult(session);
+      expect(next.at(-1)).toMatchObject({ type: "result" });
+      expect(JSON.stringify(next)).toContain("NULL_DONE");
+    } finally {
       await session.abort();
     }
   });

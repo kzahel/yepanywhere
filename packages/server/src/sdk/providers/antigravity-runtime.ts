@@ -15,6 +15,7 @@ import type { SDKMessage } from "../types.js";
 import {
   AntigravityPermissionRequests,
   type JsonRpcId,
+  type PermissionParams,
 } from "./antigravity-permission-requests.js";
 
 export interface AntigravityConfigOption {
@@ -273,9 +274,7 @@ const isJsonRpcId = (id: unknown): id is JsonRpcId =>
   id === null;
 
 /** The fields YA needs to put a permission request to its user. */
-function isPermissionRequest(
-  params: unknown,
-): params is { sessionId: string } & Record<string, unknown> {
+function isPermissionRequest(params: unknown): params is PermissionParams {
   if (!params || typeof params !== "object") return false;
   const { sessionId, toolCall, options } = params as Record<string, unknown>;
   return (
@@ -305,6 +304,7 @@ export class AntigravityRuntime {
   private pending = new Map<
     number,
     {
+      method: string;
       resolve(value: unknown): void;
       reject(error: Error): void;
     }
@@ -320,6 +320,7 @@ export class AntigravityRuntime {
       if (this.alive && !this.stopped)
         this.send({ jsonrpc: "2.0", id, ...reply });
     },
+    () => this.onPermission,
   );
   onUpdate?: (
     update: AntigravityUpdate,
@@ -465,16 +466,28 @@ export class AntigravityRuntime {
       if (typeof id !== "number" || !Number.isSafeInteger(id)) return;
       const pending = this.pending.get(id);
       if (!pending) return;
-      this.pending.delete(id);
-      if (message.error) {
-        const error = message.error as {
-          message?: string;
-          data?: { message?: string };
-        };
+      // Exactly one of a result or a valid error answers a call. Neither
+      // answers only `initialize`, whose missing version is then refused.
+      const hasResult = "result" in message;
+      const error = message.error as
+        | { code?: unknown; message?: unknown; data?: { message?: unknown } }
+        | undefined;
+      const validError =
+        !!error &&
+        typeof error === "object" &&
+        Number.isInteger(error.code) &&
+        typeof error.message === "string";
+      const hasError = "error" in message;
+      if (hasResult && hasError) return;
+      if (hasError && !validError) return;
+      if (!hasResult && !hasError && pending.method !== "initialize") return;
+      this.settle(id);
+      if (validError) {
+        const data = error!.data?.message;
         pending.reject(
           new AcpErrorResponse(
-            error.data?.message ||
-              error.message ||
+            (typeof data === "string" && data) ||
+              (error!.message as string) ||
               "Antigravity request failed",
           ),
         );
@@ -497,6 +510,17 @@ export class AntigravityRuntime {
         params?.update &&
         typeof params.sessionId === "string"
       ) {
+        const update = params.update as AntigravityUpdate;
+        if (
+          (update.sessionUpdate === "tool_call" ||
+            update.sessionUpdate === "tool_call_update") &&
+          typeof update.toolCallId === "string"
+        )
+          this.permissions.observeToolCall(
+            params.sessionId,
+            update.toolCallId,
+            update.status,
+          );
         const meta = params._meta as { isReplay?: unknown } | undefined;
         this.onUpdate?.(
           params.update as AntigravityUpdate,
@@ -511,7 +535,7 @@ export class AntigravityRuntime {
       this.reject(id, -32601, "Unsupported client method");
     else if (!isPermissionRequest(params))
       this.reject(id, -32602, "Invalid permission request");
-    else this.permissions.receive(id, params, this.onPermission);
+    else this.permissions.receive(id, params);
   }
 
   private reject(id: JsonRpcId, code: number, message: string): void {
@@ -528,42 +552,59 @@ export class AntigravityRuntime {
       throw new Error("Too many Antigravity requests");
     const id = ++this.sequence;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    // A prompt owns the session's permission requests until it returns.
-    const promptSession =
-      method === "session/prompt"
-        ? (params as { sessionId?: unknown } | undefined)?.sessionId
-        : undefined;
-    if (typeof promptSession === "string")
-      this.permissions.promptStarted(promptSession);
     try {
       return await new Promise<T>((resolve, reject) => {
         this.pending.set(id, {
+          method,
           resolve: (value) => resolve(value as T),
           reject,
         });
+        if (method === "session/prompt") this.permissions.promptSent();
         if (timeoutMs > 0)
           timer = setTimeout(() => {
-            this.pending.delete(id);
+            this.settle(id);
             reject(new Error(`Antigravity ${method} timed out`));
             void this.shutdown();
           }, timeoutMs);
         try {
           this.send({ jsonrpc: "2.0", id, method, params });
         } catch (error) {
-          this.pending.delete(id);
+          this.settle(id);
           reject(error);
         }
       });
     } finally {
       if (timer) clearTimeout(timer);
-      if (typeof promptSession === "string")
-        this.permissions.promptSettled(promptSession);
     }
   }
 
   /**
-   * Cancels the session's prompt turn, then answers that session's pending
-   * permission requests as cancelled (see AntigravityPermissionRequests).
+   * Retires an outbound call synchronously, so a prompt stops counting as
+   * outstanding before the next frame in the same write is handled.
+   */
+  private settle(id: number): void {
+    const pending = this.pending.get(id);
+    if (!pending) return;
+    this.pending.delete(id);
+    if (pending.method === "session/prompt") this.permissions.promptAnswered();
+  }
+
+  /**
+   * YA's foreground turn is ending: before its result is published,
+   * withdraw the requests raised during it (an idle session would hide
+   * them); once published, put held requests to the user.
+   */
+  endingTurn(): void {
+    this.permissions.endingTurn();
+  }
+  turnEnded(): void {
+    this.permissions.turnEnded();
+  }
+
+  /**
+   * Cancels the session's prompt turn, then answers every pending
+   * permission request on this connection as cancelled (see
+   * AntigravityPermissionRequests).
    */
   cancel(sessionId: string): void {
     this.send({
@@ -571,7 +612,7 @@ export class AntigravityRuntime {
       method: "session/cancel",
       params: { sessionId },
     });
-    this.permissions.cancelSession(sessionId);
+    this.permissions.stop();
   }
 
   /** The connection is ending: outbound calls fail and inbound intake closes. */

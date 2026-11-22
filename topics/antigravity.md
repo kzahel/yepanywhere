@@ -202,28 +202,39 @@ Missing handlers and interrupted requests cancel.
 
 Permission requests ([owner](../packages/server/src/sdk/providers/antigravity-permission-requests.ts)):
 
-- **IDs.** A request is recognized whatever its JSON-RPC ID type (`agy`
-  1.5.13 and 1.5.14 send strings), and its answer echoes that ID unchanged.
-  Each request gets exactly one answer. A response only ever answers a
-  request YA issued: it must have no `method` and one of YA's numeric IDs.
-  A frame that is not JSON-RPC 2.0, has a non-string method, or is a
-  request YA does not serve (including a `session/update` that carries an
-  ID) gets an error and opens no prompt. So does a permission request
-  without a session, a tool call ID or options.
-- **Ownership.** While a YA prompt runs for a conversation, that
-  conversation's requests belong to the prompt:
-  - Stop (`session/cancel`) answers the conversation's pending requests as
-    cancelled and withdraws their prompts;
-  - a request arriving after Stop, before the cancelled prompt returns, is
-    answered cancelled without a prompt;
-  - any request still open when the prompt returns is withdrawn.
-
-  A withdrawn prompt's late answer is refused and does not move the session
-  back in-turn. A request raised outside a YA prompt (a wake or detached
-  work) stays answerable until answered, until its conversation is
-  stopped, or until the connection ends. Stop withdraws only requests that
-  name the conversation it cancels. A request naming a child conversation
-  stays open through a root Stop.
+- **IDs and frames.** A request is recognized whatever its JSON-RPC ID
+  type (`agy` 1.5.13 and 1.5.14 send strings), and its answer echoes that ID
+  unchanged. Each request gets exactly one answer.
+  - A response answers a call only if it has no `method`, one of YA's
+    numeric IDs, and exactly one of a `result` or a valid JSON-RPC
+    `error`. The exception is an `initialize` reply with neither, which is
+    refused for its missing version.
+  - These get an error and open no prompt: a frame that is not JSON-RPC
+    2.0, a non-string method, a request YA does not serve (including a
+    `session/update` that carries an ID), and a permission request without
+    a session, a tool call ID or options.
+- **Ownership.** One `agy` connection is one YA session, and a request
+  belongs to its tool call.
+  - Terminal evidence for the call (a `tool_call` or `tool_call_update` that
+    is completed, failed or cancelled) withdraws its request.
+  - Stop (`session/cancel`) answers every waiting request on the connection
+    as cancelled and withdraws its prompt, including one naming a child
+    conversation. It also marks the tool calls then running as cancelled. A
+    later request for one of them, such as a delayed frame from a stopped
+    turn or wake, is answered cancelled without a prompt. A request for a
+    tool call first seen after Stop is new work and asks.
+  - YA's session goes idle when a turn's result is published, so a request
+    raised during the turn and still waiting is withdrawn then.
+  - A request arriving after the turn's last prompt has answered, such as a
+    wake in the same write, is asked once the result is published, so it is
+    visible.
+  - A withdrawn prompt's late answer is refused and does not move the
+    session back in-turn.
+  - From Stop until the cancelled prompt returns, nothing is steered in:
+    `agy` refuses a prompt while it cancels one, so input sent then waits
+    in YA's queue and is delivered afterwards.
+  - Native permission requests from a child conversation have not been
+    observed ([gap](../gaps/antigravity-child-permission-routing-unqualified.md)).
 - **Limits.** At most 32 requests wait at once; more are answered
   cancelled. If two pending requests share an ID, the first is withdrawn and
   the ID gets one error answer. When the connection ends, intake closes and
@@ -239,8 +250,9 @@ Permission requests ([owner](../packages/server/src/sdk/providers/antigravity-pe
   - after Deny, nothing was written, YA showed an error result, and `agy`
     ended the turn without asking the model again; the next message
     started a new turn;
-  - Stop while a `write_file` waited withdrew the prompt, wrote nothing,
-    and the next message worked.
+  - Stop while a `write_file` waited withdrew the prompt and wrote nothing.
+    A message sent right after Stop was delivered once the cancelled prompt
+    returned.
 
 Stop requests native `session/cancel`; hard abort closes the owned process
 group and waits for exit.

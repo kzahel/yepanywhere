@@ -119,7 +119,7 @@ describe.skipIf(!providers.includes("antigravity"))(
       expect(f.model.failures).toEqual([]);
     }, 30_000);
 
-    it("Stop while a write waits withdraws the prompt, writes nothing, and the next message works", async () => {
+    it("Stop while a write waits withdraws it, writes nothing, and input sent right after is delivered", async () => {
       let withdrawn = false;
       let asked!: () => void;
       const waiting = new Promise<void>((resolve) => {
@@ -141,13 +141,14 @@ describe.skipIf(!providers.includes("antigravity"))(
       writeFile(await f.model.next(), held);
       await waiting;
       await f.proc.interrupt();
-      await f.idle();
-      expect(withdrawn).toBe(true);
-      expect(existsSync(held)).toBe(false);
+      // Sent before the cancelled prompt has returned: queued, not steered,
+      // because agy refuses a prompt while it cancels the current one.
       expect(f.proc.queueMessage({ text: "AFTER_STOP_TURN" }).success).toBe(
         true,
       );
       const after = await f.model.next();
+      expect(withdrawn).toBe(true);
+      expect(existsSync(held)).toBe(false);
       expect(JSON.stringify(after.body.contents)).toContain("AFTER_STOP_TURN");
       after.finish("AFTER_STOP_DONE");
       await f.output("AFTER_STOP_DONE");

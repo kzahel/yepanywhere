@@ -978,10 +978,11 @@ pin and with the 1.5.14 candidate.
 
 Plan 195 step 2b (permission requests with string IDs) added
 `native-antigravity-permissions.test.ts`: five real-`agy` cases for default
-mode (Allow and Deny), Stop while a write waits, accept-edits, bypass and the
-refused Plan mode. The approval case in `antigravity.test.ts` now runs with a
-string and a numeric ID. Ten controlled-peer cases for request ownership,
-retention, ID reuse, envelopes and teardown are in
+mode (Allow and Deny), Stop while a write waits with input sent right after,
+accept-edits, bypass and the refused Plan mode. The approval case in
+`antigravity.test.ts` now runs with a string and a numeric ID. Fifteen
+controlled-peer cases for request ownership, retention, ID reuse, envelopes,
+response bodies and teardown are in
 `test/sdk/providers/antigravity-permissions.test.ts`, which the ordinary
 server suite runs. They are not part of this selection. The selection passed
 with 47 cases and 3 skipped on 2026-11-22, with the 1.5.13 pin and with the
