@@ -534,10 +534,6 @@ describe("AntigravitySummariesReader & top-level child exclusion", () => {
     const f = await createSummariesFixture();
     await writeFile(join(f.conversationsDir, `${PARENT_ID}.db`), "parent");
     await writeFile(join(f.conversationsDir, `${CHILD_ID}.db`), "child");
-    await writeFile(
-      join(f.conversationsDir, `${CHILD_ID}.meta`),
-      JSON.stringify({ cwd: f.project }),
-    );
     const insert = f.db.prepare(
       "INSERT INTO conversation_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     );
@@ -613,7 +609,7 @@ const { DatabaseSync } = require("node:sqlite");
 const send = (v) => process.stdout.write(JSON.stringify(v) + "\\n");
 readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const m = JSON.parse(line);
-  if (m.method === "initialize") return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1 } });
+  if (m.method === "initialize") return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1, agentInfo: { version: "1.5.13" } } });
   if (m.method === "session/list") {
     const db = new DatabaseSync(${JSON.stringify(f.dbPath)});
     db.prepare("UPDATE conversation_summaries SET parent_conversation_id = ?, nesting_depth = 1 WHERE conversation_id = ?").run(${JSON.stringify(PARENT_ID)}, ${JSON.stringify(CHILD_ID)});
@@ -695,17 +691,13 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     ).rejects.toThrow("escapes");
   });
 
-  it("treats overlong parent IDs and leftover .meta sidecars as children and skips ACP on child reads", async () => {
+  it("treats overlong parent IDs as children and skips ACP on child reads", async () => {
     const f = await createSummariesFixture();
     await writeFile(join(f.conversationsDir, `${PARENT_ID}.db`), "parent");
     await writeFile(join(f.conversationsDir, `${CHILD_ID}.db`), "child");
     await writeFile(
       join(f.conversationsDir, `${GRANDCHILD_ID}.db`),
       "overlong",
-    );
-    await writeFile(
-      join(f.conversationsDir, `${CHILD_ID}.meta`),
-      JSON.stringify({ cwd: f.project }),
     );
     const overlongParent = "x".repeat(1_200);
     const insert = f.db.prepare(

@@ -24,6 +24,7 @@ import { AntigravitySessionReader } from "../../../src/sessions/antigravity-read
 import type { SDKMessage } from "../../../src/sdk/types.js";
 import type { Process } from "../../../src/supervisor/Process.js";
 import { createApp } from "../../setup/create-app.js";
+import { writeAntigravitySummaries } from "../../utils/antigravity-store.js";
 import { EventBus } from "../../../src/watcher/EventBus.js";
 import {
   createTestSessionMetadataService,
@@ -31,12 +32,14 @@ import {
 } from "../../utils/session-metadata-database.js";
 
 const nativeId = "11111111-1111-4111-8111-111111111111";
+// The pinned agy reports this version from ACP initialize.
+const nativeVersion = "1.5.13";
 const peer = `#!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 const id = '${nativeId}';
-const root = path.join(process.env.GEMINI_HOME, 'antigravity-acp', 'conversations');
+const root = path.join(process.env.GEMINI_HOME, 'antigravity-cli', 'conversations');
 const send = value => process.stdout.write(JSON.stringify(value)+'\\n');
 const reply = (id, result) => send({jsonrpc:'2.0', id, result});
 const update = (value, meta) => send({jsonrpc:'2.0',method:'session/update',params:{sessionId:id,update:value,_meta:meta}});
@@ -45,10 +48,9 @@ let replayHeld = false;
 readline.createInterface({input:process.stdin}).on('line', line => {
  const m = JSON.parse(line);
  if(m.method) fs.appendFileSync(process.env.AGY_TEST_LOG,m.method+'\\n');
- if(m.method === 'initialize') return reply(m.id,{protocolVersion:1});
+ if(m.method === 'initialize') return reply(m.id,{protocolVersion:1,agentInfo:{version:'${nativeVersion}'}});
  if(m.method === 'session/new') {
   fs.mkdirSync(root,{recursive:true});
-  fs.writeFileSync(path.join(root,id+'.meta'),JSON.stringify({cwd:m.params.cwd}));
   fs.writeFileSync(path.join(root,id+'.db'),'native fixture');
   return reply(m.id,{sessionId:id,models:{currentModelId:'native-default',availableModels:[{modelId:'native-default',name:'Native default'}]}});
  }
@@ -138,15 +140,22 @@ describe("Antigravity native process boundary", () => {
   let directory: string;
   let executable: string;
   let log: string;
+  let store: string;
   let admissionFinished: Promise<void> | undefined;
   beforeEach(async () => {
     // The temp root is itself a link on macOS; a project is its real folder.
     directory = await realpath(await mkdtemp(join(tmpdir(), "ya-agy-test-")));
-    executable = join(directory, "peer.cjs");
+    await mkdir(join(directory, "bin"));
+    executable = join(directory, "bin", "agy");
     log = join(directory, "methods.log");
     await writeFile(executable, peer);
     await chmod(executable, 0o755);
-    vi.stubEnv("GEMINI_HOME", join(directory, "native-home"));
+    // agy opens HOME/.gemini unless YA passes --gemini-dir.
+    const home = join(directory, "home");
+    store = join(home, ".gemini", "antigravity-cli");
+    await writeAntigravitySummaries(store, [{ id: nativeId, cwd: directory }]);
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("GEMINI_HOME", join(home, ".gemini"));
     vi.stubEnv("ANTIGRAVITY_ACP_PATH", executable);
     vi.stubEnv("AGY_TEST_LOG", log);
   });
@@ -602,17 +611,8 @@ describe("Antigravity native process boundary", () => {
   it.skipIf(process.platform === "win32")(
     "reads native history with no prompt/authentication and refuses another project",
     async () => {
-      const root = join(
-        directory,
-        "native-home",
-        "antigravity-acp",
-        "conversations",
-      );
+      const root = join(store, "conversations");
       await mkdir(root, { recursive: true });
-      await writeFile(
-        join(root, `${nativeId}.meta`),
-        JSON.stringify({ cwd: directory }),
-      );
       await writeFile(join(root, `${nativeId}.db`), "native fixture");
       const reader = new AntigravitySessionReader({ projectPath: directory });
       try {
@@ -640,13 +640,8 @@ describe("Antigravity native process boundary", () => {
   it.skipIf(process.platform === "win32")(
     "requires the saved tail after an early load response, even on retry and resume",
     async () => {
-      const store = join(directory, "native-home", "antigravity-acp");
       const root = join(store, "conversations");
       await mkdir(root, { recursive: true });
-      await writeFile(
-        join(root, `${nativeId}.meta`),
-        JSON.stringify({ cwd: directory }),
-      );
       await writeFile(join(root, `${nativeId}.db`), "native fixture");
       const logs = join(store, "brain", nativeId, ".system_generated", "logs");
       await mkdir(logs, { recursive: true });
@@ -826,10 +821,9 @@ const buildConfigOptions = () => {
 readline.createInterface({input:process.stdin}).on('line', line => {
   const m = JSON.parse(line);
   if (m.method) fs.appendFileSync(process.env.AGY_CONFIG_LOG, JSON.stringify({ method: m.method, params: m.params }) + '\\n');
-  if (m.method === 'initialize') return reply(m.id, { protocolVersion: 1, agentInfo: { version: '1.5.14' } });
+  if (m.method === 'initialize') return reply(m.id, { protocolVersion: 1, agentInfo: { version: '${nativeVersion}' } });
   if (m.method === 'session/new') {
     fs.mkdirSync(root, { recursive: true });
-    fs.writeFileSync(path.join(root, id + '.meta'), JSON.stringify({ cwd: m.params.cwd }));
     fs.writeFileSync(path.join(root, id + '.db'), 'native fixture');
     return reply(m.id, {
       sessionId: id,
@@ -892,7 +886,6 @@ readline.createInterface({input:process.stdin}).on('line', line => {
       vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
 
       const provider = new AntigravityProvider();
-      expect(provider.supportsThinkingToggle).toBe(true);
       const models = await provider.getAvailableModels({ forceRefresh: true });
       expect(models).toEqual([
         expect.objectContaining({
@@ -1137,7 +1130,7 @@ const opts = () => ([
 ]);
 readline.createInterface({ input: process.stdin }).on('line', line => {
   const m = JSON.parse(line);
-  if (m.method === 'initialize') return reply(m.id, { protocolVersion: 1, agentInfo: { version: '1.5.14' } });
+  if (m.method === 'initialize') return reply(m.id, { protocolVersion: 1, agentInfo: { version: '${nativeVersion}' } });
   if (m.method === 'session/new') return reply(m.id, { sessionId: id, models: { currentModelId: 'gemini-4-neon-high', availableModels: [] }, modes: { currentModeId: 'default', availableModes: [{ id: 'default' }] }, configOptions: opts() });
   if (m.method === 'session/set_config_option') {
     if (m.params.configId === 'model') curModel = m.params.value;
@@ -1211,62 +1204,60 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     },
   );
 
-  it.skipIf(process.platform === "win32")(
-    "preserves flat effort-suffixed models for standalone ACP 1.4.5 even when configOptions are present",
-    async () => {
-      const legacyExe = join(directory, "antigravity-acp");
-      const legacyPeer = `#!/usr/bin/env node
-const readline = require('node:readline');
-const id = '${nativeId}';
-const send = v => process.stdout.write(JSON.stringify(v) + '\\n');
-const reply = (rid, result) => send({ jsonrpc: '2.0', id: rid, result });
-readline.createInterface({ input: process.stdin }).on('line', line => {
+  // Each case is a real child: one answers initialize with an old or missing
+  // version, the other is an agy too old to have an ACP server at all.
+  (process.platform === "win32" ? it.skip : it).each([
+    ["1.4.5", "reports version 1.4.5"],
+    [undefined, "did not report a version"],
+    ["no-acp", "reports version 1.4.12"],
+  ] as const)(
+    "refuses agy below the floor (%s) in provider status and at start",
+    async (reported, installed) => {
+      const old = join(directory, "old-bin", "agy");
+      await mkdir(join(directory, "old-bin"));
+      await writeFile(
+        old,
+        `#!/usr/bin/env node
+const fs = require('node:fs');
+if (process.argv.includes('--version')) { console.log('${reported === "no-acp" ? "1.4.12" : (reported ?? "")}'); process.exit(0); }
+fs.appendFileSync(${JSON.stringify(log)}, 'launch\\n');
+if (${JSON.stringify(reported)} === 'no-acp') { console.error('unknown command "acp"'); process.exit(2); }
+require('node:readline').createInterface({ input: process.stdin }).on('line', line => {
   const m = JSON.parse(line);
-  if (m.method === 'initialize') return reply(m.id, { protocolVersion: 1, agentInfo: { version: '1.4.5' } });
-  if (m.method === 'session/new') {
-    return reply(m.id, {
-      sessionId: id,
-      models: {
-        currentModelId: 'gemini-3.8-flash-high',
-        availableModels: [
-          { modelId: 'gemini-3.8-flash-high', name: 'Gemini 3.8 Flash (High)' },
-          { modelId: 'gemini-3.8-flash-low', name: 'Gemini 3.8 Flash (Low)' },
-        ],
-      },
-      configOptions: [
-        { id: 'model', category: 'model', type: 'select', currentValue: 'gemini-3.8-flash', options: [{ value: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash' }] },
-        { id: 'thinking_level', category: 'thought_level', type: 'select', currentValue: 'high', options: [{ value: 'low', name: 'Low' }, { value: 'high', name: 'High' }] },
-      ],
-    });
-  }
-  return reply(m.id, {});
+  fs.appendFileSync(${JSON.stringify(log)}, m.method + '\\n');
+  const agentInfo = ${JSON.stringify(reported)} ? { version: ${JSON.stringify(reported)} } : {};
+  process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: { protocolVersion: 1, agentInfo } }) + '\\n');
 });
-`;
-      await writeFile(legacyExe, legacyPeer);
-      await chmod(legacyExe, 0o755);
-      vi.stubEnv("ANTIGRAVITY_ACP_PATH", legacyExe);
+`,
+      );
+      await chmod(old, 0o755);
+      vi.stubEnv("ANTIGRAVITY_ACP_PATH", old);
+      const refusal = `Antigravity requires agy 1.5.13 or later; the installed runtime ${installed}. Run \`agy update\`, or install the agy CLI.`;
 
       const provider = new AntigravityProvider();
-      expect(provider.supportsThinkingToggle).toBe(false);
-      const models = await provider.getAvailableModels({ forceRefresh: true });
-      expect(models).toEqual([
-        expect.objectContaining({
-          id: "default",
-          isDefault: true,
-          supportsEffort: false,
-          supportsAdaptiveThinking: false,
-        }),
-        expect.objectContaining({
-          id: "gemini-3.8-flash-high",
-          supportsEffort: false,
-          supportsAdaptiveThinking: false,
-        }),
-        expect.objectContaining({
-          id: "gemini-3.8-flash-low",
-          supportsEffort: false,
-          supportsAdaptiveThinking: false,
-        }),
-      ]);
+      expect(await provider.getAuthStatus()).toEqual({
+        installed: false,
+        authenticated: false,
+        enabled: false,
+      });
+      expect(provider.getModelCatalogStatus()?.error).toBe(refusal);
+
+      const session = await provider.startSession({
+        cwd: directory,
+        initialMessage: { text: "must not send" },
+      });
+      try {
+        const messages: SDKMessage[] = [];
+        for await (const message of session.iterator) messages.push(message);
+        expect(messages).toEqual([{ type: "error", error: refusal }]);
+      } finally {
+        await session.abort();
+      }
+      // Nothing beyond initialize reaches a refused runtime.
+      const methods = (await readFile(log, "utf8")).trim().split("\n");
+      expect(methods.filter((line) => line !== "launch")).toEqual(
+        reported === "no-acp" ? [] : ["initialize", "initialize"],
+      );
     },
   );
 });

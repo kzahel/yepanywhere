@@ -40,7 +40,7 @@ and [Codex access through a ChatGPT plan](https://help.openai.com/en/articles/11
 | --- | --- |
 | OpenCode | Start/resume, history, permissions/questions, tools, thinking, and images; capability parity varies |
 | Grok Build | ACP-based sessions with approvals, suggestions, effort, and steering where upstream supports them |
-| Antigravity | Experimental ACP integration through `agy acp`, available by default when the `agy` CLI is installed, with text, file references, approvals, streaming, and native history; macOS is live-qualified, Linux remains unqualified, and Windows is unavailable |
+| Antigravity | Experimental ACP integration through `agy acp`, available by default when the `agy` CLI 1.5.13 or later is installed (run `agy update` on older versions), with text, file references, approvals, streaming, and native history; macOS is live-qualified, Linux remains unqualified, and Windows is unavailable |
 | pi | Headless RPC sessions with streaming, tool rendering, model/thinking controls, compaction, forks, and durable history; tools currently run without a Yep Anywhere approval bridge |
 
 Existing Gemini CLI sessions remain available as read-only history. Use

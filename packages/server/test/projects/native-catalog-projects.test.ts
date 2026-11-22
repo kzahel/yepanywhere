@@ -19,6 +19,7 @@ import { PiSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/pi-
 import { OpenCodeSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/opencode-catalog-adapter.js";
 import { ClaudeSessionReader } from "../../src/sessions/reader.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
+import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 
 let root: string;
 let scanner: ProjectScanner;
@@ -38,20 +39,21 @@ afterEach(async () => {
 });
 
 async function seed() {
-  const agy = join(root, "agy");
+  const store = join(root, "agy", "antigravity-cli");
+  const agy = join(store, "conversations");
   const pi = join(root, "pi");
   const mixed = join(root, "mixed");
   const only = join(root, "only-agy");
   await Promise.all(
-    [agy, pi, mixed, only].map((dir) => mkdir(dir, { recursive: true })),
+    [pi, mixed, only].map((dir) => mkdir(dir, { recursive: true })),
   );
-  for (const [sessionId, cwd] of [
-    [id, mixed],
-    [id.replace(/^1/, "2"), only],
-  ]) {
-    await writeFile(join(agy, `${sessionId}.meta`), JSON.stringify({ cwd }));
-    await writeFile(join(agy, `${sessionId}.db`), "opaque native history");
-  }
+  const rows = [
+    { id, cwd: mixed },
+    { id: id.replace(/^1/, "2"), cwd: only },
+  ];
+  await writeAntigravitySummaries(store, rows);
+  for (const row of rows)
+    await writeFile(join(agy, `${row.id}.db`), "opaque native history");
   await mkdir(join(pi, "flattened"));
   await writeFile(
     join(pi, "flattened", `2026-11-03T00-00-00-000Z_${id}.jsonl`),

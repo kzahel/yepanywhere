@@ -17,6 +17,7 @@ import {
 } from "../../src/services/CliInstallationService.js";
 import { fnmCodexPaths } from "../../src/sdk/fnm-codex-discovery.js";
 import { describeAntigravityCandidate } from "../../src/sdk/providers/antigravity-launch.js";
+import { antigravityInstallationAdapter } from "../../src/sdk/cli-installation-adapters.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -196,23 +197,27 @@ it.each(["darwin", "linux", "win32"] as const)(
 );
 
 it.skipIf(process.platform === "win32")(
-  "preserves Antigravity's CLI arguments, standalone helper and symlink target",
+  "launches agy's ACP server from its symlink target and flags a version below the floor",
   async () => {
     const f = await fixture();
     const launcher = join(f.root, "agy");
-    await symlink(
-      f.good,
-      launcher,
-      process.platform === "win32" ? "file" : undefined,
-    );
-    expect(describeAntigravityCandidate(launcher).launch).toEqual({
-      command: await realpath(f.good),
-      args: ["acp"],
+    await symlink(f.good, launcher);
+    expect(describeAntigravityCandidate(launcher)).toMatchObject({
+      launch: { command: await realpath(f.good), args: ["acp"] },
+      watchPaths: [],
     });
-    const standalone = describeAntigravityCandidate(f.good);
-    expect(standalone.launch.args).toEqual([]);
-    expect(standalone.watchPaths).toContain(
-      join(await realpath(f.root), "localharness_external"),
-    );
+    const reporting = async (version: string) => {
+      const path = join(f.root, `agy-${version}`);
+      await writeFile(path, `#!/bin/sh\necho ${version}\n`, { mode: 0o755 });
+      return (await antigravityInstallationAdapter.discover(path))[0];
+    };
+    const current = await reporting("1.5.13");
+    expect(current).toMatchObject({ version: "1.5.13" });
+    expect(current?.error).toBeUndefined();
+    expect(await reporting("1.4.12")).toMatchObject({
+      version: "1.4.12",
+      error:
+        "Antigravity requires agy 1.5.13 or later; the installed runtime reports version 1.4.12. Run `agy update`, or install the agy CLI.",
+    });
   },
 );

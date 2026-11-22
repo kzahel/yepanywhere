@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openTestCatalog } from "../utils/session-catalog.js";
 import { closeTestDiscoveryDatabases } from "../utils/session-metadata-database.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
+import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { GrokSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/grok-catalog-adapter.js";
 import { OpenCodeSessionCatalogAdapter } from "../../src/sessions/catalog-adapters/opencode-catalog-adapter.js";
@@ -428,9 +429,10 @@ describe("OpenCodeSessionCatalogAdapter", () => {
 
 describe("AntigravitySessionCatalogAdapter", () => {
   const id = "11111111-2222-3333-4444-555555555555";
-  async function seed(directory = join(root, "agy")) {
-    await mkdir(directory, { recursive: true });
-    await writeJson(join(directory, `${id}.meta`), { cwd: "/work/agy-only" });
+  async function seed(cwd = "/work/agy-only") {
+    const store = join(root, "agy", "antigravity-cli");
+    await writeAntigravitySummaries(store, [{ id, cwd }]);
+    const directory = join(store, "conversations");
     // Deliberately not a SQLite database: discovery must never open history.
     await writeFile(join(directory, `${id}.db`), "opaque native bytes");
     return directory;
@@ -456,8 +458,7 @@ describe("AntigravitySessionCatalogAdapter", () => {
   });
 
   it("lists a project's accepted rows without a native process or another inventory", async () => {
-    const directory = await seed();
-    await writeJson(join(directory, `${id}.meta`), { cwd: root });
+    const directory = await seed(root);
     const accepted = await collect(
       new AntigravitySessionCatalogAdapter({ sessionsDir: directory }),
     );
@@ -481,10 +482,11 @@ describe("AntigravitySessionCatalogAdapter", () => {
     await catalog.initialize();
     await catalog.reconcile([adapter]);
     const before = await catalog.readRows();
-    await writeFile(join(directory, `${id}.meta`), "{");
+    const summaries = join(directory, "..", "conversation_summaries.db");
+    await writeFile(summaries, "not a database");
     await expect(catalog.reconcile([adapter])).rejects.toThrow();
     expect((await catalog.readRows()).rows).toEqual(before.rows);
-    await writeJson(join(directory, `${id}.meta`), { cwd: "/work/agy-only" });
+    await seed();
     await rm(join(directory, `${id}.db`));
     const outside = join(root, "outside.db");
     await writeFile(outside, "opaque");

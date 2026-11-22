@@ -139,8 +139,7 @@ Antigravity (`agy` 1.5+) records subagent lineage in its sibling
 in `conversations/`. `AntigravitySessionReader.getProviderChildSource` reads
 bounded read-only SQLite snapshots (using indexed wave BFS when SQLite plans an
 index seek, or a source-row-capped fallback otherwise), preserves immediate
-parents for nested descendants, treats missing stores (such as standalone 1.4.x
-runtimes) as unknown, marks truncated/older-schema/cyclic observations as
+parents for nested descendants, treats a missing summaries index as unknown, marks truncated/older-schema/cyclic observations as
 partial, and derives running-child freshness from local `.db`/`.db-wal` mtimes
 when `last_modified_time` holds the `0001-01-01` sentinel. Companion summaries
 DB/WAL events coalesce across active parents on the reader and update activity

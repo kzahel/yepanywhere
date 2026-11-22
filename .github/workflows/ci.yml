@@ -330,11 +330,7 @@ jobs:
       - run: pnpm install
       - run: pnpm --filter @yep-anywhere/shared build
       - name: Install the pinned Antigravity test runtime
-        run: |
-          pnpm test:providers:install antigravity
-          if ! getent group nobody >/dev/null; then
-            sudo groupadd --non-unique --gid "$(id -g nobody)" nobody
-          fi
+        run: pnpm test:providers:install antigravity
       - name: Verify Antigravity through the app and v0 API
         env:
           YEP_NATIVE_APP_TESTS: "1"

@@ -1,8 +1,9 @@
 import { describeAntigravityCandidate } from "./providers/antigravity-launch.js";
+import { antigravityCliVersionRefusal } from "./providers/antigravity-version.js";
 import { execFile } from "node:child_process";
 import { existsSync, realpathSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, delimiter, join } from "node:path";
+import { dirname, delimiter, join } from "node:path";
 import { promisify } from "node:util";
 import type {
   CliCandidate,
@@ -169,21 +170,17 @@ export const antigravityInstallationAdapter: CliInstallationAdapter = {
     if (process.platform === "win32") return [];
     const paths = explicit
       ? [explicit]
-      : ["agy", "agy_acp_server.par", "antigravity-acp"]
-          .flatMap((name) =>
-            (process.env.PATH ?? "")
-              .split(delimiter)
-              .filter(Boolean)
-              .map((dir) => join(dir, name)),
-          )
+      : (process.env.PATH ?? "")
+          .split(delimiter)
+          .filter(Boolean)
+          .map((dir) => join(dir, "agy"))
           .filter(existsSync);
     const candidates = [...new Set(paths)]
       .slice(0, 64)
       .map(describeAntigravityCandidate);
     await Promise.all(
       candidates.map(async (candidate) => {
-        // Standalone ACP does not promise a version flag; don't start its server here.
-        if (basename(candidate.path) !== "agy" || candidate.error) return;
+        if (candidate.error) return;
         try {
           candidate.version = (
             await execFileAsync(candidate.launch.command, ["--version"], {
@@ -193,7 +190,9 @@ export const antigravityInstallationAdapter: CliInstallationAdapter = {
           ).stdout.trim();
         } catch {
           /* Executability and offline execution qualification stay separate. */
+          return;
         }
+        candidate.error = antigravityCliVersionRefusal(candidate.version);
       }),
     );
     return candidates;

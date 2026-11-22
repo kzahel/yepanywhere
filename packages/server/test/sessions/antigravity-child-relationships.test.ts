@@ -479,14 +479,14 @@ describe("Antigravity durable child relationships", () => {
     }
   });
 
-  it("distinguishes missing/standalone 1.4.x stores and pre-lineage schemas from accepted empty", async () => {
-    const standalone = await createFixture({ noSummariesDb: true });
+  it("distinguishes missing stores and pre-lineage schemas from accepted empty", async () => {
+    const missing = await createFixture({ noSummariesDb: true });
     await expect(
-      standalone.source.observe(new AbortController().signal),
+      missing.source.observe(new AbortController().signal),
     ).rejects.toThrow();
-    expect(
-      await standalone.reader.listProviderChildSessions(PARENT_ID),
-    ).toEqual([]);
+    expect(await missing.reader.listProviderChildSessions(PARENT_ID)).toEqual(
+      [],
+    );
 
     const oldSchema = await createFixture({ oldSchema: true });
     const obs = await oldSchema.source.observe(new AbortController().signal);

@@ -79,68 +79,57 @@ function effortFields(
 
 /**
  * Project Antigravity's ACP `session/new` / `session/load` setup into YA's
- * model catalog. Modern `agy` 1.5+ (`useConfigOptions: true`) exposes
- * structured `configOptions` for base models and `thought_level`, paired with
- * flat effort-suffixed entries in `models.availableModels`. Standalone 1.4.x
- * keeps the flat list with thinking controls disabled.
+ * model catalog: structured `configOptions` for base models and
+ * `thought_level`, with each model's levels taken from the paired
+ * effort-suffixed entries in `models.availableModels`. Without a model option
+ * the catalog is the runtime's own default.
  */
 export function buildAntigravityModels(
   setup: AntigravitySessionSetup,
-  options: { useConfigOptions?: boolean } = {},
 ): ModelInfo[] {
-  const modelOption = options.useConfigOptions
-    ? findAntigravityConfigOption(setup.configOptions, "model")
-    : undefined;
-  if (modelOption?.options?.length) {
-    const thoughtOption = findAntigravityConfigOption(
-      setup.configOptions,
-      "thought_level",
-    );
-    const currentModelId = modelOption.currentValue;
-    const currentThought = isAntigravityEffortLevel(thoughtOption?.currentValue)
-      ? thoughtOption.currentValue
-      : undefined;
-    const models = modelOption.options.map((option): ModelInfo => {
-      const levels = effortLevelsForBaseModel(
-        option.value,
-        setup.models?.availableModels,
-        currentModelId,
-        thoughtOption,
-      );
-      const defaultLevel =
-        option.value === currentModelId ? currentThought : undefined;
-      return {
-        id: option.value,
-        name: option.name || option.value,
-        ...(option.description ? { description: option.description } : {}),
-        ...effortFields(levels, defaultLevel),
-      };
-    });
-    const currentModel = models.find((model) => model.id === currentModelId);
-    const defaultLevels = currentModel?.supportedEffortLevels ?? [];
+  const modelOption = findAntigravityConfigOption(setup.configOptions, "model");
+  if (!modelOption?.options?.length)
     return [
       {
         ...ANTIGRAVITY_DEFAULT_MODEL,
         isDefault: true,
-        ...effortFields(defaultLevels, currentThought),
+        supportsEffort: false,
+        supportsAdaptiveThinking: false,
       },
-      ...models,
     ];
-  }
-
+  const thoughtOption = findAntigravityConfigOption(
+    setup.configOptions,
+    "thought_level",
+  );
+  const currentModelId = modelOption.currentValue;
+  const currentThought = isAntigravityEffortLevel(thoughtOption?.currentValue)
+    ? thoughtOption.currentValue
+    : undefined;
+  const models = modelOption.options.map((option): ModelInfo => {
+    const levels = effortLevelsForBaseModel(
+      option.value,
+      setup.models?.availableModels,
+      currentModelId,
+      thoughtOption,
+    );
+    const defaultLevel =
+      option.value === currentModelId ? currentThought : undefined;
+    return {
+      id: option.value,
+      name: option.name || option.value,
+      ...(option.description ? { description: option.description } : {}),
+      ...effortFields(levels, defaultLevel),
+    };
+  });
+  const currentModel = models.find((model) => model.id === currentModelId);
+  const defaultLevels = currentModel?.supportedEffortLevels ?? [];
   return [
     {
       ...ANTIGRAVITY_DEFAULT_MODEL,
       isDefault: true,
-      supportsEffort: false,
-      supportsAdaptiveThinking: false,
+      ...effortFields(defaultLevels, currentThought),
     },
-    ...(setup.models?.availableModels ?? []).map((model) => ({
-      id: model.modelId,
-      name: model.name,
-      supportsEffort: false,
-      supportsAdaptiveThinking: false,
-    })),
+    ...models,
   ];
 }
 

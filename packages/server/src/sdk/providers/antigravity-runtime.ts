@@ -5,6 +5,11 @@ import { accessSync, constants } from "node:fs";
 import { homedir } from "node:os";
 import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { stripYaControlPlaneCredentials } from "./env-filter.js";
+import {
+  AntigravityVersionError,
+  antigravityVersionRefusal,
+  probeAntigravityVersionRefusal,
+} from "./antigravity-version.js";
 import type { SDKMessage } from "../types.js";
 
 export interface AntigravityConfigOption {
@@ -52,42 +57,20 @@ export interface AntigravitySessionSetup {
   configOptions?: AntigravityConfigOption[];
 }
 
-/** Native conversation store directory for a given Antigravity runtime layout. */
-export function antigravitySessionsDirForLayout(layout: "cli" | "acp"): string {
-  return resolve(
-    process.env.GEMINI_HOME || join(homedir(), ".gemini"),
-    layout === "cli" ? "antigravity-cli" : "antigravity-acp",
-    "conversations",
-  );
-}
-
 /**
  * Physical conversation store that a concrete launched runtime command will
- * actually open, derived strictly from its actual launch arguments and
- * environment. For `agy acp` (`layout === "cli"`), `agy` ignores `GEMINI_HOME`
- * unless `--gemini-dir` is explicitly passed in `args`.
+ * actually open, derived strictly from its actual launch arguments. `agy acp`
+ * ignores `GEMINI_HOME` unless `--gemini-dir` is explicitly passed in `args`.
  */
 export function antigravityRuntimeStoreDir(
-  command: Pick<AntigravityRuntimeCommand, "args" | "layout">,
-  envOverride?: Record<string, string | undefined>,
+  command: Pick<AntigravityRuntimeCommand, "args">,
 ): string {
-  if (command.layout === "cli") {
-    const flagIndex = command.args.indexOf("--gemini-dir");
-    const explicitGeminiDir =
-      flagIndex >= 0 ? command.args[flagIndex + 1] : undefined;
-    return resolve(
-      explicitGeminiDir || join(homedir(), ".gemini"),
-      "antigravity-cli",
-      "conversations",
-    );
-  }
-  const geminiHome =
-    envOverride && "GEMINI_HOME" in envOverride
-      ? envOverride.GEMINI_HOME
-      : process.env.GEMINI_HOME;
+  const flagIndex = command.args.indexOf("--gemini-dir");
+  const explicitGeminiDir =
+    flagIndex >= 0 ? command.args[flagIndex + 1] : undefined;
   return resolve(
-    geminiHome || join(homedir(), ".gemini"),
-    "antigravity-acp",
+    explicitGeminiDir || join(homedir(), ".gemini"),
+    "antigravity-cli",
     "conversations",
   );
 }
@@ -98,15 +81,13 @@ export function antigravityRuntimeStoreDir(
  * cannot redirect ACP to a different store between validation and `spawn()`.
  */
 export function pinAntigravityLaunchToScope(
-  command: Pick<AntigravityRuntimeCommand, "args" | "layout">,
+  command: Pick<AntigravityRuntimeCommand, "args">,
   physicalScope: string,
   launchEnvironment?: Record<string, string>,
 ): { args: string[]; env?: Record<string, string> } | null {
-  const expectedStoreName =
-    command.layout === "cli" ? "antigravity-cli" : "antigravity-acp";
   const canPin =
     basename(physicalScope) === "conversations" &&
-    basename(dirname(physicalScope)) === expectedStoreName;
+    basename(dirname(physicalScope)) === "antigravity-cli";
   if (!canPin) {
     // Reject rather than falling back to unpinned arguments when a symlink
     // below the profile directory resolves outside `<profile>/<store>/conversations`.
@@ -114,28 +95,22 @@ export function pinAntigravityLaunchToScope(
   }
   const physicalGeminiDir = dirname(dirname(physicalScope));
   const args = [...command.args];
-  if (command.layout === "cli") {
-    const flagIndex = args.indexOf("--gemini-dir");
-    if (flagIndex >= 0 && flagIndex + 1 < args.length) {
-      args[flagIndex + 1] = physicalGeminiDir;
-      return {
-        args,
-        env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
-      };
-    }
-    if (physicalGeminiDir !== resolve(homedir(), ".gemini")) {
-      args.push("--gemini-dir", physicalGeminiDir);
-      return {
-        args,
-        env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
-      };
-    }
-    return { args, env: launchEnvironment };
+  const flagIndex = args.indexOf("--gemini-dir");
+  if (flagIndex >= 0 && flagIndex + 1 < args.length) {
+    args[flagIndex + 1] = physicalGeminiDir;
+    return {
+      args,
+      env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
+    };
   }
-  return {
-    args,
-    env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
-  };
+  if (physicalGeminiDir !== resolve(homedir(), ".gemini")) {
+    args.push("--gemini-dir", physicalGeminiDir);
+    return {
+      args,
+      env: { ...launchEnvironment, GEMINI_HOME: physicalGeminiDir },
+    };
+  }
+  return { args, env: launchEnvironment };
 }
 
 /** The active runtime's native conversation store, derived from the exact
@@ -151,7 +126,7 @@ export function antigravitySessionsDir(): string {
   return resolve(geminiDir, "antigravity-cli", "conversations");
 }
 
-/** The `agy` CLI store keeps per-conversation workspaces here, not in `.meta`. */
+/** The `agy` store keeps each conversation's workspace and lineage here. */
 export function antigravitySummariesPath(sessionsDir: string): string {
   return join(dirname(sessionsDir), "conversation_summaries.db");
 }
@@ -246,13 +221,11 @@ export function ownAntigravitySession(
   };
 }
 
-/** How YA starts Antigravity's ACP server, and which native store it writes.
- * `cli`: the `agy` CLI's built-in `agy acp` (1.5+), sharing the CLI's login and
- * `antigravity-cli` store. `acp`: the standalone ACP distribution (1.4.x). */
+/** How YA starts the `agy` CLI's ACP server (`agy acp`), which shares the
+ * CLI's login and `antigravity-cli` store. */
 export interface AntigravityRuntimeCommand {
   command: string;
   args: string[];
-  layout: "cli" | "acp";
 }
 
 /** Synchronous so the store path can be derived wherever it is needed. */
@@ -262,24 +235,18 @@ export function resolveAntigravityRuntime(): AntigravityRuntimeCommand | null {
   const explicit =
     process.env.ANTIGRAVITY_ACP_PATH ??
     getCliInstallationService()?.selectedPath("antigravity");
-  const names = ["agy", "agy_acp_server.par", "antigravity-acp"];
-  const directories = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
-  // Name order wins over PATH order: the CLI's built-in server is preferred.
   const candidates = explicit
     ? [explicit]
-    : names.flatMap((name) =>
-        directories.map((directory) => join(directory, name)),
-      );
+    : (process.env.PATH ?? "")
+        .split(delimiter)
+        .filter(Boolean)
+        .map((directory) => join(directory, "agy"));
   for (const candidate of candidates) {
     try {
       accessSync(candidate, constants.X_OK);
-      // Resolve launcher symlinks so Google's companion harness stays beside it.
       const descriptor = describeAntigravityCandidate(candidate);
       if (descriptor.error) continue;
-      return {
-        ...descriptor.launch,
-        layout: descriptor.launch.args.length ? "cli" : "acp",
-      };
+      return descriptor.launch;
     } catch {
       /* Continue PATH discovery; an explicit path never falls back. */
     }
@@ -296,7 +263,6 @@ export async function findAntigravityRuntime(): Promise<AntigravityRuntimeComman
  * Keep this bounded transport local instead of changing frozen Gemini/Grok.
  */
 export class AntigravityRuntime {
-  agentVersion?: string;
   canAppendSystemPrompt = false;
   private child?: ChildProcess;
   private sequence = 0;
@@ -393,18 +359,26 @@ export class AntigravityRuntime {
         }
       }
     });
-    const initialized = await this.call<{
-      agentInfo?: { version?: string };
+    let initialized: {
+      agentInfo?: { version?: unknown };
       agentCapabilities?: {
         _meta?: { antigravity?: { systemPrompt?: { append?: boolean } } };
       };
-    }>("initialize", {
-      protocolVersion: 1,
-      clientInfo: { name: "yepanywhere", version: "1.0.0" },
-      // Google owns tool execution, file access, and its existing configuration.
-      clientCapabilities: {},
-    });
-    this.agentVersion = initialized.agentInfo?.version;
+    };
+    try {
+      initialized = await this.call("initialize", {
+        protocolVersion: 1,
+        clientInfo: { name: "yepanywhere", version: "1.0.0" },
+        // Google owns tool execution, file access, and its existing configuration.
+        clientCapabilities: {},
+      });
+    } catch (error) {
+      if (this.stopped) throw error;
+      const refusal = await probeAntigravityVersionRefusal(command);
+      throw refusal ? new AntigravityVersionError(refusal) : error;
+    }
+    const refusal = antigravityVersionRefusal(initialized.agentInfo?.version);
+    if (refusal) throw new AntigravityVersionError(refusal);
     this.canAppendSystemPrompt =
       initialized.agentCapabilities?._meta?.antigravity?.systemPrompt
         ?.append === true;

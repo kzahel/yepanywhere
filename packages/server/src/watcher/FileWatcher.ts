@@ -1158,7 +1158,7 @@ export class FileWatcher {
           base === "conversation_summaries.db-wal"
         )
           return "session";
-        return /^(?:conversations\/)?[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(?:meta|db(?:-wal)?)$/i.test(
+        return /^(?:conversations\/)?[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.db(?:-wal)?$/i.test(
           normalized,
         )
           ? "session"

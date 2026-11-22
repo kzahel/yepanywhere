@@ -63,6 +63,10 @@ contract; their topics own their specifics.
 
 ## Current Version Gates
 
+- **Antigravity floor.** `ANTIGRAVITY_MIN_VERSION` (1.5.13, the native test
+  pin) is checked against the version ACP `initialize` reports. Older and
+  unrecognizable versions are refused rather than adapted; the standalone
+  1.4.x runtime is no longer supported ([antigravity](antigravity.md#supported-runtime)).
 - **Pi turn boundary.** `PI_AGENT_SETTLED_MIN_VERSION` (0.80.4): newer Pi ends a
   YA turn on `agent_settled`, older Pi on `agent_end`. An unrecognized version
   string fails startup rather than guessing, because either guess can hang or
@@ -82,9 +86,12 @@ contract; their topics own their specifics.
 
 ## Dropping Support For An Older Version
 
-YA has no general minimum-version mechanism, and no provider has a declared
-floor today. Only two version facts reach the user:
+YA has no general minimum-version mechanism. Antigravity has the only
+declared floor. These version facts reach the user:
 
+- Antigravity refuses `agy` below 1.5.13, or one reporting no recognizable
+  version, in provider status and at session start, naming both versions and
+  `agy update` ([supported runtime](antigravity.md#supported-runtime)).
 - Pi refuses to start a session when `pi --version` is unrecognizable, and
   shows that error in the session.
 - Codex's mismatch with `expectedVersion` is a server-log advisory only. Its
@@ -94,8 +101,11 @@ Raising a floor is therefore a deliberate product change, not a refresh side
 effect. It must make the requirement visible where the user acts: provider
 status and a refused session start should both name the installed version,
 the required version, and the update path. A floor must never surface as an
-unexplained protocol failure. Until such a surface exists, prefer the
-version gate or tip-only record above to raising a floor.
+unexplained protocol failure. Where a provider has no such surface, prefer
+the version gate or tip-only record above to raising a floor. Antigravity's
+floor uses existing fields: provider status reports the runtime unavailable
+with the refusal as its model catalog error, and its CLI installation
+candidate shows the version beside the same error.
 
 ## Known Tip-Only Behavior
 

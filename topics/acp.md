@@ -30,7 +30,7 @@ behavior. Access to a model through another harness is a different integration.
 
 | YA provider | Native interface | Shared implementation today |
 | --- | --- | --- |
-| Antigravity | Google's `agy acp`; standalone `agy_acp_server.par` fallback | Local `AntigravityRuntime` transport and `AntigravityTranscript` projection |
+| Antigravity | Google's `agy acp`, 1.5.13 or later | Local `AntigravityRuntime` transport and `AntigravityTranscript` projection |
 | Grok Build | `grok agent … --no-leader stdio` | Shared `ACPClient`; separate Grok session loop and conversion |
 
 Gemini CLI execution is retired. Antigravity is available by default when a

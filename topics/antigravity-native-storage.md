@@ -10,8 +10,7 @@ owns YA's behavior; this document owns the description of the files.
 ## Evidence and limits
 
 Everything below was observed on one macOS arm64 host with `agy` 1.5.14, in
-that host's `antigravity-cli` store (fifteen conversations) and its older
-standalone `antigravity-acp` store. Counts come from the
+that host's `antigravity-cli` store (fifteen conversations). Counts come from the
 [saved long-session repro](native-provider-testing.md#checking-an-antigravity-upgrade-candidate):
 1,272 steps, a 41 MiB conversation database and three completed compactions.
 One long session and a handful of short ones are not a format specification.
@@ -22,14 +21,13 @@ content are taken from T3's source and marked as such.
 
 ## The layers
 
-The store root is `GEMINI_HOME/antigravity-cli` for `agy acp` and
-`GEMINI_HOME/antigravity-acp` for the standalone runtime. Both hold the same
-layout.
+The store root is `antigravity-cli` under the `--gemini-dir` YA passes to
+`agy acp`, else under `~/.gemini`. YA no longer reads the standalone runtime's
+`antigravity-acp` store or its `<id>.meta` files.
 
 | Path under the store root | Format | Holds |
 | --- | --- | --- |
 | `conversations/<id>.db`, with `-wal` and `-shm` | SQLite, protobuf blobs | The conversation itself: one row per step. |
-| `conversations/<id>.meta` | JSON | Standalone runtime only: the project `cwd`. |
 | `conversation_summaries.db`, with sidecars | SQLite, plain columns | An index across conversations: title, workspace, lineage, activity. |
 | `annotations/<id>.pbtxt` | Text protobuf | A title was the only field observed. |
 | `brain/<id>/.system_generated/logs/` | JSON Lines | A text log of the conversation's steps. |
@@ -124,8 +122,7 @@ not from decoding.
   log byte for byte. The split is by bytes and falls inside records.
 
 The same record keys appear on a conversation created 2026-11-03 and on those
-created with 1.5.14, and the standalone store writes the same two files. Only
-first records were compared across versions.
+created with 1.5.14. Only first records were compared across versions.
 
 Not measured: how long after an ACP event its record reaches the log, and
 whether `session/load` or `session/resume` rewrites an existing log.
@@ -142,6 +139,15 @@ whether `session/load` or `session/resume` rewrites an existing log.
 | Tool call ID, ACP kind, locations | No | Yes |
 | Tool results | Rendered text | ACP content blocks |
 
+## Runtime identity
+
+ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
+`1.5.13` from the pinned Linux arm64 build and `1.5.14` on macOS arm64, both
+observed 2026-11-22. YA's [version floor](antigravity.md#supported-runtime)
+reads it. The same 1.5.13 build, on Ubuntu 24.04 with no `nobody` group,
+answered `initialize` and `session/new` and created its conversation database;
+that group was a requirement of the standalone 1.4.5 bootstrap only.
+
 ## What YA reads today
 
 YA opens native files read-only, resolves them against the physical store
@@ -149,8 +155,8 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 
 | Reader | File | Purpose |
 | --- | --- | --- |
-| [Catalog adapter and metadata](../packages/server/src/sessions/antigravity-metadata.ts) | `conversations/<id>.db` and `-wal` file facts, `.meta` | Discovery, source versions, project binding. The database is never opened. |
-| [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Title, workspace, lineage and child settlement from bounded columns. |
+| [Catalog adapter and metadata](../packages/server/src/sessions/antigravity-metadata.ts) | `conversations/<id>.db` and `-wal` file facts | Discovery and source versions. The database is never opened. |
+| [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
 | `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a cold replay must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |

@@ -98,7 +98,7 @@ export class AntigravitySessionCatalogAdapter
               sessionId: id,
               projectPath: metadata.cwd,
               updatedAtMs: metadata.updatedAtMs,
-              // agy 1.5+ keeps a native title in its summaries index.
+              // agy keeps a native title in its summaries index.
               ...(metadata.title
                 ? {
                     title: metadata.title.slice(

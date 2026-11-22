@@ -1,5 +1,5 @@
-import { constants, type Stats } from "node:fs";
-import { open, realpath, stat } from "node:fs/promises";
+import type { Stats } from "node:fs";
+import { realpath, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { antigravitySummariesPath } from "../sdk/providers/antigravity-runtime.js";
 import { isAbsolutePath } from "../projects/paths.js";
@@ -15,31 +15,6 @@ export const ANTIGRAVITY_SESSION_ID =
 export const ANTIGRAVITY_METADATA_LIMIT = 2_000;
 const MAX_SUMMARY_CACHE_PATHS = 16;
 
-async function readMetaFile(metaPath: string) {
-  const handle = await open(
-    metaPath,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
-  try {
-    const metaInfo = await handle.stat();
-    if (!metaInfo.isFile() || metaInfo.size > 16_384)
-      throw new Error("Invalid Antigravity session metadata");
-    const buffer = Buffer.alloc(16_385);
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    if (
-      bytesRead > 16_384 ||
-      catalogFileVersion(metaInfo) !== catalogFileVersion(await handle.stat())
-    )
-      throw new Error("Antigravity metadata changed during discovery");
-    const metadata = JSON.parse(
-      buffer.subarray(0, bytesRead).toString("utf8"),
-    ) as { cwd?: unknown };
-    return { cwd: metadata.cwd, metaInfo };
-  } finally {
-    await handle.close();
-  }
-}
-
 // Bounded by MAX_SUMMARY_CACHE_PATHS (16); one parsed summary snapshot per
 // summaries database version, shared across catalog scans in the same process.
 const summaryCache = new Map<
@@ -51,8 +26,8 @@ const summaryCache = new Map<
   }
 >();
 
-/** `agy` 1.5+ records each conversation's workspace and lineage in its
- * summaries index instead of a `.meta` file. Takes the validated physical
+/** `agy` records each conversation's workspace and lineage in its
+ * summaries index. Takes the validated physical
  * conversations scope so symlinked conversation roots cannot pair with a
  * foreign summaries database. On a capped bulk-cache miss, falls back to a
  * targeted point read so children past the cap cannot be promoted to roots. */
@@ -110,45 +85,18 @@ export async function readAntigravityMetadata(
       throw new Error("Antigravity session escapes its native store");
     const info = await stat(dbPath);
     if (!info.isFile()) throw new Error("Invalid Antigravity database");
-    let metaInfo: Stats | undefined;
-    let cwd: unknown;
-    let title: string | undefined;
-    let parentConversationId: string | undefined;
-    let isChild = false;
-    let agentName: string | undefined;
-    let nestingDepth: number | undefined;
-    let status: string | undefined;
-    let summaryUpdatedAtMs: number | undefined;
-    const metaPath = await realpath(`${base}.meta`).catch((error) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw error;
-    });
     const summary = await cliSummary(scope, id, options.summaryBulkLimit);
-    if (metaPath) {
-      if (dirname(metaPath) !== scope || basename(metaPath) !== `${id}.meta`)
-        throw new Error("Antigravity session escapes its native store");
-      ({ cwd, metaInfo } = await readMetaFile(metaPath));
-      if (summary) {
-        isChild = summary.isChild;
-        parentConversationId = summary.parentConversationId;
-        agentName = summary.agentName;
-        nestingDepth = summary.nestingDepth;
-        status = summary.status;
-        summaryUpdatedAtMs = summary.lastModifiedMs;
-        title = summary.title;
-      }
-    } else {
-      if (!summary?.cwd) return null;
-      cwd = summary.cwd;
-      title = summary.title;
-      isChild = summary.isChild;
-      parentConversationId = summary.parentConversationId;
-      agentName = summary.agentName;
-      nestingDepth = summary.nestingDepth;
-      status = summary.status;
-      summaryUpdatedAtMs = summary.lastModifiedMs;
-    }
-    if (typeof cwd !== "string" || !isAbsolutePath(cwd))
+    if (!summary?.cwd) return null;
+    const {
+      cwd,
+      title,
+      isChild,
+      parentConversationId,
+      agentName,
+      nestingDepth,
+      status,
+    } = summary;
+    if (!isAbsolutePath(cwd))
       throw new Error("Antigravity session has no absolute project path");
     // SQLite may append to the WAL without touching the database itself.
     const walPath = `${base}.db-wal`;
@@ -175,15 +123,10 @@ export async function readAntigravityMetadata(
       info,
       updatedAtMs: Math.max(
         info.mtimeMs,
-        metaInfo?.mtimeMs ?? 0,
         walInfo?.mtimeMs ?? 0,
-        summaryUpdatedAtMs ?? 0,
+        summary.lastModifiedMs ?? 0,
       ),
-      sourceVersion: [
-        ...(metaInfo ? [metaInfo] : []),
-        info,
-        ...(walInfo ? [walInfo] : []),
-      ]
+      sourceVersion: [info, ...(walInfo ? [walInfo] : [])]
         .map(catalogFileVersion)
         .concat(title ? [title] : [])
         .concat(isChild ? [`child:${parentConversationId ?? "opaque"}`] : [])

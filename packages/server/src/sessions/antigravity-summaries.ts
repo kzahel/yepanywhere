@@ -301,7 +301,7 @@ interface StatementSlot {
 }
 
 /**
- * Direct read-only reader for `agy` 1.5+ `conversation_summaries.db`.
+ * Direct read-only reader for `agy`'s `conversation_summaries.db`.
  * Keeps one replaceable prepared statement per operation, checks SQLite
  * `schema_version` so WAL-only schema upgrades are picked up on reused
  * handles, enforces in-store symlink boundaries on the DB and sidecars, and

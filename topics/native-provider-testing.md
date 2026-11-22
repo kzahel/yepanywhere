@@ -688,10 +688,12 @@ conditions and equal path filters have static review, rather than a live PR
 trial.
 
 Earlier Linux Antigravity failures at `d33e616f9` are attributed by actual
-native stderr to SIGABRT in Google initialization: the `nobody` group name was
-absent, before ACP initialization or any model request. The provisioned Ubuntu
-run resolves the existing user's primary GID and passes queue, cancellation
-and retry; cold resume then exhausts ten seconds. Its subsequent fourteen
+native stderr to SIGABRT in the standalone 1.4.5 runtime's Google
+initialization: the `nobody` group name was absent, before ACP initialization
+or any model request. `agy` has no such
+[prerequisite](#linux-antigravity-bootstrap-prerequisite). The provisioned
+Ubuntu run passed queue, cancellation and retry; cold resume then exhausted ten
+seconds. Its subsequent fourteen
 phase marks establish a passing 16.217-second cold case, including 3.287
 seconds for the initial independent reader and 3.017 seconds for the final
 reader. Setup and the first turn take about six seconds; native resume to its
@@ -815,7 +817,7 @@ production adapters and readers in private standalone profiles.
 | Pi | Pinned 1.6.0 RPC; private models.json, Chat Completions. | Real RPC lifecycle and native JSONL reader. |
 | OpenCode | Pinned 1.18.9 server; private custom provider, Chat Completions. | Actual server tool execution and production SQLite/export reader. |
 | Grok ACP | Official 1.0.92; private TOML Responses endpoint. | Gentle interject; title, title refresh and dashboard requests explicitly recorded/scripted. Compatibility imports of other apps' rules/config are disabled in the owned fixture. |
-| Antigravity ACP | Official 1.4.5; private API-key settings, GenAI override. | Native view_file and actual ACP history load via production reader. |
+| Antigravity ACP | Official `agy` 1.5.13 as `agy acp`; private API-key settings, GenAI override. | Native view_file and actual ACP history load via production reader. |
 
 These scenarios do not qualify provider discovery/subscription authentication,
 OS sandbox policy or all native controls. No real account is supplied. Native
@@ -826,7 +828,9 @@ asserted, including child logger warnings/errors, rather than globally silenced.
 ## Antigravity endpoint and depth evidence — 2026-11-03
 
 Google [documents the CLI endpoint override](https://antigravity.google/docs/install?tab=cli).
-A separate probe establishes it works for YA's actual **ACP** distribution:
+This probe used the standalone ACP 1.4.5 runtime, which YA no longer runs. The
+current fixture writes the same settings to `antigravity-cli/settings.json`
+and runs `agy acp`. The probe established that the override works over ACP:
 
 - Set `GEMINI_HOME` to an owned `.gemini` directory, use a synthetic
   `GEMINI_API_KEY`, and set `GOOGLE_GEMINI_BASE_URL` to the loopback stub.
@@ -955,6 +959,11 @@ original long saved session, `agy` 1.5.14 projected 820 messages with the
 final report on both the first read and the cached read. There was one native
 load across those reads.
 
+Removing the standalone runtime ([plan 195](../docs/tactical/195-antigravity-native-history.md)
+step 1) replaced its flat-catalog case with three version-floor refusals and
+brought the selection to 32 cases. All 32 passed on 2026-11-22 on macOS arm64
+with the 1.5.13 pin and with the 1.5.14 candidate.
+
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
 joins the operation and stops any registered owner before deleting fixture
@@ -962,27 +971,13 @@ files. See `antigravity-admission-test-startup-window.md` in gap history.
 
 ## Linux Antigravity bootstrap prerequisite
 
-The legacy Antigravity ACP 1.4.5 qualification runner required the system group
-name `nobody`. Its Google native bootstrap resolves it before
-ACP initialization; a missing name aborts with SIGABRT and no model dispatch.
-The Ubuntu job creates only a missing group-name alias using the existing
-`nobody` user's primary GID, preserving that account's numeric permissions. It
-does not change provider flags, fixture credentials or protocol expectations.
-The provisioned source passes all actual Antigravity scenarios at `3fcffd386`
-in [run 42063066589](https://github.com/kzahel/yepanywhere/actions/runs/42063066589);
-see the phase and guard evidence above.
-
-For an owned Debian/Ubuntu testbed with the same missing-name failure, an
-administrator can apply the same guarded alias before running the suite:
-
-```sh
-if ! getent group nobody >/dev/null; then
-  sudo groupadd --non-unique --gid "$(id -g nobody)" nobody
-fi
-getent group nobody
-```
-
-The local installer and test scripts never run `sudo` automatically.
+Only the removed standalone ACP 1.4.5 runtime needed one. Its Google native
+bootstrap resolved the system group name `nobody` before ACP initialization
+and aborted with SIGABRT when the name was missing, so Ubuntu CI created an
+alias for it. `agy` does not: on 2026-11-22 the pinned 1.5.13 Linux arm64
+build, on Ubuntu 24.04 with no `nobody` group, answered `initialize` and
+`session/new` and wrote its conversation database. CI no longer creates the
+alias, and an installed host needs no group configuration for Antigravity.
 
 ## Cold resume qualification phases
 

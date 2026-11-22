@@ -12,7 +12,7 @@ type Fixture = Awaited<ReturnType<typeof nativeFixture>>;
 async function verifyAgyReplayOrder(fixture: Fixture, finalText: string) {
   if (fixture.provider !== "antigravity") return;
   const command = resolveAntigravityRuntime();
-  if (command?.layout !== "cli") throw Error("Expected the owned agy CLI");
+  if (!command) throw Error("Expected the owned agy CLI");
   const runtime = new AntigravityRuntime();
 
   // Observe the real frames before promise continuations can blur their order.

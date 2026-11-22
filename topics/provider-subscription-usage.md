@@ -63,8 +63,8 @@ Gemini, separately metered Gemini models, and the shared Claude and GPT quota
 are scoped to their matching catalog models. Known five-hour and weekly
 windows carry the provider's absolute reset timestamp when available. Unknown
 buckets and the generic default model alias have no quota mapping. Missing
-terminal support, a timeout, standalone ACP, and explicitly routed or
-API-key configurations return no quota snapshot.
+terminal support, a timeout, and explicitly routed or API-key configurations
+return no quota snapshot.
 
 ## Codex local account commands
 

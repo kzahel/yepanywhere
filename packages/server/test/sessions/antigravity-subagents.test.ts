@@ -994,7 +994,6 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
     const tracker = new AntigravitySubagentTracker({
       sessionId: GRANDCHILD_ID,
       storageScope: f.conversationsDir,
-      modern: true,
       signal: ac.signal,
       background: bg,
       isInTurn: () => false,
@@ -1045,7 +1044,6 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
     const inFlightTracker = new AntigravitySubagentTracker({
       sessionId: GRANDCHILD_ID,
       storageScope: f.conversationsDir,
-      modern: true,
       signal: inFlightAc.signal,
       background: inFlightBg,
       isInTurn: () => true,
@@ -1619,7 +1617,7 @@ const readline = require("node:readline");
 const send = (v) => process.stdout.write(JSON.stringify(v) + "\\n");
 readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const m = JSON.parse(line);
-  if (m.method === "initialize") return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1 } });
+  if (m.method === "initialize") return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1, agentInfo: { version: "1.5.13" } } });
   if (m.method === "session/list") {
     fs.appendFileSync(${JSON.stringify(listLog)}, "list\\n");
     return setTimeout(() => send({ jsonrpc: "2.0", id: m.id, result: { sessions: [{ sessionId: ${JSON.stringify(PARENT_ID)}, title: "Listed Parent" }] } }), 40);

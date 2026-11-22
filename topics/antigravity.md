@@ -12,12 +12,12 @@ Evidence below is from YA `eb520d058`. The
 [scripted native test target](native-provider-testing.md) is `agy` 1.5.13.
 Live Gemini 3.8 Flash Low probes used `agy` 1.5.14 on macOS arm64. Linux has
 scripted native coverage. Windows execution remains unavailable pending native
-child-tree teardown qualification. The standalone ACP 1.4.5 path remains
-available for its own store and uses the flat model catalog.
+child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
+[supported runtime](#supported-runtime).
 
 | Surface | Current support and limits |
 | --- | --- |
-| Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. On `agy` 1.5.x, Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
+| Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Reader and resume keep collecting ACP history after an early load response until they observe the persisted text tail. A missing expected tail fails the operation. |
@@ -40,31 +40,50 @@ retries without serving a stale cache entry.
 
 The shared [CLI installation selector](provider-cli-installations.md) can persist
 an explicit Antigravity path on the target server/profile. `ANTIGRAVITY_ACP_PATH`
-remains authoritative. `agy acp` and standalone ACP share a launch descriptor;
-removed executables and changed symlink targets are observed on each resolution.
+remains authoritative. Every candidate launches as `agy acp`; removed
+executables and changed symlink targets are observed on each resolution. A
+candidate whose `agy --version` is below the
+[supported floor](#supported-runtime) shows that version beside an error naming
+the floor and the update path.
 Offline execution verification is currently unsupported and is reported as such,
 separately from authentication or an execution failure. No Windows support or new
 provider authentication/update mechanism is introduced by the selector.
 
 ## Native installation and authentication
 
-Install Google's `agy` CLI and sign in with it. `agy` 1.5 and later include
-an ACP server (`agy acp`) that reuses the CLI's saved login and its
-`GEMINI_HOME/antigravity-cli` store; YA prefers it whenever `agy` is on `PATH`.
-Otherwise YA uses the standalone
-[`antigravity-acp` distribution](https://github.com/agentclientprotocol/registry/blob/main/antigravity-acp/agent.json):
-keep `agy_acp_server.par` and its matching `localharness_external` helper
-together and put the executable on `PATH`. `ANTIGRAVITY_ACP_PATH` names either
-executable explicitly; a file named `agy` is launched as `agy acp`. An explicit
-path never falls back to another installation. YA resolves executable symlinks
-before launch so the companion stays beside it. YA does not download, update or
-reconfigure the runtime.
+Install Google's `agy` CLI and sign in with it. Its ACP server (`agy acp`)
+reuses the CLI's saved login and its `antigravity-cli` store. YA finds `agy` on
+`PATH`; `ANTIGRAVITY_ACP_PATH` names an executable explicitly, and YA launches
+whatever it names as `agy acp`. An explicit path never falls back to another
+installation. YA launches the resolved target of an executable symlink. YA does
+not download, update or reconfigure the runtime.
 
-On Linux, the pinned 1.4.5 bootstrap requires a resolvable `nobody` group name,
-even for an unprivileged caller. A missing name aborts before ACP initialization.
-The [native qualification prerequisite](native-provider-testing.md#linux-antigravity-bootstrap-prerequisite)
-records the Ubuntu alias using that user's existing primary GID. An installed
-host needs administrator-provided group configuration; YA never edits it.
+### Supported runtime
+
+YA runs `agy` 1.5.13 or later, the [native test pin](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
+(`ANTIGRAVITY_MIN_VERSION`). The version comes from the `agentInfo.version`
+that ACP `initialize` reports, so the check costs no extra process. YA refuses
+a runtime below the floor, and one whose reported version is missing or has no
+`major.minor.patch`, rather than assuming it is current. An `agy` before 1.5
+has no `acp` subcommand and fails before `initialize`; YA then reads its
+`agy --version`, and a version below the floor gets the same refusal. If that
+answer is unreadable, the native failure stands.
+
+The refusal names the installed version, the required version and the update
+path, for example: "Antigravity requires agy 1.5.13 or later; the installed
+runtime reports version 1.4.5. Run \`agy update\`, or install the agy CLI."
+
+- **Provider status** reports the runtime unavailable rather than signed out.
+  The refusal is the model catalog's error, and the CLI installation list shows
+  the candidate's version with the same text.
+- **A refused start** ends the session with the refusal as its error, after
+  `initialize` and before any session is created, loaded or prompted.
+- **History reads** that need ACP fail with the refusal.
+
+YA dropped the standalone ACP 1.4.x distribution (`agy_acp_server.par`) and
+its `antigravity-acp` store. Conversations that exist only in that store are no
+longer listed or resumable; their native files are left untouched. Both
+decisions are recorded in [plan 195](../docs/tactical/195-antigravity-native-history.md#decisions).
 
 This is one integration interface for Antigravity, not a separate model or
 subscription. Google's `agy` terminal CLI also
@@ -87,11 +106,10 @@ reader use the same profile. See the experimental
 [AAR Antigravity bridge](https://github.com/kzahel/agent-auth-router/blob/main/docs/antigravity.md)
 for the manual subscription gateway setup.
 
-The November 3 live probe found that CLI 1.4.12 and the standalone ACP 1.4.5
-required separate initial sign-ins even under the same home; on 2026-11-13,
-`agy acp` 1.5.8 reused the CLI's login with no further sign-in. The ACP runtime saved its own
-`auth.type=oauth-personal` setting; subsequent native creation and replay reused
-that saved login without another auth call. Do not infer ACP readiness from a
+On 2026-11-13, `agy acp` 1.5.8 reused the CLI's login with no further
+sign-in. The ACP runtime saved its own `auth.type=oauth-personal` setting;
+subsequent native creation and replay reused that saved login without another
+auth call. Do not infer ACP readiness from a
 successful `agy models` invocation or the old Gemini credential file.
 
 Google's [ACP changelog](https://antigravity.google/docs/changelog) mentions
@@ -103,7 +121,7 @@ Account access remains Google's decision.
 ## Vanilla execution
 
 The provider is listed by default, reports itself not installed without a
-runtime, and is hidden by an `ENABLED_PROVIDERS` allow-list that omits it, like
+runtime or with one below the [supported floor](#supported-runtime), and is hidden by an `ENABLED_PROVIDERS` allow-list that omits it, like
 every other provider. Session lists always include its native source, whose
 retained-catalog project filter decides membership without starting `agy`. Existing
 clients use the normal provider discovery and session routes; older servers
@@ -115,7 +133,7 @@ YA sends ordinary text verbatim, adds no context prefix, advertises no client
 filesystem/terminal tools and performs no model substitution. The native default
 stays selected unless the operator explicitly chooses a model. The dynamic
 catalog is the actual account's `session/new` response, not the CLI's catalog
-or a static list. When `agy` 1.5+ returns structured ACP `configOptions` for `model` and
+or a static list. When `agy` returns structured ACP `configOptions` for `model` and
 `thought_level`, YA projects the base models with per-model supported thinking
 levels derived from the paired `availableModels` entries while keeping the
 `default` sentinel as the default selection so untouched launches preserve the
@@ -123,14 +141,14 @@ runtime's own default model. Separate model and effort controls offer `Auto`
 (restoring the level observed before a YA override) and `On` with the model's offered
 levels, omitting thinking controls for fixed-effort models; explicit `off` from
 API or older callers maps to the lowest offered level because `agy` has no
-disabled thinking level. Standalone 1.4.x runtimes (even when they include
-`configOptions` with `thinking_level`) keep the flat `availableModels` catalog
-with thinking controls disabled. The v0.12.0 and v0.13.0 server catalogs omit
+disabled thinking level. A setup without a `model` config option offers only
+the runtime's default, and a request for any other model fails. The v0.12.0
+and v0.13.0 server catalogs omit
 structured Antigravity effort metadata. Current clients keep those flat
 catalogs usable and omit thinking overrides for them. Both startup, resume,
 and live mid-session
-`setModel` / `setEffort` apply changes in place via `session/set_config_option`
-(falling back to `session/set_model` on 1.4.x), without restarting the runtime.
+`setModel` / `setEffort` apply changes in place via `session/set_config_option`,
+without restarting the runtime.
 In-flight replies remain attributed to the model active when the turn started.
 Combined changes hold input and publish the new configuration only after both
 settings apply. If restoration fails, queued input waits until a configuration
@@ -145,22 +163,21 @@ one fails explicitly before mutating active session state. A coalesced, short-li
 blank probe checks readiness without sending a model prompt, then removes only
 its proven scratch session files.
 
-YA default and accept-edits select the native mode the runtime offers:
-`default` and `accept-edits` in `agy` 1.5+, `default` and `auto_edit` in the
-standalone 1.4.x runtime. Bypass-permissions selects 1.4.x `yolo`; `agy` 1.5+
-offers no such mode, so YA launches that session's server with
-`--dangerously-skip-permissions`. A requested mode the runtime does not offer
-fails the start. YA's Plan permission mode is refused; use native `/plan`.
+YA default, accept-edits and auto select the native `default`, `accept-edits`
+and `auto` modes. A requested mode the runtime does not offer fails the start.
+Over ACP, `agy` 1.5.13 and 1.5.14 offer `default`, `accept-edits` and `plan`
+(observed 2026-11-22), so auto currently fails. `agy` offers no bypass mode, so
+bypass-permissions launches that session's server with
+`--dangerously-skip-permissions` and keeps the native `default` mode. YA's Plan permission mode is refused; use native `/plan`.
 Permission replies use the actual offered option IDs and never promote Allow
 once to Allow always. Native fixed-choice questions require an offered answer.
 Missing handlers and interrupted requests cancel. Stop requests native
 `session/cancel`; hard abort closes the owned process group and waits for exit.
 
 Initial support covers text and file references. Inline image/document blocks
-fail explicitly rather than being discarded. On `agy acp` 1.5.x, Steer sends a
-second native prompt to the active session. `agy` applies it at its next model
-boundary, and YA keeps the turn open until all submitted prompts settle.
-Standalone ACP and older runtimes use ordinary queued delivery. The composer
+fail explicitly rather than being discarded. Steer sends a second native prompt
+to the active session. `agy` applies it at its next model boundary, and YA
+keeps the turn open until all submitted prompts settle. The composer
 lists native commands as the runtime advertises them, including `/plan`.
 
 When the current session advertises `/compact`, YA supports manual and queued
@@ -203,11 +220,9 @@ history observation remain unqualified.
 ## Identity and history
 
 The existing YA admission owner retains the public session identity. The
-provider-native UUID is a continuation address under the active runtime's
-canonical store (default `GEMINI_HOME` is `~/.gemini`):
-`antigravity-cli/conversations` for `agy acp`, `antigravity-acp/conversations`
-for the standalone runtime. Sessions in the other store are not resumable
-while `agy` is preferred. Resume
+provider-native UUID is a continuation address under the runtime's canonical
+store, `antigravity-cli/conversations` in the `--gemini-dir` YA passes or else
+`~/.gemini`. Resume
 validates the original store, physical database and project before native
 effects. Rejected native resume never falls back to `session/new` or replays
 queued input into another conversation.
@@ -215,11 +230,10 @@ queued input into another conversation.
 History comes from native file facts and ACP `session/list` and
 `session/load`, with no YA shadow transcript or protobuf decoder.
 [Native storage](antigravity-native-storage.md) describes each file `agy`
-writes and the brain log's record format. The standalone
-runtime writes a `<uuid>.meta` JSON file holding the project path; `agy` 1.5+
-writes none and instead records each conversation's workspace URIs, title and
-subagent lineage (`parent_conversation_id`, `agent_name`, `nesting_depth`) in
-its `conversation_summaries.db` index. YA reads only those bounded summary
+writes and the brain log's record format. `agy` records each conversation's
+workspace URIs, title and subagent lineage (`parent_conversation_id`,
+`agent_name`, `nesting_depth`) in its `conversation_summaries.db` index; a
+conversation without a workspace there is not listed. YA reads only those bounded summary
 columns, read-only, rejecting out-of-store symlinks on the database and its
 SQLite sidecars. Conversations with a non-empty `parent_conversation_id` are
 excluded from top-level catalog scans, `listSessions`, `getSessionSummary` and
@@ -227,9 +241,8 @@ excluded from top-level catalog scans, `listSessions`, `getSessionSummary` and
 subagents out of top-level session lists even when their `<uuid>.db` files sit
 inside `conversations/`. Durable child relationships flow through the shared
 `ProviderChildRelationshipService` via `AntigravitySessionReader.getProviderChildSource`
-using bounded read-only `conversation_summaries.db` snapshots; missing stores
-(including standalone 1.4.x runtimes without a summaries index) stay unknown
-rather than publishing an authoritative empty set, and running subagents whose
+using bounded read-only `conversation_summaries.db` snapshots; a missing
+summaries index stays unknown rather than publishing an authoritative empty set, and running subagents whose
 `last_modified_time` is the `0001-01-01` sentinel fall back to local `.db`/`.db-wal`
 file mtimes and in-memory activity overlays without churning durable SQL edges.
 Authorized descendant transcript reads serve actively running or live-owned
@@ -286,7 +299,7 @@ Live text and thinking blocks publish `_isStreaming` snapshots of one message
 id and commit it without the flag when the next block, a tool call or the turn
 end closes it, so viewers with response streaming off see only the commit.
 Live messages carry arrival timestamps; detail reads of a live owner see
-committed content only. `agy` 1.5+ echoes each submitted prompt as
+committed content only. `agy` echoes each submitted prompt as
 `user_message_chunk` during the turn; YA already published that turn's user
 message, so the live projection ignores the echo, while `session/load` replay
 keeps native user chunks as history. Detail reads return the complete history
@@ -347,8 +360,9 @@ cutoff. Repeated replies and tool-only tails still need a
 
 ## Qualification on 2026-11-03
 
-The official macOS arm64 ACP 1.4.5 distribution and CLI 1.4.12 were installed
-and signed in through Google's native flows. The account's existing storage
+This qualified the standalone ACP 1.4.5 runtime, which YA no longer runs; it
+is kept as history. The official macOS arm64 ACP 1.4.5 distribution and CLI
+1.4.12 were installed and signed in through Google's native flows. The account's existing storage
 plan was sufficient for ACP Gemini 3.8 Flash; no AI-plan upgrade was purchased.
 Live native probes covered text and a scratch-file tool action. Production YA
 probes covered admission, streaming, distinct public/native IDs, app restart,
@@ -376,10 +390,10 @@ Existing project permissions, hidden directories, ownership metadata and public
 session adoption still apply.
 
 Antigravity discovery enumerates at most 2,000 `<uuid>.db` conversations, in
-batches of eight, with a 16 KiB `.meta` limit where that file exists. Native
-database and WAL file facts version rows; conversation databases are never
-decoded. Standalone-runtime rows have identity fidelity and no inferred title;
-`agy` rows take the native title from the summaries index at head fidelity. Browsing starts no native agent, login or model prompt. Explicit
+batches of eight, and takes each one's project from the summaries index.
+Native database and WAL file facts version rows; conversation databases are
+never decoded. A row with a native title has head fidelity; one without has
+identity fidelity and no inferred title. Browsing starts no native agent, login or model prompt. Explicit
 history reads still use Google's loader and preserve the active-owner guard.
 App-owned Antigravity session listings consume accepted catalog rows instead
 of repeating native inventories per project. Public catalog projection honors
@@ -390,7 +404,7 @@ Retained project reads return accepted state while finite discovery runs.
 Completeness requires accepted coverage of each eligible native store, including
 empty stores; failed acquisition retains the previous generation. Only historically
 used families are eligible. Antigravity joins the existing provider-root watcher
-owner, watching native conversation metadata, database and WAL changes as well
+owner, watching native conversation database and WAL changes as well
 as the sibling `conversation_summaries.db` and its `-wal` sidecar so
 lineage-only WAL commits invalidate the retained catalog without rescanning
 file-provider projects. Project notifications follow changed project facts,

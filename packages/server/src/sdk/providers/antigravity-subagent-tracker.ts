@@ -18,7 +18,6 @@ import type { AntigravityTranscript } from "./antigravity-transcript.js";
 export interface AntigravitySubagentTrackerOptions {
   readonly sessionId: string;
   readonly storageScope: string;
-  readonly modern: boolean;
   readonly signal: AbortSignal;
   readonly background: AntigravityBackground;
   readonly isInTurn: () => boolean;
@@ -73,7 +72,6 @@ export class AntigravitySubagentTracker {
    * to a new turn's call.
    */
   async initialize(resumed: boolean): Promise<void> {
-    if (!this.opts.modern) return;
     this.invalidateTranscriptAnchors();
     if (resumed) {
       try {
@@ -115,7 +113,6 @@ export class AntigravitySubagentTracker {
   }
 
   async onCompacted(): Promise<void> {
-    if (!this.opts.modern) return;
     this.invalidateTranscriptAnchors();
     const boundary = await readAntigravityTurnBoundary(
       this.opts.storageScope,
@@ -131,7 +128,6 @@ export class AntigravitySubagentTracker {
   async readStartPosition(): Promise<
     AntigravityTranscriptPosition | undefined
   > {
-    if (!this.opts.modern) return undefined;
     const pos = await readAntigravityTranscriptPosition(
       this.opts.storageScope,
       this.opts.sessionId,
@@ -169,7 +165,6 @@ export class AntigravitySubagentTracker {
   }
 
   readStartPositionSync(): AntigravityTranscriptPosition | undefined {
-    if (!this.opts.modern) return undefined;
     return readAntigravityTranscriptPositionSync(
       this.opts.storageScope,
       this.opts.sessionId,
@@ -198,7 +193,7 @@ export class AntigravitySubagentTracker {
     const anchorIno = this.baselineIno ?? startPosition?.ino;
     const anchorSize = this.baselineSize ?? startPosition?.byte;
     const scope =
-      this.opts.modern && this.baselineUserInputStep !== undefined
+      this.baselineUserInputStep !== undefined
         ? {
             afterStepExclusive: this.baselineUserInputStep,
             ...(anchorDev !== undefined ? { anchorDev } : {}),
@@ -235,7 +230,7 @@ export class AntigravitySubagentTracker {
   }
 
   reconcile(opts: { silent?: boolean; inTurn?: boolean } = {}): void {
-    if (!this.opts.modern || this.opts.signal.aborted) return;
+    if (this.opts.signal.aborted) return;
     const reader = this.getSummariesReader();
     const inTurn = opts.inTurn ?? this.opts.isInTurn();
     let changedState = false;
@@ -408,7 +403,6 @@ export class AntigravitySubagentTracker {
   schedulePromptAnchorVerification(promptScope: AntigravityTurnScope): void {
     const epoch = this.anchorEpoch;
     if (
-      !this.opts.modern ||
       this.opts.signal.aborted ||
       promptScope.verifiedUserStep !== undefined ||
       !this.isScopeCurrent(promptScope, epoch)
@@ -460,7 +454,7 @@ export class AntigravitySubagentTracker {
     scopeCallIds?: ReadonlySet<string>,
   ): void {
     const call = targetTranscript.getSubagentCall(toolCallId);
-    if (!this.opts.modern || !call || call.failed || !call.completed) return;
+    if (!call || call.failed || !call.completed) return;
     const epoch = this.anchorEpoch;
     // Serialize live subagent lookups so parallel invoke_subagent calls in
     // one turn never race over `claimedSubagentIds`.

@@ -54,6 +54,7 @@ import {
   resolveAntigravityTargetEffort,
 } from "./antigravity-models.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
+import { AntigravityVersionError } from "./antigravity-version.js";
 import { loadAntigravityReplay } from "./antigravity-replay.js";
 import { AntigravityBackground } from "./antigravity-background.js";
 import {
@@ -88,14 +89,15 @@ export class AntigravityProvider implements AgentProvider {
   readonly displayName = "Antigravity";
   readonly supportsNativeResumeSource = true;
   readonly supportsPermissionMode = true;
-  get supportsThinkingToggle(): boolean {
-    return resolveAntigravityRuntime()?.layout === "cli";
-  }
+  readonly supportsThinkingToggle = true;
   readonly supportsSlashCommands = true;
-  get supportsSteering(): boolean {
-    return resolveAntigravityRuntime()?.layout === "cli";
-  }
-  private catalog?: { at: number; models: ModelInfo[]; error?: string };
+  readonly supportsSteering = true;
+  private catalog?: {
+    at: number;
+    models: ModelInfo[];
+    error?: string;
+    unsupportedVersion?: boolean;
+  };
   private catalogRead?: Promise<ModelInfo[]>;
   private catalogStatus: ModelCatalogStatus | undefined;
   private usageRead?: {
@@ -113,6 +115,10 @@ export class AntigravityProvider implements AgentProvider {
     if (!(await this.isInstalled()))
       return { installed: false, authenticated: false, enabled: false };
     await this.getAvailableModels();
+    // An agy below the floor is not a usable runtime; its refusal, naming
+    // both versions and the update path, is the catalog error.
+    if (this.catalog?.unsupportedVersion)
+      return { installed: false, authenticated: false, enabled: false };
     const authenticated = !this.catalog?.error;
     return { installed: true, authenticated, enabled: authenticated };
   }
@@ -125,7 +131,7 @@ export class AntigravityProvider implements AgentProvider {
   ): Promise<ProviderSubscriptionUsage | null> {
     if (!canProbeAntigravityUsage()) return null;
     const runtime = resolveAntigravityRuntime();
-    if (runtime?.layout !== "cli" || runtime.args.length !== 1) return null;
+    if (runtime?.args.length !== 1) return null;
 
     if (!this.usageRead) {
       this.usageRead = {
@@ -173,6 +179,7 @@ export class AntigravityProvider implements AgentProvider {
     let probeSessionsDir: string | undefined;
     let models: ModelInfo[] = [ANTIGRAVITY_DEFAULT_MODEL];
     let error: string | undefined;
+    let unsupportedVersion = false;
     try {
       const command = await findAntigravityRuntime();
       if (!command)
@@ -186,11 +193,10 @@ export class AntigravityProvider implements AgentProvider {
       sessionId = setup.sessionId;
       if (!sessionId)
         throw new Error("Antigravity did not return a session ID");
-      models = buildAntigravityModels(setup, {
-        useConfigOptions: command.layout === "cli",
-      });
+      models = buildAntigravityModels(setup);
       this.catalogStatus = liveModelCatalog();
     } catch (cause) {
+      unsupportedVersion = cause instanceof AntigravityVersionError;
       error = modelCatalogError(cause);
       this.catalogStatus = fallbackModelCatalog(error);
     } finally {
@@ -209,24 +215,17 @@ export class AntigravityProvider implements AgentProvider {
           (metadata.cwd === cwd ||
             (await realpath(metadata.cwd).catch(() => null)) === probeCwd)
         ) {
-          // The CLI layout also keeps a per-conversation artifact directory.
           await rm(join(dirname(sessionsDir), "brain", sessionId), {
             recursive: true,
             force: true,
           });
-          for (const suffix of [
-            ".meta",
-            ".db",
-            ".db-wal",
-            ".db-shm",
-            ".db-journal",
-          ])
+          for (const suffix of [".db", ".db-wal", ".db-shm", ".db-journal"])
             await rm(`${base}${suffix}`, { force: true });
         }
       }
       await rm(cwd, { recursive: true, force: true });
     }
-    this.catalog = { at: Date.now(), models, error };
+    this.catalog = { at: Date.now(), models, error, unsupportedVersion };
     return models;
   }
 
@@ -475,13 +474,13 @@ export class AntigravityProvider implements AgentProvider {
           "Install Google's Antigravity CLI (agy) and sign in with it first",
         );
       const launchEnvironment = agentApiEnvironmentFor(options);
-      // Derive the live storage scope from the exact command and environment
+      // Derive the live storage scope from the exact launch command
       // used to spawn ACP, and revalidate the resume source against it before
       // acquiring ownership or launching ACP.
       const namespace = {
         family: "antigravity" as const,
         storageScope: await nativeStorageScope(
-          antigravityRuntimeStoreDir(command, launchEnvironment),
+          antigravityRuntimeStoreDir(command),
         ),
       };
       await this.validateResumeSource(options, namespace);
@@ -494,7 +493,7 @@ export class AntigravityProvider implements AgentProvider {
         // Revalidate again after waiting on in-progress history reads so a
         // profile or store rebind cannot redirect `session/load`.
         const currentScope = await nativeStorageScope(
-          antigravityRuntimeStoreDir(command, launchEnvironment),
+          antigravityRuntimeStoreDir(command),
         );
         if (currentScope !== namespace.storageScope) {
           throw new Error(
@@ -505,9 +504,8 @@ export class AntigravityProvider implements AgentProvider {
       }
       runtime.onPermission = (params) =>
         this.permission(params, options, signal);
-      const skipPermissions =
-        options.permissionMode === "bypassPermissions" &&
-        command.layout === "cli";
+      // agy offers no bypass mode; that session's server skips permissions.
+      const skipPermissions = options.permissionMode === "bypassPermissions";
       // Pin the concrete profile path passed to ACP to the verified physical
       // storage scope so a mutable symlink (including below the profile root)
       // cannot redirect ACP at spawn time. Reject if pinning is impossible.
@@ -530,10 +528,6 @@ export class AntigravityProvider implements AgentProvider {
         ],
         pinned.env,
       );
-      const [major, minor] = runtime.agentVersion?.split(".").map(Number) ?? [];
-      const modern =
-        command.layout === "cli" &&
-        ((major ?? 0) > 1 || (major === 1 && (minor ?? 0) >= 5));
       void runtime.closed.then(stop);
       if (options.agentApiInstructions && !runtime.canAppendSystemPrompt)
         throw new Error(
@@ -550,11 +544,7 @@ export class AntigravityProvider implements AgentProvider {
           return false;
         const commands = update.availableCommands
           .slice(0, 128)
-          .filter(
-            (command) =>
-              typeof command?.name === "string" &&
-              (modern || command.name !== "compact"),
-          )
+          .filter((command) => typeof command?.name === "string")
           .map(({ name, description, input }) => ({
             name: name.slice(0, 128),
             description:
@@ -606,13 +596,8 @@ export class AntigravityProvider implements AgentProvider {
       );
       owner ??= ownAntigravitySession(namespace.storageScope, id);
       controls.id = id;
-      const structuredControls = command.layout === "cli";
-      controls.models = buildAntigravityModels(setup, {
-        useConfigOptions: structuredControls,
-      });
-      let configOptions: AntigravityConfigOption[] = structuredControls
-        ? (setup.configOptions ?? [])
-        : [];
+      controls.models = buildAntigravityModels(setup);
+      let configOptions: AntigravityConfigOption[] = setup.configOptions ?? [];
       const initialModel = resolveAntigravityModelSelection(
         configOptions,
         setup.models?.currentModelId,
@@ -659,58 +644,47 @@ export class AntigravityProvider implements AgentProvider {
           explicit ?? (keepInitialWhenDefault ? undefined : initialModel);
         if (!target) return;
         const modelOption = findAntigravityConfigOption(configOptions, "model");
-        if (modelOption) {
-          const legacy = splitAntigravityLegacyModel(target, controls.models);
-          const base = legacy?.modelId ?? target;
-          const override = hasExplicitEffortOverride
-            ? currentThought()?.currentValue
-            : undefined;
-          if (base !== resolvedModel) {
-            if (!modelOption.options?.some((entry) => entry.value === base)) {
-              throw new Error(`Antigravity does not offer model "${target}"`);
-            }
-            // agy carries a compatible effort across base models. Clear an
-            // explicit override first so the target inherits the Auto baseline.
-            if (override)
-              await applyThinkingSelection(undefined, undefined, true);
-            const response = await runtime.call<{
-              configOptions?: AntigravityConfigOption[];
-            }>("session/set_config_option", {
-              sessionId: id,
-              configId: modelOption.id,
-              value: base,
-            });
-            if (Array.isArray(response?.configOptions))
-              configOptions = response.configOptions;
-            resolvedModel = resolveAntigravityModelSelection(
-              configOptions,
-              base,
-            );
-            const observed = currentThought()?.currentValue;
-            defaultEffort =
-              (resolvedModel && autoEfforts.get(resolvedModel)) || observed;
-            if (resolvedModel && defaultEffort)
-              autoEfforts.set(resolvedModel, defaultEffort);
-            if (observed !== defaultEffort)
-              await applyThinkingSelection(undefined, undefined, true);
+        const legacy = splitAntigravityLegacyModel(target, controls.models);
+        const base = legacy?.modelId ?? target;
+        const override = hasExplicitEffortOverride
+          ? currentThought()?.currentValue
+          : undefined;
+        if (base !== resolvedModel) {
+          if (!modelOption?.options?.some((entry) => entry.value === base)) {
+            throw new Error(`Antigravity does not offer model "${target}"`);
           }
-          const selectedEffort =
-            legacy?.embeddedEffort ??
-            (isAntigravityEffortLevel(override) ? override : undefined);
-          if (
-            selectedEffort &&
-            currentThought()?.options?.some(
-              (entry) => entry.value === selectedEffort,
-            )
-          ) {
-            await applyThinkingSelection(undefined, selectedEffort, false);
-          }
-        } else {
-          await runtime.call("session/set_model", {
+          // agy carries a compatible effort across base models. Clear an
+          // explicit override first so the target inherits the Auto baseline.
+          if (override)
+            await applyThinkingSelection(undefined, undefined, true);
+          const response = await runtime.call<{
+            configOptions?: AntigravityConfigOption[];
+          }>("session/set_config_option", {
             sessionId: id,
-            modelId: target,
+            configId: modelOption.id,
+            value: base,
           });
-          resolvedModel = target;
+          if (Array.isArray(response?.configOptions))
+            configOptions = response.configOptions;
+          resolvedModel = resolveAntigravityModelSelection(configOptions, base);
+          const observed = currentThought()?.currentValue;
+          defaultEffort =
+            (resolvedModel && autoEfforts.get(resolvedModel)) || observed;
+          if (resolvedModel && defaultEffort)
+            autoEfforts.set(resolvedModel, defaultEffort);
+          if (observed !== defaultEffort)
+            await applyThinkingSelection(undefined, undefined, true);
+        }
+        const selectedEffort =
+          legacy?.embeddedEffort ??
+          (isAntigravityEffortLevel(override) ? override : undefined);
+        if (
+          selectedEffort &&
+          currentThought()?.options?.some(
+            (entry) => entry.value === selectedEffort,
+          )
+        ) {
+          await applyThinkingSelection(undefined, selectedEffort, false);
         }
       };
       const applyThinkingSelection = async (
@@ -768,24 +742,17 @@ export class AntigravityProvider implements AgentProvider {
             applyThinkingSelection(undefined, effort, true),
           );
       }
-      // Use only offered native modes: 1.4.x named them auto_edit/yolo,
-      // agy 1.5+ offers accept-edits and grants YOLO through a launch flag.
+      // Use only offered native modes. Bypass already launched with its flag.
       const offered = new Set(
-        setup.modes?.availableModes.map((entry) => entry.id) ?? [
-          "default",
-          "auto_edit",
-          "yolo",
-        ],
+        setup.modes?.availableModes.map((entry) => entry.id) ?? ["default"],
       );
       const wanted =
         options.permissionMode === "acceptEdits"
-          ? ["accept-edits", "auto_edit"]
+          ? "accept-edits"
           : options.permissionMode === "auto"
-            ? ["auto"]
-            : options.permissionMode === "bypassPermissions" && !skipPermissions
-              ? ["yolo"]
-              : ["default"];
-      const mode = wanted.find((entry) => offered.has(entry));
+            ? "auto"
+            : "default";
+      const mode = offered.has(wanted) ? wanted : undefined;
       if (!mode && options.permissionMode)
         throw new Error(
           `Antigravity does not offer the ${options.permissionMode} permission mode`,
@@ -830,7 +797,6 @@ export class AntigravityProvider implements AgentProvider {
       subagents = new AntigravitySubagentTracker({
         sessionId: id,
         storageScope: namespace.storageScope,
-        modern,
         signal,
         background,
         isInTurn: () => !!foregroundUpdate,
@@ -860,58 +826,56 @@ export class AntigravityProvider implements AgentProvider {
         subagents?.reconcile(opts);
         reconcileRoot(opts?.silent);
       };
-      if (modern)
-        unobserveSummaries = options.observeAntigravitySummaries?.(
-          namespace.storageScope,
-          () => {
-            if (
-              signal.aborted ||
-              !runtime.alive ||
-              !background.needsSummaryObservation()
-            )
-              return;
-            subagents?.reconcile();
-            reconcileRoot();
-          },
-        );
+      unobserveSummaries = options.observeAntigravitySummaries?.(
+        namespace.storageScope,
+        () => {
+          if (
+            signal.aborted ||
+            !runtime.alive ||
+            !background.needsSummaryObservation()
+          )
+            return;
+          subagents?.reconcile();
+          reconcileRoot();
+        },
+      );
       if (unobserveSummaries && subagents.supportsRootSettlement() !== false)
         background.trackRoot();
-      if (modern)
-        controls.compact = async (argument) => {
-          if (compacting || foregroundUpdate || inputHeld())
-            return {
-              handled: true,
-              error: "Wait for the active Antigravity turn or queue compaction",
-            };
-          if (!controls.commands.some((command) => command.name === "compact"))
-            return {
-              handled: true,
-              error: "This Antigravity session does not advertise compaction",
-            };
-          compacting = true;
-          try {
-            const result = await compactAntigravity(
-              runtime,
-              namespace.storageScope,
-              id,
-              argument,
-            );
-            if (result.completion === "completed") {
-              publish({
-                type: "system",
-                subtype: "compact_boundary",
-                uuid: randomUUID(),
-                session_id: id,
-              });
-              await subagents?.onCompacted();
-            }
-            return result;
-          } finally {
-            compacting = false;
-            reconcileRoot();
-            changed();
+      controls.compact = async (argument) => {
+        if (compacting || foregroundUpdate || inputHeld())
+          return {
+            handled: true,
+            error: "Wait for the active Antigravity turn or queue compaction",
+          };
+        if (!controls.commands.some((command) => command.name === "compact"))
+          return {
+            handled: true,
+            error: "This Antigravity session does not advertise compaction",
+          };
+        compacting = true;
+        try {
+          const result = await compactAntigravity(
+            runtime,
+            namespace.storageScope,
+            id,
+            argument,
+          );
+          if (result.completion === "completed") {
+            publish({
+              type: "system",
+              subtype: "compact_boundary",
+              uuid: randomUUID(),
+              session_id: id,
+            });
+            await subagents?.onCompacted();
           }
-        };
+          return result;
+        } finally {
+          compacting = false;
+          reconcileRoot();
+          changed();
+        }
+      };
       runtime.onUpdate = (update, updateSessionId, isReplay) => {
         if (
           isReplay ||
@@ -920,7 +884,6 @@ export class AntigravityProvider implements AgentProvider {
         )
           return;
         if (
-          structuredControls &&
           update.sessionUpdate === "config_option_update" &&
           Array.isArray(update.configOptions)
         ) {
@@ -952,11 +915,10 @@ export class AntigravityProvider implements AgentProvider {
             session_id: id,
             slash_command_inventory: controls.commands,
           });
-        if (modern)
-          background.observe(update, !!foregroundUpdate || compacting);
+        background.observe(update, !!foregroundUpdate || compacting);
         if (foregroundUpdate) {
           foregroundUpdate(update);
-        } else if (modern && !compacting) {
+        } else if (!compacting) {
           // A detached wake has no prompt result in ACP. Publish each received
           // snapshot without inventing a foreground turn or completion.
           passiveTranscript ??= new AntigravityTranscript(
@@ -1154,27 +1116,25 @@ export class AntigravityProvider implements AgentProvider {
           changed();
         };
         prompt(text, uuid, undefined, initialStartPosition);
-        if (modern) {
-          controls.steer = (input) => {
-            if (
-              signal.aborted ||
-              !runtime.alive ||
-              inputHeld() ||
-              failure ||
-              pending >= 8 ||
-              input.images?.length ||
-              input.documents?.length
-            )
-              return false;
-            prompt(
-              input.text,
-              input.uuid ?? randomUUID(),
-              input,
-              subagents?.readStartPositionSync(),
-            );
-            return true;
-          };
-        }
+        controls.steer = (input) => {
+          if (
+            signal.aborted ||
+            !runtime.alive ||
+            inputHeld() ||
+            failure ||
+            pending >= 8 ||
+            input.images?.length ||
+            input.documents?.length
+          )
+            return false;
+          prompt(
+            input.text,
+            input.uuid ?? randomUUID(),
+            input,
+            subagents?.readStartPositionSync(),
+          );
+          return true;
+        };
         while (pending || updates.length) {
           if (updates.length) {
             yield updates.shift()!;
