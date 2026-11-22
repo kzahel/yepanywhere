@@ -675,7 +675,8 @@ the scripted and live evidence and the current T3 Code source comparison.
 [plan 195](../tactical/195-antigravity-native-history.md) proposes reading
 history from `agy`'s native log, removing the history size limit and the
 standalone 1.4.x runtime, and then moving the owner into the Provider Host.
-No step has started.
+Step 1 has landed: YA runs `agy` 1.5.13 or later only and refuses older
+runtimes by name, and the standalone runtime and its store are gone.
 
 **Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
 leave provider discovery and execution. Both IDs remain in readable history.

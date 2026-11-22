@@ -1,7 +1,8 @@
 # Antigravity history from the native log
 
 Status: proposed 2026-11-22. The goal and the decisions below are agreed with
-the maintainer. No step has started.
+the maintainer. Step 1 is done; the [progress table](#progress) tracks the
+rest.
 
 This plan resolves the
 [large-history and replay-ownership gap](../../gaps/antigravity-large-history-and-replay-ownership.md).
@@ -242,7 +243,7 @@ conversation and the host can hold it.
 
 | Step | Status | Notes |
 | --- | --- | --- |
-| 1 — remove the standalone runtime | Not started | |
+| 1 — remove the standalone runtime | Done 2026-11-22 | `agy` 1.5.13 floor read from ACP `initialize`, with an `agy --version` fallback when `acp` is missing. Status, CLI installations and refused starts name both versions and `agy update`. The Linux `nobody` alias was confirmed unneeded on Ubuntu 24.04 before removal. [Contract](../../topics/antigravity.md#supported-runtime). |
 | 2 — reproduce the limits and measure the unknowns | Not started | |
 | 3 — project the log into YA messages | Not started | |
 | 4 — serve cold history from the log | Not started | |
