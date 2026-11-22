@@ -53,7 +53,7 @@ test("Rename saves the typed title on Enter, and Escape cancels without a reques
   await input.press("Enter");
   await expect.poll(session.requests).toEqual([`PUT ${metadataPath}`]);
   expect(session.calls[0]?.body).toEqual({ title: "Pinned new title" });
-  await expect(session.toast("Session renamed")).toBeVisible();
+  await expect(session.status("Session renamed")).toBeVisible();
   await expect(title).toHaveText("Pinned new title");
 });
 
@@ -126,7 +126,7 @@ test("Generate Title proposes from the current title, then saves the proposal", 
     lengthTarget: expect.any(Number),
   });
   expect(session.calls[1]?.body).toEqual({ title: "Generated pin title" });
-  await expect(session.toast("Session renamed")).toBeVisible();
+  await expect(session.status("Session renamed")).toBeVisible();
   await expect(title).toHaveText("Generated pin title");
 });
 

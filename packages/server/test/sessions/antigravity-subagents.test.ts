@@ -5,6 +5,7 @@ import {
   mkdtemp,
   readFile,
   realpath,
+  rename,
   rm,
   symlink,
   unlink,
@@ -83,13 +84,21 @@ async function createSubagentFixture() {
     "INSERT INTO conversation_summaries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const projectUri = JSON.stringify([pathToFileURL(project).href]);
-  const writeTranscriptLog = async (parentId: string, lines: object[]) => {
+  const writeTranscriptLog = async (
+    parentId: string,
+    lines: object[],
+    { replace = false } = {},
+  ) => {
     const logsDir = join(brainDir, parentId, ".system_generated", "logs");
     await mkdir(logsDir, { recursive: true });
+    const transcriptPath = join(logsDir, "transcript.jsonl");
+    // Allocate the replacement while the original still owns its inode.
+    const writePath = replace ? `${transcriptPath}.next` : transcriptPath;
     await writeFile(
-      join(logsDir, "transcript.jsonl"),
+      writePath,
       `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`,
     );
+    if (replace) await rename(writePath, transcriptPath);
   };
 
   cleanup.push(async () => {
@@ -869,36 +878,39 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       "logs",
       "transcript.jsonl",
     );
-    await unlink(grandchildTranscriptPath);
-    await f.writeTranscriptLog(GRANDCHILD_ID, [
-      {
-        step_index: 1,
-        type: "USER_INPUT",
-        status: "DONE",
-        content: "Original",
-      },
-      {
-        step_index: 2,
-        type: "PLANNER_RESPONSE",
-        status: "DONE",
-        tool_calls: [
-          {
-            name: "invoke_subagent",
-            args: {
-              Role: '"Alpha Researcher"',
-              TypeName: '"research"',
-              Prompt: '"Same prompt"',
+    await f.writeTranscriptLog(
+      GRANDCHILD_ID,
+      [
+        {
+          step_index: 1,
+          type: "USER_INPUT",
+          status: "DONE",
+          content: "Original",
+        },
+        {
+          step_index: 2,
+          type: "PLANNER_RESPONSE",
+          status: "DONE",
+          tool_calls: [
+            {
+              name: "invoke_subagent",
+              args: {
+                Role: '"Alpha Researcher"',
+                TypeName: '"research"',
+                Prompt: '"Same prompt"',
+              },
             },
-          },
-        ],
-      },
-      {
-        step_index: 3,
-        type: "GENERIC",
-        status: "DONE",
-        content: `Created the following subagent:\n{"conversationId":"${SPOOFED_ID}"}`,
-      },
-    ]);
+          ],
+        },
+        {
+          step_index: 3,
+          type: "GENERIC",
+          status: "DONE",
+          content: `Created the following subagent:\n{"conversationId":"${SPOOFED_ID}"}`,
+        },
+      ],
+      { replace: true },
+    );
     // 1. Verified-step path bound to old inode MUST reject replacement even on full tail!
     expect(
       await readAntigravityTurnSubagentLaunches(
@@ -993,10 +1005,18 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       const oldScope = tracker.beginPrompt("Old prompt", posAfterTruncate);
       expect(oldScope).toBeDefined();
       // Atomically replace transcript with a new inode.
-      await unlink(grandchildTranscriptPath);
-      await f.writeTranscriptLog(GRANDCHILD_ID, [
-        { step_index: 0, type: "USER_INPUT", status: "DONE", content: "Reset" },
-      ]);
+      await f.writeTranscriptLog(
+        GRANDCHILD_ID,
+        [
+          {
+            step_index: 0,
+            type: "USER_INPUT",
+            status: "DONE",
+            content: "Reset",
+          },
+        ],
+        { replace: true },
+      );
       const freshPos = await tracker.readStartPosition();
       expect(oldScope?.promptOffset).toBe(-1);
       const nextScope = tracker.beginPrompt("Fresh prompt", freshPos);
@@ -1011,7 +1031,6 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
     //    (e.g., atomic replacement + steering submission while handle.close() is
     //    pending) MUST NOT restore the invalidated scope, track its old launches,
     //    or publish its old child link when the lookup resumes.
-    await unlink(grandchildTranscriptPath);
     await f.writeTranscriptLog(GRANDCHILD_ID, [
       {
         step_index: 0,
@@ -1134,15 +1153,18 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
         new Set(["call-stale"]),
       );
       await resolvePause.closeStarted;
-      await unlink(grandchildTranscriptPath);
-      await f.writeTranscriptLog(GRANDCHILD_ID, [
-        {
-          step_index: 0,
-          type: "USER_INPUT",
-          status: "DONE",
-          content: "Replaced",
-        },
-      ]);
+      await f.writeTranscriptLog(
+        GRANDCHILD_ID,
+        [
+          {
+            step_index: 0,
+            type: "USER_INPUT",
+            status: "DONE",
+            content: "Replaced",
+          },
+        ],
+        { replace: true },
+      );
       const steerPos = inFlightTracker.readStartPositionSync();
       expect(inFlightTracker.beginPrompt("Steer", steerPos)).toBeUndefined();
       expect(oldScope?.promptOffset).toBe(-1);
@@ -1181,15 +1203,18 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       const verifyPause = pauseNextClose();
       inFlightTracker.schedulePromptAnchorVerification(oldVerifyScope!);
       await verifyPause.closeStarted;
-      await unlink(grandchildTranscriptPath);
-      await f.writeTranscriptLog(GRANDCHILD_ID, [
-        {
-          step_index: 0,
-          type: "USER_INPUT",
-          status: "DONE",
-          content: "Replaced again",
-        },
-      ]);
+      await f.writeTranscriptLog(
+        GRANDCHILD_ID,
+        [
+          {
+            step_index: 0,
+            type: "USER_INPUT",
+            status: "DONE",
+            content: "Replaced again",
+          },
+        ],
+        { replace: true },
+      );
       const steerPos2 = inFlightTracker.readStartPositionSync();
       expect(inFlightTracker.beginPrompt("Steer 2", steerPos2)).toBeUndefined();
       verifyPause.releaseClose();

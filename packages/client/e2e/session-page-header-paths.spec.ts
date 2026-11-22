@@ -54,13 +54,13 @@ test("Archive and Unarchive send the flag, toast and show the badge", async ({
   await menuItem(page, "Archive");
   await expect.poll(session.requests).toEqual([`PUT ${metadataPath}`]);
   expect(session.calls[0]?.body).toEqual({ archived: true });
-  await expect(session.toast("Session archived")).toBeVisible();
+  await expect(session.status("Session archived")).toBeVisible();
   await expect(badge).toHaveText("Archived");
 
   await menuItem(page, "Unarchive");
   await expect.poll(() => session.calls.length).toBe(2);
   expect(session.calls[1]?.body).toEqual({ archived: false });
-  await expect(session.toast("Session unarchived")).toBeVisible();
+  await expect(session.status("Session unarchived")).toBeVisible();
   await expect(badge).toHaveCount(0);
 });
 
@@ -99,7 +99,7 @@ test("Star sends the flag, toasts and marks the title; a failure says so", async
   await menuItem(page, "Star");
   await expect.poll(() => session.calls.length).toBe(2);
   expect(session.calls[1]?.body).toEqual({ starred: true });
-  await expect(session.toast("Session starred")).toBeVisible();
+  await expect(session.status("Session starred")).toBeVisible();
   await expect(mark).toBeVisible();
 });
 
@@ -116,7 +116,7 @@ test("Suggestions turns on; a failure puts the menu label back", async ({
   await menuItem(page, "Suggestions: Off");
   await expect.poll(session.requests).toEqual([`PUT ${metadataPath}`]);
   expect(session.calls[0]?.body).toEqual({ promptSuggestionMode: "native" });
-  await expect(session.toast("Suggestions enabled")).toBeVisible();
+  await expect(session.status("Suggestions enabled")).toBeVisible();
 
   fail = true;
   await menuItem(page, "Suggestions: On");
@@ -149,7 +149,7 @@ test("Terminate aborts the process and blocks resume; a failure says why", async
   fail = false;
   await menuItem(page, "Terminate");
   await expect.poll(() => session.calls.length).toBe(2);
-  await expect(session.toast("Session terminated")).toBeVisible();
+  await expect(session.status("Session terminated")).toBeVisible();
 });
 
 test("Restart provider aborts, reactivates and reloads; a failure says why", async ({
@@ -294,7 +294,7 @@ test("the breadcrumb's move menu lists other projects and moves the session", as
   const before = await page.evaluate(() => history.length);
   await menu.getByRole("menuitem", { name: /Alpha pin project/ }).click();
   await expect(
-    session.toast("Moved session to Alpha pin project"),
+    session.status("Moved session to Alpha pin project"),
   ).toBeVisible();
   await expect(menu).toHaveCount(0);
   const replaces = () =>
@@ -373,7 +373,7 @@ test("Recaps opens the recap settings and saving them toasts", async ({
   await expect
     .poll(session.requests)
     .toContain("POST /processes/pin-process/recap-config");
-  await expect(session.toast("Session recap settings updated")).toBeVisible();
+  await expect(session.status("Session recap settings updated")).toBeVisible();
 });
 
 test("Project settings opens the project's defaults", async ({
@@ -411,7 +411,7 @@ test("Handoff opens the handoff pop-up; starting it toasts and opens the new ses
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Handoff Session")).toBeVisible();
   await dialog.getByRole("button", { name: "Start handoff" }).click();
-  await expect(session.toast("Handoff session started")).toBeVisible();
+  await expect(session.status("Handoff session started")).toBeVisible();
   await expect(page).toHaveURL(
     new RegExp(`/projects/${projectId}/sessions/pin-handoff-session$`),
   );

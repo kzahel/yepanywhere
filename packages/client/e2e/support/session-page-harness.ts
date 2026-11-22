@@ -245,6 +245,8 @@ export async function openSessionPage(
     requests: () => calls.map((call) => `${call.method} ${call.path}`),
     answer,
     toast: (text: string) => page.getByRole("alert").filter({ hasText: text }),
+    status: (text: string) =>
+      page.getByRole("status").filter({ hasText: text }),
     /** Sends a session stream event on the current subscription. */
     emit: (eventType: string, data: object) => send?.(eventType, data),
     setDeferredMessages: (next: unknown[]) => {

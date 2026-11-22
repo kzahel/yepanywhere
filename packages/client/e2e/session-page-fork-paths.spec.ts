@@ -60,7 +60,7 @@ test("Clone from the session menu forks the latest complete turn and opens it", 
     },
   });
   expect(body).not.toHaveProperty("sourceMessageId");
-  await expect(session.toast("Cloned session created")).toBeVisible();
+  await expect(session.status("Cloned session created")).toBeVisible();
   await expect(page).toHaveURL(
     new RegExp(`/projects/${projectId}/sessions/pin-clone$`),
   );
@@ -105,7 +105,7 @@ test("Fork before a later turn forks before that turn and opens the fork", async
     sourceMessageId: "turn-2",
     creationProvenance: { surface: "web" },
   });
-  await expect(session.toast("Forked session created")).toBeVisible();
+  await expect(session.status("Forked session created")).toBeVisible();
   await expect(page).toHaveURL(/\/sessions\/pin-fork-before$/);
 });
 
@@ -134,7 +134,7 @@ test("Fork after the first turn forks after it and opens the fork", async ({
     forkKind: "after-user-turn",
     sourceMessageId: "turn-1",
   });
-  await expect(session.toast("Forked session created")).toBeVisible();
+  await expect(session.status("Forked session created")).toBeVisible();
   await expect(page).toHaveURL(/\/sessions\/pin-fork-after$/);
 });
 
@@ -185,7 +185,7 @@ test("Fork with summary posts the instructions, shows progress, and cancels from
     mode: "default",
     autoOpenWhenReady: false,
   });
-  await expect(session.toast("Forking in the background…")).toBeVisible();
+  await expect(session.status("Forking in the background…")).toBeVisible();
   await expect(session.composer).toHaveValue("");
   await expect(page.getByText("Fork after selected turn")).toHaveCount(0);
   const progress = page.locator(
@@ -238,7 +238,7 @@ test("the fork shortcut opens the fork composer; without summary it forks, queue
     message: "Continue with the lexer",
     mode: "default",
   });
-  await expect(session.toast("Forked session created")).toBeVisible();
+  await expect(session.status("Forked session created")).toBeVisible();
   await expect(page).toHaveURL(/\/sessions\/pin-fork-next$/);
 });
 

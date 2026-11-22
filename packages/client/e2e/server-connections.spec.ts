@@ -706,9 +706,12 @@ test("removal confirms one direction, preserves the reverse, and refuses a stale
     .getByRole("button", { name: "Remove connection", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("status")).toContainText(
-    "Manual connection removed. Access through your account remains.",
-  );
+  await expect(
+    page.getByRole("status").filter({
+      hasText:
+        "Manual connection removed. Access through your account remains.",
+    }),
+  ).toBeVisible();
   await expect(
     outgoing.getByText("Windows workstation", { exact: true }),
   ).toBeVisible();

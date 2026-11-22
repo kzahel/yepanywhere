@@ -134,6 +134,11 @@ test("shows provider-owned slash hints and argument completions", async ({
   await capture(page, "goal-current-desktop-1000x600.png");
   await composer.press("Tab");
   await expect(composer).toHaveValue(`/goal ${objective} `);
+  // Wait for the completion's queued caret placement before fill selects the draft.
+  await composer.evaluate(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
   await composer.fill("/go");
   const goalCommand = page.getByRole("menuitem", { name: "/goal" });
   await expect(goalCommand).toContainText("<verifiable end state>");

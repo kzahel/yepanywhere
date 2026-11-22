@@ -126,17 +126,25 @@ test("composer beacon acknowledges real sends and leaves typing and title option
     await page.goto(`${origin}/projects/${projectId}/sessions/beacon-session`);
     const composer = page.locator("[data-composer-input]:visible");
     await expect(composer).toBeVisible({ timeout: 30_000 });
+    const transcript = page.locator("[data-session-messages]");
+    const transcriptText = transcript.getByText(
+      "Transcript turn 159. Keep the composer responsive while this history is mounted.",
+      { exact: true },
+    );
+    await expect(transcriptText).toBeAttached({ timeout: 30_000 });
+    await expect(transcript.locator("[data-message-list]")).not.toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    await transcript.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
     await composer.focus();
     await composer.fill("mid draft");
     await composer.evaluate((element) =>
       (element as HTMLTextAreaElement).setSelectionRange(3, 3),
     );
-    await page
-      .getByText(
-        "Transcript turn 159. Keep the composer responsive while this history is mounted.",
-        { exact: true },
-      )
-      .click();
+    await transcriptText.click();
     await expect(composer).toBeFocused();
     await expect(composer).toHaveJSProperty("selectionStart", 3);
     await page.keyboard.press("Control+s");
