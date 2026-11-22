@@ -3,7 +3,8 @@
 //   pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-scale-log.mjs \
 //     --out <empty dir> [--steps 100000] [--bytes 500000000] [--id <uuid>]
 //     [--cwd <project>] [--checkpoint-every 2000] [--skip-every 25000]
-//     [--interrupted-group-every <steps>] [--verify]
+//     [--interrupted-group-every <steps>] [--interior-gap-group-every <steps>]
+//     [--verify]
 // Writes <out>/antigravity-cli/{brain,conversations,conversation_summaries.db}
 // so YA's readers can open it with --gemini-dir <out>. Real agy cannot load
 // it (no protobuf payloads); use antigravity-native-probe.mjs resume-large
@@ -43,6 +44,7 @@ const result = await writeAntigravityScaleConversation({
   checkpointEvery: Number(option("checkpoint-every", 2000)),
   skipEvery: Number(option("skip-every", 25_000)),
   interruptedGroupEvery: Number(option("interrupted-group-every", 0)),
+  interiorGapGroupEvery: Number(option("interior-gap-group-every", 0)),
 });
 const report = {
   ...result,
@@ -50,26 +52,38 @@ const report = {
 };
 
 if (argv.includes("--verify")) {
-  // The invariants a log reader may rely on: strictly increasing
-  // step_index, and k results after a planner record with k tool calls. A
-  // group with fewer results is accepted only where the generator was asked
-  // for an interrupted group, and only when another record type (or the
-  // end of the file) follows it.
+  // The invariants a log reader may rely on, by step index: step_index
+  // strictly increases, and a planner record at step P with k calls owns
+  // steps P+1..P+k, with call i's result at P+1+i. Every group must be
+  // complete except the requested ones, whose missing steps must be exactly
+  // the omitted calls' and whose next record must be USER_INPUT (suffix) or
+  // another group's planner record (interior). Nothing may end the file
+  // inside a group.
   const verifyStarted = performance.now();
-  const interrupted = new Map(
+  const requested = new Map(
     result.interruptedGroups.map((group) => [group.planner, group]),
   );
   let previous = -1;
   let open;
   let lines = 0;
   let shortGroups = 0;
-  const closeShort = (where) => {
-    const expected = interrupted.get(open.planner);
-    assert(
-      expected && expected.logged === open.results,
-      `planner ${open.planner} has ${open.results} of ${open.calls} results before ${where}`,
-    );
-    shortGroups++;
+  const close = (next) => {
+    const missing = [];
+    for (let i = 0; i < open.calls; i++)
+      if (!open.present.has(i)) missing.push(i);
+    if (missing.length) {
+      const expected = requested.get(open.planner);
+      assert(expected, `planner ${open.planner} lacks results ${missing}`);
+      assert.deepEqual(missing, expected.omitted, `planner ${open.planner}`);
+      assert(next, `planner ${open.planner} ends the file inside its group`);
+      assert(
+        expected.shape === "suffix"
+          ? next.type === "USER_INPUT"
+          : next.type === "PLANNER_RESPONSE" && next.tool_calls?.length,
+        `planner ${open.planner} (${expected.shape}) is followed by ${next.type}`,
+      );
+      shortGroups++;
+    }
     open = undefined;
   };
   for await (const line of createInterface({
@@ -77,29 +91,32 @@ if (argv.includes("--verify")) {
     crlfDelay: Number.POSITIVE_INFINITY,
   })) {
     const record = JSON.parse(line);
-    assert(
-      record.step_index > previous,
-      `step ${record.step_index} not increasing`,
-    );
-    previous = record.step_index;
+    const step = record.step_index;
+    assert(step > previous, `step ${step} not increasing`);
+    previous = step;
     lines++;
+    if (open && step > open.planner + open.calls) close(record);
     if (record.type === "GENERIC") {
-      assert(open, `step ${record.step_index} is a result with no open group`);
-      if (++open.results === open.calls) open = undefined;
+      assert(open, `step ${step} is a result outside every group's steps`);
+      open.present.add(step - open.planner - 1);
+      if (open.present.size === open.calls) open = undefined;
       continue;
     }
-    if (open) closeShort(`step ${record.step_index}`);
+    assert(
+      !open,
+      `step ${step} (${record.type}) is inside planner ${open?.planner}'s steps`,
+    );
     if (record.type === "PLANNER_RESPONSE" && record.tool_calls?.length)
       open = {
-        planner: record.step_index,
+        planner: step,
         calls: record.tool_calls.length,
-        results: 0,
+        present: new Set(),
       };
   }
-  if (open) closeShort("the end of the file");
+  if (open) close(undefined);
   assert.equal(lines, result.records);
   assert.equal(shortGroups, result.interruptedGroups.length);
-  report.verifiedInterruptedGroups = shortGroups;
+  report.verifiedShortGroups = shortGroups;
   report.verifySeconds =
     Math.round((performance.now() - verifyStarted) / 100) / 10;
 }

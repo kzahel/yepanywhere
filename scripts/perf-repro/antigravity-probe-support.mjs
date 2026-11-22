@@ -53,10 +53,23 @@ export function defaultAgy() {
 /**
  * One owner for everything a probe starts. `close()` runs cleanups in
  * reverse order, even after a failure, and before the profile is removed.
+ * A resource failing on its own callback (a log tail's timer) calls
+ * `fail()`, which rejects `failure`; the probe awaits its body against
+ * `failure`, so the error unwinds through the same cleanup.
  */
 export function createScope() {
   const cleanups = [];
+  let reject;
+  const failure = new Promise((_, rejectFailure) => {
+    reject = rejectFailure;
+  });
+  // Observed only when the probe races against it.
+  failure.catch(() => {});
   return {
+    failure,
+    fail(error) {
+      reject(error);
+    },
     defer(cleanup) {
       cleanups.push(cleanup);
     },
@@ -290,20 +303,38 @@ export function watchLog(scope, path, t0) {
       closeSync(fd);
     }
   };
-  const timer = setInterval(poll, 1);
+  let failed;
   let stopped = false;
+  // A failure stops the timer and rejects through the scope, so the probe
+  // unwinds through its cleanup instead of dying on an uncaught throw.
+  const guarded = () => {
+    if (failed) return;
+    try {
+      poll();
+    } catch (error) {
+      failed = error;
+      clearInterval(timer);
+      scope.fail(error);
+    }
+  };
+  const timer = setInterval(guarded, 1);
   const stop = () => {
     if (stopped) return;
     stopped = true;
     clearInterval(timer);
-    poll();
+    guarded();
   };
   scope.defer(stop);
   return {
     seen,
     stop,
-    /** Records whose bytes in the file now differ from what was first seen. */
+    /**
+     * Records whose bytes in the file now differ from what was first seen.
+     * Only meaningful after the tail stopped without a failure.
+     */
     recheck() {
+      if (failed) throw failed;
+      if (!stopped) throw new Error(`${path} is still being tailed`);
       const current = new Map();
       for (const line of readFileSync(path, "utf8").split("\n"))
         if (line) current.set(JSON.parse(line).step_index, line);
@@ -453,11 +484,22 @@ export function databaseSteps(databasePath) {
 }
 
 /**
- * One streaming pass over a log. Keeps step indexes, counts and short
- * groups; each record's payload is dropped after its fields are read.
- * A group is a planner record with k tool calls and the GENERIC records
- * that follow it. It is complete with k results, short when another
- * record type arrives first, and open when the file ends first.
+ * One streaming pass over a log. Keeps step indexes, counts and tool groups;
+ * each record's payload is dropped after its fields are read. Only records
+ * ending in a newline count: a final line without one is reported as
+ * `unterminatedTail` (an append in progress), not parsed.
+ *
+ * Tool groups are read by step index. A planner record at step P with k
+ * calls owns steps P+1..P+k, and a GENERIC at P+1+i is call i's result:
+ *  - complete: all k results present;
+ *  - prefix: results at P+1..P+m (m < k), then a non-GENERIC record after
+ *    P+k (the missing steps are the last calls' interrupted results);
+ *  - gapped: results present with missing steps that are not a suffix,
+ *    then a non-GENERIC record after P+k;
+ *  - unknown: a non-GENERIC record inside P+1..P+k, or a GENERIC with no
+ *    group owning its step (outside every range, or more results than
+ *    calls);
+ *  - open at end: the file ends before the group closes.
  */
 export async function scanLog(path) {
   const steps = [];
@@ -466,25 +508,50 @@ export async function scanLog(path) {
   let contiguous = true;
   let previous;
   let open;
+  let lastClosed;
   const groups = {
     complete: 0,
-    short: [],
+    prefix: [],
+    gapped: [],
+    unknown: [],
     openAtEnd: undefined,
-    orphanResults: 0,
   };
-  const hash = createHash("sha256");
-  const stream = createReadStream(path);
-  stream.on("data", (chunk) => hash.update(chunk));
-  for await (const line of createInterface({
-    input: stream,
-    crlfDelay: Infinity,
-  })) {
-    if (!line) continue;
+  const describe = (group) => ({
+    planner: group.planner,
+    calls: group.calls,
+    results: group.present.length,
+    missing: Array.from({ length: group.calls }, (_, i) => i)
+      .filter((i) => !group.present.includes(i))
+      .map((i) => group.planner + 1 + i),
+  });
+  const close = (next) => {
+    const group = open;
+    open = undefined;
+    lastClosed = group;
+    if (group.present.length === group.calls) {
+      groups.complete++;
+      return;
+    }
+    const isPrefix = group.present.every((offset, i) => offset === i);
+    (isPrefix ? groups.prefix : groups.gapped).push({
+      ...describe(group),
+      next,
+    });
+  };
+  const unknown = (reason, step) => {
+    groups.unknown.push({
+      reason,
+      step,
+      group: lastClosed ? describe(lastClosed) : null,
+    });
+  };
+  const take = (line) => {
     const record = JSON.parse(line);
     const step = record.step_index;
-    const calls = Array.isArray(record.tool_calls)
-      ? record.tool_calls.length
-      : 0;
+    if (!Number.isSafeInteger(step) || typeof record.type !== "string")
+      throw new Error(
+        `record without step_index or type after step ${previous}`,
+      );
     if (previous !== undefined) {
       if (!(step > previous)) increasing = false;
       if (step !== previous + 1) contiguous = false;
@@ -492,71 +559,117 @@ export async function scanLog(path) {
     previous = step;
     steps.push(step);
     types[record.type] = (types[record.type] ?? 0) + 1;
+    if (open && step > open.planner + open.calls)
+      close({ step, type: record.type });
     if (record.type === "GENERIC") {
       if (open) {
-        open.results++;
-        open.lastResult = step;
-        if (open.results === open.calls) {
-          groups.complete++;
-          open = undefined;
-        }
-      } else groups.orphanResults++;
-      continue;
+        open.present.push(step - open.planner - 1);
+        if (open.present.length === open.calls) close(undefined);
+      } else unknown("GENERIC with no group owning its step", step);
+      return;
     }
     if (open) {
-      groups.short.push({ ...open, next: { step, type: record.type } });
+      unknown("non-GENERIC record inside a group's steps", step);
+      lastClosed = open;
       open = undefined;
     }
+    const calls = Array.isArray(record.tool_calls)
+      ? record.tool_calls.length
+      : 0;
     if (record.type === "PLANNER_RESPONSE" && calls > 0)
-      open = { planner: step, calls, results: 0, lastResult: step };
+      open = { planner: step, calls, present: [] };
+    else lastClosed = undefined;
+  };
+  const hash = createHash("sha256");
+  const stream = createReadStream(path);
+  let endsWithNewline = false;
+  stream.on("data", (chunk) => {
+    hash.update(chunk);
+    endsWithNewline = chunk[chunk.length - 1] === 0x0a;
+  });
+  // Each line is handled once the next one arrives, so the last line can be
+  // held back when the file does not end with a newline.
+  let held;
+  for await (const line of createInterface({
+    input: stream,
+    crlfDelay: Infinity,
+  })) {
+    if (held !== undefined && held) take(held);
+    held = line;
   }
-  if (open) groups.openAtEnd = open;
+  const unterminatedTail =
+    held !== undefined && held !== "" && !endsWithNewline;
+  if (held && !unterminatedTail) take(held);
+  if (open) groups.openAtEnd = describe(open);
   return {
     steps,
     types,
     increasing,
     contiguous,
     groups,
+    unterminatedTail,
     sha256: hash.digest("hex"),
   };
 }
 
 function fileFacts(path) {
   if (!existsSync(path)) return null;
-  const info = statSync(path);
-  return `${info.ino}:${info.size}:${info.mtimeMs}`;
+  try {
+    const info = statSync(path);
+    return `${info.ino}:${info.size}:${info.mtimeMs}`;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Database steps against the log for one conversation. The database (with
  * its WAL) and the log are not read atomically, so the result is
- * inconclusive when any of them changed while it was read.
+ * inconclusive when any of them changed while it was read, or when the log
+ * ends in an unterminated record. A read that fails on files that did not
+ * change is reported as that conversation's error.
  */
 export async function coverageOf(store, id) {
   const database = join(store, "conversations", `${id}.db`);
   const logPath = join(logsDir(store, id), "transcript_full.jsonl");
   const watched = [database, `${database}-wal`, logPath];
   const before = watched.map(fileFacts);
-  const steps = databaseSteps(database);
-  const log = await scanLog(logPath);
-  const after = watched.map(fileFacts);
-  const inconclusive = before.some((facts, i) => facts !== after[i]);
+  const changed = () =>
+    watched.map(fileFacts).some((facts, i) => facts !== before[i]);
+  let steps;
+  let log;
+  try {
+    steps = databaseSteps(database);
+    log = await scanLog(logPath);
+  } catch (error) {
+    const message = String(error?.message ?? error);
+    return changed()
+      ? {
+          inconclusive: true,
+          reason: `files changed during a failed read: ${message}`,
+        }
+      : { inconclusive: false, error: message };
+  }
+  const inconclusive = changed() || log.unterminatedTail;
   const logged = new Set(log.steps);
   const byIdx = new Map(steps.map((step) => [step.idx, step]));
-  const short = log.groups.short.map((group) => {
-    const missing = [];
-    for (let idx = group.lastResult + 1; idx < group.next.step; idx++)
-      missing.push(byIdx.get(idx) ?? { idx, type: null, status: null });
+  const withDatabase = (group) => {
+    const missingSteps = group.missing.map(
+      (idx) => byIdx.get(idx) ?? { idx, type: null, status: null },
+    );
     return {
       ...group,
-      missingSteps: missing,
-      explainedByInterruptedResults:
-        missing.length === group.calls - group.results &&
-        missing.every((step) => step.type === 132 && step.status === 6),
+      missingSteps,
+      missingAreInterruptedResults: missingSteps.every(
+        (step) => step.type === 132 && step.status === 6,
+      ),
     };
-  });
+  };
   return {
     inconclusive,
+    ...(log.unterminatedTail
+      ? { reason: "the log ends in an unterminated record" }
+      : {}),
     databaseSteps: steps.length,
     logRecords: log.steps.length,
     increasing: log.increasing,
@@ -565,9 +678,10 @@ export async function coverageOf(store, id) {
     loggedWithoutStep: log.steps.filter((step) => !byIdx.has(step)),
     groups: {
       complete: log.groups.complete,
-      short,
-      openAtEnd: log.groups.openAtEnd,
-      orphanResults: log.groups.orphanResults,
+      prefix: log.groups.prefix.map(withDatabase),
+      gapped: log.groups.gapped.map(withDatabase),
+      unknown: log.groups.unknown,
+      openAtEnd: log.groups.openAtEnd ?? null,
     },
     types: log.types,
   };

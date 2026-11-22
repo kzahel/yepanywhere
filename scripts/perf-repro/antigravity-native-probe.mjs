@@ -66,8 +66,11 @@ async function withProfile(body) {
   const profile = makeProfile(model);
   const scope = createScope();
   const report = { agy, node: process.version };
+  const work = body({ model, profile, scope, report });
+  // After a scope failure the body is abandoned; cleanup ends its waits.
+  work.catch(() => {});
   try {
-    return await body({ model, profile, scope, report });
+    return await Promise.race([work, scope.failure]);
   } finally {
     try {
       await scope.close();
@@ -240,6 +243,26 @@ async function measure() {
     end(exchange, "LONG_DONE_MARK");
     finish(await next("long-2"), "LONGTOOL_DONE");
     await settle(turn, "LONGTOOL");
+
+    // O: a slow command before a quick read, in one response: which step
+    // and which order does each result get?
+    turn = prompt("ORDER_PROMPT");
+    exchange = await next("order-1");
+    sendParts(
+      exchange,
+      [
+        call("run_command", {
+          CommandLine: "sleep 1; echo SLOW_FIRST_MARK",
+          WaitMsBeforeAsync: 10000,
+          toolSummary: "probe slow first",
+        }),
+        call("read_file", { Path: path("alpha-2.txt"), StartLine: 1 }),
+      ],
+      true,
+    );
+    end(exchange, "SLOW_FIRST_MARK");
+    finish(await next("order-2"), "ORDER_DONE");
+    await settle(turn, "ORDER");
 
     // C: cancel mid-stream; D: an ordinary turn after it.
     turn = prompt("CHARLIE_PROMPT");
@@ -444,10 +467,18 @@ async function measure() {
 
 const pick = (coverage) => ({
   inconclusive: coverage.inconclusive,
+  error: coverage.error,
   steps: coverage.databaseSteps,
   records: coverage.logRecords,
   increasing: coverage.increasing,
   unlogged: coverage.unlogged,
+  groups: coverage.groups && {
+    complete: coverage.groups.complete,
+    prefix: coverage.groups.prefix,
+    gapped: coverage.groups.gapped,
+    unknown: coverage.groups.unknown,
+    openAtEnd: coverage.groups.openAtEnd,
+  },
 });
 
 /** Distinct markers in the request's conversation contents (not its system instruction). */
@@ -591,11 +622,13 @@ function pairRecords(seen, updates, marks) {
     firstUpdate(id, (update) =>
       ["completed", "failed"].includes(update.status),
     );
-  const markFor = (record) =>
-    marks.find(
+  // The latest response end at or before the record whose marker it holds.
+  const markFor = (record, t) =>
+    marks.findLast(
       (entry) =>
         (entry.name === "model-end" || entry.name === "cancel-sent") &&
         entry.marker &&
+        entry.t <= t &&
         JSON.stringify(record).includes(entry.marker),
     );
   const rows = [];
@@ -633,7 +666,7 @@ function pairRecords(seen, updates, marks) {
       const firstCall = calls
         .map((id) => firstUpdate(id, (update) => update.kind === "tool_call"))
         .filter(Boolean)[0];
-      const ended = markFor(record);
+      const ended = markFor(record, entry.t);
       Object.assign(row, {
         anchor:
           ended?.name === "cancel-sent"
@@ -651,11 +684,15 @@ function pairRecords(seen, updates, marks) {
           : undefined,
       });
       group = record.tool_calls?.length
-        ? { calls: record.tool_calls, next: 0 }
+        ? { calls: record.tool_calls, planner: entry.step }
         : undefined;
     } else if (entry.type === "GENERIC") {
-      const args = group?.calls[group.next++]?.args;
+      // By step index: the result at P+1+i answers call i.
+      const callIndex = group ? entry.step - group.planner - 1 : undefined;
+      const args = group?.calls[callIndex]?.args;
       const id = args ? callsByInput.get(canonical(args)) : undefined;
+      row.callIndex = callIndex;
+      row.resultNamesItsCall = resultNamesCall(args, record);
       if (entry.status === "RUNNING") {
         running = id;
         const launched = firstUpdate(
@@ -688,7 +725,7 @@ function pairRecords(seen, updates, marks) {
           delayMs: since(lastUserInput?.t),
         });
     } else if (entry.type === "CHECKPOINT") {
-      const ended = markFor(record);
+      const ended = markFor(record, entry.t);
       Object.assign(row, {
         anchor: "summary response ended",
         delayMs: since(ended?.t),
@@ -706,6 +743,26 @@ function pairRecords(seen, updates, marks) {
     rows.push(row);
   }
   return rows;
+}
+
+/**
+ * Whether a result's text carries its call's own marker: the word a probe
+ * command echoes, or the content of the probe file read. Undefined when the
+ * call has no such marker (a write).
+ */
+function resultNamesCall(args, record) {
+  const content = String(record.content ?? "");
+  if (typeof args?.CommandLine === "string")
+    return content.includes(args.CommandLine.split(" ").at(-1));
+  if (
+    typeof args?.Path === "string" &&
+    args.Path.endsWith(".txt") &&
+    !("Content" in args)
+  )
+    return content.includes(
+      `${args.Path.split("/").at(-1).slice(0, -4).toUpperCase()}_CONTENT`,
+    );
+  return undefined;
 }
 
 function toolCallIds(sessionId, updates, permissions) {
@@ -895,8 +952,6 @@ async function coverageCensus() {
     withoutLog: 0,
     conversations: [],
   };
-  const unloggedTypes = {};
-  const shortGroups = [];
   for (const name of readdirSync(join(store, "conversations"))) {
     if (!name.endsWith(".db")) continue;
     out.databases++;
@@ -907,48 +962,57 @@ async function coverageCensus() {
       continue;
     }
     out.withLog++;
-    const coverage = await coverageOf(store, id);
-    if (!coverage.inconclusive) {
-      for (const step of coverage.unlogged) {
-        const key = `${step.type}/${step.status}`;
-        unloggedTypes[key] = (unloggedTypes[key] ?? 0) + 1;
-      }
-      for (const group of coverage.groups.short)
-        shortGroups.push({ id, ...group });
-    }
-    out.conversations.push({
-      id,
-      inconclusive: coverage.inconclusive,
-      steps: coverage.databaseSteps,
-      records: coverage.logRecords,
-      increasing: coverage.increasing,
-      contiguous: coverage.contiguous,
-      unlogged: coverage.unlogged,
-      loggedWithoutStep: coverage.loggedWithoutStep.length,
-      completeGroups: coverage.groups.complete,
-      shortGroups: coverage.groups.short.length,
-      openGroupAtEnd: coverage.groups.openAtEnd ?? null,
-      orphanResults: coverage.groups.orphanResults,
-    });
+    out.conversations.push({ id, ...summarize(await coverageOf(store, id)) });
   }
   const conclusive = out.conversations.filter(
-    (entry) => entry.log !== false && !entry.inconclusive,
+    (entry) => entry.log !== false && !entry.inconclusive && !entry.error,
   );
   out.inconclusive = out.conversations
     .filter((entry) => entry.inconclusive)
     .map((entry) => entry.id);
-  out.unloggedByTypeAndStatus = unloggedTypes;
+  out.errors = out.conversations
+    .filter((entry) => entry.error)
+    .map(({ id, error }) => ({ id, error }));
+  out.unloggedByTypeAndStatus = {};
+  for (const entry of conclusive)
+    for (const step of entry.unlogged) {
+      const key = `${step.type}/${step.status}`;
+      out.unloggedByTypeAndStatus[key] =
+        (out.unloggedByTypeAndStatus[key] ?? 0) + 1;
+    }
   out.allIncreasing = conclusive.every((entry) => entry.increasing);
-  out.completeGroups = conclusive.reduce(
-    (sum, entry) => sum + entry.completeGroups,
-    0,
-  );
-  out.shortGroups = shortGroups;
-  out.orphanResults = conclusive.reduce(
-    (sum, entry) => sum + entry.orphanResults,
-    0,
-  );
+  out.groups = {
+    complete: conclusive.reduce((sum, entry) => sum + entry.groups.complete, 0),
+    prefix: conclusive.flatMap((entry) =>
+      entry.groups.prefix.map((group) => ({ id: entry.id, ...group })),
+    ),
+    gapped: conclusive.flatMap((entry) =>
+      entry.groups.gapped.map((group) => ({ id: entry.id, ...group })),
+    ),
+    unknown: conclusive.flatMap((entry) =>
+      entry.groups.unknown.map((item) => ({ id: entry.id, ...item })),
+    ),
+    openAtEnd: conclusive
+      .filter((entry) => entry.groups.openAtEnd)
+      .map((entry) => ({ id: entry.id, ...entry.groups.openAtEnd })),
+  };
   return out;
+}
+
+/** One conversation's census row: counts and every group not complete. */
+function summarize(coverage) {
+  if (coverage.error || coverage.databaseSteps === undefined) return coverage;
+  return {
+    inconclusive: coverage.inconclusive,
+    ...(coverage.reason ? { reason: coverage.reason } : {}),
+    steps: coverage.databaseSteps,
+    records: coverage.logRecords,
+    increasing: coverage.increasing,
+    contiguous: coverage.contiguous,
+    unlogged: coverage.unlogged,
+    loggedWithoutStep: coverage.loggedWithoutStep.length,
+    groups: coverage.groups,
+  };
 }
 
 // --------------------------------------------------------------- main -------

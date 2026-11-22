@@ -32,6 +32,12 @@ export interface AntigravityScaleOptions {
    * the missing results being database-only steps. 0 (default) for none.
    */
   interruptedGroupEvery?: number;
+  /**
+   * Steps between groups missing one result that is not the last, followed
+   * by another group. Not observed in a real log; for testing readers that
+   * pair results by step index. 0 (default) for none.
+   */
+  interiorGapGroupEvery?: number;
   /** Also write the shortened `transcript.jsonl` (default true). */
   shortLog?: boolean;
   /** Replace the store's summaries index with this conversation (default true). */
@@ -47,8 +53,13 @@ export interface AntigravityScaleResult {
   records: number;
   checkpoints: number;
   skipped: number[];
-  /** Groups whose last `calls - logged` results are database-only. */
-  interruptedGroups: Array<{ planner: number; calls: number; logged: number }>;
+  /** Groups with database-only results at `omitted` call offsets. */
+  interruptedGroups: Array<{
+    planner: number;
+    calls: number;
+    omitted: number[];
+    shape: "suffix" | "interior";
+  }>;
   wakes: number;
   lastStep: number;
 }
@@ -155,6 +166,7 @@ export async function writeAntigravityScaleConversation(
   const checkpointEvery = options.checkpointEvery ?? 2000;
   const skipEvery = options.skipEvery ?? 25_000;
   const interruptedGroupEvery = options.interruptedGroupEvery ?? 0;
+  const interiorGapGroupEvery = options.interiorGapGroupEvery ?? 0;
   const logs = join(
     options.store,
     "brain",
@@ -223,6 +235,7 @@ export async function writeAntigravityScaleConversation(
   let turn = 0;
   let nextSkip = skipEvery;
   let nextInterrupted = interruptedGroupEvery || Number.POSITIVE_INFINITY;
+  let nextInteriorGap = interiorGapGroupEvery || Number.POSITIVE_INFINITY;
   while (remaining() > 0) {
     turn++;
     if (step > 0)
@@ -251,9 +264,12 @@ export async function writeAntigravityScaleConversation(
       );
     const tasks: Array<{ task: string; command: string }> = [];
     let interrupted = false;
-    const rounds = 1 + Math.floor(random() * 6);
+    let rounds = 1 + Math.floor(random() * 6);
+    let followWithGroup = false;
     for (let round = 0; round < rounds && remaining() > 0; round++) {
-      if (skipEvery > 0 && step >= nextSkip) {
+      const mustBeGroup = followWithGroup;
+      followWithGroup = false;
+      if (!mustBeGroup && skipEvery > 0 && step >= nextSkip) {
         nextSkip += skipEvery;
         // An interrupted planner step: in the database, never in the log.
         types.push([
@@ -268,14 +284,26 @@ export async function writeAntigravityScaleConversation(
       // Never start a group that cannot be completed within the budget.
       let calls = Math.min(1 + Math.floor(random() * 4), remaining() - 1);
       if (calls < 1) break;
-      // An interrupted group, as in a real log: its last results are
-      // database steps with status 6, and the next record is USER_INPUT.
-      let logged = calls;
-      if (step >= nextInterrupted && remaining() >= 4) {
+      // Offsets of calls whose results are database-only (status 6).
+      let omitted: number[] = [];
+      let shape: "suffix" | "interior" | undefined;
+      if (step >= nextInterrupted && remaining() >= 6) {
+        // As in a real log: the last results are missing, and the next
+        // record is the next turn's USER_INPUT (one step is reserved).
         nextInterrupted += interruptedGroupEvery;
-        calls = Math.min(Math.max(calls, 3), remaining() - 1);
-        logged = 1 + Math.floor(random() * (calls - 1));
-        interrupted = true;
+        calls = Math.min(Math.max(calls, 3), remaining() - 2);
+        const logged = 1 + Math.floor(random() * (calls - 1));
+        omitted = Array.from({ length: calls - logged }, (_, i) => logged + i);
+        shape = "suffix";
+      } else if (step >= nextInteriorGap && remaining() >= 7) {
+        // Not observed: one missing result that is not the last, followed
+        // by another group (two steps reserved), to exercise readers.
+        nextInteriorGap += interiorGapGroupEvery;
+        calls = Math.min(Math.max(calls, 3), remaining() - 3);
+        omitted = [Math.floor(random() * (calls - 1))];
+        shape = "interior";
+        rounds = Math.max(rounds, round + 2);
+        followWithGroup = true;
       }
       const planner = step;
       const commands: string[] = [];
@@ -306,7 +334,16 @@ export async function writeAntigravityScaleConversation(
         },
         ANTIGRAVITY_STEP_TYPES.PLANNER_RESPONSE,
       );
-      for (let call = 0; call < logged; call++) {
+      for (let call = 0; call < calls; call++) {
+        if (omitted.includes(call)) {
+          types.push([
+            step,
+            ANTIGRAVITY_STEP_TYPES.GENERIC,
+            INTERRUPTED_STATUS,
+          ]);
+          step++;
+          continue;
+        }
         const failed = random() < 0.02;
         const running = !failed && call % 2 === 1 && random() < 0.05;
         const at = timestamp(base, step);
@@ -340,16 +377,9 @@ export async function writeAntigravityScaleConversation(
           ANTIGRAVITY_STEP_TYPES.GENERIC,
         );
       }
-      if (interrupted) {
-        for (let call = logged; call < calls; call++) {
-          types.push([
-            step,
-            ANTIGRAVITY_STEP_TYPES.GENERIC,
-            INTERRUPTED_STATUS,
-          ]);
-          step++;
-        }
-        interruptedGroups.push({ planner, calls, logged });
+      if (shape) interruptedGroups.push({ planner, calls, omitted, shape });
+      if (shape === "suffix") {
+        interrupted = true;
         break;
       }
     }
