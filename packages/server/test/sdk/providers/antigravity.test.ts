@@ -1240,6 +1240,7 @@ describe("Antigravity native process boundary", () => {
       const projectId = toUrlProjectId(directory);
       const detailPath = `/api/projects/${projectId}/sessions/${nativeId}`;
       type Page = {
+        session?: { title?: string | null };
         messages: Array<{ uuid: string; message?: { content?: unknown } }>;
         pagination?: {
           hasOlderMessages: boolean;
@@ -1316,12 +1317,17 @@ describe("Antigravity native process boundary", () => {
               .messages,
           ),
         ).toEqual(live);
-        expect(
-          uuids(
-            (await get(`?afterMessageId=${encodeURIComponent(live[0]!)}`))
-              .messages,
-          ),
-        ).toEqual([live[1]]);
+        const fromLive = await get(
+          `?afterMessageId=${encodeURIComponent(live[0]!)}`,
+        );
+        expect(uuids(fromLive.messages)).toEqual([live[1]]);
+        // The title stays the conversation's first prompt, whichever side
+        // served the read.
+        const firstPrompt = before.messages.find(
+          (message) => message.type === "user",
+        )?.message?.content as string;
+        expect(fromLive.session?.title).toBe(firstPrompt.slice(0, 120));
+        expect((await get()).session?.title).toBe(firstPrompt.slice(0, 120));
         // An older page from a live row ends at the boundary.
         const older = await get(
           `?beforeMessageId=${encodeURIComponent(live[0]!)}`,

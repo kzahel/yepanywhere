@@ -525,8 +525,11 @@ exactly one, with no row twice and none missing at the resume point:
 | Hover excerpt | The owner's latest prose, else the joined latest page. |
 | Agent mappings | The joined latest page. |
 
-A read that an owner opened or closed under is read again, so a page never
-mixes one owner's split with another's. A new session's owner, and one
+Every answer's title is the conversation's first prompt from the log (a
+bounded read of the file's start when the log page itself was not read),
+never the resumed owner's own prompt. A read that an owner opened or closed
+under is read again, so a page never mixes one owner's split with
+another's. A new session's owner, and one
 resumed through the fallback, have no resume point: their projection is the
 whole history, as before step 5. Plan 195 step 6 bounds live memory by
 moving the resume point forward as the log catches up.

@@ -748,16 +748,21 @@ export class AntigravitySessionReader implements ISessionReader {
           : await this.readLog(scope, id, plan.request, false, boundary);
       const after = antigravityOwnerView(scope, id);
       if (!sameAntigravitySplit(before, after)) continue;
-      if (after?.state === "open")
+      if (after?.state === "open") {
+        const live =
+          plan.kind === "log" ? undefined : (after.history() as Message[]);
         return {
           kind: "log",
           window,
           // A page before a log message is older than every live row.
-          ...(plan.kind === "log"
-            ? {}
-            : { live: after.history() as Message[] }),
+          ...(live ? { live } : {}),
           paged: plan.kind !== "live",
+          // The title is the log's first prompt, never a live row's.
+          ...(window.status === "known"
+            ? {}
+            : { firstPrompt: await readAntigravityFirstPrompt(scope, id) }),
         };
+      }
       if (window.status === "known")
         return { kind: "log", window, paged: true };
       if (after?.state !== "starting") return { kind: "fallback" };

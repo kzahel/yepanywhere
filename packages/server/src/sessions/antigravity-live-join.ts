@@ -101,6 +101,8 @@ export type AntigravitySessionRead =
       live?: Message[];
       /** Whether the log was read as a page of this request. */
       paged: boolean;
+      /** The log's first prompt, when the window was not read. */
+      firstPrompt?: string;
     }
   /** The log is missing or unknown and no owner holds the conversation. */
   | { kind: "fallback" };
@@ -134,7 +136,9 @@ export function antigravityJoinedSession(
   const { window, live, paged } = read;
   const known = window.status === "known" ? window : undefined;
   const messages = [...(known?.messages ?? []), ...(live ?? [])];
-  const title = known ? known.firstPrompt : firstUserText(live ?? []);
+  // The conversation's first prompt, from the log: a resumed owner's own
+  // prompt never titles it.
+  const title = known?.firstPrompt ?? read.firstPrompt;
   if (title !== undefined) {
     summary.title = title.slice(0, 120);
     summary.fullTitle = title;
