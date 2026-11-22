@@ -42,6 +42,11 @@ export interface AgentMessageQueue {
   push(message: UserMessage): number;
   /** Pause native delivery while a multi-step configuration is unsettled. */
   setConfigurationInputHeld?(held: boolean): void;
+  /**
+   * Process entered idle, having handled the turn's or command's result:
+   * input requests the provider raises from now on stay visible.
+   */
+  onConsumerIdle?(): void;
   drain(): UserMessage[];
   /** Remote queues use this to return the worker's authoritative drain. */
   drainAsync?(): Promise<UserMessage[]>;

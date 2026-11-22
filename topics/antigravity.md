@@ -223,11 +223,16 @@ Permission requests ([owner](../packages/server/src/sdk/providers/antigravity-pe
     later request for one of them, such as a delayed frame from a stopped
     turn or wake, is answered cancelled without a prompt. A request for a
     tool call first seen after Stop is new work and asks.
-  - YA's session goes idle when a turn's result is published, so a request
-    raised during the turn and still waiting is withdrawn then.
-  - A request arriving after the turn's last prompt has answered, such as a
-    wake in the same write, is asked once the result is published, so it is
-    visible.
+  - YA's session goes idle when it handles a turn's or a provider command's
+    (such as queued `/compact`) result, so a request raised while a YA
+    prompt ran and still waiting is withdrawn just before that result.
+  - A request arriving after the last prompt has answered, such as a wake
+    in the same write, is held. It is asked once YA reports it is idle, or
+    when YA sends its next prompt, so it is visible. Both the foreground
+    turn and provider commands use that one release point.
+  - The running tool calls that Stop marks cancelled are remembered up to
+    256, the oldest forgotten first. A delayed request for a forgotten call,
+    or for a call already reported terminal, is treated as new work.
   - A withdrawn prompt's late answer is refused and does not move the
     session back in-turn.
   - From Stop until the cancelled prompt returns, nothing is steered in:

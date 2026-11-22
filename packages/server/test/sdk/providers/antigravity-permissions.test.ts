@@ -85,7 +85,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   }
   if (m.method === 'session/new') {
     fs.mkdirSync(path.join(process.env.GEMINI_HOME, 'antigravity-cli', 'conversations'), { recursive: true });
-    return reply(m.id, { sessionId: id, models: { currentModelId: 'native-default', availableModels: [] } });
+    reply(m.id, { sessionId: id, models: { currentModelId: 'native-default', availableModels: [] } });
+    return send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: id, update: { sessionUpdate: 'available_commands_update', availableCommands: [{ name: 'compact', description: 'Compact' }] } } });
   }
   if (m.method === 'session/prompt') {
     // Like agy, refuse a second prompt while one is being worked on.
@@ -111,6 +112,15 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       return write(chunk('Hello'), { jsonrpc: '2.0', id: p, result: { stopReason: 'end_turn' } }, toolCall('wake-3', 'in_progress'), request('w3', 'wake-3'));
     }
     if (text === 'same-write-cancel') return update('Waiting');
+    if (text === '/compact') {
+      // A verified checkpoint, then the compact response and an independent
+      // wake's request before YA has settled the command.
+      const logs = path.join(process.env.GEMINI_HOME, 'antigravity-cli', 'brain', id, '.system_generated', 'logs');
+      fs.mkdirSync(logs, { recursive: true });
+      fs.appendFileSync(path.join(logs, 'transcript.jsonl'), JSON.stringify({ step_index: 9, source: 'SYSTEM', type: 'CHECKPOINT', status: 'DONE', created_at: '2026-11-22T00:00:00Z', content: 'summary' }) + '\\n');
+      const p = prompt; prompt = undefined;
+      return write({ jsonrpc: '2.0', id: p, result: { stopReason: 'end_turn' } }, toolCall('wake-5', 'in_progress'), request('w5', 'wake-5'));
+    }
     if (text === 'decoy-body') {
       // None of these answers the prompt: no body, two bodies, an invalid error.
       send({ jsonrpc: '2.0', id: m.id });
@@ -227,6 +237,8 @@ describe("Antigravity permission requests", () => {
       interruptFn: session.interrupt,
       steerFn: session.steer,
       steerUsesMessageQueue: session.steerUsesMessageQueue,
+      runProviderCommandFn: session.runProviderCommand,
+      supportedCommandsFn: session.supportedCommands,
       isProcessAlive: session.isProcessAlive,
       deferredDelivery: {
         joinWindowSeconds: 0,
@@ -358,30 +370,29 @@ describe("Antigravity permission requests", () => {
 
   it("Stop during detached work cancels its delayed request; a later independent wake can still ask", async () => {
     const asked: string[] = [];
-    const session = await new AntigravityProvider().startSession({
-      cwd: directory,
-      initialMessage: { text: "wake", uuid: randomUUID() },
-      onToolApproval: async (tool, input) => {
-        asked.push(tool);
-        return { behavior: "allow", updatedInput: input };
-      },
+    const { proc, session, until } = await owned("wake", (options) => {
+      asked.push(String(options.signal.aborted));
     });
     try {
-      expect((await untilResult(session)).at(-1)?.type).toBe("result");
-      // The wake's tool call is running in agy; nothing has asked yet.
-      for (;;) {
-        const { value } = await session.iterator.next();
-        if (JSON.stringify(value).includes("WAKE_RUNNING")) break;
-      }
-      expect(await session.interrupt?.()).toBe(true);
+      // The foreground turn is over and the wake's tool call is running.
+      await until(
+        () =>
+          proc.state.type === "idle" &&
+          JSON.stringify(proc.getMessageHistory()).includes("WAKE_RUNNING"),
+      );
+      await proc.interrupt();
+      // Only the independent wake reaches the user, visibly.
+      await until(() => proc.state.type === "waiting-input");
+      const request = proc.getPendingInputRequest()!;
+      expect(request.toolName).toBe("Write file w2");
+      expect(proc.respondToInput(request.id, "approve")).toBe(true);
       await vi.waitFor(async () =>
         expect(await answers()).toEqual([
           'answer "w1" cancelled',
           'answer "w2" native-allow',
         ]),
       );
-      // Only the independent wake reached the user.
-      expect(asked).toEqual(["Write file w2"]);
+      expect(asked).toHaveLength(1);
     } finally {
       await session.abort();
     }
@@ -397,6 +408,39 @@ describe("Antigravity permission requests", () => {
       await vi.waitFor(async () =>
         expect(await answers()).toEqual(['answer "w3" native-allow']),
       );
+    } finally {
+      await session.abort();
+    }
+  });
+
+  it("after a queued compaction settles, a wake's request raised before it is visible and answerable", async () => {
+    const { proc, session, until } = await owned("hello");
+    try {
+      await until(
+        () =>
+          proc.state.type === "idle" &&
+          JSON.stringify(proc.getMessageHistory()).includes("Hello"),
+      );
+      expect(
+        proc.deferMessage({
+          text: "/compact",
+          tempId: "compact",
+          queuedCompact: { command: "compact", argument: "" },
+        }).success,
+      ).toBe(true);
+      // The compaction completes and Process goes idle; the wake's request,
+      // which arrived before that, must then be the pending input request.
+      await until(() => proc.state.type === "waiting-input");
+      // Still visible once the command has fully settled.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(proc.state.type).toBe("waiting-input");
+      const request = proc.getPendingInputRequest()!;
+      expect(request.toolName).toBe("Write file w5");
+      expect(proc.respondToInput(request.id, "approve")).toBe(true);
+      await vi.waitFor(async () =>
+        expect(await answers()).toEqual(['answer "w5" native-allow']),
+      );
+      expect(await lines()).toContain("session/prompt");
     } finally {
       await session.abort();
     }

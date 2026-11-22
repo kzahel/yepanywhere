@@ -4983,7 +4983,6 @@ export class Process {
       this.setPermissionMode("default");
     }
 
-    // Resolve the promise and remove from tracking
     pending.resolve(result);
     this.pendingToolApprovals.delete(requestId);
     this.pendingToolApprovalQueue = this.pendingToolApprovalQueue.filter(
@@ -6511,6 +6510,7 @@ export class Process {
     this.viewerLifecycle.observeProcessState(state);
     this.emit({ type: "state-change", state });
     this.schedulePromptCacheKeepalive();
+    if (state.type === "idle") this.messageQueue.onConsumerIdle?.();
   }
 
   private emit(event: ProcessEvent): void {

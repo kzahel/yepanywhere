@@ -84,6 +84,7 @@ interface AntigravityControls {
   reconcileSubagents?: (options?: { silent?: boolean }) => void;
   /** From Stop until the cancelled prompts return, nothing is steered in. */
   stopping?: boolean;
+  onConsumerIdle?: () => void;
 }
 
 export class AntigravityProvider implements AgentProvider {
@@ -289,6 +290,11 @@ export class AntigravityProvider implements AgentProvider {
       setConfigurationInputHeld(held: boolean) {
         controls.inputHeld = held;
         controls.onInputHoldChanged?.();
+      },
+      // The one point where approvals held at a turn's or command's end are
+      // put to the user: Process is idle and will show them.
+      onConsumerIdle() {
+        controls.onConsumerIdle?.();
       },
     });
     if (options.initialMessage) queue.push(options.initialMessage);
@@ -651,6 +657,9 @@ export class AntigravityProvider implements AgentProvider {
       let pendingConfigCount = 0;
       const inputHeld = () => controls.inputHeld || pendingConfigCount > 0;
       controls.onInputHoldChanged = changed;
+      // After the current call stack, so the approval opens once Process
+      // has finished its idle transition.
+      controls.onConsumerIdle = () => queueMicrotask(() => runtime.turnEnded());
       let configTail = Promise.resolve();
       const serializeConfig = <T>(operation: () => Promise<T>): Promise<T> => {
         pendingConfigCount++;
@@ -910,7 +919,6 @@ export class AntigravityProvider implements AgentProvider {
         } finally {
           compacting = false;
           runtime.endingTurn();
-          runtime.turnEnded();
           reconcileRoot();
           changed();
         }
@@ -1229,7 +1237,6 @@ export class AntigravityProvider implements AgentProvider {
         if (failure) throw failure;
         runtime.endingTurn();
         yield { type: "result", session_id: id, usage };
-        runtime.turnEnded();
       }
     } catch (error) {
       failReady(error);
@@ -1245,6 +1252,7 @@ export class AntigravityProvider implements AgentProvider {
       controls.setModel = undefined;
       controls.setEffort = undefined;
       controls.onInputHoldChanged = undefined;
+      controls.onConsumerIdle = undefined;
       controls.reconcileSubagents = undefined;
       unobserveSummaries?.();
       subagents?.close();

@@ -980,7 +980,7 @@ Plan 195 step 2b (permission requests with string IDs) added
 `native-antigravity-permissions.test.ts`: five real-`agy` cases for default
 mode (Allow and Deny), Stop while a write waits with input sent right after,
 accept-edits, bypass and the refused Plan mode. The approval case in
-`antigravity.test.ts` now runs with a string and a numeric ID. Fifteen
+`antigravity.test.ts` now runs with a string and a numeric ID. Sixteen
 controlled-peer cases for request ownership, retention, ID reuse, envelopes,
 response bodies and teardown are in
 `test/sdk/providers/antigravity-permissions.test.ts`, which the ordinary

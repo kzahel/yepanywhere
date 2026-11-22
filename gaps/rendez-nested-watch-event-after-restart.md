@@ -387,3 +387,9 @@ timeout; both runs stay red.
 missed the first nested delivery at line 353 (0 observed, 1 expected); 7,693
 other server tests passed, and a focused rerun of the file passed. Step 2
 changes no Rendez source, fixture, assertion or timeout.
+
+2026-11-22: during plan 195 step 2b review round 3, the server suite on
+Node 24.22.1 missed the first nested delivery at line 353 (7,710 other
+server tests passed). Run alone, the file failed in two of three runs
+without step 2b's source changes and in one of three with them. Step 2b
+changes no Rendez source, fixture, assertion or timeout.

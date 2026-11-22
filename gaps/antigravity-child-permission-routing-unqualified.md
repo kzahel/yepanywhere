@@ -15,8 +15,13 @@ session. A root Stop withdraws every waiting request on the connection,
 and a request raised during a root turn is withdrawn when that turn ends,
 so none is left waiting but hidden
 ([permission owner](../packages/server/src/sdk/providers/antigravity-permission-requests.ts)).
-If `agy` does ask for a child, the request is put to the user only while
-the root turn runs, and a root Stop cancels it.
+If `agy` does ask for a child, the request is put to the user while the
+root turn runs, or after the root's result if it arrives between the root's
+last prompt response and that result (it is held and asked once YA is
+idle). Either way a root Stop cancels it. The provider remembers at most 256
+running tool calls, forgetting the oldest first. A delayed request for a
+call it has forgotten, or one that arrives after that call's terminal update,
+is treated as new work and can ask after Stop.
 
 Controlled repro from the step 2b review, round 2. During one root prompt,
 the peer sent requests naming the root (`"1"`) and a child conversation ID

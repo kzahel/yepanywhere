@@ -590,9 +590,10 @@ export class AntigravityRuntime {
   }
 
   /**
-   * YA's foreground turn is ending: before its result is published,
-   * withdraw the requests raised during it (an idle session would hide
-   * them); once published, put held requests to the user.
+   * `endingTurn` runs just before a turn's or command's result goes to YA:
+   * it withdraws the requests raised during it, which an idle session
+   * would hide. `turnEnded` runs once YA is idle and puts held requests to
+   * the user.
    */
   endingTurn(): void {
     this.permissions.endingTurn();

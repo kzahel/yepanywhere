@@ -16,11 +16,11 @@
  *    cancelled without a prompt, while a request for a tool call first
  *    announced after Stop is new work and may ask.
  *
- * YA's session goes idle when its foreground turn's result is published,
+ * YA's session goes idle when a turn's or command's result is handled,
  * and an approval still waiting then would be hidden. So requests raised
- * while a YA prompt is outstanding are withdrawn when the turn ends, and a
- * request arriving after the turn's last prompt response but before the
- * turn ends is held and put to the user only once the turn has ended. The
+ * while a YA prompt is outstanding are withdrawn just before that result,
+ * and a request arriving after the last prompt response is held until YA
+ * reports it is idle (`turnEnded`), or until YA sends another prompt. The
  * prompt count changes synchronously when YA sends a prompt and when its
  * response frame is dispatched, so a request in the same write as that
  * response is not taken for part of the finished prompt.
@@ -131,10 +131,19 @@ export class AntigravityPermissionRequests {
       this.toolCalls.delete(this.toolCalls.keys().next().value!);
   }
 
-  /** YA sent `session/prompt`. */
+  /**
+   * YA sent `session/prompt`. Held requests are asked now: YA shows them
+   * during the new turn, and they count as raised during it.
+   */
   promptSent(): void {
     this.promptsOutstanding++;
     this.turnClosing = true;
+    for (const entry of [...this.entries.values()])
+      if (entry.held) {
+        entry.held = false;
+        entry.duringPrompt = true;
+        this.ask(entry);
+      }
   }
 
   /** A prompt's response frame was dispatched, or its call failed. */

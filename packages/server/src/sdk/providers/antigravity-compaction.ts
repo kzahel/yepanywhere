@@ -83,7 +83,7 @@ export async function compactAntigravity(
       { sessionId: id, prompt: [{ type: "text", text }] },
       0,
     );
-    if (result.stopReason !== "end_turn")
+    if (result?.stopReason !== "end_turn")
       return { handled: true, error: "Antigravity did not finish compaction" };
     const after = await readPosition(path, before.index);
     if (after?.checkpoint) return { handled: true, completion: "completed" };
