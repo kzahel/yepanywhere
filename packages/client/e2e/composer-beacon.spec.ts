@@ -1,8 +1,7 @@
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { readCollectionsOverRest } from "./support/managed-routes";
-import { createTestViteServer } from "./support/vite-server";
 import {
   startYaServerProcess,
   disposeYaServerProcess,
@@ -16,16 +15,11 @@ test("composer beacon acknowledges real sends and leaves typing and title option
 }) => {
   test.setTimeout(180_000);
   const clientPath = dirname(dirname(fileURLToPath(import.meta.url)));
-  const backend = await startYaServerProcess({ label: "composer beacon" });
-  const source = await createTestViteServer({
-    configFile: join(clientPath, "vite.config.ts"),
-    define: { __VITE_DEV_PORT__: "-1" },
-    server: {
-      port: 0,
-      host: "127.0.0.1",
-      proxy: { "/api": { target: backend.baseUrl, ws: true } },
-    },
+  const backend = await startYaServerProcess({
+    label: "composer beacon",
+    serveBuiltClient: true,
   });
+  const origin = backend.baseUrl;
   const projectId = Buffer.from(clientPath).toString("base64url");
   const row = {
     id: "beacon-session",
@@ -117,11 +111,6 @@ test("composer beacon acknowledges real sends and leaves typing and title option
     },
   );
   try {
-    await source.listen();
-    const address = source.httpServer?.address();
-    if (!address || typeof address === "string")
-      throw new Error("Missing Vite port");
-    const origin = `http://127.0.0.1:${address.port}`;
     await page.setViewportSize({ width: 1200, height: 600 });
     await page.goto(`${origin}/projects/${projectId}/sessions/beacon-session`);
     const composer = page.locator("[data-composer-input]:visible");
@@ -131,11 +120,9 @@ test("composer beacon acknowledges real sends and leaves typing and title option
       "Transcript turn 159. Keep the composer responsive while this history is mounted.",
       { exact: true },
     );
-    await expect(transcriptText).toBeAttached({ timeout: 30_000 });
-    await expect(transcript.locator("[data-message-list]")).not.toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
+    // CI 45015493030 spent at least 5 s in progressive rendering after the
+    // last row attached. Wait for the visible transcript before clicking.
+    await expect(transcriptText).toBeVisible({ timeout: 15_000 });
     await transcript.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
@@ -247,8 +234,6 @@ test("composer beacon acknowledges real sends and leaves typing and title option
       name: "Composer Hotkey Beacon",
       exact: true,
     });
-    // Every navigation reboots the dev client; with routes installed the
-    // browser cache is off and a slow runner refetches 1,000+ modules.
     await expect(setting).toBeChecked({ timeout: 30_000 });
     for (const viewport of [
       { name: "desktop", width: 1200, height: 600 },
@@ -272,7 +257,6 @@ test("composer beacon acknowledges real sends and leaves typing and title option
     expect(errors).toEqual([]);
   } finally {
     responseGate.release?.();
-    await source.close();
     await disposeYaServerProcess(backend);
   }
 });
