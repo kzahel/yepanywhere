@@ -1681,6 +1681,14 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeRunningChild);
 
       // Once settled IDLE, child replays via session/load and filters stray parent frames.
+      await f.writeTranscriptLog(CHILD_ID, [
+        {
+          step_index: 2,
+          type: "PLANNER_RESPONSE",
+          status: "DONE",
+          content: "CHILD_REPLY_TEXT",
+        },
+      ]);
       const settleChild = f.db.prepare(
         "UPDATE conversation_summaries SET status = 'CASCADE_RUN_STATUS_IDLE', not_fully_idle = 0 WHERE conversation_id = ?",
       );

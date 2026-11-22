@@ -117,6 +117,7 @@ export function createProviderConversationSource(
         ...window,
         sourceCoverage: {
           ...window.sourceCoverage,
+          complete: loaded.transcriptComplete ?? window.sourceCoverage.complete,
           earlierOutsideScope: loaded.readWindow?.omittedPrefix
             ? "yes"
             : window.sourceCoverage.earlierOutsideScope,

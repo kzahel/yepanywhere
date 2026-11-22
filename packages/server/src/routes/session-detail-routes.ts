@@ -1307,6 +1307,9 @@ export function registerSessionDetailRoute(
         ...(providerChildren ? { providerChildren } : {}),
       },
       messages: session.messages,
+      ...(loadedSession.transcriptComplete === false
+        ? { transcriptComplete: false }
+        : {}),
       transcriptSnapshotUpdatedAt: loadedSession.transcriptSnapshotUpdatedAt,
       ownership,
       providerRuntimeStatus,

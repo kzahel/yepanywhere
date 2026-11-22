@@ -930,13 +930,16 @@ version. Record the baseline and candidate results separately.
   arrive in the same stdout read. It independently checks that the reader
   returns the persisted output.
 - **YA contract faults.** The controlled ACP peer holds the final replay frame
-  until a test releases it. The opt-in replay and app repros assert the current
-  failures. When fixing a gap, change its characterization to assert the
-  intended contract. A changed outcome is evidence to investigate during an
-  upgrade.
+  until a test releases it. The test runs in the server suite and checks
+  refusal on premature peer exit, a complete cold retry and the held replay
+  on resume. The opt-in app repros characterize the lifecycle gaps. A changed
+  outcome is evidence to investigate during an upgrade.
 - **Native history depth.** The short native replay checks the wire order for
-  its own transcript. The [saved-session probe](../gaps/antigravity-cold-replay-drops-the-transcript-tail.md)
-  remains the native acceptance case for the long replay cutoff.
+  its own transcript. The native acceptance case for an early response on a
+  long transcript is a stopped saved session with a known final reply. Open it
+  through the production reader and verify the final reply before and after
+  a cached read. The original wire probe and saved-session identifiers are in
+  git history under `gaps/antigravity-cold-replay-drops-the-transcript-tail.md`.
 
 On 2026-11-22, the 29 selected cases passed on macOS arm64 with the 1.5.13 pin
 and the 1.5.14 candidate. The focused rerun with an independent ACP load also

@@ -9,8 +9,8 @@ Antigravity sessions losing their owners:
 - **Anti-Gravity Testing Background Task** (YA
   `233c7697-6083-469a-a9c8-73a3a2bf77e7`) was aborted with foreground
   state `idle`. At the interruption, native verification and a Codex review
-  were pending. It later resumed and finished. The
-  [cold replay gap](antigravity-cold-replay-drops-the-transcript-tail.md)
+  were pending. It later resumed and finished. The native provider's
+  [early load response](../topics/antigravity.md#identity-and-history)
   explains why its final report was missing from reopened history.
 
 The replacement backend (PID 73150) reported both as `not-running`. The

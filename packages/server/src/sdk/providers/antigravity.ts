@@ -54,6 +54,7 @@ import {
   resolveAntigravityTargetEffort,
 } from "./antigravity-models.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
+import { loadAntigravityReplay } from "./antigravity-replay.js";
 import { AntigravityBackground } from "./antigravity-background.js";
 import {
   canProbeAntigravityUsage,
@@ -567,36 +568,42 @@ export class AntigravityProvider implements AgentProvider {
         controls.commands = commands;
         return true;
       };
-      runtime.onUpdate = (update, id) => {
-        if (!options.resumeSessionId || id === options.resumeSessionId)
-          observeCommands(update);
-        if (id === options.resumeSessionId) replay?.accept(update);
-      };
-      const setup = await runtime.call<AntigravitySessionSetup>(
-        options.resumeSessionId ? "session/load" : "session/new",
-        {
-          cwd: options.cwd,
-          mcpServers: [],
-          ...(options.agentApiInstructions
-            ? {
-                _meta: {
-                  antigravity: {
-                    systemPrompt: { append: options.agentApiInstructions },
-                  },
+      const setupParams = {
+        cwd: options.cwd,
+        mcpServers: [] as [],
+        ...(options.agentApiInstructions
+          ? {
+              _meta: {
+                antigravity: {
+                  systemPrompt: { append: options.agentApiInstructions },
                 },
-              }
-            : {}),
-          ...(options.resumeSessionId
-            ? { sessionId: options.resumeSessionId }
-            : {}),
-        },
-      );
+              },
+            }
+          : {}),
+      };
+      runtime.onUpdate = observeCommands;
+      const setup =
+        options.resumeSessionId && replay
+          ? (
+              await loadAntigravityReplay({
+                runtime,
+                scope: namespace.storageScope,
+                params: { ...setupParams, sessionId: options.resumeSessionId },
+                transcript: replay,
+                onUpdate: observeCommands,
+                authorize: () => !signal.aborted,
+              })
+            )?.setup
+          : await runtime.call<AntigravitySessionSetup>(
+              "session/new",
+              setupParams,
+            );
+      if (!setup) return;
       // A failed resume is terminal; never create a fresh native conversation.
       const id = parseNativeSessionId(
         options.resumeSessionId || setup.sessionId,
       );
       owner ??= ownAntigravitySession(namespace.storageScope, id);
-      for (const message of replay?.messages ?? []) owner.record(message);
       controls.id = id;
       const structuredControls = command.layout === "cli";
       controls.models = buildAntigravityModels(setup, {
@@ -784,6 +791,7 @@ export class AntigravityProvider implements AgentProvider {
         );
       if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
         await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
+      for (const message of replay?.messages ?? []) owner.record(message);
       markReady();
       yield {
         type: "system",

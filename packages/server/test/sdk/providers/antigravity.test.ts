@@ -58,6 +58,10 @@ readline.createInterface({input:process.stdin}).on('line', line => {
   const replayGate = process.env.AGY_TEST_REPLAY_GATE;
   if (replayGate) {
    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Saved prefix'}});
+   if (process.env.AGY_TEST_INCOMPLETE_REPLAY) {
+    reply(m.id,{});
+    return process.stdout.write('', () => process.exit(0));
+   }
    const watcher = fs.watch(path.dirname(replayGate), () => {
     if (!fs.existsSync(replayGate)) return;
     watcher.close();
@@ -634,62 +638,120 @@ describe("Antigravity native process boundary", () => {
     },
   );
 
-  it.runIf(
-    process.platform !== "win32" &&
-      process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1",
-  )(
-    "caches a cold replay prefix while the peer is holding the final frame",
+  it.skipIf(process.platform === "win32")(
+    "requires the saved tail after an early load response, even on retry and resume",
     async () => {
-      const root = join(
-        directory,
-        "native-home",
-        "antigravity-acp",
-        "conversations",
-      );
+      const store = join(directory, "native-home", "antigravity-acp");
+      const root = join(store, "conversations");
       await mkdir(root, { recursive: true });
       await writeFile(
         join(root, `${nativeId}.meta`),
         JSON.stringify({ cwd: directory }),
       );
       await writeFile(join(root, `${nativeId}.db`), "native fixture");
+      const logs = join(store, "brain", nativeId, ".system_generated", "logs");
+      await mkdir(logs, { recursive: true });
+      const finalText = "Saved prefix Final replay frame";
+      const transcriptPath = join(logs, "transcript_full.jsonl");
       const replayGate = join(directory, "release-final-frame");
-      vi.stubEnv("AGY_TEST_REPLAY_GATE", replayGate);
-
-      const runtime = new AntigravityRuntime();
-      const finalFrame = Promise.withResolvers<string>();
-      runtime.onUpdate = (update, id) => {
-        if (id === nativeId && update.content?.text === " Final replay frame")
-          finalFrame.resolve(update.content.text);
-      };
-      try {
-        await runtime.connect(executable, directory);
-        await runtime.call("session/load", {
-          sessionId: nativeId,
-          cwd: directory,
-          mcpServers: [],
-        });
-        await writeFile(replayGate, "release");
-        await expect(finalFrame.promise).resolves.toBe(" Final replay frame");
-      } finally {
-        await runtime.close();
-        await rm(replayGate, { force: true });
-      }
-
       const reader = new AntigravitySessionReader({ projectPath: directory });
       const projectId = toUrlProjectId(directory);
+      let loadReplied = Promise.withResolvers<void>();
+      const call = AntigravityRuntime.prototype.call;
+      const observeReply = vi
+        .spyOn(AntigravityRuntime.prototype, "call")
+        .mockImplementation(async function (
+          this: AntigravityRuntime,
+          method,
+          params,
+          timeoutMs,
+        ) {
+          const result = await call.call(this, method, params, timeoutMs);
+          if (method === "session/load") loadReplied.resolve();
+          return result;
+        });
       try {
-        const first = await reader.getSession(nativeId, projectId);
+        // A killed provider can leave a partial native line. Keep that reply
+        // labeled incomplete across watcher-triggered reads of the same version.
+        await writeFile(transcriptPath, '{"step_index":');
+        const fallback = await reader.getSession(nativeId, projectId);
+        expect(fallback?.transcriptComplete).toBe(false);
+        expect(fallback?.data.session.messages.at(-1)?.message?.content).toBe(
+          "Saved answer",
+        );
+        expect(
+          (await reader.getSession(nativeId, projectId))?.transcriptComplete,
+        ).toBe(false);
+        // Native writes create a new conversation version to recheck.
+        await writeFile(join(root, `${nativeId}.db`), "updated native fixture");
+        await writeFile(
+          transcriptPath,
+          JSON.stringify({
+            step_index: 1,
+            type: "PLANNER_RESPONSE",
+            status: "DONE",
+            content: finalText,
+          }) + "\n",
+        );
+        vi.stubEnv("AGY_TEST_REPLAY_GATE", replayGate);
+        vi.stubEnv("AGY_TEST_INCOMPLETE_REPLAY", "1");
+        await expect(reader.getSession(nativeId, projectId)).rejects.toThrow(
+          "closed before its saved replay tail arrived",
+        );
+        vi.stubEnv("AGY_TEST_INCOMPLETE_REPLAY", "");
+        loadReplied = Promise.withResolvers<void>();
+        const reopened = reader.getSession(nativeId, projectId);
+        // Propagate a production read failure even if the load never starts.
+        await Promise.race([loadReplied.promise, reopened]);
+        await writeFile(replayGate, "release");
+        const first = await reopened;
         const second = await reader.getSession(nativeId, projectId);
         for (const result of [first, second]) {
-          const history = JSON.stringify(result);
-          expect(history).toContain("Saved prefix");
-          expect(history).not.toContain("Final replay frame");
+          expect(result?.transcriptComplete).toBeUndefined();
+          expect(
+            result?.data.session.messages
+              .filter((message) => message.type === "assistant")
+              .map((message) => message.message?.content),
+          ).toEqual([finalText]);
         }
         const loads = (await readFile(log, "utf8"))
           .split("\n")
           .filter((line) => line === "session/load");
-        expect(loads).toHaveLength(2);
+        expect(loads).toHaveLength(3);
+
+        await rm(replayGate);
+        loadReplied = Promise.withResolvers<void>();
+        const session = await new AntigravityProvider().startSession({
+          cwd: directory,
+          resumeSessionId: nativeId,
+          initialMessage: { text: "continue" },
+        });
+        try {
+          const resumed = (async () => {
+            const messages: SDKMessage[] = [];
+            for await (const message of session.iterator) {
+              messages.push(message);
+              if (message.type === "result") break;
+            }
+            return messages;
+          })();
+          await Promise.race([loadReplied.promise, resumed]);
+          expect(await readFile(log, "utf8")).not.toContain("session/prompt");
+          await writeFile(replayGate, "release");
+          const messages = await resumed;
+          expect(
+            messages
+              .filter(
+                (message) => message.isReplay && message.type === "assistant",
+              )
+              .map((message) => message.message?.content),
+          ).toEqual([finalText]);
+          expect(messages.at(-1)?.type).toBe("result");
+        } finally {
+          await session.abort();
+        }
       } finally {
+        observeReply.mockRestore();
         await reader.close();
       }
     },

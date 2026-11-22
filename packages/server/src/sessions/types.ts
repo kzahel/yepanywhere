@@ -157,6 +157,8 @@ export interface LoadedSession {
     readonly import("@yep-anywhere/shared").ClaudeSessionEntry[]
   >;
   summary: SessionSummary;
+  /** False when the reader could return history but could not verify its tail. */
+  transcriptComplete?: false;
   /** Source timestamp captured with the transcript rows in this snapshot. */
   transcriptSnapshotUpdatedAt: string;
   /** Private reader evidence; count of newline-committed rows in data. */

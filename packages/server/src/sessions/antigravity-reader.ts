@@ -15,7 +15,6 @@ import type { SDKMessage } from "../sdk/types.js";
 import {
   AntigravityRuntime,
   type AntigravityRuntimeCommand,
-  type AntigravitySessionSetup,
   antigravityLiveHistory,
   antigravityRuntimeStoreDir,
   antigravitySessionOwned,
@@ -25,6 +24,7 @@ import {
   ownAntigravitySession,
   pinAntigravityLaunchToScope,
 } from "../sdk/providers/antigravity-runtime.js";
+import { loadAntigravityReplay } from "../sdk/providers/antigravity-replay.js";
 import { AntigravityTranscript } from "../sdk/providers/antigravity-transcript.js";
 import { getProjectIdentityKey, isAbsolutePath } from "../projects/paths.js";
 import { AntigravityChildSourceOwner } from "./antigravity-child-source.js";
@@ -76,7 +76,12 @@ export class AntigravitySessionReader implements ISessionReader {
   // the files differ from their post-load state, so reading cannot loop.
   private coldReads = new Map<
     string,
-    { version: string; entries: SDKMessage[]; model?: string }
+    {
+      version: string;
+      entries: SDKMessage[];
+      model?: string;
+      complete: boolean;
+    }
   >();
   private runtimes = new Set<AntigravityRuntime>();
   private readonly retireListeners = new Set<() => void>();
@@ -517,7 +522,11 @@ export class AntigravitySessionReader implements ISessionReader {
     sourceVersion: string,
     enrichSubagents: boolean,
     beforeLoad?: () => boolean,
-  ): Promise<{ entries: SDKMessage[]; model?: string } | null> {
+  ): Promise<{
+    entries: SDKMessage[];
+    model?: string;
+    complete: boolean;
+  } | null> {
     // The live owner already carries replay + new output. Native session/load
     // may update continuation metadata, so never run it beside that owner.
     let entries = antigravityLiveHistory(scope, id);
@@ -528,9 +537,11 @@ export class AntigravitySessionReader implements ISessionReader {
       ?.message?.model;
     const cacheKey = `${scope}\0${id}`;
     const cached = entries ? undefined : this.coldReads.get(cacheKey);
+    let complete = true;
     if (cached?.version === sourceVersion) {
       entries = cached.entries;
       model = cached.model;
+      complete = cached.complete;
     }
     if (!entries) {
       // Refuse ACP replay if the active runtime targets a different physical
@@ -547,27 +558,21 @@ export class AntigravitySessionReader implements ISessionReader {
       try {
         await this.withRuntime(
           async (runtime) => {
-            // Synchronous final check immediately before sending `session/load`.
-            if (
-              !this.runtimeMatchesScopeSync(command, scope) ||
-              (beforeLoad && !beforeLoad())
-            ) {
-              aborted = true;
-              return;
-            }
-            runtime.onUpdate = (update, sessionId) => {
-              if (sessionId === id) transcript.accept(update);
-            };
             // Never prompt, authenticate, or allocate a replacement when reading history.
-            const setup = await runtime.call<AntigravitySessionSetup>(
-              "session/load",
-              {
-                sessionId: id,
-                cwd,
-                mcpServers: [],
-              },
-            );
-            model = setup.models?.currentModelId;
+            const loaded = await loadAntigravityReplay({
+              runtime,
+              scope,
+              params: { sessionId: id, cwd, mcpServers: [] },
+              transcript,
+              // Revalidate synchronously immediately before sending session/load.
+              authorize: () =>
+                !this.closed &&
+                this.runtimeMatchesScopeSync(command, scope) &&
+                (!beforeLoad || beforeLoad()),
+            });
+            aborted = !loaded;
+            complete = loaded?.complete ?? false;
+            model = loaded?.setup.models?.currentModelId;
           },
           command,
           scope,
@@ -615,12 +620,13 @@ export class AntigravitySessionReader implements ISessionReader {
         version: loaded.sourceVersion,
         entries,
         model,
+        complete,
       });
       // A few recently opened sessions per project; each is bounded.
       if (this.coldReads.size > 4)
         this.coldReads.delete(this.coldReads.keys().next().value!);
     }
-    return { entries, model };
+    return { entries, model, complete };
   }
 
   private async readSession(
@@ -654,6 +660,7 @@ export class AntigravitySessionReader implements ISessionReader {
     summary.model = loaded.model;
     return {
       summary,
+      ...(!loaded.complete ? { transcriptComplete: false as const } : {}),
       transcriptSnapshotUpdatedAt: metadata.info.mtime.toISOString(),
       data: { provider: "antigravity", session: { messages } },
     };
