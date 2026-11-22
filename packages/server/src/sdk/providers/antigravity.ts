@@ -32,10 +32,12 @@ import {
   modelCatalogError,
 } from "./model-catalog-status.js";
 import {
-  AntigravityRuntime,
-  antigravityRuntimeStoreDir,
   ownAntigravitySession,
   ownAntigravitySessionAfterReads,
+} from "./antigravity-owners.js";
+import {
+  AntigravityRuntime,
+  antigravityRuntimeStoreDir,
   antigravitySessionsDir,
   findAntigravityRuntime,
   pinAntigravityLaunchToScope,

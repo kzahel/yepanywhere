@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { setFlagsFromString } from "node:v8";
 import { runInNewContext } from "node:vm";
 import { afterEach, describe, expect, it } from "vitest";
-import { antigravityLiveHistory } from "../../src/sdk/providers/antigravity-runtime.js";
+import { antigravityLiveHistory } from "../../src/sdk/providers/antigravity-owners.js";
 import { nativeFixture } from "./fixture.js";
 import { providers } from "./selection.js";
 

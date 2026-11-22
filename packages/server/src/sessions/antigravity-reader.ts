@@ -15,15 +15,17 @@ import type { SDKMessage } from "../sdk/types.js";
 import {
   AntigravityRuntime,
   type AntigravityRuntimeCommand,
-  antigravityLiveHistory,
   antigravityRuntimeStoreDir,
-  antigravitySessionOwned,
   antigravitySessionsDir,
   antigravitySummariesPath,
   findAntigravityRuntime,
-  ownAntigravitySession,
   pinAntigravityLaunchToScope,
 } from "../sdk/providers/antigravity-runtime.js";
+import {
+  antigravityLiveHistory,
+  antigravitySessionOwned,
+  ownAntigravitySession,
+} from "../sdk/providers/antigravity-owners.js";
 import { loadAntigravityReplay } from "../sdk/providers/antigravity-replay.js";
 import { AntigravityTranscript } from "../sdk/providers/antigravity-transcript.js";
 import { getProjectIdentityKey, isAbsolutePath } from "../projects/paths.js";

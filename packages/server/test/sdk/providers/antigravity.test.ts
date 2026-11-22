@@ -13,10 +13,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
-import {
-  AntigravityRuntime,
-  ownAntigravitySession,
-} from "../../../src/sdk/providers/antigravity-runtime.js";
+import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
+import { ownAntigravitySession } from "../../../src/sdk/providers/antigravity-owners.js";
 import {
   observeOwnedAntigravity,
   type NativeProcessDiagnostic,

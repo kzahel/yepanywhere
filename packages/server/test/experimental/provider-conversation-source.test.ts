@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-runtime.js";
+import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 import {
