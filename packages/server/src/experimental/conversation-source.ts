@@ -78,8 +78,9 @@ export function createConversationSource(
       { message: Message; bytes: number; owner: number }
     >();
     // Each owner's rows carry its generation. An Antigravity owner's live IDs
-    // differ from its log's (until plan 195 step 6), so when it departs, its
-    // rows are replaced by the durable read rather than kept beside it.
+    // differ from its log's (until plan 195 step 6), so when it departs, the
+    // next durable read replaces all of its rows, as a cold reader would
+    // show the conversation, and is taken even while a new owner is in turn.
     let ownerGeneration = 0;
     const departed = new Set<number>();
     const drop = () => {
@@ -270,7 +271,9 @@ export function createConversationSource(
         if (
           row &&
           row.location.kind === "file" &&
-          (!baseline || (dirty && process?.state.type !== "in-turn"))
+          (!baseline ||
+            departed.size > 0 ||
+            (dirty && process?.state.type !== "in-turn"))
         ) {
           const liveAtReadStart = new Map(live);
           const departedAtReadStart = new Set(departed);
@@ -298,14 +301,9 @@ export function createConversationSource(
             liveOmittedPrefix = false;
           }
           dirty = observedRevision !== durableRevision;
-          if (settledAtReadStart && departedAtReadStart.size) {
-            const durable = durableTexts(result.messages);
-            for (const [id, entry] of liveAtReadStart)
-              if (
-                departedAtReadStart.has(entry.owner) &&
-                live.get(id) === entry &&
-                !uncommittedText(entry.message, durable)
-              ) {
+          if (departedAtReadStart.size) {
+            for (const [id, entry] of live)
+              if (departedAtReadStart.has(entry.owner)) {
                 liveBytes -= entry.bytes;
                 live.delete(id);
               }
@@ -434,47 +432,4 @@ export function createConversationSource(
       close,
     };
   };
-}
-
-/** Every text the durable rows hold, for matching rows replayed under other IDs. */
-function durableTexts(messages: readonly Message[]): string[] {
-  const texts: string[] = [];
-  for (const message of messages) {
-    const content = message.message?.content;
-    if (typeof content === "string") texts.push(content);
-    else if (Array.isArray(content))
-      for (const block of content) {
-        if (block.type === "text" && typeof block.text === "string")
-          texts.push(block.text);
-        if (block.type === "thinking" && typeof block.thinking === "string")
-          texts.push(block.thinking);
-      }
-  }
-  return texts;
-}
-
-/**
- * A departed owner's row that the durable read does not hold: user or agent
- * text, or thinking, that no durable row contains (a reply cut off before
- * its step was logged). Its tool rows are represented by the logged call.
- */
-function uncommittedText(message: Message, durable: string[]): boolean {
-  if (message.type !== "user" && message.type !== "assistant") return false;
-  const content = message.message?.content;
-  const texts =
-    typeof content === "string"
-      ? [content]
-      : Array.isArray(content)
-        ? content.flatMap((block) =>
-            block.type === "text" && typeof block.text === "string"
-              ? [block.text]
-              : block.type === "thinking" && typeof block.thinking === "string"
-                ? [block.thinking]
-                : [],
-          )
-        : [];
-  return texts.some((text) => {
-    const trimmed = text.trim();
-    return !!trimmed && !durable.some((held) => held.includes(trimmed));
-  });
 }

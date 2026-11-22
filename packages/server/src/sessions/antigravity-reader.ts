@@ -76,6 +76,9 @@ import type {
  * time, and ACP `session/load` replay only when the log is missing or unknown.
  * No background watcher or polling: bounded reads are owned by explicit interest.
  */
+/** A replay its own caller was refused, which another caller may retry. */
+const REFUSED = Symbol("refused");
+
 export class AntigravitySessionReader implements ISessionReader {
   private readonly directory: string;
   private readonly projectPath: string;
@@ -83,7 +86,11 @@ export class AntigravitySessionReader implements ISessionReader {
   private details = new Map<string, Promise<LoadedSession | null>>();
   private replays = new Map<
     string,
-    Promise<{ entries: SDKMessage[]; model?: string; complete: boolean } | null>
+    Promise<
+      | { entries: SDKMessage[]; model?: string; complete: boolean }
+      | null
+      | typeof REFUSED
+    >
   >();
   // The ACP fallback's session/load writes the store's summaries index, which
   // the provider watcher reports as a change and viewers refetch. Reuse a
@@ -297,6 +304,15 @@ export class AntigravitySessionReader implements ISessionReader {
     const summary = this.summaryFromMetadata(id, projectId, metadata);
     if (!metadata.title) {
       const prompt = await readAntigravityFirstPrompt(metadata.scope, id);
+      // As for a window: only text from the store still bound, while open.
+      const latest = await this.metadata(id);
+      if (
+        this.closed ||
+        !latest ||
+        latest.isChild ||
+        latest.scope !== metadata.scope
+      )
+        return null;
       if (prompt) {
         summary.title = prompt.slice(0, 120);
         summary.fullTitle = prompt;
@@ -547,20 +563,29 @@ export class AntigravitySessionReader implements ISessionReader {
     }
     if (!entries) {
       // Callers for one conversation share one replay, whatever window each
-      // asked for: a second caller never claims a second native owner.
-      let pending = this.replays.get(cacheKey);
-      if (!pending) {
-        pending = this.replay(id, scope, cwd, enrichSubagents, beforeLoad);
-        const settled = pending;
-        this.replays.set(cacheKey, settled);
-        void settled
+      // asked for: a second caller never claims a second native owner. A
+      // replay its own caller was not admitted to is no answer for another
+      // caller, who asks again once that attempt has let go.
+      for (;;) {
+        const shared = this.replays.get(cacheKey);
+        if (shared) {
+          const result = await shared;
+          if (result !== REFUSED) return result;
+          if (this.replays.get(cacheKey) === shared)
+            this.replays.delete(cacheKey);
+          continue;
+        }
+        const own = this.replay(id, scope, cwd, enrichSubagents, beforeLoad);
+        this.replays.set(cacheKey, own);
+        void own
           .finally(() => {
-            if (this.replays.get(cacheKey) === settled)
+            if (this.replays.get(cacheKey) === own)
               this.replays.delete(cacheKey);
           })
           .catch(() => {});
+        const result = await own;
+        return result === REFUSED ? null : result;
       }
-      return pending;
     }
     return { entries, model, complete };
   }
@@ -572,19 +597,28 @@ export class AntigravitySessionReader implements ISessionReader {
     cwd: string,
     enrichSubagents: boolean,
     beforeLoad?: () => boolean,
-  ): Promise<{
-    entries: SDKMessage[];
-    model?: string;
-    complete: boolean;
-  } | null> {
+  ): Promise<
+    | {
+        entries: SDKMessage[];
+        model?: string;
+        complete: boolean;
+      }
+    | null
+    | typeof REFUSED
+  > {
     const cacheKey = `${scope}\0${id}`;
+    let refused = false;
+    const admitted = () => {
+      refused = !!beforeLoad && !beforeLoad();
+      return !refused;
+    };
     let complete = true;
     let model: string | undefined;
     // Refuse ACP replay if the active runtime targets a different physical
     // store than the verified scope (even if both stores share a UUID).
     const command = await this.resolveRuntimeForScope(scope);
     if (!command) return null;
-    if (beforeLoad && !beforeLoad()) return null;
+    if (!admitted()) return REFUSED;
     if (antigravitySessionOwned(scope, id)) return null;
     const owner = ownAntigravitySession(scope, id, {
       historyRead: true,
@@ -604,7 +638,7 @@ export class AntigravitySessionReader implements ISessionReader {
             authorize: () =>
               !this.closed &&
               this.runtimeMatchesScopeSync(command, scope) &&
-              (!beforeLoad || beforeLoad()),
+              admitted(),
           });
           aborted = !loaded;
           complete = loaded?.complete ?? false;
@@ -616,7 +650,7 @@ export class AntigravitySessionReader implements ISessionReader {
     } finally {
       owner.release();
     }
-    if (aborted) return null;
+    if (aborted) return refused ? REFUSED : null;
     const subagentCalls = enrichSubagents ? transcript.listSubagentCalls() : [];
     if (subagentCalls.length > 0) {
       const descendants = this.readVerifiedDescendantsSync(scope, id);
@@ -1040,9 +1074,9 @@ export class AntigravitySessionReader implements ISessionReader {
     const childRow = authorize();
     if (!childRow) return null;
 
-    // A child's log is read whole, as other providers' subagent transcripts
-    // are. While it runs its owner is the parent's `agy`, so the log lacks the
-    // step in progress and no ACP fallback may start beside it.
+    // A child's view is its log's latest page. While it runs its owner is
+    // the parent's `agy`, so the log lacks the step in progress and no ACP
+    // fallback may start beside it.
     const settled = () => {
       const row = authorize();
       return !!row && !isAntigravityChildRunning(row);

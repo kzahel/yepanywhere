@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  appendFile,
   mkdir,
   mkdtemp,
   open as openFile,
@@ -14,6 +15,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-runtime.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
+import {
+  prepareConversation,
+  selectConversation,
+} from "../../src/experimental/conversation-projection.js";
+import type { ConversationInput } from "../../src/experimental/conversation-projection.js";
+
+/** The coverage v0 publishes for a source read. */
+function publish(input: ConversationInput, compactions = 2) {
+  const view = selectConversation(
+    prepareConversation(input, compactions),
+    { sessionId: input.sessionId, maxMessages: 100, anchorMessageId: null },
+    { subscriptionId: "test", sequence: 0 },
+  ).view;
+  if (view.kind !== "conversation") throw Error(view.kind);
+  return view.coverage;
+}
 import { createProviderConversationSource } from "../../src/experimental/provider-conversation-source.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
@@ -178,81 +195,156 @@ describe("an Antigravity conversation source", () => {
     content: "<USER_REQUEST>\nAsk\n</USER_REQUEST>",
   });
 
-  it("replaces a departed owner's rows with the log, keeping text the log never got", async () => {
-    const { reader, row, scope } = await setup(
-      prompt + record(1, "PLANNER_RESPONSE", { content: "Logged reply" }),
-    );
-    const live = [
-      {
-        uuid: `${nativeId}:0`,
-        timestamp: at,
-        type: "user",
-        message: { role: "user", content: "Ask" },
-      },
-      {
-        uuid: `${nativeId}:1`,
-        timestamp: at,
-        type: "assistant",
-        message: { role: "assistant", content: "Logged reply" },
-      },
-      {
-        uuid: `${nativeId}:2`,
-        timestamp: at,
-        type: "assistant",
-        message: { role: "assistant", content: "CUT_OFF_PARTIAL" },
-      },
-    ];
-    const owner = ownAntigravitySession(scope, nativeId);
-    for (const message of live) owner.record(message as never);
+  type Row = {
+    uuid: string;
+    timestamp: string;
+    type: string;
+    message: { role: string; content: string };
+  };
+  const row = (uuid: string, role: string, content: string): Row => ({
+    uuid,
+    timestamp: at,
+    type: role,
+    message: { role, content },
+  });
+  /** A stand-in owner process whose events the test sends. */
+  function owner(rows: Row[], state = "in-turn") {
     let listener: ((event: { type: string }) => void) | undefined;
-    let running:
-      | {
-          sessionId: string;
-          provider: string;
-          state: { type: string };
-          registerViewer(): () => void;
-          subscribe(cb: typeof listener): () => void;
-          getMessageHistory(): typeof live;
-        }
-      | undefined = {
-      sessionId: nativeId,
-      provider: "antigravity",
-      state: { type: "in-turn" },
-      registerViewer: () => () => {},
-      subscribe: (cb) => {
-        listener = cb;
-        return () => {};
+    return {
+      emit: (type: string) => listener?.({ type }),
+      process: {
+        sessionId: nativeId,
+        provider: "antigravity",
+        state: { type: state },
+        registerViewer: () => () => {},
+        subscribe: (cb: typeof listener) => {
+          listener = cb;
+          return () => {};
+        },
+        getMessageHistory: () => rows,
       },
-      getMessageHistory: () => live,
     };
+  }
+  const shown = (messages: readonly { uuid?: string }[]) =>
+    messages.map(
+      (m) =>
+        (m as { message?: { content?: unknown } }).message?.content ?? m.uuid,
+    );
+
+  it("shows what the log holds once an owner departs, dropping its rows the log lacks", async () => {
+    const logged =
+      prompt +
+      record(1, "PLANNER_RESPONSE", {
+        content: "Earlier: say yes tomorrow",
+      });
+    const { reader, row: source, scope } = await setup(logged);
+    // An unlogged steer whose text an earlier reply contains, and a queued
+    // prompt the log gains only later.
+    const live = [
+      row(`${nativeId}:0`, "user", "Ask"),
+      row(`${nativeId}:1`, "assistant", "Earlier: say yes tomorrow"),
+      row(`${nativeId}:2`, "user", "yes"),
+      row(`${nativeId}:3`, "user", "QUEUED_PROMPT"),
+    ];
+    const native = ownAntigravitySession(scope, nativeId);
+    for (const message of live) native.record(message as never);
+    let current: ReturnType<typeof owner> | undefined = owner(live);
+    let changed: (() => void) | undefined;
     const open = createProviderConversationSource({
       readerFactory: () => reader,
-      resolve: async () => row,
-      getProcess: () => running as never,
+      resolve: async () => source,
+      getProcess: () => current?.process as never,
+      watch: (_row, invalidate) => {
+        changed = invalidate;
+        return () => {};
+      },
     });
     const abort = new AbortController();
     try {
-      const source = await open(nativeId, () => {}, abort.signal);
-      const during = await source.read(abort.signal);
-      expect(during.messages.map((m) => m.uuid)).toEqual(
-        live.map((m) => m.uuid),
-      );
-      // The owner ends mid-turn with no idle read between.
-      owner.release();
-      running = undefined;
-      listener?.({ type: "terminated" });
-      const after = await source.read(abort.signal);
-      expect(
-        after.messages.map((m) => [
-          m.uuid,
-          (m as { message?: { content?: unknown } }).message?.content,
-        ]),
-      ).toEqual([
-        [`${nativeId}:step-0`, "Ask"],
-        [`${nativeId}:step-1:text`, "Logged reply"],
-        [`${nativeId}:2`, "CUT_OFF_PARTIAL"],
+      const view = await open(nativeId, () => {}, abort.signal);
+      expect(shown((await view.read(abort.signal)).messages)).toEqual([
+        "Ask",
+        "Earlier: say yes tomorrow",
+        "yes",
+        "QUEUED_PROMPT",
       ]);
-      source.close();
+      // The owner ends mid-turn with no idle read between.
+      native.release();
+      current!.emit("terminated");
+      current = undefined;
+      expect(shown((await view.read(abort.signal)).messages)).toEqual([
+        "Ask",
+        "Earlier: say yes tomorrow",
+      ]);
+      // The log gains the queued prompt: it appears once.
+      await appendFile(
+        join(
+          dir,
+          "antigravity-cli",
+          "brain",
+          nativeId,
+          ".system_generated",
+          "logs",
+          "transcript_full.jsonl",
+        ),
+        record(2, "USER_INPUT", {
+          content: "<USER_REQUEST>\nQUEUED_PROMPT\n</USER_REQUEST>",
+        }),
+      );
+      changed?.();
+      expect(shown((await view.read(abort.signal)).messages)).toEqual([
+        "Ask",
+        "Earlier: say yes tomorrow",
+        "QUEUED_PROMPT",
+      ]);
+      view.close();
+    } finally {
+      abort.abort();
+      await reader.close();
+    }
+  });
+
+  it("takes a fresh baseline when a replacement owner attaches in turn", async () => {
+    const {
+      reader,
+      row: source,
+      scope,
+    } = await setup(
+      prompt + record(1, "PLANNER_RESPONSE", { content: "Reply" }),
+    );
+    const first = [
+      row(`${nativeId}:0`, "user", "Ask"),
+      row(`${nativeId}:1`, "assistant", "Reply"),
+    ];
+    const firstOwner = ownAntigravitySession(scope, nativeId);
+    for (const message of first) firstOwner.record(message as never);
+    let current = owner(first);
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => source,
+      getProcess: () => current.process as never,
+    });
+    const abort = new AbortController();
+    try {
+      const view = await open(nativeId, () => {}, abort.signal);
+      await view.read(abort.signal);
+      // A replacement replays the same history under its own IDs, in turn.
+      firstOwner.release();
+      current.emit("terminated");
+      const second = [
+        row(`${nativeId}:r0`, "user", "Ask"),
+        row(`${nativeId}:r1`, "assistant", "Reply"),
+        row(`${nativeId}:r2`, "user", "Next"),
+      ];
+      const secondOwner = ownAntigravitySession(scope, nativeId);
+      for (const message of second) secondOwner.record(message as never);
+      current = owner(second);
+      const during = await view.read(abort.signal);
+      expect(during.messages.map((m) => m.uuid)).toEqual(
+        second.map((m) => m.uuid),
+      );
+      secondOwner.release();
+      view.close();
     } finally {
       abort.abort();
       await reader.close();
@@ -288,6 +380,45 @@ describe("an Antigravity conversation source", () => {
         earlierOutsideScope: "unknown",
       });
       expect(input.sourceCoverage.limitedBy).toContain("bytes");
+      // Published: a byte limit with earlier history in scope, never a
+      // compaction limit. (The reply's turn starts outside the view, which
+      // the grouping reports as unavailable.)
+      const published = publish(input);
+      expect(published).toMatchObject({
+        completeForRequest: false,
+        earlierInScope: true,
+        earlierOutsideScope: "unknown",
+      });
+      expect(published.limitedBy).toContain("bytes");
+      expect(published.limitedBy).not.toContain("compactionScope");
+      source.close();
+    } finally {
+      abort.abort();
+      await reader.close();
+    }
+  });
+
+  it("reports a page a checkpoint cut as limited by its compaction scope", async () => {
+    const { reader, row } = await setup(
+      prompt +
+        record(1, "PLANNER_RESPONSE", { content: "Before" }) +
+        record(2, "CHECKPOINT", { content: "Summary" }) +
+        record(3, "PLANNER_RESPONSE", { content: "After" }),
+    );
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => row,
+      getProcess: () => undefined,
+    });
+    const abort = new AbortController();
+    try {
+      const source = await open(nativeId, () => {}, abort.signal, 1);
+      const input = await source.read(abort.signal);
+      expect(JSON.stringify(input.messages)).not.toContain("Before");
+      const published = publish(input, 1);
+      expect(published).toMatchObject({ earlierOutsideScope: "yes" });
+      expect(published.limitedBy).toContain("compactionScope");
+      expect(published.limitedBy).not.toContain("bytes");
       source.close();
     } finally {
       abort.abort();

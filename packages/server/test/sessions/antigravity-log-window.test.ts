@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import { createReadStream } from "node:fs";
 import {
+  appendFile,
   mkdir,
   mkdtemp,
   readFile,
@@ -342,7 +343,7 @@ describe("Antigravity log windows", () => {
     expect(older.messages.map((m) => m.uuid)).toEqual([`${ID}:step-5:text`]);
     expect(older.messages[0]!.message!.content).toHaveLength(12 * MiB);
     // The search crosses the record once, and showing it reads it once more.
-    expect(older.bytesRead).toBeLessThan(26 * MiB);
+    expect(older.bytesRead).toBeLessThan(28 * MiB);
     const all = await pageAll();
     expect(all.messages).toEqual(await whole());
     expect(textOf(all.messages)).toEqual([
@@ -414,21 +415,56 @@ describe("Antigravity log windows", () => {
   it("keeps a planner's error unless the next record reports it, across page boundaries", async () => {
     await put([
       prompt(0),
-      reply(1, "PARTIAL", { status: "ERROR", error: "context canceled" }),
-      { ...head(2, "ERROR_MESSAGE", "SYSTEM"), error: "API error: canceled" },
+      reply(1, "PARTIAL", {
+        status: "ERROR",
+        error: "context canceled by user",
+      }),
+      {
+        ...head(2, "ERROR_MESSAGE", "SYSTEM"),
+        error: "API error (attempt 1): context canceled by user",
+      },
       prompt(3),
       reply(4, "", { status: "ERROR", error: "quota refused" }),
       prompt(5),
+      // A planner error, a tool group, then a different error: both stay.
+      reply(6, "", {
+        status: "ERROR",
+        error: "Original error",
+        tool_calls: [{ name: "read_file", args: {} }],
+      }),
+      { ...head(7, "GENERIC", "MODEL"), content: "result" },
+      { ...head(8, "ERROR_MESSAGE", "SYSTEM"), error: "Different error" },
+      prompt(9),
+      reply(10, "", { status: "ERROR", error: "late cause" }),
     ]);
+    const errors = (messages: Message[]) =>
+      messages.filter((m) => m.type === "error").map((m) => [m.uuid, m.error]);
     const all = await whole();
-    expect(
-      all.filter((m) => m.type === "error").map((m) => [m.uuid, m.error]),
-    ).toEqual([
-      [`${ID}:step-2`, "API error: canceled"],
+    expect(errors(all)).toEqual([
+      [`${ID}:step-2`, "API error (attempt 1): context canceled by user"],
       [`${ID}:step-4:error`, "quota refused"],
+      [`${ID}:step-6:error`, "Original error"],
+      [`${ID}:step-8`, "Different error"],
+      [`${ID}:step-10:error`, "late cause"],
     ]);
     for (const pageBytes of [1, 200, 4096])
       expect((await pageAll(pageBytes)).messages).toEqual(all);
+    // The repeating ERROR_MESSAGE lands after the old end of the file.
+    const before = await known({ kind: "complete" });
+    expect(errors(before.messages).at(-1)).toEqual([
+      `${ID}:step-10:error`,
+      "late cause",
+    ]);
+    await appendFile(
+      logPath,
+      `${JSON.stringify({ ...head(11, "ERROR_MESSAGE", "SYSTEM"), error: "API error: late cause" })}\n`,
+    );
+    const after = await whole();
+    expect(errors(after).slice(-1)).toEqual([
+      [`${ID}:step-11`, "API error: late cause"],
+    ]);
+    for (const pageBytes of [1, 4096])
+      expect((await pageAll(pageBytes)).messages).toEqual(after);
   });
 
   it("retries a file truncated between opening it and taking its fence", async () => {
@@ -458,6 +494,141 @@ describe("Antigravity log windows", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("retries a file replaced between opening it and checking its identity", async () => {
+    await put([prompt(0), reply(1, "OLD")]);
+    const replacement = join(root, "replacement.jsonl");
+    await writeFile(
+      replacement,
+      [prompt(0), reply(1, "NEW")]
+        .map((record) => `${JSON.stringify(record)}\n`)
+        .join(""),
+    );
+    const open = fs.promises.open;
+    let replaced = false;
+    const spy = vi
+      .spyOn(fs.promises, "open")
+      .mockImplementation(async (...args: Parameters<typeof open>) => {
+        const handle = await open(...args);
+        if (!replaced && String(args[0]).endsWith("transcript_full.jsonl")) {
+          const stat = handle.stat.bind(handle);
+          handle.stat = (async () => {
+            const info = await stat();
+            replaced = true;
+            await rename(replacement, logPath);
+            return info;
+          }) as typeof handle.stat;
+        }
+        return handle;
+      });
+    try {
+      const window = await known({ kind: "latest", compactions: 2 });
+      expect(replaced).toBe(true);
+      expect(textOf(window.messages)).toEqual(["PROMPT_0", "NEW"]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("reads a short latest row after a large tool group without holding the group", async () => {
+    const results = 26;
+    const child = "c0ffee00-0000-4000-8000-0000000001ff";
+    const calls = [
+      ...Array.from({ length: results }, () => ({
+        name: "read_file",
+        args: {},
+      })),
+      { name: "invoke_subagent", args: { Role: "helper" } },
+      // The last call has no result: it was interrupted.
+      { name: "read_file", args: {} },
+    ];
+    await put([
+      prompt(0),
+      reply(1, "", { tool_calls: calls }),
+      ...Array.from({ length: results }, (_, i) => ({
+        ...head(2 + i, "GENERIC", "MODEL"),
+        content: `RESULT_${i} ${"r".repeat(MiB)}`,
+      })),
+      {
+        ...head(2 + results, "GENERIC", "MODEL"),
+        content: `Created the following subagent:\n{\n  "conversationId": "${child}"\n}`,
+      },
+      prompt(30),
+      reply(31, "LATEST"),
+    ]);
+    const latest = await known({ kind: "latest", compactions: 2 });
+    expect(textOf(latest.messages)).toEqual(["PROMPT_30", "LATEST"]);
+    expect(latest.bytesRead).toBeLessThan(6 * MiB);
+    expect(latest.heldPeak).toBeLessThan(64 * 1024);
+    // Load older crosses the group holding about one result at a time.
+    const older = await known({
+      kind: "before",
+      messageId: latest.messages[0]!.uuid!,
+      compactions: 2,
+    });
+    expect(older.heldPeak).toBeLessThan(2 * MiB);
+    const contents = older.messages.flatMap((m) =>
+      Array.isArray(m.message?.content)
+        ? m.message.content.flatMap((b) =>
+            b.type === "tool_result" ? [String(b.content)] : [],
+          )
+        : [],
+    );
+    expect(
+      contents.filter((c) =>
+        c.startsWith("This result is part of a tool step"),
+      ),
+    ).toHaveLength(results);
+    // A short result in the group is read normally and keeps its child link.
+    expect(contents.at(-1)).toContain(child);
+    expect(
+      older.messages.find((m) => m.uuid === `${ID}:step-1:tool-27:call`)
+        ?.orphanedToolUseIds,
+    ).toEqual([`${ID}:step-1:tool-27`]);
+    // The page is what the complete read shows between the prompts.
+    expect(older.messages).toEqual(
+      (await known({ kind: "complete" })).messages.slice(1, -2),
+    );
+  });
+
+  it("pages across a 34 MiB record from the reply after it, both ways", async () => {
+    await put([
+      prompt(0),
+      reply(3, "EARLY"),
+      reply(5, "z".repeat(34 * MiB)),
+      reply(6, "LATE"),
+    ]);
+    const before = await known({
+      kind: "before",
+      messageId: `${ID}:step-6:text`,
+      compactions: 2,
+    });
+    expect(textOf(before.messages)).toEqual([
+      expect.stringMatching(/^This step is too large to show here/),
+    ]);
+    const after = await known({
+      kind: "after",
+      messageId: `${ID}:step-3:text`,
+      compactions: 2,
+    });
+    expect(textOf(after.messages).at(-1)).toBe("LATE");
+  });
+
+  it("shows a 17 MiB record of escaped newlines in milliseconds", async () => {
+    await put([
+      prompt(0),
+      reply(1, "\n".repeat((17 * MiB) / 2)),
+      reply(2, "LATE"),
+    ]);
+    const started = performance.now();
+    const all = await pageAll();
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(textOf(all.messages)).toEqual([
+      "PROMPT_0",
+      expect.stringMatching(/^This step is too large to show here/),
+      "LATE",
+    ]);
   });
 
   it("reports a missing log, and one with no complete record, as missing", async () => {

@@ -273,9 +273,12 @@ export function selectConversation(
   const messages = prepared.messages.slice(start, end);
   const limitedBy = new Set<HistoryLimit>(prepared.sourceLimits);
   if (start > 0) limitedBy.add("maxMessages");
-  if (prepared.earlierOutsideScope !== "no") limitedBy.add("compactionScope");
+  // Reasons come from what the source affirmed: unknown history outside the
+  // scope is not a compaction limit, and a stated limit explains an
+  // incomplete source without calling it unavailable.
+  if (prepared.earlierOutsideScope === "yes") limitedBy.add("compactionScope");
   if (
-    !prepared.sourceComplete ||
+    (!prepared.sourceComplete && prepared.sourceLimits.length === 0) ||
     messages.some((message) => prepared.unavailableMessageIds.has(message.id))
   )
     limitedBy.add("unavailable");

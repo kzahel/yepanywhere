@@ -557,9 +557,11 @@ own ([step 4](#serving-cold-history--plan-195-step-4) does each):
 - **Context is bounded.** The look back is at most *k* records when the
   window starts with a `GENERIC`, and *k*+1 when it starts right after a
   group's *k* results, since the rule reads back to the planner whatever
-  the first record is. Read context with a byte budget. A spent budget is
-  not the end of the log: it must not turn a missing result into an
-  interrupted one, and the page falls back instead.
+  the first record is. Step 4 starts every page at a record that is not a
+  `GENERIC`; such a page's messages do not depend on what precedes it, so
+  it reads no context (and does not check what it does not read). A short
+  read is never the end of the log: it must not turn a missing result into
+  an interrupted one.
 - **Checks cover only observed records.** A window sees only its own
   records and its context, so a rewind elsewhere in the file, such as a
   later step 1 after step 100, is not detected by a window that never
@@ -569,8 +571,8 @@ own ([step 4](#serving-cold-history--plan-195-step-4) does each):
   verified `agent_id`, so the reader must apply its existing
   lineage-checked enrichment.
 
-Memory for one window is its messages, one buffered line and one open
-group.
+Memory for one window is its messages plus what the
+[log window](#serving-cold-history--plan-195-step-4) holds.
 
 ### Comparison with ACP replay
 
@@ -676,88 +678,104 @@ reads one window of `transcript_full.jsonl` for the reader, through
 the [provider contract](antigravity.md#cold-history-from-the-log) owns what
 users see. A window:
 
-- **Latest page.** Reads lines backward from the last newline (an
+- **Latest page.** Finds lines backward from the last newline (an
   unterminated tail is not a record) until the requested checkpoint, the
-  file's start, or 4 MiB of records, then backs off to the oldest record
-  read that is not a `GENERIC`, so a page never starts inside a tool group.
-  A single record or group larger than the page is read whole, within the
-  record limit below. A page that shows nothing extends to the one before
-  it, continuing the same backward read, so a run of hidden reminders is
-  read once.
-- **Context.** Reads back further to the last record that is not a
-  `GENERIC` (at most *k*+1 records) and observes it, as the
-  [window rule](#windows) requires. An older page observes the records
+  file's start, or 4 MiB of lines. Once a record that is not a `GENERIC`
+  has been found, a line that would not fit is not even found: its search
+  stops at the page's remaining bytes, and the page starts at that record.
+  Until then (a trailing tool group) lines are found whatever their size.
+  A page that shows nothing extends to the one before it.
+- **No context.** A page starts at a record that is not a `GENERIC`, so its
+  messages do not depend on earlier records and nothing older is read for
+  it (and nothing older is checked). An older page observes the records
   after its cursor that resolve a planner's calls or error.
+- **Lines, then bodies.** Finding a line keeps its offsets and, for a line
+  up to 64 KiB, its bytes while a page's worth is held. Every decision
+  (page extent, tool group size) uses offsets and 512-byte heads; a body
+  is read when the page shows it and released once decoded. A request
+  counts the bytes it holds; the unit tests assert the peak.
+- **Line memo.** A line whose start (after a newline or at offset 0) and
+  newline are both known is remembered as a line. A range a search found
+  free of newlines, such as from a bisection probe's midpoint, is
+  remembered only as that, to skip rereading it, never as a line.
 - **Cursor.** Finds a message's record by halving the byte range on the
   `{"step_index":N,` prefix every observed record begins with (a record
-  without it is unknown), then reading forward below 256 KiB. Where a probe
-  landed in a long line, the search remembers that no newline lies there,
-  so each long line is scanned once per request. The older page includes
-  the cursor's own record and is cut before the cursor message, so every ID
-  form ends a page exactly, including a `:result` and a later part of a
-  planner record.
-- **Record limit.** A line over 16 MiB is never held. Its bounds are found
-  by scanning, and a [fixed-memory scan](../packages/server/src/sessions/antigravity-log-oversized.ts)
-  reads its top-level keys and kinds, short fields, the first 8 KiB of each
-  text field and its tool calls' names. The rebuilt record (text replaced
-  by a notice, calls with empty arguments) goes through the same parser, so
-  an unknown key, kind, source, status, wrapper start or call shape is still
-  unknown. The results of a tool group whose results together exceed 16 MiB
-  are placeholders from their first bytes alone. Both rules depend only on
-  the file's layout, so every window and the complete read agree. Observed
-  records other than planners are read from their first 512 bytes only.
+  without it is unknown), then reading forward below 256 KiB. The older
+  page includes the cursor's own record and is cut before the cursor
+  message, so every ID form ends a page exactly, including a `:result` and
+  a later part of a planner record.
+- **Record limit.** A line over 16 MiB is never parsed or held. Its first
+  512 bytes must match `{"step_index":N,"source":…,"type":…,"status":…,`,
+  an optional short `"error":…,`, then `"created_at":…` with a source and
+  status the type allows; anything else is unknown. The
+  [provider contract](antigravity.md#cold-history-from-the-log) says what
+  each type becomes. In a tool group whose results together exceed 16 MiB,
+  results over 64 KiB are placeholders from their heads. Both rules depend
+  only on line sizes and live in one place (`antigravityPlaceholderRecord`)
+  that the whole-file projection and the window use. The only scans are
+  newline searches and fixed-size heads, so no work grows faster than a
+  line's length.
+- **Reminders.** A system message whose head already shows a reminder is
+  not decoded: it is never shown.
 - **Identity.** Opening the file, taking the
   [append-only fence](claude.md#transcript-acquisition-and-retention)
   the Claude and Codex readers use (device, inode, size, and the first and
   last KiB) and reading are one attempt. A file whose identity changed, that
-  shrank, vanished or whose probes differ, during any of those, is read
-  again from scratch, up to three attempts, then unknown. Appends during a
-  read are fine: the window ends at the size it opened.
+  shrank, vanished, was swapped between opening and the path check, or
+  whose probes differ, during any of those, is read again from scratch, up
+  to three attempts, then unknown. A path that leaves the store is unknown
+  at once. Appends during a read are fine: the window ends at the size it
+  opened.
 - **Missing.** No file, an empty file or no complete record.
 - **What a request costs.** No fixed byte budget: size alone never makes a
   log unknown, because a whole-history replay is the wrong answer to a
-  large record. A request reads its page, its context, the search probes,
-  and any record it crosses: a line over the limit is read twice (to find
-  its bounds and to summarize it) with fixed memory. Bytes are counted as
-  they arrive, across attempts. Held at once: the page's records (4 MiB),
-  at most one tool group's results (16 MiB) and one other record (16 MiB),
-  one partial line up to the limit, and a read chunk of at most 1 MiB.
-  Chunks of a line are joined once, when its newline is found.
+  large record. A request reads its page, the search probes and any record
+  it must cross, a line over the limit once to find its bounds and then
+  only its head. Bytes are counted as they arrive, across attempts. Held
+  at once: found line bytes up to about a page (4 MiB of lines up to
+  64 KiB), one body being decoded (at most 16 MiB), and a read block of at
+  most 1 MiB. Chunks of a line are joined once, when its newline is found.
 
 Measured 2026-11-22 on one macOS arm64 host, Node 24.22.1, on the generated
 500 MB target (499,976,470 bytes, 99,990 records, 49 checkpoints,
 `--interrupted-group-every 30000 --interior-gap-group-every 40000`), with two
-checkpoints requested, after review round 1:
+checkpoints requested, after review round 2 (bytes held is the most line
+bytes the request held at once):
 
-| Window | Bytes read | Messages | Time |
-| --- | ---: | ---: | ---: |
-| Latest page | 5,312,512 | 1,247 | 10 ms |
-| The page before it | 6,351,589 | 1,293 | 10 ms |
-| The next older page | 6,321,364 | 1,336 | 9 ms |
-| Catch-up from the newest message | 1,277,162 | 7 | 1 ms |
-| A cursor its record lacks (a miss) | 6,257,927 | 0 | 8 ms |
-| The whole log (a complete read) | 500,046,102 | 156,614 | 709 ms; resident peak 192 → 832 MiB |
+| Window | Bytes read | Bytes held | Messages | Time |
+| --- | ---: | ---: | ---: | ---: |
+| Latest page | 5,444,096 | 4,203,597 | 1,247 | 11 ms |
+| The page before it | 5,722,420 | 4,005,849 | 1,293 | 11 ms |
+| The next older page | 5,679,751 | 4,059,525 | 1,337 | 9 ms |
+| Catch-up from the newest message | 675,419 | 14,338 | 7 | 1 ms |
+| A cursor its record lacks (a miss) | 5,391,461 | 4,063,658 | 0 | 10 ms |
+| The whole log (a complete read) | 500,046,102 | 60,906 | 156,614 | 750 ms |
 
-A page reads about its 4 MiB plus one read chunk (up to 1 MiB); a cursor
-adds about 30 probes of one record each. The unit test asserts the first
-three rows' bounds on this target. Other unit cases, each a few records
-around one large one:
+A page reads about its 4 MiB plus one read block (up to 1 MiB); a cursor
+adds about 30 probes of a few kilobytes each. The unit test asserts the
+first three rows' bounds on this target. Other measurements and unit
+cases, each a few records around a large one:
 
+- The reviewer's group: 26 results of 15 MiB, an interrupted last call and
+  a short latest reply. Latest read 5,443,584 bytes and held 131 bytes;
+  Load older crossed the group (412,583,821 bytes, 128 ms) holding at most
+  1,094 bytes and showed the planner with 26 placeholders. The unit case
+  uses 1 MiB results with a short subagent result, which keeps its child
+  link.
 - A 12 MiB reply before a short final reply: the final reply's page, then
   the 12 MiB reply in full from Load older's cursor, which read under
-  26 MiB (the search crossed the line once, showing it read it again).
+  28 MiB (the search crossed the line once, showing it read it again).
 - A 24 MiB reply: a cursor in the short reply before it pages normally; the
   24 MiB reply is a placeholder.
-- A 34 MiB reply of text that repeats `{"step_index":27,`: the latest page
-  reaches past its placeholder, and paging gives the complete read.
+- A 34 MiB reply: `beforeMessageId` on the reply after it returns the
+  placeholder, and an `after` read crossing it is known.
+- A 17 MiB reply of escaped newlines: paged in milliseconds (the earlier
+  JSON scanner took 71 s).
 - 400 hidden reminders of 90 KiB (35 MiB) after a prompt: the latest page
   is the prompt, reading under 40 MiB, each byte about once.
-
-The reviewer's retry case (a 33 MiB record, the head changed after every
-attempt) now reads 69 MB an attempt, 208 MB in all, and raises the
-process's resident peak from 69 to 162 MiB; it was 101 MB and 628 MiB
-before. Unchanged, the same file reads 69 MB and shows the record as a
-placeholder.
+- The reviewer's retry case (a 33 MiB record, the head changed after every
+  attempt): 16,330,752 bytes over three attempts and an 82 MiB resident
+  peak (208 MB and 162 MiB in round 1); unchanged, 5,443,584 bytes.
 
 All 12 logs in this host's store read as known. Paging backward with two
 checkpoints a page gave exactly each whole-log projection, including the
@@ -773,6 +791,23 @@ one exception: YA's read-only open of the summaries index creates the empty
 `-wal` and the `-shm` that SQLite needs when `agy` has removed them. That
 predates step 4 and every listing does it
 ([gap](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md)).
+
+### Write order and refresh
+
+YA's watcher observes each conversation's database and WAL and the
+summaries index, not the brain log, while cold history now comes from the
+log. A scratch native run (real `agy` 1.5.13 and 1.5.14, the scripted
+model, one tool call then a reply, 1 ms stat polling; not committed) found
+each log append followed within 0–3 ms by a write to the conversation's
+WAL. After the turn went idle, 1.5.14 wrote the WAL once more; about a
+second later the summaries WAL changed; on stop, `agy` wrote the database
+(393,216 → 425,984 bytes), emptied and removed the WAL, and wrote the
+summaries index. No log append came after the last database event, so a
+refresh that the watcher's 200 ms debounce schedules after that event reads
+every record. A running child's log and database are written the same way
+by the parent's `agy`. A log append with no later database write would not
+be observed; none was seen
+([gap](../gaps/antigravity-log-only-append-not-observed.md)).
 
 ## Runtime identity
 

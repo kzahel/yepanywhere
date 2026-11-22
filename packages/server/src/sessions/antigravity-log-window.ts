@@ -1,15 +1,17 @@
 import { stat } from "node:fs/promises";
 import type { Message } from "../supervisor/types.js";
 import {
+  ANTIGRAVITY_LOG_RECORD_BYTES,
+  type AntigravityLogHead,
   AntigravityLogProjection,
   type AntigravityLogRecord,
 } from "./antigravity-log-projection.js";
 import {
-  ANTIGRAVITY_LOG_RECORD_BYTES,
+  ANTIGRAVITY_LOG_GROUP_RESULT_BYTES,
   isOversized,
-  type LineHead,
   type LogLine,
   LogSource,
+  lineLength,
   SourceChanged,
   UnknownLog,
 } from "./antigravity-log-source.js";
@@ -21,20 +23,18 @@ import {
 
 /**
  * Pages of `agy`'s brain log (`transcript_full.jsonl`), read from the file's
- * end or from a message's record without reading the rest of the file. A page
- * holds whole records, starts at a record that is not a tool result, and is
- * projected with the context the tool-group rule needs
+ * end or from a message's record without reading the rest of the file
  * (topics/antigravity-native-storage.md#serving-cold-history--plan-195-step-4).
- * Reads never write and never start `agy`. A record or tool group too large
- * to show is a placeholder, never a reason to fall back; only malformed
- * content and a file that keeps changing make the log unknown.
+ * A page holds whole records and starts at a record that is not a tool
+ * result. Lines are first found by their offsets; bodies are read once a
+ * page has decided to show them. Reads never write and never start `agy`.
+ * A record or tool group too large to hold is shown as a placeholder; only
+ * malformed content and a file that keeps changing make the log unknown.
  */
 
-/** A page's own records; one record or tool group may extend past it. */
+/** A page's own bytes; the first record or tool group may extend past it. */
 export const ANTIGRAVITY_LOG_PAGE_BYTES = 4 * 1024 * 1024;
 const ATTEMPTS = 3;
-/** Records looked at from the file's start for the conversation's first prompt. */
-const TITLE_RECORDS = 4;
 
 export type AntigravityLogWindowRequest =
   /** The newest records: back to the `compactions`-th checkpoint, within the page budget. */
@@ -62,6 +62,8 @@ export type AntigravityLogWindow =
       /** The conversation's first prompt, when it was read. */
       firstPrompt?: string;
       bytesRead: number;
+      /** The most line bytes the read held at once. */
+      heldPeak: number;
     }
   /** No log, or no complete record in it. */
   | { status: "missing"; bytesRead: number }
@@ -99,9 +101,7 @@ export function antigravityMessageStep(
 }
 
 interface Page {
-  /** Oldest first: observed, from the last record that is not a result. */
-  context: LogLine[];
-  /** Oldest first: projected. */
+  /** Oldest first. */
   lines: LogLine[];
   start: number;
   cut?: AntigravityLogCut;
@@ -109,24 +109,20 @@ interface Page {
 
 type Known = Extract<AntigravityLogWindow, { status: "known" }>;
 type Read =
-  | Omit<Known, "bytesRead">
+  | Omit<Known, "bytesRead" | "heldPeak">
   | { status: "missing" }
   | { status: "unknown"; reason: string; error?: unknown };
 
-/** One line's part in a projection. */
+/** One line's part in a projection: shown, or only observed. */
 interface Entry {
   line: LogLine;
-  project: boolean;
+  show: boolean;
 }
+const observe = (line: LogLine): Entry => ({ line, show: false });
+const show = (line: LogLine): Entry => ({ line, show: true });
 
-const observe = (line: LogLine): Entry => ({ line, project: false });
-const show = (line: LogLine): Entry => ({ line, project: true });
-const length = (line: LogLine) => line.end - line.start;
-/** A placeholder is small whatever its record's size. */
-const weight = (line: LogLine) => (isOversized(line) ? 0 : length(line));
-
-/** Enough of a record to observe it: observed records project nothing. */
-function stub(head: LineHead): AntigravityLogRecord {
+/** Enough of a record to observe it: observed records show nothing. */
+function stub(head: AntigravityLogHead): AntigravityLogRecord {
   const base = { step: head.step, createdAt: head.createdAt };
   switch (head.type) {
     case "USER_INPUT":
@@ -145,29 +141,8 @@ function stub(head: LineHead): AntigravityLogRecord {
       return { ...base, type: "SYSTEM_MESSAGE", content: "" };
     case "CHECKPOINT":
       return { ...base, type: "CHECKPOINT", content: "" };
-    case "ERROR_MESSAGE":
-      return { ...base, type: "ERROR_MESSAGE", error: "" };
     default:
       throw new UnknownLog(`record type ${head.type} at step ${head.step}`);
-  }
-}
-
-/** Lines read backward, some of which can be put back to be read again. */
-class Backward {
-  /** Newest first. */
-  private readonly returned: LogLine[] = [];
-  constructor(private readonly lines: AsyncGenerator<LogLine>) {}
-
-  async next(): Promise<LogLine | undefined> {
-    const returned = this.returned.shift();
-    if (returned) return returned;
-    const next = await this.lines.next();
-    return next.done ? undefined : next.value;
-  }
-
-  /** Puts lines back, newest first, ahead of any not yet read. */
-  unread(lines: LogLine[]): void {
-    this.returned.unshift(...lines);
   }
 }
 
@@ -196,52 +171,63 @@ class WindowRead {
     }
   }
 
-  private head(line: LogLine): Promise<LineHead> {
-    return this.source.head(line);
+  firstPrompt(): Promise<string | undefined> {
+    return this.source.firstPrompt(this.end);
   }
 
   /**
-   * Feeds entries to a projection in order. A result is shown in full when
-   * its group's results together fit the record limit, else as a
-   * placeholder. Observed records need only their step and type, and a
-   * planner's calls.
+   * Feeds entries to a projection in order, reading each body only now. A
+   * result is a placeholder when its own size is over the record limit, or
+   * when its group's results together are and it is larger than a small
+   * result (so a short subagent result keeps its child link). Results after
+   * a planner shown as a placeholder are covered by it. Observed records
+   * need their step and type, a planner's calls and an error's text.
    */
-  private async projectInto(
+  private async project(
     projection: AntigravityLogProjection,
     entries: Entry[],
   ): Promise<void> {
-    const heads: LineHead[] = [];
-    for (const entry of entries) heads.push(await this.head(entry.line));
-    const group: number[] = [];
+    const heads: AntigravityLogHead[] = [];
+    for (const entry of entries) heads.push(await this.source.head(entry.line));
+    const groupBytes: number[] = [];
     for (let index = 0; index < entries.length; ) {
-      if (heads[index]!.type !== "GENERIC") {
-        index++;
-        continue;
-      }
       let last = index;
       let total = 0;
       while (last < entries.length && heads[last]!.type === "GENERIC")
-        total += length(entries[last++]!.line);
-      for (; index < last; index++) group[index] = total;
+        total += lineLength(entries[last++]!.line);
+      for (; index < last; index++) groupBytes[index] = total;
+      if (last === index) index++;
     }
-    for (const [index, { line, project }] of entries.entries()) {
+    let covered = false;
+    for (const [index, { line, show }] of entries.entries()) {
       const head = heads[index]!;
       let record: AntigravityLogRecord;
-      if (!project && head.type !== "PLANNER_RESPONSE") record = stub(head);
-      else if (
-        head.type === "GENERIC" &&
-        group[index]! > ANTIGRAVITY_LOG_RECORD_BYTES
-      )
-        record = await this.source.groupPlaceholder(line, group[index]!);
-      else record = await this.source.record(line);
-      if (!(project ? projection.add(record) : projection.observe(record)))
-        return;
+      if (head.type === "GENERIC") {
+        const group = groupBytes[index]!;
+        record =
+          covered || !show
+            ? stub(head)
+            : group > ANTIGRAVITY_LOG_RECORD_BYTES &&
+                lineLength(line) > ANTIGRAVITY_LOG_GROUP_RESULT_BYTES
+              ? await this.source.record(line, group)
+              : await this.source.record(line);
+      } else {
+        covered = head.type === "PLANNER_RESPONSE" && isOversized(line);
+        record =
+          (show && !(await this.source.isReminder(line))) ||
+          head.type === "PLANNER_RESPONSE" ||
+          head.type === "ERROR_MESSAGE"
+            ? await this.source.record(line)
+            : stub(head);
+      }
+      this.source.release(line);
+      if (!(show ? projection.add(record) : projection.observe(record))) return;
     }
   }
 
   private finish(
     projection: AntigravityLogProjection,
-    shape: Omit<Known, "status" | "messages" | "bytesRead">,
+    shape: Omit<Known, "status" | "messages" | "bytesRead" | "heldPeak">,
     cut?: (messages: Message[]) => Message[] | undefined,
   ): Read {
     const result = projection.finish({ ownerLive: this.ownerLive });
@@ -260,27 +246,26 @@ class WindowRead {
     };
   }
 
-  /** Holds one tool group's lines at a time, without bytes once too large. */
+  /** Lets go of a found line's bytes when more than a page is held. */
+  private bound(line: LogLine): void {
+    if (this.source.held > this.pageBytes) this.source.release(line);
+  }
+
+  /** One tool group's lines at a time. */
   private async complete(): Promise<Read> {
     const projection = new AntigravityLogProjection(this.conversationId);
     let group: LogLine[] = [];
-    let results = 0;
-    for await (const line of this.source.linesFrom(0, this.end)) {
-      if ((await this.head(line)).type === "GENERIC") {
-        results += length(line);
-        if (results > ANTIGRAVITY_LOG_RECORD_BYTES)
-          for (const held of group.slice(1)) delete held.bytes;
-      } else {
-        await this.projectInto(projection, group.map(show));
-        if (projection.unknown) break;
+    for (let start = 0; start < this.end && !projection.unknown; ) {
+      const line = await this.source.lineFrom(start, this.end);
+      this.bound(line);
+      start = line.end + 1;
+      if ((await this.source.head(line)).type !== "GENERIC") {
+        await this.project(projection, group.map(show));
         group = [];
-        results = 0;
       }
-      if (results > ANTIGRAVITY_LOG_RECORD_BYTES) delete line.bytes;
       group.push(line);
     }
-    if (!projection.unknown)
-      await this.projectInto(projection, group.map(show));
+    if (!projection.unknown) await this.project(projection, group.map(show));
     return this.finish(projection, { omittedPrefix: false });
   }
 
@@ -294,18 +279,14 @@ class WindowRead {
     after: Entry[],
     cutAt?: string,
   ): Promise<Read> {
-    const cursor = new Backward(this.source.linesBefore(end));
-    let page = await this.selectPage(cursor, compactions);
+    let page = await this.selectPage(end, compactions);
     let next = after;
+    let at = cutAt;
     const anchor = cutAt ? { anchor: "found" as const } : {};
     for (;;) {
       const projection = new AntigravityLogProjection(this.conversationId);
-      await this.projectInto(projection, [
-        ...page.context.map(observe),
-        ...page.lines.map(show),
-        ...next,
-      ]);
-      const at = cutAt;
+      await this.project(projection, [...page.lines.map(show), ...next]);
+      const cut = at;
       const read = this.finish(
         projection,
         {
@@ -313,9 +294,9 @@ class WindowRead {
           ...(page.start > 0 && page.cut ? { cut: page.cut } : {}),
           ...anchor,
         },
-        at
+        cut
           ? (messages) => {
-              const index = messages.findIndex((m) => m.uuid === at);
+              const index = messages.findIndex((m) => m.uuid === cut);
               return index < 0 ? undefined : messages.slice(0, index);
             }
           : undefined,
@@ -328,91 +309,68 @@ class WindowRead {
       )
         return read;
       next = [observe(page.lines[0]!)];
-      cutAt = undefined;
-      page = await this.selectPage(cursor, compactions);
+      at = undefined;
+      page = await this.selectPage(page.start, compactions);
     }
   }
 
   /**
-   * Lines before the cursor: back to the `compactions`-th checkpoint, the
-   * file's start, or the page budget, backed off to the oldest line read
-   * that is not a tool result. Then back to the last line that is not a
-   * result, as context; those lines are returned to the cursor, so the page
-   * before this one starts from them without reading them again. Results
-   * held beyond the record limit keep only their bounds.
+   * Lines before `end`, newest first: back to the `compactions`-th
+   * checkpoint, the file's start, or the page budget, where a line that
+   * does not fit is not even found. Once a record that is not a result has
+   * been found, the page can start there, so nothing older is read for it.
    */
-  private async selectPage(
-    cursor: Backward,
-    compactions: number,
-  ): Promise<Page> {
+  private async selectPage(end: number, compactions: number): Promise<Page> {
     const newest: LogLine[] = [];
-    let candidate = -1;
-    let checkpoints = 0;
     let total = 0;
-    let results: LogLine[] = [];
-    let resultBytes = 0;
-    let stop: number | undefined;
+    let checkpoints = 0;
+    let candidate = -1;
     let cut: AntigravityLogCut | undefined;
-    for (let line = await cursor.next(); line; line = await cursor.next()) {
-      const head = await this.head(line);
-      if (total + weight(line) > this.pageBytes && candidate >= 0) {
-        cursor.unread([line]);
-        stop = candidate;
+    for (let position = end; position > 0; ) {
+      const line = await this.source.lineBefore(
+        position,
+        candidate >= 0 ? this.pageBytes - total : Number.POSITIVE_INFINITY,
+      );
+      if (!line) {
         cut = "bytes";
         break;
       }
-      total += weight(line);
+      this.bound(line);
       newest.push(line);
-      if (head.type === "GENERIC") {
-        results.push(line);
-        resultBytes += length(line);
-        if (resultBytes > ANTIGRAVITY_LOG_RECORD_BYTES)
-          for (const held of results) delete held.bytes;
-        continue;
-      }
-      results = [];
-      resultBytes = 0;
-      candidate = newest.length - 1;
-      if (head.type === "CHECKPOINT" && ++checkpoints === compactions) {
-        stop = candidate;
+      total += lineLength(line);
+      position = line.start;
+      const type = (await this.source.head(line)).type;
+      if (type !== "GENERIC") candidate = newest.length - 1;
+      if (type === "CHECKPOINT" && ++checkpoints === compactions) {
         cut = "compactions";
         break;
       }
     }
-    if (stop === undefined)
-      return { context: [], lines: newest.reverse(), start: 0 };
-    // Newest first, as read.
-    const context = newest.splice(stop + 1);
-    cursor.unread(context);
-    const owner: LogLine[] = [];
-    for (let line = await cursor.next(); line; line = await cursor.next()) {
-      owner.push(line);
-      if ((await this.head(line)).type !== "GENERIC") break;
-    }
-    cursor.unread(owner);
-    const page = newest.reverse();
-    return {
-      context: owner.reverse(),
-      lines: page,
-      start: page[0]!.start,
-      cut,
-    };
+    if (cut)
+      for (const line of newest.splice(candidate + 1))
+        this.source.release(line);
+    const lines = newest.reverse();
+    return { lines, start: cut ? lines[0]!.start : 0, ...(cut ? { cut } : {}) };
   }
 
   private async locate(messageId: string): Promise<LogLine | undefined> {
     const step = antigravityMessageStep(this.conversationId, messageId);
     if (step === undefined) return undefined;
     const found = await this.source.findStep(step, this.end);
-    return found && (await this.head(found)).step === step ? found : undefined;
+    if (found && (await this.source.head(found)).step === step) return found;
+    if (found) this.source.release(found);
+    return undefined;
   }
 
   /** Lines after `line` while they are results, then the one that is not. */
   private async ahead(line: LogLine): Promise<Entry[]> {
     const entries: Entry[] = [];
-    for await (const next of this.source.linesFrom(line.end + 1, this.end)) {
-      delete next.bytes;
+    for (let start = line.end + 1; start < this.end; ) {
+      const next = await this.source.lineFrom(start, this.end);
+      this.source.release(next);
       entries.push(observe(next));
-      if ((await this.head(next)).type !== "GENERIC") break;
+      if ((await this.source.head(next)).type !== "GENERIC") break;
+      start = next.end + 1;
     }
     return entries;
   }
@@ -425,7 +383,7 @@ class WindowRead {
   private async before(messageId: string, compactions: number): Promise<Read> {
     const anchor = await this.locate(messageId);
     if (!anchor) return this.missed();
-    const type = (await this.head(anchor)).type;
+    const type = (await this.source.head(anchor)).type;
     const after: Entry[] = [
       show(anchor),
       // A planner's calls and error, and a result's group, resolve after it.
@@ -445,24 +403,30 @@ class WindowRead {
     const anchor = await this.locate(messageId);
     if (!anchor) return missed();
     // A result starts the page at the record that owns it.
-    const owner =
-      (await this.head(anchor)).type === "GENERIC"
-        ? await this.contextBefore(anchor.start)
-        : [];
-    const start = owner[0]?.start ?? anchor.start;
-    const lines: LogLine[] = [];
+    let start = anchor.start;
     let total = 0;
-    for await (const line of this.source.linesFrom(start, this.end)) {
-      total += weight(line);
+    for (
+      let type = (await this.source.head(anchor)).type;
+      type === "GENERIC";
+    ) {
+      const line = await this.source.lineBefore(start, this.pageBytes - total);
+      if (!line) return missed();
+      this.source.release(line);
+      total += lineLength(line);
+      start = line.start;
+      type = (await this.source.head(line)).type;
+    }
+    const lines: LogLine[] = [];
+    for (let at = start; at < this.end; ) {
+      const line = await this.source.lineFrom(at, this.end);
+      this.bound(line);
+      total += lineLength(line);
       if (total > this.pageBytes) return missed();
       lines.push(line);
+      at = line.end + 1;
     }
-    const context = start > 0 ? await this.contextBefore(start) : [];
     const projection = new AntigravityLogProjection(this.conversationId);
-    await this.projectInto(projection, [
-      ...context.map(observe),
-      ...lines.map(show),
-    ]);
+    await this.project(projection, lines.map(show));
     const read = this.finish(projection, {
       omittedPrefix: start > 0,
       anchor: "found",
@@ -473,31 +437,6 @@ class WindowRead {
     )
       return missed();
     return read;
-  }
-
-  /** Lines before `start`, oldest first, from the last that is not a result. */
-  private async contextBefore(start: number): Promise<LogLine[]> {
-    const context: LogLine[] = [];
-    for await (const line of this.source.linesBefore(start)) {
-      context.push(line);
-      if ((await this.head(line)).type !== "GENERIC") break;
-      delete line.bytes;
-    }
-    return context.reverse();
-  }
-
-  /** The first prompt, from the file's first few records. */
-  async firstPrompt(): Promise<string | undefined> {
-    let seen = 0;
-    for await (const line of this.source.linesFrom(0, this.end)) {
-      if ((await this.head(line)).type === "USER_INPUT") {
-        if (isOversized(line)) return undefined;
-        const record = await this.source.record(line);
-        return record.type === "USER_INPUT" ? record.text : undefined;
-      }
-      if (++seen >= TITLE_RECORDS) break;
-    }
-    return undefined;
   }
 }
 
@@ -510,10 +449,10 @@ function firstUserText(messages: readonly Message[]): string | undefined {
 
 /**
  * Reads one window of a conversation's log. Opening the file, taking its
- * source fence and reading are one attempt: a file replaced or truncated
- * during an attempt (the append-only check of identity, head and end the
- * Claude and Codex readers use) is read again from scratch, at most three
- * times; then the log is unknown. `bytesRead` counts every attempt.
+ * source fence and reading are one attempt: a file replaced, truncated or
+ * swapped during an attempt (the append-only check of identity, head and
+ * end the Claude and Codex readers use) is read again from scratch, at most
+ * three times; then the log is unknown. `bytesRead` counts every attempt.
  */
 export async function readAntigravityLogWindow(
   options: AntigravityLogWindowOptions,
@@ -529,6 +468,7 @@ export async function readAntigravityLogWindow(
         "transcript_full.jsonl",
       );
       if (opened.status === "missing") return { status: "missing", bytesRead };
+      if (opened.status === "changed") continue;
       if (opened.status === "invalid")
         return {
           status: "unknown",
@@ -562,9 +502,13 @@ export async function readAntigravityLogWindow(
       await options.afterRead?.(attempt);
       const after = await stat(opened.path);
       if (await isTranscriptPrefix(source.probe, opened.path, fence, after)) {
-        bytesRead += source.bytesRead;
+        const total = bytesRead + source.bytesRead;
+        const heldPeak = source.heldPeak;
         source = undefined;
-        return { ...read, bytesRead };
+        bytesRead = total;
+        return read.status === "known"
+          ? { ...read, bytesRead: total, heldPeak }
+          : { ...read, bytesRead: total };
       }
     } catch (error) {
       // A file that shrank, vanished or was replaced mid-attempt is read again.

@@ -1,5 +1,5 @@
 import type { Message } from "../supervisor/types.js";
-import { parseAntigravityLogRecord } from "./antigravity-log-projection.js";
+import { LogSource } from "./antigravity-log-source.js";
 import type { AntigravityLogWindowRequest } from "./antigravity-log-window.js";
 import {
   extractCreatedSubagentId,
@@ -86,12 +86,10 @@ export function linkAntigravityLogChildren(
       }
 }
 
-/** Bytes read from the log's start for a title. */
-const TITLE_BYTES = 256 * 1024;
-
 /**
  * The first prompt in the log's first records, for a summary whose index row
- * has no title: one bounded read of the file's start, no `agy`.
+ * has no title: the same bounded read of the file's start a detail title
+ * uses, no `agy`.
  */
 export async function readAntigravityFirstPrompt(
   scope: string,
@@ -104,17 +102,9 @@ export async function readAntigravityFirstPrompt(
   );
   if (opened.status !== "ok") return undefined;
   try {
-    const length = Math.min(TITLE_BYTES, opened.size);
-    const buffer = Buffer.alloc(length);
-    const { bytesRead } = await opened.handle.read(buffer, 0, length, 0);
-    const lines = buffer.subarray(0, bytesRead).toString("utf8").split("\n");
-    // The last piece may be cut short; only complete lines are records.
-    for (const line of lines.slice(0, -1).slice(0, 4)) {
-      const record = parseAntigravityLogRecord(line);
-      if ("unknown" in record) return undefined;
-      if (record.type === "USER_INPUT") return record.text;
-    }
-    return undefined;
+    return await new LogSource(opened.handle, opened.size).firstPrompt(
+      opened.size,
+    );
   } catch {
     return undefined;
   } finally {

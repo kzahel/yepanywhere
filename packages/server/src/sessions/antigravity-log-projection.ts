@@ -83,6 +83,8 @@ interface ToolCall {
 export type AntigravityLogRecord = {
   step: number;
   createdAt: string;
+  /** Shown from its first bytes only: too large to hold. */
+  oversized?: true;
 } & (
   | { type: "USER_INPUT"; text: string }
   | {
@@ -92,6 +94,8 @@ export type AntigravityLogRecord = {
       thinking?: string;
       calls: ToolCall[];
       error?: string;
+      /** Its calls are unknown; the results after it are not shown. */
+      opaque?: true;
     }
   | {
       type: "GENERIC";
@@ -367,6 +371,132 @@ export function antigravityStepToolId(
   return `${conversationId}:step-${step}:tool-${index}`;
 }
 
+/** A record, or a tool group's results together, held in full up to this. */
+export const ANTIGRAVITY_LOG_RECORD_BYTES = 16 * 1024 * 1024;
+/** Bytes read for a record's head. */
+export const ANTIGRAVITY_LOG_HEAD_BYTES = 512;
+
+export interface AntigravityLogHead {
+  step: number;
+  type: string;
+  source: string;
+  status: string;
+  createdAt: string;
+  error?: string;
+}
+
+/**
+ * Every observed record begins with these keys in this order: an optional
+ * `error` (short) after `status`, then `created_at`.
+ */
+const HEAD =
+  /^\{"step_index":(0|[1-9]\d{0,15}),"source":"([A-Z_]{1,32})","type":"([A-Z_]{1,32})","status":"([A-Z_]{1,32})",(?:"error":"((?:[^"\\]|\\.){0,256})",)?"created_at":"([^"\\]{1,64})"[,}]/;
+
+/** A record's leading fields, or undefined when they are not in that form. */
+export function parseAntigravityLogHead(
+  prefix: string,
+): AntigravityLogHead | undefined {
+  const match = HEAD.exec(prefix);
+  if (!match) return undefined;
+  let error: string | undefined;
+  if (match[5] !== undefined)
+    try {
+      error = JSON.parse(`"${match[5]}"`) as string;
+    } catch {
+      return undefined;
+    }
+  const shape = SHAPES.get(match[3]!);
+  if (
+    !shape ||
+    shape.source !== match[2] ||
+    !shape.statuses.includes(match[4]!) ||
+    !Number.isSafeInteger(Number(match[1]))
+  )
+    return undefined;
+  return {
+    step: Number(match[1]),
+    source: match[2]!,
+    type: match[3]!,
+    status: match[4]!,
+    createdAt: match[6]!,
+    ...(error === undefined ? {} : { error }),
+  };
+}
+
+/** How a system message's content begins in the log's own bytes. */
+const SYSTEM_CONTENT = `"content":${JSON.stringify(SYSTEM_OPEN).slice(0, -1)}`;
+
+/**
+ * Whether a system message's head already shows a reminder (content that is
+ * not an inbox delivery), which is never shown.
+ */
+export function antigravityHeadIsReminder(prefix: string): boolean {
+  const at = prefix.indexOf(SYSTEM_CONTENT);
+  return (
+    at >= 0 && !prefix.startsWith(INBOX_MESSAGE, at + SYSTEM_CONTENT.length)
+  );
+}
+
+const megabytes = (bytes: number) => (bytes / 1024 / 1024).toFixed(1);
+
+/**
+ * A record too large to hold, shown from its head alone. Nothing after the
+ * head is read, so nothing after it is checked. A planner's calls are
+ * unknown: its placeholder covers the results after it. `group` marks a
+ * result held back because its tool group's results are too large.
+ */
+export function antigravityPlaceholderRecord(
+  prefix: string,
+  bytes: number,
+  group?: number,
+): AntigravityLogRecord | { unknown: string } {
+  const head = parseAntigravityLogHead(prefix);
+  if (!head)
+    return { unknown: "a record too large to read does not begin as observed" };
+  const notice =
+    group === undefined
+      ? `This step is too large to show here (${megabytes(bytes)} MB).`
+      : `This result is part of a tool step too large to show here (${megabytes(group)} MB of results).`;
+  const base = {
+    step: head.step,
+    createdAt: head.createdAt,
+    oversized: true as const,
+  };
+  switch (head.type) {
+    case "USER_INPUT":
+      return { ...base, type: "USER_INPUT", text: notice };
+    case "PLANNER_RESPONSE":
+      return {
+        ...base,
+        type: "PLANNER_RESPONSE",
+        content: notice,
+        calls: [],
+        opaque: true,
+        ...(head.error ? { error: head.error } : {}),
+      };
+    case "GENERIC":
+      return {
+        ...base,
+        type: "GENERIC",
+        status: head.status as "DONE" | "ERROR" | "RUNNING",
+        content: notice,
+      };
+    case "SYSTEM_MESSAGE":
+      return antigravityHeadIsReminder(prefix)
+        ? {
+            step: head.step,
+            createdAt: head.createdAt,
+            type: "SYSTEM_MESSAGE",
+            content: "",
+          }
+        : { ...base, type: "SYSTEM_MESSAGE", content: notice };
+    case "CHECKPOINT":
+      return { ...base, type: "CHECKPOINT", content: notice };
+    default:
+      return { ...base, type: "ERROR_MESSAGE", error: head.error ?? notice };
+  }
+}
+
 export type AntigravityLogProjectionResult =
   | { status: "known"; messages: Message[] }
   /** `error` is set only when the projection itself threw: a bug, which
@@ -375,6 +505,8 @@ export type AntigravityLogProjectionResult =
 
 interface OpenGroup {
   step: number;
+  /** A planner shown as a placeholder: its calls, and so its results, are unknown. */
+  opaque?: true;
   /** Results seen, by call index. */
   seen: boolean[];
   /** The calls' messages, when this window projected the planner record. */
@@ -401,8 +533,8 @@ export class AntigravityLogProjection {
   records = 0;
   private previous?: number;
   private group?: OpenGroup;
-  /** A projected planner error, dropped if an ERROR_MESSAGE follows. */
-  private plannerError?: Message;
+  /** A projected planner error, dropped if the next record repeats it. */
+  private plannerError?: { message: Message; text: string };
   private failure?: string;
   private error?: unknown;
 
@@ -432,9 +564,17 @@ export class AntigravityLogProjection {
   addLine(line: AntigravityLogLine): boolean {
     return this.guard(() => {
       if (!line.terminated) return true;
-      if (line.invalidUtf8) return this.fail("a line is not valid UTF-8");
-      if (!line.text) return this.fail("the log has an empty line");
-      const record = parseAntigravityLogRecord(line.text);
+      const record =
+        line.end - line.start > ANTIGRAVITY_LOG_RECORD_BYTES
+          ? antigravityPlaceholderRecord(
+              line.text.slice(0, ANTIGRAVITY_LOG_HEAD_BYTES),
+              line.end - line.start,
+            )
+          : line.invalidUtf8
+            ? { unknown: "a line is not valid UTF-8" }
+            : !line.text
+              ? { unknown: "the log has an empty line" }
+              : parseAntigravityLogRecord(line.text);
       return "unknown" in record
         ? this.fail(record.unknown)
         : this.take(record, true);
@@ -496,13 +636,16 @@ export class AntigravityLogProjection {
       return this.fail(`step_index ${step} follows ${this.previous}`);
     this.previous = step;
     const group = this.group;
-    if (group && step > group.step + group.seen.length) this.closeGroup();
+    if (group && !group.opaque && step > group.step + group.seen.length)
+      this.closeGroup();
     if (record.type === "GENERIC") {
       const owner = this.group;
       if (!owner)
         return this.fail(
           `GENERIC at step ${step} has no owning planner record`,
         );
+      // Covered by its planner's placeholder.
+      if (owner.opaque) return true;
       const index = step - owner.step - 1;
       owner.seen[index] = true;
       if (project) {
@@ -531,18 +674,25 @@ export class AntigravityLogProjection {
       if (owner.seen.every(Boolean)) this.group = undefined;
       return true;
     }
+    if (this.group?.opaque) this.group = undefined;
     if (this.group)
       return this.fail(
         `${record.type} at step ${step} is inside the calls of step ${this.group.step}`,
       );
     const plannerError = this.plannerError;
     this.plannerError = undefined;
-    if (plannerError && record.type === "ERROR_MESSAGE") {
-      // The step after a failed response reports the same failure.
-      const index = this.messages.lastIndexOf(plannerError);
+    if (
+      plannerError &&
+      record.type === "ERROR_MESSAGE" &&
+      record.error.includes(plannerError.text)
+    ) {
+      // The next step repeats the same failure, as a 1.5.14 cancel does.
+      const index = this.messages.lastIndexOf(plannerError.message);
       if (index >= 0) this.messages.splice(index, 1);
     }
-    if (record.type === "PLANNER_RESPONSE" && record.calls.length)
+    if (record.type === "PLANNER_RESPONSE" && record.opaque)
+      this.group = { step, seen: [], opaque: true };
+    else if (record.type === "PLANNER_RESPONSE" && record.calls.length)
       this.group = {
         step,
         seen: record.calls.map(() => false),
@@ -620,22 +770,27 @@ export class AntigravityLogProjection {
             }),
           );
         });
-        // A 1.5.14 cancel logs its cause here and again as the next step's
-        // ERROR_MESSAGE; this row stays only if no ERROR_MESSAGE follows.
-        if (record.error)
-          this.plannerError = this.push({
+        // A 1.5.14 cancel logs its cause here and again as the very next
+        // step's ERROR_MESSAGE; only that repetition drops this row.
+        if (record.error) {
+          const message = this.push({
             type: "error",
             uuid: id("error"),
             timestamp,
             error: record.error,
           });
+          this.plannerError = record.calls.length
+            ? undefined
+            : { message, text: record.error };
+        }
         return;
       }
       case "SYSTEM_MESSAGE":
         // Reminders `agy` adds to the model's context are not shown, as the
         // live view and other providers' injected instructions are not. An
         // inbox delivery, such as a task's wake, explains the reply after it.
-        if (!record.content.startsWith(INBOX_MESSAGE)) return;
+        if (!record.oversized && !record.content.startsWith(INBOX_MESSAGE))
+          return;
         this.push({
           type: "system",
           subtype: "informational",

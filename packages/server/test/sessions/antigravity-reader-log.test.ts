@@ -166,4 +166,86 @@ describe("Antigravity reader over the log", () => {
     );
     expect(summary?.title).toBe("FIRST_PROMPT_TITLE");
   });
+
+  it("never titles a summary from a store whose binding moved during the read", async () => {
+    const a = await store("a", prompt("TITLE_FROM_A") + reply(1, "x"));
+    const b = await store("b", prompt("TITLE_FROM_B") + reply(1, "x"));
+    const alias = join(root, "conversations");
+    await symlink(a, alias);
+    const rebound = reader(alias);
+    const metadata = (
+      rebound as unknown as { metadata(id: string): Promise<unknown> }
+    ).metadata.bind(rebound);
+    let calls = 0;
+    vi.spyOn(
+      rebound as unknown as { metadata(id: string): Promise<unknown> },
+      "metadata",
+    ).mockImplementation(async (id) => {
+      if (++calls === 2) {
+        await unlink(alias);
+        await symlink(b, alias);
+      }
+      return metadata(id);
+    });
+    expect(
+      await rebound.getSessionSummary(ID, toUrlProjectId(project)),
+    ).toBeNull();
+  });
+
+  it("lets a still-admitted waiter retry a replay its first caller was refused", async () => {
+    const conversations = await store("a", line({ step_index: 0, novel: 1 }));
+    const shared = reader(conversations);
+    const internals = shared as unknown as {
+      resolveRuntimeForScope(): Promise<unknown>;
+      withRuntime(): Promise<void>;
+      metadata(id: string): Promise<{
+        scope: string;
+        cwd: string;
+        sourceVersion: string;
+      }>;
+      loadTranscriptEntries(
+        id: string,
+        scope: string,
+        cwd: string,
+        version: string,
+        enrich: boolean,
+        beforeLoad: () => boolean,
+      ): Promise<unknown>;
+    };
+    const release = Promise.withResolvers<void>();
+    const resolving = vi
+      .spyOn(internals, "resolveRuntimeForScope")
+      .mockImplementation(async () => {
+        await release.promise;
+        return {};
+      });
+    const runtime = vi
+      .spyOn(internals, "withRuntime")
+      .mockResolvedValue(undefined);
+    const { scope, cwd, sourceVersion } = await internals.metadata(ID);
+    let firstAdmitted = true;
+    const first = internals.loadTranscriptEntries(
+      ID,
+      scope,
+      cwd,
+      sourceVersion,
+      false,
+      () => firstAdmitted,
+    );
+    await vi.waitFor(() => expect(resolving).toHaveBeenCalledTimes(1));
+    const second = internals.loadTranscriptEntries(
+      ID,
+      scope,
+      cwd,
+      sourceVersion,
+      false,
+      () => true,
+    );
+    // The first caller loses its lineage before its replay is admitted.
+    firstAdmitted = false;
+    release.resolve();
+    expect(await first).toBeNull();
+    expect(await second).not.toBeNull();
+    expect(runtime).toHaveBeenCalledTimes(1);
+  });
 });

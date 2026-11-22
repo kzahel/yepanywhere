@@ -209,12 +209,27 @@ describe("Antigravity log projection", () => {
           { content: "PARTIAL ", error: "context canceled by user" },
           "ERROR",
         ),
-        system(2, "ERROR_MESSAGE", { error: "canceled" }),
+        system(2, "ERROR_MESSAGE", {
+          error: "API error (attempt 1): context canceled by user",
+        }),
       ],
       expected: [
         "step-0 user C",
         "step-1:text assistant PARTIAL ",
-        "step-2 error canceled",
+        "step-2 error API error (attempt 1): context canceled by user",
+      ],
+    },
+    {
+      name: "a planner error and a different error after it: both shown",
+      records: [
+        user(0, "C"),
+        planner(1, { error: "Original error" }, "ERROR"),
+        system(2, "ERROR_MESSAGE", { error: "Different error" }),
+      ],
+      expected: [
+        "step-0 user C",
+        "step-1:error error Original error",
+        "step-2 error Different error",
       ],
     },
     {

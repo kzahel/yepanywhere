@@ -911,6 +911,15 @@ export function registerSessionDetailRoute(
     // scope but cannot broaden it unless fullHistory=1 removed the default.
     // Skip initial-window slicing for incremental forward fetches. A provider-
     // bounded older page already ends before its requested cursor.
+    // A durable overlay anchors a catch-up only when the window the provider
+    // read reaches back to it.
+    const windowStart = loadedSession.readWindow?.omittedPrefix
+      ? Date.parse(String(session.messages[0]?.timestamp ?? ""))
+      : Number.NEGATIVE_INFINITY;
+    const overlayAnchor =
+      overlayCursor && Date.parse(overlayCursor.timestamp) >= windowStart
+        ? overlayCursor
+        : undefined;
     const providerBoundedOlderPage =
       loadedSession.readWindow?.kind === "compact-page" ||
       ((loadedSession.readWindow?.kind === "indexed-selection" ||
@@ -978,7 +987,7 @@ export function registerSessionDetailRoute(
     if (
       loadedSession.readWindow?.omittedPrefix &&
       loadedSession.readWindow.kind !== "log-page" &&
-      !overlayCursor &&
+      !overlayAnchor &&
       !incrementalAnchorFound &&
       (!paginationInfo?.hasOlderMessages ||
         paginationInfo.truncatedBeforeMessageId === undefined)
@@ -990,8 +999,12 @@ export function registerSessionDetailRoute(
     // Codex normalized IDs can drift between stream and JSONL. If an
     // incremental request misses its anchor, never return the full historical
     // session into a compact-tail client; bound the fallback to the same tail
-    // window used for initial loads.
-    if (providerAfterMessageId && !incrementalAnchorFound) {
+    // window used for initial loads. A durable overlay older than the window
+    // the provider read is such a miss too.
+    if (
+      (providerAfterMessageId || (overlayCursor && !overlayAnchor)) &&
+      !incrementalAnchorFound
+    ) {
       const sliced = sliceAtCompactBoundaries(
         session.messages,
         effectiveTailCompactions ?? DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,
@@ -1002,7 +1015,7 @@ export function registerSessionDetailRoute(
     if (
       loadedSession.readWindow?.kind === "log-page" &&
       !incrementalAnchorFound &&
-      !overlayCursor
+      !overlayAnchor
     )
       paginationInfo = withLogPageCursor(
         session.messages,
@@ -1113,10 +1126,10 @@ export function registerSessionDetailRoute(
         recapMessages,
         syntheticDoneMessages,
       );
-      if (overlayCursor && afterMessageId) {
+      if (overlayAnchor && afterMessageId) {
         const sliced = sliceAfterDurableOverlayCursor({
           messages: session.messages,
-          overlay: overlayCursor,
+          overlay: overlayAnchor,
           cursorId: afterMessageId,
         });
         session = { ...session, messages: sliced.messages };

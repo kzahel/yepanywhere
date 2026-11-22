@@ -959,6 +959,26 @@ describe("Antigravity native process boundary", () => {
           tailCompactions: 2,
         });
         reads.mockRestore();
+        // An overlay older than the newest page is a missed anchor: the
+        // client gets the newest page as a replacement, with its cursor.
+        await metadata.addLocalCommandMessage(nativeId, {
+          type: "system",
+          subtype: "local_command",
+          content: "/model",
+          timestamp: "2020-01-01T00:00:00.000Z",
+          uuid: "overlay-old",
+          id: "overlay-old",
+        });
+        const old = await get("?afterMessageId=overlay-old");
+        expect(old.pagination?.hasOlderMessages).toBe(true);
+        expect(old.pagination?.truncatedBeforeMessageId).toBe(
+          pages.at(-1)![0]!.uuid,
+        );
+        // The newer overlay belongs to that page; the older one does not.
+        expect(old.messages.map((message) => message.uuid)).toEqual([
+          ...pages.at(-1)!.map((message) => message.uuid),
+          "overlay-1",
+        ]);
       } finally {
         app.stopNotifications();
         await app.disposeSessionReaders();

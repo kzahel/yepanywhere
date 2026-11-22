@@ -178,6 +178,8 @@ export async function openPhysicalBrainTranscript(
     }
   | { status: "missing" }
   | { status: "invalid" }
+  /** The file at the path was replaced while it was opened. */
+  | { status: "changed" }
 > {
   if (!ANTIGRAVITY_SESSION_ID.test(conversationId))
     return { status: "invalid" };
@@ -237,13 +239,14 @@ export async function openPhysicalBrainTranscript(
     // Re-verify the opened inode still belongs to the anchored store path.
     const currentPath = await fs.promises.realpath(transcriptPath);
     const currentStat = await fs.promises.lstat(currentPath);
-    if (
-      currentPath !== physicalTranscript ||
-      currentStat.dev !== info.dev ||
-      currentStat.ino !== info.ino
-    ) {
+    if (currentPath !== physicalTranscript) {
       await handle.close().catch(() => {});
       return { status: "invalid" };
+    }
+    if (currentStat.dev !== info.dev || currentStat.ino !== info.ino) {
+      // Replaced between opening and checking: a transient change.
+      await handle.close().catch(() => {});
+      return { status: "changed" };
     }
     return {
       status: "ok",
@@ -279,7 +282,7 @@ export async function readAntigravityReplayTail(
   if (opened.status === "missing")
     opened = await openPhysicalBrainTranscript(scope, sessionId);
   if (opened.status === "missing") return { status: "absent" };
-  if (opened.status === "invalid") return { status: "unavailable" };
+  if (opened.status !== "ok") return { status: "unavailable" };
   try {
     let reachedStart = false;
     for await (const batch of readLinesBackwardFromHandle(opened.handle, {
@@ -342,7 +345,7 @@ export async function readAntigravityTurnBoundary(
     conversationId,
   );
   if (opened.status === "missing") return { step: -1 };
-  if (opened.status === "invalid") return undefined;
+  if (opened.status !== "ok") return undefined;
   let lastUserInputStep = -1;
   let maxStepIndex = -1;
   try {
@@ -592,7 +595,7 @@ export async function readAntigravityTranscriptPosition(
     conversationId,
   );
   if (opened.status === "missing") return { byte: 0 };
-  if (opened.status === "invalid") return undefined;
+  if (opened.status !== "ok") return undefined;
   const pos: AntigravityTranscriptPosition = {
     byte: opened.size,
     dev: opened.dev,

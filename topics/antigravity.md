@@ -338,7 +338,7 @@ summaries index stays unknown rather than publishing an authoritative empty set,
 `last_modified_time` is the `0001-01-01` sentinel fall back to local `.db`/`.db-wal`
 file mtimes and in-memory activity overlays without churning durable SQL edges.
 Authorized descendant transcript reads serve children from their own brain
-log, whole, as other providers' subagent transcripts are read; a running
+log's latest page ([children](#cold-history-from-the-log)); a running
 child's log lacks the step in progress, and its missing log is an empty
 transcript. Only a settled child whose log is missing or unknown replays
 through `session/load`, after revalidating project-eligible lineage; a
@@ -368,7 +368,9 @@ It never reads the shortened `transcript.jsonl`.
   (only reminders) extends to the page before it. Older pages report
   `hasOlderMessages` with their first message as the cursor, as other
   providers' pages do. A catch-up from a durable overlay's ID (a recap,
-  local-command or synthetic-done row) reads the latest page too.
+  local-command or synthetic-done row) reads the latest page too; an
+  overlay older than that page is a missed anchor, answered like any other
+  with the page as a replacement window and its older-page cursor.
 - **Whole-log reads** happen only when a caller asks for complete history:
   a detail read with `fullHistory=1` (including the saved full-history
   preference and opt-in aside polling and hydration),
@@ -382,33 +384,46 @@ It never reads the shortened `transcript.jsonl`.
   `<id>:<n>`, or an ACP tool call ID) misses cleanly: an older page is empty
   and reports no older history, and a catch-up gets the latest page as a
   replacement window. A catch-up further back than one page does the same.
-- **Large records.** A record larger than 16 MiB, and each result of a tool
-  group whose results together exceed 16 MiB, is shown as a placeholder
-  with its step's usual ID that says the step is too large to show; a
-  planner placeholder keeps its call names, so its calls and results still
-  pair. The rule depends only on the file, so every page and the complete
-  read agree, and everything before and after stays reachable by paging.
-  Size never makes a log unknown or starts a fallback.
-- **Cost.** A page reads its own bytes, its context (at most one tool group
-  before it and the records that resolve a group after it), a search by
-  halves for a cursor that crosses each long line once, and append-only
-  source checks. A record over the limit is scanned, never held: crossing
-  one costs its size in reads with fixed memory. A file replaced or
+- **Large records.** A record larger than 16 MiB is never parsed or held:
+  its first 512 bytes must begin with the observed leading keys
+  (`step_index`, `source`, `type`, `status`, an optional short `error`,
+  `created_at`), or the log is unknown, and it is shown from that head
+  alone. A result becomes a placeholder in its step's slot; a planner
+  response becomes an assistant row "too large to show" whose calls are
+  unknown, so the results after it are covered by it and not shown; any
+  other record becomes a row of its kind with that notice (a checkpoint
+  stays a compaction boundary; a reminder stays hidden). In a tool group
+  whose results together exceed 16 MiB, each result over 64 KiB is a
+  placeholder from its head, and smaller ones, such as a subagent's result
+  with its child link, are read normally. The rules depend only on line
+  sizes, the whole-file projection and every page apply them alike, and
+  everything before and after stays reachable by paging. Size never makes
+  a log unknown or starts a fallback.
+- **Cost.** A page reads its own bytes (about 4 MiB, the first record or
+  trailing tool group excepted), the records after an older page's cursor
+  that resolve its group or error, a search by halves for a cursor, and
+  append-only source checks. A page starts at a record that is not a tool
+  result and reads nothing older than it needs. Lines are found by offsets
+  first and their bodies read only when shown; crossing a record or group
+  too large to hold costs its size in reads, with memory near one page.
+  The detail title reads at most the file's first 256 KiB. A file replaced or
   truncated while it is opened or read is read again, up to three times,
   then unknown. Reads are read-only, start no process and take no
   ownership guard; the summaries index read is the one exception to
   writing nothing
   ([SQLite sidecars](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md)).
 - **Fallback.** A missing log, one with no complete record, or an unknown one
-  (malformed content: any record outside the observed shapes, among the
-  records the window read; or a file that kept changing) falls back to ACP
-  `session/load` replay of the whole conversation, which keeps its 8 MiB /
-  10,000-message limit. Requests for the same conversation share one
-  replay whatever window each asked for. The fallback never starts beside a
-  live owner. Validation covers only the records a page reads (an
-  oversized record's keys, kinds, call list and text start), so a
-  malformed record elsewhere in the file does not affect a page that does
-  not read it.
+  (malformed content among the records the window read, or a file that
+  kept changing) falls back to ACP `session/load` replay of the whole
+  conversation, which keeps its 8 MiB / 10,000-message limit. Requests for
+  the same conversation share one replay whatever window each asked for; a
+  caller whose own admission was refused (its child lineage changed, say)
+  leaves the next caller to ask again, and there is never a second native
+  owner. The fallback never starts beside a live owner. Validation covers
+  what is read: the records a page shows, the heads of records it only
+  steps past (an oversized record's body, a reminder's text and results
+  under a placeholder are not read), so a malformed record elsewhere does
+  not affect a page that does not read it.
 - **Store binding.** A read is published only for the store the reader is
   still bound to: if its conversations directory now resolves to another
   store, or the reader closed, the read returns nothing.
@@ -421,8 +436,10 @@ It never reads the shortened `transcript.jsonl`.
   instructions are not. A tool result's leading `Created At:` and
   `Completed At:` lines with `agy`'s timestamps are dropped; other output
   that starts with those words is kept. A planner response's `error` is an
-  error row unless the next record is an `ERROR_MESSAGE` reporting it, as
-  on a 1.5.14 cancel, which shows one error.
+  error row unless the very next record (no tool results between) is an
+  `ERROR_MESSAGE` whose text contains it, as on a 1.5.14 cancel ("context
+  canceled by user", then "API error (attempt 1): context canceled by
+  user"), which shows one error. Any other pair shows both.
 - **What it no longer shows.** Steps that exist only in the conversation
   database, which ACP replay showed: replies cut off when the owner was
   stopped mid-response (1.5.14) and some quota errors. The step 3 census
@@ -450,8 +467,16 @@ It never reads the shortened `transcript.jsonl`.
 A live YA owner still serves its own in-memory projection, with its own IDs
 (plan 195 step 6 changes that). After the owner exits, a client's catch-up
 from a live ID misses and takes the log's latest page. A v0 observer that
-outlives the owner replaces the owner's rows with the log's, keeping only
-text the log does not hold (a reply cut off before its step was logged).
+outlives the owner replaces all of that owner's rows with what the log
+holds ([simple client API](simple-client-api.md)).
+
+A stopped page refreshes when YA's watcher sees the conversation's database
+or WAL change, not the brain log. With 1.5.13 and 1.5.14, each log append
+was followed within about 3 ms by a write to the conversation's WAL, and
+stopping wrote the database again, so a refresh after the last database
+event read every record. A log append with no later database write (an
+external program, or a future `agy`) would leave a stopped page stale until
+its next refresh ([gap](../gaps/antigravity-log-only-append-not-observed.md)).
 
 ### Fallback replay and resume
 
