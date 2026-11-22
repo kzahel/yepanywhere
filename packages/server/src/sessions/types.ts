@@ -179,6 +179,15 @@ export interface LoadedSession {
         before: boolean;
       }
     | {
+        /**
+         * A page of a log whose message IDs locate their records, so its
+         * first message's ID is the cursor for the page before it.
+         */
+        kind: "log-page";
+        omittedPrefix: boolean;
+        before: boolean;
+      }
+    | {
         kind: "compact-tail";
         omittedPrefix: true;
         startByte: number;

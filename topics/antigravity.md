@@ -1,8 +1,8 @@
 # Antigravity provider
 
 Status: **experimental and listed by default when installed.** Basic foreground
-work is usable. Patient delivery, detached work, scheduled backend reload and
-cold history still have reproduced correctness gaps. The primary integration
+work is usable. Patient delivery, detached work and scheduled backend reload
+still have reproduced correctness gaps. The primary integration
 runs Google's `agy acp` against the user's native login and store. Legacy Gemini
 history retains its original provider and identity.
 
@@ -20,7 +20,7 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
-| Cold history and resume | Reader and resume keep collecting ACP history after an early load response until they observe the persisted text tail. A missing expected tail fails the operation. |
+| Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing; see [cold history from the log](#cold-history-from-the-log). ACP replay is the fallback for a missing or unknown log. Resume and that fallback keep collecting ACP history after an early load response until they observe the persisted text tail; a missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
 | Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions. Real `agy` cases cover Allow, Deny and Stop for the tested `write_file` and `run_command` calls, and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
@@ -274,8 +274,9 @@ the native command returns and a new completed checkpoint appears in the
 native transcript. A missing checkpoint fails the command. An unreadable
 outcome stays unconfirmed. Both hold later input under the existing
 [queued compaction rules](../docs/tactical/173-queued-compact-delivery.md).
-The live session shows a compaction boundary for a verified command. Cold
-ACP replay does not supply checkpoint boundaries.
+The live session shows a compaction boundary for a verified command, and
+cold history shows every checkpoint in the log. ACP replay, the fallback, does
+not supply checkpoint boundaries.
 
 Known active root-session shell commands, schedules, and `invoke_subagent`
 children appear in the shared
@@ -315,8 +316,9 @@ validates the original store, physical database and project before native
 effects. Rejected native resume never falls back to `session/new` or replays
 queued input into another conversation.
 
-History comes from native file facts and ACP `session/list` and
-`session/load`, with no YA shadow transcript or protobuf decoder.
+History comes from native file facts and `agy`'s brain log, with ACP
+`session/list` for titles and `session/load` only as a fallback, and no YA
+shadow transcript or protobuf decoder.
 [Native storage](antigravity-native-storage.md) describes each file `agy`
 writes and the brain log's record format. `agy` records each conversation's
 workspace URIs, title and subagent lineage (`parent_conversation_id`,
@@ -333,10 +335,12 @@ using bounded read-only `conversation_summaries.db` snapshots; a missing
 summaries index stays unknown rather than publishing an authoritative empty set, and running subagents whose
 `last_modified_time` is the `0001-01-01` sentinel fall back to local `.db`/`.db-wal`
 file mtimes and in-memory activity overlays without churning durable SQL edges.
-Authorized descendant transcript reads serve actively running or live-owned
-children from a bounded read-only projection of `brain/<id>/.../transcript.jsonl`
-(avoiding competing ACP `session/load` writes), and replay settled children
-through `session/load` only after revalidating project-eligible lineage. When several workspace URIs are listed
+Authorized descendant transcript reads serve children from their own brain
+log, whole, as other providers' subagent transcripts are read; a running
+child's log lacks the step in progress, and its missing log is an empty
+transcript. Only a settled child whose log is missing or unknown replays
+through `session/load`, after revalidating project-eligible lineage; a
+running child never does. When several workspace URIs are listed
 (`/private/tmp/x`, `/tmp/x`), the last is the cwd the client supplied and
 matches YA's project binding. Reading never sends a prompt or auth request.
 Unknown/foreign project files are not adopted. Around a native load or
@@ -346,6 +350,69 @@ store-wide files, including the summaries index
 ([measured](antigravity-native-storage.md#what-load-and-resume-write)). The `agy` 1.5.13 ACP stream and replay
 report file-read tool identity, location and status, while the file contents
 stay in native model context.
+
+### Cold history from the log
+
+Plan 195 step 4. The reader projects `brain/<id>/.system_generated/logs/transcript_full.jsonl`
+([projection](antigravity-native-storage.md#projection--plan-195-step-3),
+[windows](antigravity-native-storage.md#serving-cold-history--plan-195-step-4)).
+It never reads the shortened `transcript.jsonl`.
+
+- **Pages.** The detail route's compact-tail read returns the newest records
+  back to the requested number of checkpoints, or about 4 MiB of records,
+  whichever comes first. An older page ends before its cursor message. A
+  page holds whole records and starts at one that is not a tool result, so
+  a call and its results load together. A page whose records show nothing
+  (only reminders) extends to the page before it. Older pages report
+  `hasOlderMessages` with their first message as the cursor, as other
+  providers' pages do. A read without compact-tail options (full history,
+  restart sources) projects the whole log.
+- **Message IDs** come from step indexes: `<id>:step-<n>` with `:thinking`,
+  `:text`, or a call's `:tool-<i>:call` and `:tool-<i>:result`. A page has
+  the same IDs however it was reached. `beforeMessageId` and
+  `afterMessageId` accept each form; a `:result` names the record at step
+  P+1+*i* of planner P's call *i*. An ID from before this change (positional
+  `<id>:<n>`, or an ACP tool call ID) misses cleanly: an older page is empty
+  and reports no older history, and a catch-up gets the latest page as a
+  replacement window. A catch-up further back than one page does the same.
+- **Cost.** A page reads its own bytes plus a bounded context: at most one
+  tool group before it and one after it, a search by halves for a cursor,
+  and append-only source checks. Each read stops at 32 MiB; a spent budget
+  makes the log unknown, never shorter. A file replaced or truncated during
+  a read is read again, up to three times, then unknown. Reads are
+  read-only, start no process and take no ownership guard.
+- **Fallback.** A missing log, one with no complete record, or an unknown one
+  (any record outside the observed shapes, among the records the window
+  read) falls back to ACP `session/load` replay of the whole conversation,
+  which keeps its 8 MiB / 10,000-message limit. The fallback never starts
+  beside a live owner. Validation covers only the records a page reads, so a
+  malformed record elsewhere in the file does not affect a page that does
+  not read it.
+- **What cold history shows**, unlike replay: tool results, checkpoints,
+  `agy`'s tool names, each step's time and model, interrupted calls, and
+  `ERROR_MESSAGE` records as errors (after a Stop too, where the live view
+  just ends the turn). Inbox deliveries such as a background task's wake are
+  collapsed "System message" rows; reminders `agy` adds to the model's
+  context are not shown, as the live view and other providers' injected
+  instructions are not. A tool result's leading `Created At:` and
+  `Completed At:` lines are dropped. A 1.5.14 cancel shows one error, the
+  `ERROR_MESSAGE`, not also its planner step's `error`. Replay shows steps
+  the log lacks (database-only replies and quota errors); the log view does
+  not.
+- **Children.** An `invoke_subagent` result is shown as the `spawn_agent`
+  `{agent_id}` result that makes the row expandable with Open only when the
+  child it names is a direct child of the conversation in the summaries
+  index; calls and results pair by step, so no argument correlation is used.
+- **Title, hover and v0.** The detail title is the first prompt, read from
+  the log's first records. The hover excerpt and the v0 conversation source
+  use the latest page; an excerpt not found in it is unknown, never a full
+  read.
+
+A live YA owner still serves its own in-memory projection, with its own IDs
+(plan 195 step 6 changes that). After the owner exits, a client's catch-up
+from a live ID misses and takes the log's latest page.
+
+### Fallback replay and resume
 
 The preview uses a local in-process owner, even when the shared provider host
 is enabled. Cold resume calls native `session/load` before sending new input.
@@ -370,15 +437,15 @@ owner exit, and is never persisted as a substitute transcript. Concurrent use
 of the same conversation in a separate editor/CLI is not qualified.
 
 App browsing uses the shared catalog and provider-root watcher described below.
-Explicit native history and title reads own subprocesses; reader disposal closes
+Native title reads and fallback replays own subprocesses; reader disposal closes
 them. Because every `session/load` writes the store's summaries index, which the
-provider watcher reports and viewers refetch, a cold history read is reused
+provider watcher reports and viewers refetch, a fallback replay is reused
 until the conversation's files differ from their post-load state (at most four per project
-reader). Without this, opening a session could reload it repeatedly. Native title lookups coalesce and cache their ACP list for five seconds,
+reader). Log reads cache nothing; a refetch rereads its page. Without this, opening a session could reload it repeatedly. Native title lookups coalesce and cache their ACP list for five seconds,
 cap at 2,000 entries and refuse unsupported pagination.
 At most eight detail reads per cached reader may run concurrently. YA bounds
-the normalized history it retains to 8 MiB and 10,000 messages, and each ACP
-frame to 16 MiB. Tool fields that YA does not display do not consume the
+the normalized history a fallback replay, a resume or a live session retains
+to 8 MiB and 10,000 messages, and each ACP frame to 16 MiB. Tool fields that YA does not display do not consume the
 history budget or prevent resume. If the retained history exceeds its limit,
 YA reports the history-limit error. Larger-corpus/bounded native
 replay support is a prerequisite to removing these preview limits.
@@ -396,8 +463,9 @@ Live messages carry arrival timestamps; detail reads of a live owner see
 committed content only. `agy` echoes each submitted prompt as
 `user_message_chunk` during the turn; YA already published that turn's user
 message, so the live projection ignores the echo, while `session/load` replay
-keeps native user chunks as history. Detail reads return the complete history
-for anchored (`afterMessageId`) requests, leaving the anchor for the detail
+keeps native user chunks as history. Detail reads of live and replayed history
+return the complete history for anchored (`afterMessageId`) requests, and log
+reads return the anchor's page onward, leaving the anchor for the detail
 route to find; a pre-sliced list would read as an anchor miss and the client
 would replace its window with the tail. Native readers report no owner; a live
 YA owner, not the reader, establishes ownership.
@@ -488,7 +556,8 @@ batches of eight, and takes each one's project from the summaries index.
 Native database and WAL file facts version rows; conversation databases are
 never decoded. A row with a native title has head fidelity; one without has
 identity fidelity and no inferred title. Browsing starts no native agent, login or model prompt. Explicit
-history reads still use Google's loader and preserve the active-owner guard.
+history reads come from the brain log; their ACP fallback still uses Google's
+loader and preserves the active-owner guard.
 App-owned Antigravity session listings consume accepted catalog rows instead
 of repeating native inventories per project. Public catalog projection honors
 existing Antigravity bindings, so a discovered native UUID cannot replace an

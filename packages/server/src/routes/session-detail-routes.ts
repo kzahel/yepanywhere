@@ -48,6 +48,7 @@ import {
   sliceAtCompactAndUserTurnBoundaries,
   sliceAtCompactBoundaries,
   sliceAtUserTurnBoundary,
+  withLogPageCursor,
 } from "../sessions/pagination.js";
 import {
   type PersistedAugmentDiagnostics,
@@ -909,7 +910,8 @@ export function registerSessionDetailRoute(
     // bounded older page already ends before its requested cursor.
     const providerBoundedOlderPage =
       loadedSession.readWindow?.kind === "compact-page" ||
-      (loadedSession.readWindow?.kind === "indexed-selection" &&
+      ((loadedSession.readWindow?.kind === "indexed-selection" ||
+        loadedSession.readWindow?.kind === "log-page") &&
         loadedSession.readWindow.before);
     let paginationInfo: PaginationInfo | undefined;
     if (
@@ -972,6 +974,7 @@ export function registerSessionDetailRoute(
     // complete provider read and report older messages it trimmed itself.
     if (
       loadedSession.readWindow?.omittedPrefix &&
+      loadedSession.readWindow.kind !== "log-page" &&
       !incrementalAnchorFound &&
       (!paginationInfo?.hasOlderMessages ||
         paginationInfo.truncatedBeforeMessageId === undefined)
@@ -992,6 +995,15 @@ export function registerSessionDetailRoute(
       session = { ...session, messages: sliced.messages };
       paginationInfo = sliced.pagination;
     }
+    if (
+      loadedSession.readWindow?.kind === "log-page" &&
+      !incrementalAnchorFound
+    )
+      paginationInfo = withLogPageCursor(
+        session.messages,
+        loadedSession.readWindow.omittedPrefix,
+        paginationInfo,
+      );
     if (paginationInfo && loadedSession.projectionTotals) {
       const totals = loadedSession.projectionTotals;
       paginationInfo = {

@@ -162,7 +162,11 @@ describe("Antigravity log projection", () => {
           ),
         }),
         planner(5, { content: "WOKE" }),
-        system(6, "CHECKPOINT", {
+        user(6, "NEXT"),
+        system(7, "SYSTEM_MESSAGE", {
+          content: wrap("Reminder: work efficiently."),
+        }),
+        system(8, "CHECKPOINT", {
           input_tokens: 1,
           cache_read_tokens: 0,
           output_tokens: 1,
@@ -176,7 +180,8 @@ describe("Antigravity log projection", () => {
         "step-3:text assistant LAUNCHED",
         `step-4 informational [Message] sender=${ID}/task-2 content=Task id "${ID}/task-2" finished with result:`,
         "step-5:text assistant WOKE",
-        "step-6 compact_boundary SUMMARY",
+        "step-6 user NEXT",
+        "step-8 compact_boundary SUMMARY",
       ],
     },
     {
@@ -209,7 +214,6 @@ describe("Antigravity log projection", () => {
       expected: [
         "step-0 user C",
         "step-1:text assistant PARTIAL ",
-        "step-1:error error context canceled by user",
         "step-2 error canceled",
       ],
     },
@@ -270,6 +274,21 @@ describe("Antigravity log projection", () => {
     expect(projected.status).toBe("known");
     if (projected.status === "known")
       expect(shown(projected.messages)).toEqual(expected);
+  });
+
+  it("shows a tool's output without the time lines agy puts before it", async () => {
+    const projected = await project([
+      planner(0, calls("run_command")),
+      {
+        ...result(1),
+        content: `Created At: ${at}\nCompleted At: ${at}\nCreated At: ${at}\nCompleted At: ${at}\nexit 0\nCreated At: kept`,
+      },
+    ]);
+    expect(
+      projected.status === "known" && projected.messages[1]!.message!.content,
+    ).toEqual([
+      expect.objectContaining({ content: "exit 0\nCreated At: kept" }),
+    ]);
   });
 
   it("leaves calls open at the end running under a live owner and interrupted once stopped", async () => {

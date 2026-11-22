@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import type { AntigravityUpdate } from "../sdk/providers/antigravity-runtime.js";
-import type { Message } from "../supervisor/types.js";
 import { ANTIGRAVITY_SESSION_ID } from "./antigravity-metadata.js";
 import {
   readLinesBackwardFromHandle,
@@ -163,12 +162,20 @@ function isInsideDir(dir: string, candidate: string): boolean {
   );
 }
 
-async function openPhysicalBrainTranscript(
+/** Opens a conversation's log read-only, anchored to the physical store. */
+export async function openPhysicalBrainTranscript(
   physicalScope: string,
   conversationId: string,
   filename: "transcript.jsonl" | "transcript_full.jsonl" = "transcript.jsonl",
 ): Promise<
-  | { status: "ok"; handle: FileHandle; size: number; dev: number; ino: number }
+  | {
+      status: "ok";
+      handle: FileHandle;
+      path: string;
+      size: number;
+      dev: number;
+      ino: number;
+    }
   | { status: "missing" }
   | { status: "invalid" }
 > {
@@ -241,6 +248,7 @@ async function openPhysicalBrainTranscript(
     return {
       status: "ok",
       handle,
+      path: physicalTranscript,
       size: info.size,
       dev: info.dev,
       ino: info.ino,
@@ -1045,108 +1053,4 @@ export function correlateAntigravitySubagentCalls(
       call.typeName === launch.typeName,
   );
   return result;
-}
-
-/**
- * Bounded, read-only transcript projection from `brain/<childId>/.system_generated/logs/transcript.jsonl`
- * used while a subagent is still running so viewing a running child never
- * starts a competing ACP `session/load` subprocess that could mutate native state.
- */
-export async function readAntigravityReadOnlyTranscript(
-  physicalScope: string,
-  childId: string,
-  maxBytes = TRANSCRIPT_TAIL_POINT_BYTE_BUDGET,
-): Promise<Message[]> {
-  const opened = await openPhysicalBrainTranscript(physicalScope, childId);
-  if (opened.status !== "ok") return [];
-  const parsed: Array<{
-    stepIndex: number;
-    type: string;
-    content?: string;
-    thinking?: string;
-    model?: string;
-    createdAt?: string;
-  }> = [];
-  try {
-    for await (const batch of readLinesBackwardFromHandle(opened.handle, {
-      endByte: opened.size,
-      maxBytes,
-      label: `brain/${childId}/transcript.jsonl`,
-    })) {
-      for (const line of batch.lines) {
-        let step: unknown;
-        try {
-          step = JSON.parse(line);
-        } catch {
-          continue;
-        }
-        if (!step || typeof step !== "object") continue;
-        const r = step as Record<string, unknown>;
-        const stepIndex = r.step_index;
-        if (typeof stepIndex !== "number" || !Number.isSafeInteger(stepIndex)) {
-          continue;
-        }
-        if (r.type !== "USER_INPUT" && r.type !== "PLANNER_RESPONSE") continue;
-        parsed.push({
-          stepIndex,
-          type: r.type,
-          ...(typeof r.content === "string" && r.content
-            ? { content: r.content }
-            : {}),
-          ...(typeof r.thinking === "string" && r.thinking
-            ? { thinking: r.thinking }
-            : {}),
-          ...(typeof r.model === "string" && r.model ? { model: r.model } : {}),
-          ...(typeof r.created_at === "string" && r.created_at
-            ? { createdAt: r.created_at }
-            : {}),
-        });
-      }
-    }
-  } catch {
-    return [];
-  } finally {
-    await opened.handle.close().catch(() => {});
-  }
-  parsed.sort((a, b) => a.stepIndex - b.stepIndex);
-  const messages: Message[] = [];
-  for (const step of parsed) {
-    if (step.type === "USER_INPUT" && step.content) {
-      messages.push({
-        type: "user",
-        uuid: `${childId}:ro:${step.stepIndex}`,
-        session_id: childId,
-        ...(step.createdAt ? { timestamp: step.createdAt } : {}),
-        message: { role: "user", content: step.content },
-      });
-    } else if (step.type === "PLANNER_RESPONSE") {
-      if (step.thinking) {
-        messages.push({
-          type: "assistant",
-          uuid: `${childId}:ro:${step.stepIndex}:thinking`,
-          session_id: childId,
-          ...(step.createdAt ? { timestamp: step.createdAt } : {}),
-          message: {
-            role: "assistant",
-            ...(step.model ? { model: step.model } : {}),
-            content: [{ type: "thinking", thinking: step.thinking }],
-          },
-        });
-      }
-      if (step.content) {
-        messages.push({
-          type: "assistant",
-          uuid: `${childId}:ro:${step.stepIndex}`,
-          session_id: childId,
-          ...(step.createdAt ? { timestamp: step.createdAt } : {}),
-          message: {
-            role: "assistant",
-            ...(step.model ? { model: step.model } : {}),
-            content: step.content,
-          },
-        });
-      }
-    }
-  }
-  return messages;
 }

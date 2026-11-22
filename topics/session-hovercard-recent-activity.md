@@ -295,7 +295,10 @@ when the user expresses interest:
   version shared by concurrent callers and retained until the file changes.
   Claude first peeks its warm transcript cache. Codex re-normalizes the read
   window with the full reader's rules and the shared extractor, so its excerpt
-  equals the complete-read excerpt whenever it answers. Pi uses its own reader.
+  equals the complete-read excerpt whenever it answers. Antigravity scans the
+  latest page of its brain log back to the last checkpoint (a live session,
+  its owner's projection); a tool label answers only when that page starts
+  the log. Pi uses its own reader.
   When a text is found it emits a `session-updated` carrying `lastAgentText`.
   The result arrives at the client through the live path (not the HTTP
   response), so the row/hover updates **in place — no flicker, no whole-list
@@ -308,7 +311,7 @@ when the user expresses interest:
   Codex rollouts. The route then
   returns `lastAgentText: null`, emits nothing, and leaves the card as it was;
   it never retries with a complete read. Only providers whose readers have no
-  bounded excerpt yet (Gemini, Grok, OpenCode, Antigravity) take the named
+  bounded excerpt yet (Gemini, Grok, OpenCode) take the named
   complete read through `loadRestartSourceSession`. See
   [provider history facts](provider-history-facts.md).
 - The extraction helpers (`formatAgentExcerpt`, `assistantContentParts`,

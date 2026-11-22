@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import {
+  appendFile,
   chmod,
   mkdir,
   mkdtemp,
@@ -29,7 +30,6 @@ import {
   correlateAntigravitySubagentCalls,
   formatSpawnAgentResult,
   parseSpawnAgentResultId,
-  readAntigravityReadOnlyTranscript,
   readAntigravitySubagentLaunches,
   readAntigravityTranscriptPosition,
   readAntigravityTurnBoundary,
@@ -1236,9 +1236,6 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
     expect(
       await readAntigravitySubagentLaunches(f.conversationsDir, PARENT_ID),
     ).toEqual([]);
-    expect(
-      await readAntigravityReadOnlyTranscript(f.conversationsDir, PARENT_ID),
-    ).toEqual([]);
 
     // Symlinked transcript.jsonl escaping brain/<parentId> must be rejected.
     const outsideLog = join(f.root, "outside.jsonl");
@@ -1591,20 +1588,33 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
         content: `Created the following subagent:\n{"conversationId":"${CHILD_ID}"}`,
       },
     ]);
-    await f.writeTranscriptLog(CHILD_ID, [
-      {
-        step_index: 0,
-        type: "USER_INPUT",
+    // The child's full log; the parent and grandchild have none, so their
+    // history falls back to ACP replay.
+    const childLog = join(
+      f.brainDir,
+      CHILD_ID,
+      ".system_generated",
+      "logs",
+      "transcript_full.jsonl",
+    );
+    const childRecord = (step: number, type: string, content: string) =>
+      `${JSON.stringify({
+        step_index: step,
+        source: type === "USER_INPUT" ? "USER_EXPLICIT" : "MODEL",
+        type,
         status: "DONE",
-        content: "Inspect module",
-      },
-      {
-        step_index: 1,
-        type: "PLANNER_RESPONSE",
-        status: "DONE",
-        content: "RUNNING_READ_ONLY_PROGRESS",
-      },
-    ]);
+        created_at: "2026-11-21T17:01:00Z",
+        content,
+      })}\n`;
+    await mkdir(join(childLog, ".."), { recursive: true });
+    await writeFile(
+      childLog,
+      childRecord(
+        0,
+        "USER_INPUT",
+        "<USER_REQUEST>\nInspect module\n</USER_REQUEST>",
+      ) + childRecord(1, "PLANNER_RESPONSE", "RUNNING_LOG_PROGRESS"),
+    );
 
     const spyLog = join(f.root, "acp-loads.log");
     const listLog = join(f.root, "acp-lists.log");
@@ -1693,25 +1703,20 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       ]);
       expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeMappings);
 
-      // Running child MUST NOT start a competing ACP session/load; it serves a
-      // bounded read-only projection from brain/<childId>/.../transcript.jsonl.
+      // A running child is read from its log and never starts ACP.
       const loadsBeforeRunningChild = await readFile(spyLog, "utf8");
       const childSession = await reader.getAgentSession(CHILD_ID, PARENT_ID);
       expect(childSession?.status).toBe("running");
       expect(JSON.stringify(childSession?.messages)).toContain(
-        "RUNNING_READ_ONLY_PROGRESS",
+        "RUNNING_LOG_PROGRESS",
       );
       expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeRunningChild);
 
-      // Once settled IDLE, child replays via session/load and filters stray parent frames.
-      await f.writeTranscriptLog(CHILD_ID, [
-        {
-          step_index: 2,
-          type: "PLANNER_RESPONSE",
-          status: "DONE",
-          content: "CHILD_REPLY_TEXT",
-        },
-      ]);
+      // Once settled IDLE, the child is still read from its log.
+      await appendFile(
+        childLog,
+        childRecord(2, "PLANNER_RESPONSE", "CHILD_REPLY_TEXT"),
+      );
       const settleChild = f.db.prepare(
         "UPDATE conversation_summaries SET status = 'CASCADE_RUN_STATUS_IDLE', not_fully_idle = 0 WHERE conversation_id = ?",
       );
@@ -1724,9 +1729,10 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       expect(settledChild?.status).toBe("completed");
       const childText = JSON.stringify(settledChild?.messages);
       expect(childText).toContain("CHILD_REPLY_TEXT");
-      expect(childText).not.toContain("STRAY_PARENT_TEXT");
+      expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeRunningChild);
 
-      // Authorized nested grandchild also replays cleanly with completed status.
+      // A grandchild without a log replays through ACP, and filters stray
+      // parent frames, with completed status.
       const grandchildSession = await reader.getAgentSession(
         GRANDCHILD_ID,
         PARENT_ID,
@@ -1751,7 +1757,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeReparentCheck);
 
       // Reparenting mid-read (between initial lineage check and session/load)
-      // must abort before calling session/load.
+      // must abort the fallback before calling session/load.
       const restoreChild = f.db.prepare(
         "UPDATE conversation_summaries SET parent_conversation_id = ? WHERE conversation_id = ?",
       );
@@ -1760,7 +1766,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       } finally {
         restoreChild.finalize();
       }
-      // Clear coldReads so CHILD_ID would otherwise have to run session/load.
+      // Clear coldReads so GRANDCHILD_ID would otherwise run session/load.
       (
         reader as unknown as { coldReads: Map<string, unknown> }
       ).coldReads.clear();
@@ -1778,7 +1784,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
             "UPDATE conversation_summaries SET parent_conversation_id = ? WHERE conversation_id = ?",
           );
           try {
-            reparentMidFlight.run(OTHER_PARENT_ID, CHILD_ID);
+            reparentMidFlight.run(OTHER_PARENT_ID, GRANDCHILD_ID);
           } finally {
             reparentMidFlight.finalize();
           }
@@ -1786,7 +1792,9 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
         });
       try {
         const loadsBeforeMidFlight = await readFile(spyLog, "utf8");
-        expect(await reader.getAgentSession(CHILD_ID, PARENT_ID)).toBeNull();
+        expect(
+          await reader.getAgentSession(GRANDCHILD_ID, PARENT_ID),
+        ).toBeNull();
         expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeMidFlight);
       } finally {
         metadataSpy.mockRestore();
@@ -2000,11 +2008,25 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
         // Unset CLOUD_CODE_URL while GEMINI_HOME still points to f.root: `agy`
         // no longer passes `--gemini-dir`, so reader AND live namespace MUST
         // derive the OS-home store (never f.root) and refuse cold replay!
+        // The reader's own log, read without `agy`, is unaffected.
         (
           reader as unknown as { coldReads: Map<string, unknown> }
         ).coldReads.clear();
         vi.stubEnv("CLOUD_CODE_URL", "");
-        expect(await reader.getAgentSession(CHILD_ID, PARENT_ID)).toBeNull();
+        const restoreGrandchild = f.db.prepare(
+          "UPDATE conversation_summaries SET parent_conversation_id = ? WHERE conversation_id = ?",
+        );
+        try {
+          restoreGrandchild.run(CHILD_ID, GRANDCHILD_ID);
+        } finally {
+          restoreGrandchild.finalize();
+        }
+        expect(
+          await reader.getAgentSession(GRANDCHILD_ID, PARENT_ID),
+        ).toBeNull();
+        expect(
+          JSON.stringify(await reader.getAgentSession(CHILD_ID, PARENT_ID)),
+        ).toContain("CHILD_REPLY_TEXT");
         expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeStoreB);
         const { antigravitySessionsDir } = await import(
           "../../src/sdk/providers/antigravity-runtime.js"
@@ -2038,7 +2060,8 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
           )
           .mockImplementation(async (id: string) => {
             metaCalls++;
-            // Call 1 is pre-load metadata(CHILD_ID); Call 2 is post-load metadata(CHILD_ID).
+            // Call 1 is pre-load metadata(GRANDCHILD_ID), which has no log;
+            // Call 2 is post-load metadata(GRANDCHILD_ID).
             if (metaCalls === 2) {
               await unlink(rebindLink);
               await symlink(storeB.conversationsDir, rebindLink);
@@ -2056,7 +2079,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
             fixB.finalize();
           }
           expect(
-            await rebindReader.getAgentSession(CHILD_ID, PARENT_ID),
+            await rebindReader.getAgentSession(GRANDCHILD_ID, PARENT_ID),
           ).toBeNull();
           // coldReads MUST NOT contain any entry for Store B!
           expect(
@@ -2104,6 +2127,136 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       } finally {
         await rebindReader.close();
       }
+    } finally {
+      await reader.close();
+    }
+  });
+
+  it("reopens a stopped parent and child from their logs with verified, expandable child links", async () => {
+    if (process.platform === "win32") return;
+    const f = await createSubagentFixture();
+    // No runtime: any fallback to ACP replay would fail this test.
+    vi.stubEnv("ANTIGRAVITY_ACP_PATH", join(f.root, "missing-agy"));
+    const at = "2026-11-21T17:00:00Z";
+    const writeLog = async (id: string, records: object[]) => {
+      const logs = join(f.brainDir, id, ".system_generated", "logs");
+      await mkdir(logs, { recursive: true });
+      await writeFile(
+        join(logs, "transcript_full.jsonl"),
+        records.map((record) => `${JSON.stringify(record)}\n`).join(""),
+      );
+    };
+    const created = (child: string) =>
+      `Created At: ${at}\nCompleted At: ${at}\nCreated the following subagent:\n{\n  "conversationId": "${child}"\n}`;
+    const record = (step: number, type: string, fields: object) => ({
+      step_index: step,
+      source:
+        type === "USER_INPUT"
+          ? "USER_EXPLICIT"
+          : type === "SYSTEM_MESSAGE"
+            ? "SYSTEM"
+            : "MODEL",
+      type,
+      status: "DONE",
+      created_at: at,
+      ...fields,
+    });
+    const invoke = (role: string) => ({
+      name: "invoke_subagent",
+      args: { Role: role, TypeName: "research", Prompt: "Inspect module" },
+    });
+    await writeLog(PARENT_ID, [
+      record(0, "USER_INPUT", {
+        content: "<USER_REQUEST>\nDelegate\n</USER_REQUEST>",
+      }),
+      record(1, "PLANNER_RESPONSE", {
+        tool_calls: [
+          invoke("Code Researcher"),
+          invoke("Denied"),
+          invoke("Foreign"),
+        ],
+      }),
+      record(2, "GENERIC", { content: created(CHILD_ID) }),
+      {
+        ...record(3, "GENERIC", { content: created(GRANDCHILD_ID) }),
+        status: "ERROR",
+      },
+      record(4, "GENERIC", { content: created(FOREIGN_CHILD_ID) }),
+      record(5, "PLANNER_RESPONSE", { content: "PARENT_DONE" }),
+    ]);
+    await writeLog(CHILD_ID, [
+      record(0, "USER_INPUT", {
+        content: "<USER_REQUEST>\nInspect module\n</USER_REQUEST>",
+      }),
+      record(1, "PLANNER_RESPONSE", { content: "CHILD_LOG_REPLY" }),
+    ]);
+    for (const id of [PARENT_ID, CHILD_ID, OTHER_PARENT_ID, FOREIGN_CHILD_ID])
+      await writeFile(join(f.conversationsDir, `${id}.db`), id);
+    const row = (id: string, title: string, parent: string, depth: number) =>
+      f.insert.run(
+        id,
+        title,
+        f.projectUri,
+        parent ? "research" : "",
+        parent,
+        depth,
+        "CASCADE_RUN_STATUS_IDLE",
+        0,
+        0,
+        "2026-11-21 17:00:00+00:00",
+      );
+    row(PARENT_ID, "Parent", "", 0);
+    row(CHILD_ID, "Child", PARENT_ID, 1);
+    row(OTHER_PARENT_ID, "Other", "", 0);
+    row(FOREIGN_CHILD_ID, "Foreign", OTHER_PARENT_ID, 1);
+
+    const reader = new AntigravitySessionReader({
+      projectPath: f.project,
+      sessionsDir: f.conversationsDir,
+    });
+    try {
+      const loaded = await reader.getSession(
+        PARENT_ID,
+        toUrlProjectId(f.project),
+        undefined,
+        { tailCompactions: 2 },
+      );
+      const results = new Map(
+        loaded!.data.session.messages.flatMap((message) =>
+          Array.isArray(message.message?.content)
+            ? message.message.content.flatMap((block) =>
+                block.type === "tool_result"
+                  ? [[block.tool_use_id, block.content]]
+                  : [],
+              )
+            : [],
+        ),
+      );
+      const tool = (i: number) => `${PARENT_ID}:step-1:tool-${i}`;
+      // The verified child renders expandable, with Open; a failed call and a
+      // child of another conversation keep their native text.
+      expect(JSON.parse(String(results.get(tool(0))))).toEqual({
+        agent_id: CHILD_ID,
+        nickname: "Code Researcher",
+      });
+      expect(parseSpawnAgentResultId(results.get(tool(1)))).toBeUndefined();
+      expect(parseSpawnAgentResultId(results.get(tool(2)))).toBeUndefined();
+      expect(String(results.get(tool(2)))).toContain(FOREIGN_CHILD_ID);
+      expect(await reader.getAgentMappings(PARENT_ID)).toEqual([
+        {
+          toolUseId: tool(0),
+          agentId: CHILD_ID,
+          agentType: "research",
+          description: "Code Researcher",
+          spawnDepth: 1,
+        },
+      ]);
+      const child = await reader.getAgentSession(CHILD_ID, PARENT_ID);
+      expect(child?.status).toBe("completed");
+      expect(JSON.stringify(child?.messages)).toContain("CHILD_LOG_REPLY");
+      expect(
+        await reader.getAgentSession(FOREIGN_CHILD_ID, PARENT_ID),
+      ).toBeNull();
     } finally {
       await reader.close();
     }

@@ -23,7 +23,7 @@ export interface AntigravityLogLine {
 const strictUtf8 = new TextDecoder("utf-8", { fatal: true });
 
 /** Decodes without a second pass unless a replacement character appears. */
-function decodeLine(
+export function decodeAntigravityLogLine(
   bytes: Buffer,
 ): Pick<AntigravityLogLine, "text" | "invalidUtf8"> {
   const text = bytes.toString("utf8");
@@ -53,7 +53,7 @@ export async function* antigravityLogLines(
       newline = bytes.indexOf(10, from)
     ) {
       const line = bytes.subarray(from, newline);
-      const decoded = decodeLine(
+      const decoded = decodeAntigravityLogLine(
         pending.length ? Buffer.concat([...pending, line]) : line,
       );
       const end = position + newline;
@@ -183,6 +183,11 @@ const USER_TRAILER =
 const SYSTEM_OPEN =
   "The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.\n\n<SYSTEM_MESSAGE>\n";
 const SYSTEM_CLOSE = "\n</SYSTEM_MESSAGE>";
+
+/** `agy`'s inbox delivery, as a wake and a notice begin. */
+const INBOX_MESSAGE = "[Message] ";
+/** The time lines `agy` puts before a tool's output; the step has its time. */
+const RESULT_TIMES = /^(?:(?:Created|Completed) At: [^\n]*\n)+/;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -510,7 +515,7 @@ export class AntigravityLogProjection {
               {
                 type: "tool_result",
                 tool_use_id: id,
-                content: record.content,
+                content: record.content.replace(RESULT_TIMES, ""),
                 is_error: record.status === "ERROR",
               },
             ],
@@ -602,16 +607,15 @@ export class AntigravityLogProjection {
             }),
           );
         });
-        if (record.error)
-          this.push({
-            type: "error",
-            uuid: id("error"),
-            timestamp,
-            error: record.error,
-          });
+        // `error` was observed only on a 1.5.14 cancel, whose ERROR_MESSAGE
+        // step reports the same cause; one row per turn end is shown.
         return;
       }
       case "SYSTEM_MESSAGE":
+        // Reminders `agy` adds to the model's context are not shown, as the
+        // live view and other providers' injected instructions are not. An
+        // inbox delivery, such as a task's wake, explains the reply after it.
+        if (!record.content.startsWith(INBOX_MESSAGE)) return;
         this.push({
           type: "system",
           subtype: "informational",

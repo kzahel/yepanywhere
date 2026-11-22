@@ -1,11 +1,15 @@
 # Antigravity history is size-limited and replay ownership is process-local
 
-Opening a stopped root conversation, even for its latest messages, and resuming
-it both use ACP `session/load`. That operation streams the whole conversation
+Since plan 195 step 4, opening a stopped conversation reads a bounded page of
+its brain log and starts no `agy`
+([cold history from the log](../topics/antigravity.md#cold-history-from-the-log)).
+Resuming it, and the fallback for a missing or unknown log, still use ACP
+`session/load`. That operation streams the whole conversation
 and writes store-wide native files. Snapshots around a load of a stopped
 conversation found its database content and log unchanged. YA's bounded native tail read checks
-that replay reached the saved text. YA still accumulates normalized history in
-memory and rejects replay beyond 8 MiB or 10,000 messages. The live projection
+that replay reached the saved text. For resume and the fallback, YA still
+accumulates normalized history in memory and rejects replay beyond 8 MiB or
+10,000 messages. The live projection
 has the same cap. The limits apply to what YA retains, so the native database's
 size alone cannot tell whether a session fits. See the
 [reader](../packages/server/src/sessions/antigravity-reader.ts#L359),
@@ -44,7 +48,9 @@ Replay completion for ambiguous tails has its own gap.
 
 Plan 195 step 2 reproduced both limits with the controlled peer, as tests
 named "today: …" in `antigravity.test.ts`: a replay over 8 MiB fails open and
-resume, and a live session that passes the cap is stopped mid-turn. It also
+resume, and a live session that passes the cap is stopped mid-turn. Step 4
+flipped the open half: a history over 8 MiB opens and pages from the log
+with no `session/load`. It also
 measured real `agy` 1.5.13 and 1.5.14 on a 7,261-step compacted
 conversation: `session/resume` answered in 37 ms with no replayed history
 and kept the compacted context. The ownership races remain unreproduced.

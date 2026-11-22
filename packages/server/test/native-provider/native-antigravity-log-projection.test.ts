@@ -1,6 +1,11 @@
+import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { join, relative } from "node:path";
+import { toUrlProjectId } from "@yep-anywhere/shared";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { AntigravityRuntime } from "../../src/sdk/providers/antigravity-runtime.js";
+import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { prepareQueuedCompaction } from "../../src/routes/session-input-admission.js";
 import {
   antigravityLogLines,
@@ -10,6 +15,24 @@ import type { Message } from "../../src/supervisor/types.js";
 import { compareProjectionWithReplay } from "../utils/antigravity-projection-compare.js";
 import { nativeFixture } from "./fixture.js";
 import { providers } from "./selection.js";
+
+/** Size, modification time and SHA-256 of every file under a directory. */
+async function snapshot(root: string): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  for (const entry of await readdir(root, {
+    recursive: true,
+    withFileTypes: true,
+  })) {
+    if (!entry.isFile()) continue;
+    const path = join(entry.parentPath, entry.name);
+    const info = await stat(path);
+    const hash = createHash("sha256")
+      .update(await readFile(path))
+      .digest("hex");
+    files[relative(root, path)] = `${info.size} ${info.mtimeMs} ${hash}`;
+  }
+  return files;
+}
 
 let fixture: Awaited<ReturnType<typeof nativeFixture>> | undefined;
 afterEach(async () => {
@@ -99,6 +122,55 @@ describe.skipIf(!providers.includes("antigravity"))(
       await f.idle();
       await f.stop();
       const id = f.nativeId();
+      const store = join(f.environment.GEMINI_HOME!, "antigravity-cli");
+
+      // Viewing the stopped conversation reads its log: it starts no agy and
+      // leaves every file in the store as it was.
+      const before = await snapshot(store);
+      const launches = vi.spyOn(AntigravityRuntime.prototype, "connect");
+      const viewer = new AntigravitySessionReader({ projectPath: f.project });
+      let viewed: Message[];
+      try {
+        const projectId = toUrlProjectId(f.project);
+        const latest = await viewer.getSession(id, projectId, undefined, {
+          tailCompactions: 1,
+        });
+        expect(latest?.readWindow).toMatchObject({
+          kind: "log-page",
+          omittedPrefix: true,
+        });
+        const messagesOf = (loaded: typeof latest) =>
+          (loaded!.data.session as { messages: Message[] }).messages;
+        const latestMessages = messagesOf(latest);
+        expect(latestMessages[0]?.subtype).toBe("compact_boundary");
+        const older = await viewer.getSession(id, projectId, undefined, {
+          tailCompactions: 1,
+          beforeMessageId: latestMessages[0]!.uuid,
+        });
+        expect(older?.readWindow).toMatchObject({ omittedPrefix: false });
+        viewed = [...messagesOf(older), ...latestMessages];
+        expect(await viewer.getLastAgentExcerpt(id)).toBe("LAST_DONE");
+        expect(await viewer.getAgentMappings(id)).toEqual([]);
+        expect(JSON.stringify(await f.history())).toContain("LAST_DONE");
+      } finally {
+        await viewer.close();
+        launches.mockRestore();
+      }
+      expect(launches).not.toHaveBeenCalled();
+      // YA's read-only SQLite open of the summaries index creates the empty
+      // WAL and shared-memory files SQLite needs, as every listing already
+      // did (gaps/antigravity-summaries-read-creates-sqlite-sidecars.md).
+      // Nothing else in the store may differ.
+      const afterView = await snapshot(store);
+      const sidecars = [
+        "conversation_summaries.db-wal",
+        "conversation_summaries.db-shm",
+      ];
+      for (const name of sidecars)
+        if (!(name in before)) delete afterView[name];
+      expect(afterView[sidecars[0]!] ?? "0 ").toMatch(/^0 /);
+      expect(afterView).toEqual(before);
+
       const projected = await projectAntigravityLog(
         antigravityLogLines(
           createReadStream(
@@ -116,9 +188,20 @@ describe.skipIf(!providers.includes("antigravity"))(
         { conversationId: id, ownerLive: false },
       );
       if (projected.status !== "known") throw Error(projected.reason);
-      const replay = (
-        (await f.history())!.data.session as { messages: Message[] }
-      ).messages;
+      expect(viewed).toEqual(projected.messages);
+      const replayReader = new AntigravitySessionReader({
+        projectPath: f.project,
+        historySource: "acp-replay",
+      });
+      let replay: Message[];
+      try {
+        replay = (
+          (await replayReader.getSession(id, toUrlProjectId(f.project)))!.data
+            .session as { messages: Message[] }
+        ).messages;
+      } finally {
+        await replayReader.close();
+      }
       const compared = compareProjectionWithReplay(projected.messages, replay);
       expect(compared.mismatches).toEqual([]);
       expect(compared.replay.map((item) => item.kind)).toEqual([

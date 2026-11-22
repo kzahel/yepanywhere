@@ -362,6 +362,29 @@ export function sliceAtCompactBoundaries(
 }
 
 /**
+ * A provider log page that omitted older records reports them even when it
+ * holds fewer compact boundaries than requested, as a page cut by bytes does.
+ * Its first message's ID names its record, so it is the older-page cursor.
+ */
+export function withLogPageCursor(
+  messages: Message[],
+  omittedPrefix: boolean,
+  pagination: PaginationInfo | undefined,
+): PaginationInfo | undefined {
+  const firstId = messages[0] ? getMessageId(messages[0]) : undefined;
+  if (!omittedPrefix || pagination?.hasOlderMessages || !firstId)
+    return pagination;
+  return {
+    totalMessageCount: messages.length,
+    returnedMessageCount: messages.length,
+    totalCompactions: messages.filter(isCompactBoundary).length,
+    ...pagination,
+    hasOlderMessages: true,
+    truncatedBeforeMessageId: firstId,
+  };
+}
+
+/**
  * Slice messages to a recent user-turn window, or to a caller-chosen user turn.
  *
  * This is intentionally more aggressive than compact-boundary pagination: it is

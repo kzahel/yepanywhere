@@ -477,17 +477,18 @@ suffix and two with a gap, beside 23,481 complete groups.
 
 [`antigravity-log-projection.ts`](../packages/server/src/sessions/antigravity-log-projection.ts)
 turns `transcript_full.jsonl` records into the messages the Antigravity
-reader returns. No reader uses it yet; plan 195 step 4 wires it.
+reader returns. Since [step 4](#serving-cold-history--plan-195-step-4) it
+serves cold history.
 
 ### What each record becomes
 
 | Record | Messages, by ID |
 | --- | --- |
 | `USER_INPUT` | `<id>:step-<n>`: user text, the `<USER_REQUEST>` block's content without the newlines that wrap it. Literal tags inside the text are kept. The `<ADDITIONAL_METADATA>` and `<USER_SETTINGS_CHANGE>` blocks after it are dropped, as ACP replay drops them. |
-| `PLANNER_RESPONSE` | `<id>:step-<n>:thinking`, then `<id>:step-<n>:text`, each present only when non-empty, both with the record's `model`. Then call *i*'s `tool_use`, ID `<id>:step-<n>:tool-<i>`, in message `<tool id>:call`, under `agy`'s tool name and its `args` as input; `invoke_subagent` becomes `spawn_agent` with the input YA already normalizes for it. An `error` field adds an `error` message `<id>:step-<n>:error`. |
-| `GENERIC` | `<tool id>:result`: a `tool_result` for its call, with the record's `content` unchanged (including `agy`'s `Created At:` lines) and `is_error` for status `ERROR`. A `RUNNING` launch is a normal result. |
+| `PLANNER_RESPONSE` | `<id>:step-<n>:thinking`, then `<id>:step-<n>:text`, each present only when non-empty, both with the record's `model`. Then call *i*'s `tool_use`, ID `<id>:step-<n>:tool-<i>`, in message `<tool id>:call`, under `agy`'s tool name and its `args` as input; `invoke_subagent` becomes `spawn_agent` with the input YA already normalizes for it. An `error` field adds no message (step 4): it was seen only on a 1.5.14 cancel, whose `ERROR_MESSAGE` reports the same cause. |
+| `GENERIC` | `<tool id>:result`: a `tool_result` for its call, with the record's `content` after its leading `Created At:` and `Completed At:` lines (step 4; often two pairs), and `is_error` for status `ERROR`. A `RUNNING` launch is a normal result. |
 | Missing result step | No message. The call's `tool_use` message carries `orphanedToolUseIds` with its ID, which clients show as an incomplete call whose result is unavailable. |
-| `SYSTEM_MESSAGE` | `<id>:step-<n>`: an `informational` system message labelled "System message", with the text inside `<SYSTEM_MESSAGE>` as its detail. Wakes and reminders both appear this way. |
+| `SYSTEM_MESSAGE` | An inbox delivery, whose text inside `<SYSTEM_MESSAGE>` begins `[Message] ` (a task's wake, a notice): `<id>:step-<n>`, an `informational` system message labelled "System message" with that text as its detail. Any other system message, such as the reminder that accompanies most user turns, adds no message (step 4). |
 | `CHECKPOINT` | `<id>:step-<n>`: a `compact_boundary` with the record's content as `compactSummaryText`, as Codex readers mark compaction. |
 | `ERROR_MESSAGE` | `<id>:step-<n>`: an `error` message with the record's `error`. |
 
@@ -542,8 +543,8 @@ the windows of a log together produce exactly the whole log's messages; a
 test checks this at every record boundary of a generated log with both
 interrupted-group shapes.
 
-What the reader in step 4 must add, because a window's messages are
-rendered on their own:
+What the reader must add, because a window's messages are rendered on their
+own ([step 4](#serving-cold-history--plan-195-step-4) does each):
 
 - **A call and its result must load together.** The shared client
   projection drops a `tool_result` whose `tool_use` is not in the loaded
@@ -629,7 +630,8 @@ comparison removes results by design, so these counts, not the comparison,
 establish it.
 
 YA's own replay check rejected four of the twelve replays ("saved replay
-tail did not arrive"), so YA cannot open those conversations cold today:
+tail did not arrive"), so YA could not open those conversations cold before
+[step 4](#serving-cold-history--plan-195-step-4), which opens them from the log:
 three whose replay joins a database-only reply to the log's last text, and
 one whose last text is a `USER_INPUT`, which the check compares with its
 whole wrapped content. See the
@@ -666,6 +668,71 @@ messages) and peaked at 1.9 GB resident. The reviewer's run of 1,935 windows of
 at most 256 KiB over the same log produced the same counts at 162 MB peak
 resident.
 
+## Serving cold history — plan 195 step 4
+
+[`antigravity-log-window.ts`](../packages/server/src/sessions/antigravity-log-window.ts)
+reads one window of `transcript_full.jsonl` for the reader; the
+[provider contract](antigravity.md#cold-history-from-the-log) owns what users
+see. A window:
+
+- **Latest page.** Reads lines backward from the last newline (an
+  unterminated tail is not a record) until the requested checkpoint, the
+  file's start, or 4 MiB, then backs off to the oldest record read that is
+  not a `GENERIC`, so a page never starts inside a tool group. A single
+  record or group larger than the page is read whole.
+- **Context.** Reads back further to the last record that is not a
+  `GENERIC` (at most *k*+1 records) and observes it, as the
+  [window rule](#windows) requires. A page that ends inside a group observes
+  forward until the group resolves.
+- **Cursor.** Finds a message's record by halving the byte range on the
+  `{"step_index":N,` prefix every observed record begins with (a record
+  without it is unknown), then reading forward below 256 KiB. The older page
+  includes the cursor's own record and is cut before the cursor message, so
+  every ID form ends a page exactly, including a `:result` and a later part
+  of a planner record.
+- **Budget and identity.** One request reads at most 32 MiB, counting
+  context, search, lookahead and probes; a spent budget is unknown. Before
+  reading it takes the
+  [append-only fence](claude.md#transcript-acquisition-and-retention)
+  the Claude and Codex readers use (device, inode, size, and the first and
+  last KiB); afterwards a file whose identity changed, that shrank, or whose
+  probes differ is read again, up to three attempts, then unknown. Appends
+  during a read are fine: the window ends at the size it opened.
+- **Missing.** No file, an empty file or no complete record.
+
+Measured 2026-11-22 on one macOS arm64 host, Node 24.22.1, on the generated
+500 MB target (499,969,963 bytes, 99,990 records, 49 checkpoints,
+`--interrupted-group-every 30000 --interior-gap-group-every 40000`), with two
+checkpoints requested:
+
+| Window | Bytes read | Messages | Time |
+| --- | ---: | ---: | ---: |
+| Latest page | 5,312,512 | 1,247 | 7–13 ms |
+| The page before it | 6,558,136 | 1,293 | 9–10 ms |
+| The next older page | 6,230,456 | 1,337 | 9–11 ms |
+| Catch-up from the newest message | 1,244,607 | 7 | 1–2 ms |
+| A cursor its record lacks (a miss) | 6,164,960 | 0 | 9 ms |
+| The whole log (a complete read) | 500,039,595 | 156,614 | 670–745 ms, 845–876 MB resident |
+
+A page reads about its 4 MiB plus one read chunk (up to 1 MiB); a cursor
+adds about 30 probes of one record each. The unit test asserts the first
+three rows' bounds on this target.
+
+All 12 logs in this host's store read as known. Paging backward with two
+checkpoints a page gave exactly each whole-log projection, including the
+four conversations YA's replay check refused (`0e5ebad0`, `15572d7f`,
+`e6f567af`, `940db741`), which now open from the log. A latest page there
+read 4.8 KB to 2.2 MB.
+
+The real-`agy` [native case](../packages/server/test/native-provider/native-antigravity-log-projection.test.ts)
+views its stopped conversation (latest page, older page, hover excerpt,
+child mappings and a full read) and checks that no `agy` starts and that
+every file in the store keeps its size, modification time and SHA-256, with
+one exception: YA's read-only open of the summaries index creates the empty
+`-wal` and the `-shm` that SQLite needs when `agy` has removed them. That
+predates step 4 and every listing does it
+([gap](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md)).
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
@@ -686,18 +753,19 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | --- | --- | --- |
 | [Catalog adapter and metadata](../packages/server/src/sessions/antigravity-metadata.ts) | `conversations/<id>.db` and `-wal` file facts | Discovery and source versions. The database is never opened. |
 | [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
-| `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a cold replay must reach. |
+| [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
+| `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay or a resume must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
-| `readAntigravityReadOnlyTranscript` | `transcript.jsonl` | The transcript of a running child: text and thinking only. |
 | [Compaction check](../packages/server/src/sdk/providers/antigravity-compaction.ts) | `transcript.jsonl` | A new completed `CHECKPOINT` confirms `/compact`. |
-| [Log projection](../packages/server/src/sessions/antigravity-log-projection.ts) | `transcript_full.jsonl`, from the caller | Messages from records ([step 3](#projection--plan-195-step-3)). Not used by any reader yet. |
+| [Log projection](../packages/server/src/sessions/antigravity-log-projection.ts) | `transcript_full.jsonl`, from the log window | Messages from records ([step 3](#projection--plan-195-step-3)). |
 
-The named log readers are in
+The other named log readers are in
 [`antigravity-subagent-links.ts`](../packages/server/src/sessions/antigravity-subagent-links.ts)
-and each read is bounded to 4 MiB. The projection reads nothing itself. Root history, cold or live, does not come
-from the log: it comes from ACP `session/load` or the live owner's in-memory
-projection, as [identity and history](antigravity.md#identity-and-history)
+and each read is bounded to 4 MiB. The projection reads nothing itself.
+Cold history, root and child, comes from the log; a live session's from its
+owner's in-memory projection; and ACP `session/load` replay only when a log
+is missing or unknown, as [identity and history](antigravity.md#identity-and-history)
 describes. [Provider history facts](provider-history-facts.md#consumers) lists
 these readers among YA's history consumers.
 

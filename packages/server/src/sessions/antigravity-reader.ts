@@ -27,7 +27,23 @@ import {
 import { loadAntigravityReplay } from "../sdk/providers/antigravity-replay.js";
 import { AntigravityTranscript } from "../sdk/providers/antigravity-transcript.js";
 import { getProjectIdentityKey, isAbsolutePath } from "../projects/paths.js";
+import { getLogger } from "../logging/logger.js";
 import { AntigravityChildSourceOwner } from "./antigravity-child-source.js";
+import {
+  antigravityLogRequest,
+  antigravityLogSpawnCalls,
+  linkAntigravityLogChildren,
+} from "./antigravity-log-history.js";
+import {
+  type AntigravityLogWindow,
+  type AntigravityLogWindowRequest,
+  readAntigravityLogWindow,
+} from "./antigravity-log-window.js";
+import {
+  extractLastAgentExcerpt,
+  scanAgentExcerpt,
+  toolExcerpt,
+} from "./agent-excerpt.js";
 import {
   ANTIGRAVITY_SESSION_ID,
   readAntigravityMetadata,
@@ -36,7 +52,6 @@ import {
   type AntigravitySubagentCall,
   correlateAntigravitySubagentCalls,
   parseSpawnAgentResultId,
-  readAntigravityReadOnlyTranscript,
   readAntigravitySubagentLaunches,
 } from "./antigravity-subagent-links.js";
 import {
@@ -50,7 +65,11 @@ import type { AgentMapping } from "./reader.js";
 import { catalogProjectIdentity } from "./catalog-adapters/row.js";
 import { AntigravitySessionCatalogAdapter } from "./catalog-adapters/antigravity-catalog-adapter.js";
 import type { SessionCatalogRow } from "./catalog-types.js";
-import type { ISessionReader, LoadedSession } from "./types.js";
+import type {
+  GetSessionOptions,
+  ISessionReader,
+  LoadedSession,
+} from "./types.js";
 
 interface NativeListEntry {
   sessionId: string;
@@ -58,7 +77,8 @@ interface NativeListEntry {
   updatedAt?: string;
 }
 
-/** Read Google's native ACP store through its own replay API, never a YA transcript.
+/** Read Google's native store: history from `agy`'s brain log, a page at a
+ * time, and ACP `session/load` replay only when the log is missing or unknown.
  * No background watcher or polling: bounded reads are owned by explicit interest.
  */
 export class AntigravitySessionReader implements ISessionReader {
@@ -71,9 +91,9 @@ export class AntigravitySessionReader implements ISessionReader {
   };
   private listCache?: { scope: string; at: number; rows: NativeListEntry[] };
   private details = new Map<string, Promise<LoadedSession | null>>();
-  // Native session/load rewrites the conversation files, which the provider
-  // watcher reports as a change and viewers refetch. Reuse a cold read until
-  // the files differ from their post-load state, so reading cannot loop.
+  // The ACP fallback's session/load writes the store's summaries index, which
+  // the provider watcher reports as a change and viewers refetch. Reuse a
+  // replay until the files differ from their post-load state, so it cannot loop.
   private coldReads = new Map<
     string,
     {
@@ -101,12 +121,17 @@ export class AntigravitySessionReader implements ISessionReader {
     readonly Readonly<SessionCatalogRow>[]
   >;
 
+  /** Reads only through ACP replay: for comparing it with the log. */
+  private readonly replayOnly: boolean;
+
   constructor(options: {
     projectPath: string;
     sessionsDir?: string;
     nativeStorageScope?: string;
     catalogRows?: () => Promise<readonly Readonly<SessionCatalogRow>[]>;
+    historySource?: "log" | "acp-replay";
   }) {
+    this.replayOnly = options.historySource === "acp-replay";
     this.catalogRows = options.catalogRows;
     this.projectPath = options.projectPath;
     this.directory =
@@ -359,21 +384,68 @@ export class AntigravitySessionReader implements ISessionReader {
   async getSession(
     id: string,
     projectId: UrlProjectId,
-    _afterMessageId?: string,
+    afterMessageId?: string,
+    options?: GetSessionOptions,
   ): Promise<LoadedSession | null> {
-    const key = `${projectId}:${id}`;
+    const request = antigravityLogRequest(afterMessageId, options);
+    const key = `${projectId}:${id}:${JSON.stringify(request)}`;
     let pending = this.details.get(key);
     if (!pending) {
       this.assertReadCapacity();
-      pending = this.readSession(id, projectId);
+      pending = this.readSession(id, projectId, request);
       this.details.set(key, pending);
       void pending.finally(() => this.details.delete(key)).catch(() => {});
     }
-    // Return the whole history even for `afterMessageId`: the detail route
-    // slices after the anchor itself, and a pre-sliced list hides that anchor,
-    // which the route reports as a miss and the client applies as a
-    // replacement window, dropping earlier turns.
+    // An `afterMessageId` read includes the anchor: the detail route slices
+    // after it, and a list without it reads as an anchor miss, which the
+    // client applies as a replacement window.
     return pending;
+  }
+
+  /**
+   * One window of a stopped conversation's log, with its verified children
+   * linked. Unknown and missing logs are logged and returned for the caller's
+   * fallback; a read error is an unknown log.
+   */
+  private async readLog(
+    scope: string,
+    id: string,
+    request: AntigravityLogWindowRequest,
+    ownerLive: boolean,
+  ): Promise<AntigravityLogWindow> {
+    let window: AntigravityLogWindow;
+    try {
+      window = this.replayOnly
+        ? { status: "missing", bytesRead: 0 }
+        : await readAntigravityLogWindow({
+            scope,
+            conversationId: id,
+            ownerLive,
+            request,
+          });
+    } catch (error) {
+      window = {
+        status: "unknown",
+        reason: "the read failed",
+        error,
+        bytesRead: 0,
+      };
+    }
+    if (window.status === "unknown")
+      getLogger().info(
+        { conversationId: id, reason: window.reason, error: window.error },
+        "Antigravity log unknown; history falls back to ACP replay",
+      );
+    if (
+      window.status === "known" &&
+      antigravityLogSpawnCalls(window.messages)
+    ) {
+      const children = new Set<string>();
+      for (const row of this.readVerifiedDescendantsSync(scope, id).values())
+        if (row.parentConversationId === id) children.add(row.conversationId);
+      linkAntigravityLogChildren(window.messages, children);
+    }
+    return window;
   }
 
   private getSummariesReader(scope: string): AntigravitySummariesReader {
@@ -632,9 +704,44 @@ export class AntigravitySessionReader implements ISessionReader {
   private async readSession(
     id: string,
     projectId: UrlProjectId,
+    request: AntigravityLogWindowRequest,
   ): Promise<LoadedSession | null> {
     const metadata = await this.metadata(id);
     if (!metadata || metadata.isChild) return null;
+    // A live owner serves its own projection (plan 195 step 6 changes that).
+    const window = antigravityLiveHistory(metadata.scope, id)
+      ? undefined
+      : await this.readLog(metadata.scope, id, request, false);
+    if (window?.status === "known") {
+      const summary = await this.summary(id, projectId);
+      if (!summary) return null;
+      const { messages } = window;
+      if (window.firstPrompt !== undefined) {
+        summary.title = window.firstPrompt.slice(0, 120);
+        summary.fullTitle = window.firstPrompt;
+      }
+      summary.messageCount = messages.length;
+      const model = [...messages]
+        .reverse()
+        .find(
+          (message) => message.type === "assistant" && message.message?.model,
+        )?.message?.model;
+      summary.model = typeof model === "string" ? model : undefined;
+      return {
+        summary,
+        transcriptSnapshotUpdatedAt: metadata.info.mtime.toISOString(),
+        ...(request.kind === "complete"
+          ? {}
+          : {
+              readWindow: {
+                kind: "log-page" as const,
+                omittedPrefix: window.omittedPrefix,
+                before: request.kind === "before",
+              },
+            }),
+        data: { provider: "antigravity", session: { messages } },
+      };
+    }
     const loaded = await this.loadTranscriptEntries(
       id,
       metadata.scope,
@@ -664,6 +771,26 @@ export class AntigravitySessionReader implements ISessionReader {
       transcriptSnapshotUpdatedAt: metadata.info.mtime.toISOString(),
       data: { provider: "antigravity", session: { messages } },
     };
+  }
+
+  /** The hover excerpt from the log's latest page, never from a replay. */
+  async getLastAgentExcerpt(id: string): Promise<string | undefined> {
+    const metadata = await this.metadata(id);
+    if (!metadata || metadata.isChild) return undefined;
+    const live = antigravityLiveHistory(metadata.scope, id);
+    if (live) return extractLastAgentExcerpt(live as Message[]);
+    const window = await this.readLog(
+      metadata.scope,
+      id,
+      { kind: "latest", compactions: 1 },
+      false,
+    );
+    if (window.status !== "known") return undefined;
+    const { prose, trailingTool } = scanAgentExcerpt(window.messages);
+    // A tool label answers only once nothing older can hold prose.
+    return (
+      prose ?? (window.omittedPrefix ? undefined : toolExcerpt(trailingTool))
+    );
   }
 
   async getSessionSummaryIfChanged(
@@ -743,15 +870,26 @@ export class AntigravitySessionReader implements ISessionReader {
     }
     if (directChildren.size === 0) return [];
 
-    // Use already-loaded live history or a fresh cold-read entry; never spawn
-    // `agy acp` `session/load` just to answer a mapping request.
-    let entries = antigravityLiveHistory(metadata.scope, parentSessionId);
+    // Use live history, the log's latest page, or a fresh fallback replay;
+    // never spawn `agy acp` `session/load` just to answer a mapping request.
+    let entries = antigravityLiveHistory(metadata.scope, parentSessionId) as
+      | Message[]
+      | undefined;
+    if (!entries) {
+      const window = await this.readLog(
+        metadata.scope,
+        parentSessionId,
+        { kind: "latest", compactions: 2 },
+        false,
+      );
+      if (window.status === "known") entries = window.messages;
+    }
     if (!entries) {
       const cached = this.coldReads.get(
         `${metadata.scope}\0${parentSessionId}`,
       );
       if (cached?.version === metadata.sourceVersion) {
-        entries = cached.entries;
+        entries = cached.entries as Message[];
       }
     }
     if (!entries || entries.length === 0) return [];
@@ -914,54 +1052,47 @@ export class AntigravitySessionReader implements ISessionReader {
     }
     const authorize = () =>
       this.authorizeDescendantSync(scope, parentSessionId, agentId);
+    const status = (row: AntigravitySummaryRow) =>
+      row.killed
+        ? "failed"
+        : isAntigravityChildRunning(row)
+          ? "running"
+          : "completed";
 
     // Strictly authorize `agentId` as a cycle-free, project-eligible descendant
     // of `parentSessionId` BEFORE touching child files or starting ACP.
     const childRow = authorize();
     if (!childRow) return null;
 
-    // Never run a competing ACP `session/load` while the child is actively
-    // running (or owned), since replay can rewrite native continuation metadata.
-    // Serve a bounded read-only projection from `transcript.jsonl` instead.
-    if (
-      isAntigravityChildRunning(childRow) ||
-      antigravitySessionOwned(scope, agentId)
-    ) {
-      const messages = await readAntigravityReadOnlyTranscript(scope, agentId);
+    // A child's log is read whole, as other providers' subagent transcripts
+    // are. While it runs its owner is the parent's `agy`, so the log lacks the
+    // step in progress and no ACP fallback may start beside it.
+    const settled = () => {
+      const row = authorize();
+      return !!row && !isAntigravityChildRunning(row);
+    };
+    const running = () => !settled() || antigravitySessionOwned(scope, agentId);
+    const live = running();
+    const window = await this.readLog(
+      scope,
+      agentId,
+      { kind: "complete" },
+      live,
+    );
+    if (window.status === "known" || live) {
       const finalRow = authorize();
       if (!finalRow) return null;
-      return {
-        messages,
-        status: finalRow.killed
-          ? "failed"
-          : isAntigravityChildRunning(finalRow)
-            ? "running"
-            : "completed",
-      };
+      if (window.status === "known")
+        return { messages: window.messages, status: status(finalRow) };
+      return window.status === "missing"
+        ? { messages: [], status: status(finalRow) }
+        : null;
     }
 
     const metadata = await this.metadata(agentId);
     if (!metadata || metadata.scope !== scope) return null;
-
     // Synchronously revalidate lineage & running status after reading metadata.
-    const preLoadRow = authorize();
-    if (!preLoadRow) return null;
-    if (
-      isAntigravityChildRunning(preLoadRow) ||
-      antigravitySessionOwned(scope, agentId)
-    ) {
-      const messages = await readAntigravityReadOnlyTranscript(scope, agentId);
-      const finalRow = authorize();
-      if (!finalRow) return null;
-      return {
-        messages,
-        status: finalRow.killed
-          ? "failed"
-          : isAntigravityChildRunning(finalRow)
-            ? "running"
-            : "completed",
-      };
-    }
+    if (running()) return null;
 
     const loaded = await this.loadTranscriptEntries(
       agentId,
@@ -969,10 +1100,8 @@ export class AntigravitySessionReader implements ISessionReader {
       metadata.cwd,
       metadata.sourceVersion,
       true,
-      () => {
-        const current = authorize();
-        return !!current && !isAntigravityChildRunning(current);
-      },
+      // The fallback's own ownership claim is checked before it is made.
+      settled,
     );
     if (!loaded) return null;
 
@@ -980,15 +1109,9 @@ export class AntigravitySessionReader implements ISessionReader {
     // cached or freshly loaded messages (zero awaits before return).
     const finalRow = authorize();
     if (!finalRow) return null;
-
-    const status = finalRow.killed
-      ? "failed"
-      : isAntigravityChildRunning(finalRow)
-        ? "running"
-        : "completed";
     return {
       messages: this.cloneMessages(loaded.entries),
-      status,
+      status: status(finalRow),
     };
   }
 
