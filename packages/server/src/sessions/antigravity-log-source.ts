@@ -164,6 +164,7 @@ export class LogSource {
     end: number,
     within = Number.POSITIVE_INFINITY,
   ): Promise<LogLine | undefined> {
+    if (end <= 0) return undefined;
     const newline = end - 1;
     const known = this.lineStart.get(newline);
     if (known !== undefined)
@@ -189,6 +190,11 @@ export class LogSource {
           if (cursor === 0) start = 0;
           continue;
         }
+      }
+      // A newline at offset 0 ends an empty first line.
+      if (cursor === 0) {
+        start = 0;
+        continue;
       }
       const { start: blockStart, bytes } = this.block;
       if (cursor <= blockStart || cursor > blockStart + bytes.length) {
@@ -286,8 +292,9 @@ export class LogSource {
       .toString("latin1");
     this.prefixes.set(line.start, text);
     let head = parseAntigravityLogHead(text);
-    if (!head && !isOversized(line)) {
-      // Not in the observed key order: the whole record decides.
+    if (!head?.createdAt && !isOversized(line)) {
+      // Not in the observed key order, or a long error before the time: the
+      // whole record decides.
       const body = line.body;
       const record = await this.record(line);
       if (body) this.hold(line, body);
@@ -317,23 +324,19 @@ export class LogSource {
   }
 
   /**
-   * The line's record: decoded, or a placeholder from its head when it is
-   * over the record limit or `group` (its tool group's result bytes) is
-   * given. Bytes read for it are released once decoded.
+   * The line's record: decoded, or a placeholder from its validated head
+   * when it is over the record limit or `group` (its tool group's result
+   * bytes) is given. Bytes read for it are released once decoded.
    */
   async record(line: LogLine, group?: number): Promise<AntigravityLogRecord> {
     if (isOversized(line) || group !== undefined) {
+      const head = await this.head(line);
       this.release(line);
-      const prefix = await this.read(
-        line.start,
-        Math.min(ANTIGRAVITY_LOG_HEAD_BYTES, lineLength(line)),
-      );
-      return parsed(
-        antigravityPlaceholderRecord(
-          prefix.toString("latin1"),
-          lineLength(line),
-          group,
-        ),
+      return antigravityPlaceholderRecord(
+        head,
+        this.prefixes.get(line.start) ?? "",
+        lineLength(line),
+        group,
       );
     }
     if (!line.body)

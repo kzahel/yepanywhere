@@ -381,16 +381,18 @@ export interface AntigravityLogHead {
   type: string;
   source: string;
   status: string;
-  createdAt: string;
+  /** Absent when an error too long for the head comes first. */
+  createdAt?: string;
   error?: string;
 }
 
 /**
  * Every observed record begins with these keys in this order: an optional
- * `error` (short) after `status`, then `created_at`.
+ * `error` after `status`, then `created_at`. The identity fields suffice: a
+ * long error leaves the error and time out of the head.
  */
 const HEAD =
-  /^\{"step_index":(0|[1-9]\d{0,15}),"source":"([A-Z_]{1,32})","type":"([A-Z_]{1,32})","status":"([A-Z_]{1,32})",(?:"error":"((?:[^"\\]|\\.){0,256})",)?"created_at":"([^"\\]{1,64})"[,}]/;
+  /^\{"step_index":(0|[1-9]\d{0,15}),"source":"([A-Z_]{1,32})","type":"([A-Z_]{1,32})","status":"([A-Z_]{1,32})"(?:,"error":"((?:[^"\\]|\\.){0,256})")?(?:,"created_at":"([^"\\]{1,64})"[,}])?/;
 
 /** A record's leading fields, or undefined when they are not in that form. */
 export function parseAntigravityLogHead(
@@ -418,7 +420,7 @@ export function parseAntigravityLogHead(
     source: match[2]!,
     type: match[3]!,
     status: match[4]!,
-    createdAt: match[6]!,
+    ...(match[6] === undefined ? {} : { createdAt: match[6] }),
     ...(error === undefined ? {} : { error }),
   };
 }
@@ -440,26 +442,26 @@ export function antigravityHeadIsReminder(prefix: string): boolean {
 const megabytes = (bytes: number) => (bytes / 1024 / 1024).toFixed(1);
 
 /**
- * A record too large to hold, shown from its head alone. Nothing after the
- * head is read, so nothing after it is checked. A planner's calls are
+ * A record too large to hold, shown from its head alone (`prefix` is the
+ * head's text). Nothing after the head is read, so nothing after it is
+ * checked; a time not in the head is left out. A planner's calls are
  * unknown: its placeholder covers the results after it. `group` marks a
  * result held back because its tool group's results are too large.
  */
 export function antigravityPlaceholderRecord(
+  head: AntigravityLogHead,
   prefix: string,
   bytes: number,
   group?: number,
-): AntigravityLogRecord | { unknown: string } {
-  const head = parseAntigravityLogHead(prefix);
-  if (!head)
-    return { unknown: "a record too large to read does not begin as observed" };
+): AntigravityLogRecord {
   const notice =
     group === undefined
       ? `This step is too large to show here (${megabytes(bytes)} MB).`
       : `This result is part of a tool step too large to show here (${megabytes(group)} MB of results).`;
+  const createdAt = head.createdAt ?? "";
   const base = {
     step: head.step,
-    createdAt: head.createdAt,
+    createdAt,
     oversized: true as const,
   };
   switch (head.type) {
@@ -485,7 +487,7 @@ export function antigravityPlaceholderRecord(
       return antigravityHeadIsReminder(prefix)
         ? {
             step: head.step,
-            createdAt: head.createdAt,
+            createdAt,
             type: "SYSTEM_MESSAGE",
             content: "",
           }
@@ -564,12 +566,19 @@ export class AntigravityLogProjection {
   addLine(line: AntigravityLogLine): boolean {
     return this.guard(() => {
       if (!line.terminated) return true;
+      const prefix = line.text.slice(0, ANTIGRAVITY_LOG_HEAD_BYTES);
+      const head =
+        line.end - line.start > ANTIGRAVITY_LOG_RECORD_BYTES
+          ? parseAntigravityLogHead(prefix)
+          : undefined;
       const record =
         line.end - line.start > ANTIGRAVITY_LOG_RECORD_BYTES
-          ? antigravityPlaceholderRecord(
-              line.text.slice(0, ANTIGRAVITY_LOG_HEAD_BYTES),
-              line.end - line.start,
-            )
+          ? head
+            ? antigravityPlaceholderRecord(head, prefix, line.end - line.start)
+            : {
+                unknown:
+                  "a record too large to read does not begin as observed",
+              }
           : line.invalidUtf8
             ? { unknown: "a line is not valid UTF-8" }
             : !line.text
@@ -704,6 +713,8 @@ export class AntigravityLogProjection {
 
   private push(message: Message): Message {
     const full: Message = { ...message, session_id: this.conversationId };
+    // A placeholder whose head held no time.
+    if (!full.timestamp) delete full.timestamp;
     this.messages.push(full);
     return full;
   }
@@ -824,7 +835,12 @@ export class AntigravityLogProjection {
   }
 }
 
-/** Projects a whole log from its lines. */
+/**
+ * Projects a whole log from its lines: the census script's and the tests'
+ * oracle, not the complete window. It holds each line whole and applies the
+ * record limit but not the group rule, so a tool group over the limit shows
+ * its results in full here (with the same message IDs).
+ */
 export async function projectAntigravityLog(
   lines: AsyncIterable<AntigravityLogLine>,
   options: { conversationId: string; ownerLive: boolean },

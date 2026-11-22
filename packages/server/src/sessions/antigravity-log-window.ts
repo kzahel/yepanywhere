@@ -123,7 +123,7 @@ const show = (line: LogLine): Entry => ({ line, show: true });
 
 /** Enough of a record to observe it: observed records show nothing. */
 function stub(head: AntigravityLogHead): AntigravityLogRecord {
-  const base = { step: head.step, createdAt: head.createdAt };
+  const base = { step: head.step, createdAt: head.createdAt ?? "" };
   switch (head.type) {
     case "USER_INPUT":
       return { ...base, type: "USER_INPUT", text: "" };
@@ -416,6 +416,8 @@ class WindowRead {
       start = line.start;
       type = (await this.source.head(line)).type;
     }
+    // The page is the owner onward, counted once.
+    total = 0;
     const lines: LogLine[] = [];
     for (let at = start; at < this.end; ) {
       const line = await this.source.lineFrom(at, this.end);

@@ -386,9 +386,9 @@ It never reads the shortened `transcript.jsonl`.
   replacement window. A catch-up further back than one page does the same.
 - **Large records.** A record larger than 16 MiB is never parsed or held:
   its first 512 bytes must begin with the observed leading keys
-  (`step_index`, `source`, `type`, `status`, an optional short `error`,
-  `created_at`), or the log is unknown, and it is shown from that head
-  alone. A result becomes a placeholder in its step's slot; a planner
+  (`step_index`, `source`, `type`, `status`), or the log is unknown, and it
+  is shown from that head alone; an `error` too long for the head leaves
+  the row without its error text and time. A result becomes a placeholder in its step's slot; a planner
   response becomes an assistant row "too large to show" whose calls are
   unknown, so the results after it are covered by it and not shown; any
   other record becomes a row of its kind with that notice (a checkpoint
@@ -396,7 +396,7 @@ It never reads the shortened `transcript.jsonl`.
   whose results together exceed 16 MiB, each result over 64 KiB is a
   placeholder from its head, and smaller ones, such as a subagent's result
   with its child link, are read normally. The rules depend only on line
-  sizes, the whole-file projection and every page apply them alike, and
+  sizes, the complete read and every page apply them alike, and
   everything before and after stays reachable by paging. Size never makes
   a log unknown or starts a fallback.
 - **Cost.** A page reads its own bytes (about 4 MiB, the first record or

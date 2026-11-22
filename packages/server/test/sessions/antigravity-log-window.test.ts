@@ -18,6 +18,7 @@ import {
   antigravityLogLines,
   projectAntigravityLog,
 } from "../../src/sessions/antigravity-log-projection.js";
+import { LogSource } from "../../src/sessions/antigravity-log-source.js";
 import {
   type AntigravityLogWindowOptions,
   antigravityMessageStep,
@@ -49,6 +50,7 @@ beforeEach(async () => {
   );
 });
 afterEach(async () => {
+  vi.restoreAllMocks();
   await rm(root, { recursive: true, force: true });
 });
 
@@ -631,6 +633,88 @@ describe("Antigravity log windows", () => {
     ]);
   });
 
+  it("shows a group's large results, one with a long error before its time, as placeholders", async () => {
+    // Native key order: a GENERIC:ERROR's error precedes created_at, and a
+    // 768-byte error pushes the time out of a record's 512-byte head.
+    const error = "e".repeat(768);
+    const failed = (step: number, extra: object) => ({
+      step_index: step,
+      source: "MODEL",
+      type: "GENERIC",
+      status: "ERROR",
+      error,
+      created_at: at,
+      ...extra,
+    });
+    await put([
+      prompt(0),
+      reply(1, "", {
+        tool_calls: [
+          { name: "read_file", args: {} },
+          { name: "read_file", args: {} },
+        ],
+      }),
+      { ...head(2, "GENERIC", "MODEL"), content: "a".repeat(10 * MiB) },
+      failed(3, { content: "b".repeat(7 * MiB) }),
+      // Over the record limit, with the same long error.
+      {
+        ...failed(4, {}),
+        type: "PLANNER_RESPONSE",
+        content: "c".repeat(17 * MiB),
+      },
+      reply(5, "LATE"),
+    ]);
+    const complete = await known({ kind: "complete" });
+    const results = complete.messages.flatMap((m) =>
+      Array.isArray(m.message?.content)
+        ? m.message.content.flatMap((b) =>
+            b.type === "tool_result" ? [b] : [],
+          )
+        : [],
+    );
+    expect(
+      results.map((b) => [String(b.content).slice(0, 34), b.is_error]),
+    ).toEqual([
+      ["This result is part of a tool step", false],
+      ["This result is part of a tool step", true],
+    ]);
+    const large = complete.messages.find((m) => m.uuid === `${ID}:step-4:text`);
+    expect(large?.message?.content).toMatch(/^This step is too large/);
+    // Its time is past the head: left out, not invented.
+    expect(large).not.toHaveProperty("timestamp");
+    expect((await pageAll()).messages).toEqual(complete.messages);
+  });
+
+  it("anchors a catch-up from a result when its group and the rest fit one page", async () => {
+    const records = [
+      prompt(0),
+      reply(1, "PLAN", {
+        tool_calls: [
+          { name: "read_file", args: {} },
+          { name: "read_file", args: {} },
+        ],
+      }),
+      { ...head(2, "GENERIC", "MODEL"), content: "r".repeat(700) },
+      { ...head(3, "GENERIC", "MODEL"), content: "s".repeat(700) },
+      reply(4, "LATE"),
+    ];
+    await put(records);
+    const bytes = records.map((r) => JSON.stringify(r).length);
+    // The planner onward, counted once, fits; counting the walk back to the
+    // planner again would not.
+    const pageBytes = 2700;
+    const page = bytes.slice(1).reduce((a, b) => a + b);
+    expect(page).toBeLessThanOrEqual(pageBytes);
+    expect(page + bytes[1]! + bytes[2]!).toBeGreaterThan(pageBytes);
+    const resultId = `${ID}:step-1:tool-1:result`;
+    const window = await known(
+      { kind: "after", messageId: resultId, compactions: 2 },
+      { pageBytes },
+    );
+    expect(window.anchor).toBe("found");
+    expect(ids(window.messages)).toContain(resultId);
+  });
+
   it("reports a missing log, and one with no complete record, as missing", async () => {
     expect((await read({ kind: "latest", compactions: 2 })).status).toBe(
       "missing",
@@ -682,4 +766,100 @@ describe("Antigravity log windows", () => {
     expect(caughtUp.anchor).toBe("found");
     expect(caughtUp.bytesRead).toBeLessThan(2 * 1024 * 1024);
   }, 60_000);
+});
+
+describe("Antigravity log lines", () => {
+  /**
+   * A source over `text` whose reads fail past a bound: a spin awaits only
+   * microtasks, which no test timeout interrupts.
+   */
+  async function source(text: string) {
+    const path = join(root, "lines.jsonl");
+    await writeFile(path, text);
+    const handle = await fs.promises.open(path);
+    const lines = new LogSource(handle, text.length);
+    let reads = 0;
+    const original = lines.read.bind(lines);
+    vi.spyOn(lines, "read").mockImplementation((start, length) => {
+      if (++reads > 1000) throw Error("the search makes no progress");
+      return original(start, length);
+    });
+    return { lines, close: () => handle.close() };
+  }
+  const span = (line: { start: number; end: number } | undefined) =>
+    line && [line.start, line.end];
+
+  it("finds a leading blank line", { timeout: 5000 }, async () => {
+    const { lines, close } = await source('\n{"step_index":0}\n');
+    expect(span(await lines.lineBefore(1))).toEqual([0, 0]);
+    expect(await lines.lineBefore(0)).toBeUndefined();
+    await close();
+  });
+
+  it("finds every line of a newline-only file", { timeout: 5000 }, async () => {
+    const { lines, close } = await source("\n\n\n");
+    const found = [];
+    for (let end = 3; end > 0; ) {
+      const line = await lines.lineBefore(end);
+      found.push(span(line));
+      end = line!.start;
+    }
+    expect(found).toEqual([
+      [2, 2],
+      [1, 1],
+      [0, 0],
+    ]);
+    await close();
+  });
+
+  it("finds consecutive blank lines mid-file both ways", {
+    timeout: 5000,
+  }, async () => {
+    const text = '{"a":1}\n\n\n{"b":2}\n';
+    const { lines, close } = await source(text);
+    expect(span(await lines.lineBefore(10))).toEqual([9, 9]);
+    expect(span(await lines.lineBefore(9))).toEqual([8, 8]);
+    expect(span(await lines.lineBefore(8))).toEqual([0, 7]);
+    const { lines: forward, close: closeForward } = await source(text);
+    expect(span(await forward.lineFrom(8, text.length))).toEqual([8, 8]);
+    expect(span(await forward.lineFrom(9, text.length))).toEqual([9, 9]);
+    await close();
+    await closeForward();
+  });
+
+  it("reads a log with blank lines as unknown, never spinning", {
+    timeout: 5000,
+  }, async () => {
+    // A spin awaits only microtasks, which no test timeout interrupts.
+    const original = LogSource.prototype.read;
+    let reads = 0;
+    vi.spyOn(LogSource.prototype, "read").mockImplementation(function (
+      this: LogSource,
+      start,
+      length,
+    ) {
+      if (++reads > 10_000) throw Error("the search makes no progress");
+      return original.call(this, start, length);
+    });
+    await mkdir(join(logPath, ".."), { recursive: true });
+    const record = `${JSON.stringify({
+      step_index: 0,
+      source: "USER_EXPLICIT",
+      type: "USER_INPUT",
+      status: "DONE",
+      created_at: "2026-11-22T08:00:00Z",
+      content: "<USER_REQUEST>\nHI\n</USER_REQUEST>",
+    })}\n`;
+    for (const text of [`\n${record}`, "\n\n\n", `${record}\n\n${record}`]) {
+      await writeFile(logPath, text);
+      for (const request of [
+        { kind: "latest", compactions: 2 },
+        { kind: "complete" },
+      ] as const)
+        expect(await read(request)).toMatchObject({
+          status: "unknown",
+          reason: "the log has an empty line",
+        });
+    }
+  });
 });

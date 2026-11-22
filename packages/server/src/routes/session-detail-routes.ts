@@ -593,12 +593,18 @@ export function registerSessionDetailRoute(
         process?.state.type === "waiting-input"
           ? { ownedTurnInProgress: true }
           : {}),
-        // A catch-up from a durable overlay's ID keeps the bounded read: the
-        // overlay is found in the newest window, not in a complete history.
+        // A catch-up from a durable overlay's ID: a provider that pages its
+        // own log reads its newest window; others read as before.
+        ...(!fullHistory && overlayCursor
+          ? {
+              boundedCatchUp:
+                effectiveTailCompactions ??
+                DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,
+            }
+          : {}),
         ...(!fullHistory &&
         ((!afterMessageId && effectiveTailCompactions !== undefined) ||
-          providerAfterMessageId ||
-          overlayCursor)
+          providerAfterMessageId)
           ? {
               tailCompactions:
                 effectiveTailCompactions ??
@@ -961,6 +967,17 @@ export function registerSessionDetailRoute(
       session = { ...session, messages: sliced.messages };
       paginationInfo = sliced.pagination;
     }
+    // A durable overlay older than the provider's window is a missed anchor:
+    // the window is the answer, as a replacement, with the provider's own
+    // older cursor set below before its boundary is checked.
+    if (overlayCursor && !overlayAnchor) {
+      const sliced = sliceAtCompactBoundaries(
+        session.messages,
+        effectiveTailCompactions ?? DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,
+      );
+      session = { ...session, messages: sliced.messages };
+      paginationInfo = sliced.pagination;
+    }
     if (
       loadedSession.readWindow &&
       paginationInfo?.hasOlderMessages &&
@@ -999,12 +1016,8 @@ export function registerSessionDetailRoute(
     // Codex normalized IDs can drift between stream and JSONL. If an
     // incremental request misses its anchor, never return the full historical
     // session into a compact-tail client; bound the fallback to the same tail
-    // window used for initial loads. A durable overlay older than the window
-    // the provider read is such a miss too.
-    if (
-      (providerAfterMessageId || (overlayCursor && !overlayAnchor)) &&
-      !incrementalAnchorFound
-    ) {
+    // window used for initial loads.
+    if (providerAfterMessageId && !incrementalAnchorFound) {
       const sliced = sliceAtCompactBoundaries(
         session.messages,
         effectiveTailCompactions ?? DEFAULT_SESSION_DETAIL_TAIL_COMPACTIONS,

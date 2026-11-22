@@ -333,12 +333,16 @@ no alternate authentication or provider transcript store is introduced.
   while reads are refused is itself treated as dropped. The refusal is not
   permanent for the lifetime of the lease.
 - An Antigravity owner's live rows carry IDs its brain log does not use
-  (until plan 195 step 6). When that owner departs (terminates or is
-  replaced), the next durable read is taken even if a new owner is working,
-  and it replaces every row the departed owner contributed: the view is
-  what a cold reader shows, without text the log lacks. A replacement
-  owner's rows are reconciled against that fresh read, which the reader
-  serves from the new owner's own history. Claude and Codex keep their
+  (until plan 195 step 6), and while an owner is live the reader serves its
+  own history instead of the log. A durable snapshot therefore belongs to
+  the owner generation it was read under. Any owner change (an owner
+  attaching to a stopped conversation, departing by terminating, or being
+  replaced) takes the next durable read even if the new owner is working. A
+  read during which the generation changed is discarded and read again
+  (three attempts, then the read fails), so it neither publishes nor
+  consumes a departure. The read after a departure replaces every row the
+  departed owner contributed: the view is what a cold reader shows, without
+  text the log lacks. Claude and Codex keep their generation-neutral,
   ID-based reconciliation.
 - A newly created exact managed Claude/Codex session can precede its retained
   catalog row. Its bounded replay is available with incomplete coverage and

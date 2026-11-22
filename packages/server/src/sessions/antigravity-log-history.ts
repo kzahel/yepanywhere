@@ -17,6 +17,9 @@ export function antigravityLogRequest(
   afterMessageId: string | undefined,
   options: GetSessionOptions | undefined,
 ): AntigravityLogWindowRequest {
+  const catchUp = options?.boundedCatchUp;
+  if (!options?.tailCompactions && catchUp && catchUp > 0)
+    return { kind: "latest", compactions: catchUp };
   const compactions = options?.tailCompactions;
   if (!compactions || compactions < 1) return { kind: "complete" };
   if (afterMessageId)

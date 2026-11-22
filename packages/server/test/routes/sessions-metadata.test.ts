@@ -2935,6 +2935,120 @@ describe("Sessions metadata route", () => {
     });
   });
 
+  it("answers an overlay older than a Codex compact tail with a replacement and its source cursor", async () => {
+    const project = { ...createProject(), provider: "codex" as const };
+    const summary = {
+      ...createSummary(),
+      messageCount: 23,
+      provider: "codex" as const,
+    };
+    const tagEntry = (entry: CodexSessionEntry, offset: number) =>
+      tagCodexEntrySourceByteOffset(entry, offset);
+    const entries: CodexSessionEntry[] = [
+      tagEntry(
+        {
+          type: "compacted",
+          timestamp: "2026-03-10T09:40:00.000Z",
+          payload: { message: "Older compact summary." },
+        },
+        100,
+      ),
+      ...Array.from({ length: 21 }, (_, index) =>
+        tagEntry(
+          {
+            type: "event_msg",
+            timestamp: new Date(
+              Date.UTC(2026, 2, 10, 9, 41 + index),
+            ).toISOString(),
+            payload: {
+              type: "user_message",
+              message: `Turn ${index + 1}`,
+            },
+          },
+          200 + index,
+        ),
+      ),
+      tagEntry(
+        {
+          type: "compacted",
+          timestamp: "2026-03-10T10:10:00.000Z",
+          payload: { message: "Current compact summary." },
+        },
+        500,
+      ),
+    ];
+    const loaded: LoadedSession = {
+      summary,
+      transcriptSnapshotUpdatedAt: summary.updatedAt,
+      readWindow: {
+        kind: "compact-tail",
+        omittedPrefix: true,
+        startByte: 100,
+        compactBoundaries: 2,
+      },
+      data: {
+        provider: "codex",
+        session: { entries },
+      },
+    };
+    const getSession = vi.fn(async () => loaded);
+    const reader = { getSession } as unknown as CodexSessionReader;
+    const routes = createSessionsRoutes({
+      supervisor: {
+        getProcessForSession: vi.fn(() => null),
+        wasEverOwned: vi.fn(() => false),
+      } as unknown as SessionsDeps["supervisor"],
+      scanner: {
+        getOrCreateProject: vi.fn(async () => project),
+      } as unknown as SessionsDeps["scanner"],
+      readerFactory: vi.fn(() => reader),
+      codexReaderFactory: vi.fn(() => reader),
+      sessionMetadataService: {
+        getMetadata: vi.fn(() => undefined),
+        getProvider: vi.fn(() => "codex"),
+        getRecapMessages: vi.fn(() => [
+          {
+            type: "system",
+            subtype: "away_summary",
+            content: "Old recap.",
+            timestamp: "2026-03-09T09:00:00.000Z",
+            uuid: "old-recap",
+            id: "old-recap",
+            yaRecapSource: "ya-synthetic",
+          },
+        ]),
+      } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>,
+      sessionIndexService: {
+        getCachedSessionSummary: vi.fn(async () => summary),
+      } as unknown as NonNullable<SessionsDeps["sessionIndexService"]>,
+    });
+
+    const response = await routes.request(
+      `/projects/${project.id}/sessions/sess-1?afterMessageId=old-recap`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    // The recap lies before the window: a missed anchor, so the client gets
+    // the window as a replacement with the provider's own older cursor.
+    expect(
+      body.messages.filter((message: { uuid?: string }) =>
+        message.uuid?.startsWith("codex-"),
+      ),
+    ).not.toHaveLength(0);
+    expect(body.pagination).toMatchObject({
+      hasOlderMessages: true,
+      // The compaction row's own ID names its source byte.
+      truncatedBeforeMessageId:
+        "codex-compacted-byte-100-2026-03-10T09:40:00.000Z",
+    });
+    // A Codex catch-up from an overlay reads as it did before plan 195.
+    expect(getSession).toHaveBeenCalledWith("sess-1", project.id, undefined, {
+      includeOrphans: false,
+      boundedCatchUp: 2,
+    });
+  });
+
   it("clamps tailFrom outside a Codex compact-tail instead of dropping older history", async () => {
     const project = { ...createProject(), provider: "codex" as const };
     const summary = {
@@ -3520,10 +3634,11 @@ describe("Sessions metadata route", () => {
     );
     expect(response.status).toBe(200);
 
-    // The overlay ID is not the provider's, but the read stays bounded.
+    // The overlay ID is not the provider's; a provider that does not page
+    // its log ignores the bounded catch-up hint and reads as before.
     expect(getSession).toHaveBeenCalledWith("sess-1", project.id, undefined, {
       includeOrphans: false,
-      tailCompactions: 2,
+      boundedCatchUp: 2,
     });
     const json = await response.json();
     expect(json.messages).toEqual([]);

@@ -6,10 +6,13 @@ provider-root watcher still observes the conversation databases, their WALs
 and the summaries index
 ([`antigravity-summaries.ts`](../packages/server/src/sessions/antigravity-summaries.ts#L109)),
 not the brain directory. A stopped page refreshes only after one of those
-changes. With `agy` 1.5.13 and 1.5.14 every log append was followed within
-about 3 ms by a write to the conversation's WAL, and stopping writes the
-database again, so no stale view was observed
+changes. One sampled workload per `agy` version (1.5.13 and 1.5.14) found
+the log complete before a refresh debounced 200 ms after a nearby WAL
+change; on 1.5.13 the last log change came 0.1 ms after the last
+foreground WAL change, and the next database change only at stop
 ([write order](../topics/antigravity-native-storage.md#write-order-and-refresh)).
+That is sampled timing, not a write order for every turn, and an earlier
+stale page seen on a shared server is still unexplained.
 
 A log append with no later database write, from another program or a
 future `agy`, would leave an open stopped page stale until its next

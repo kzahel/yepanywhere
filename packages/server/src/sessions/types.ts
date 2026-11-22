@@ -109,6 +109,12 @@ export interface GetSessionOptions {
   tailCompactions?: number;
   /** Bound an older-page read to source content before this normalized id. */
   beforeMessageId?: string;
+  /**
+   * A catch-up from an ID the provider does not know (a durable overlay's).
+   * A provider that pages its own log may read only its latest window,
+   * bounded by this many compactions; others read as without it.
+   */
+  boundedCatchUp?: number;
   /** Fresh indexed metadata that permits a provider to skip its historical prefix. */
   summaryHint?: SessionSummary;
   /**

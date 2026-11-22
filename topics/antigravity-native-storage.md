@@ -705,16 +705,26 @@ users see. A window:
   message, so every ID form ends a page exactly, including a `:result` and
   a later part of a planner record.
 - **Record limit.** A line over 16 MiB is never parsed or held. Its first
-  512 bytes must match `{"step_index":N,"source":…,"type":…,"status":…,`,
-  an optional short `"error":…,`, then `"created_at":…` with a source and
-  status the type allows; anything else is unknown. The
+  512 bytes must begin `{"step_index":N,"source":…,"type":…,"status":…`
+  with a source and status the type allows; anything else is unknown. A
+  short `"error"` and `"created_at"` follow in the observed order; an error
+  too long for the head (a native `GENERIC:ERROR` had 458 bytes) leaves
+  both out, and the placeholder then has no error text or time. The
   [provider contract](antigravity.md#cold-history-from-the-log) says what
   each type becomes. In a tool group whose results together exceed 16 MiB,
-  results over 64 KiB are placeholders from their heads. Both rules depend
-  only on line sizes and live in one place (`antigravityPlaceholderRecord`)
-  that the whole-file projection and the window use. The only scans are
-  newline searches and fixed-size heads, so no work grows faster than a
-  line's length.
+  results over 64 KiB are placeholders built from their validated heads
+  (a result within the record limit whose head is not in the observed form
+  is decoded for it). Both rules depend only on line sizes and build in one
+  place (`antigravityPlaceholderRecord`). The only scans are newline
+  searches and fixed-size heads, so no work grows faster than a line's
+  length.
+- **The whole-file helper.** `projectAntigravityLog`, used by the census
+  script and as the tests' oracle, is not the complete window: it holds
+  each line whole and applies only the record limit, not the group rule. It
+  gives the same message IDs, and a group over 16 MiB shows its results in
+  full there.
+- **Blank lines.** An empty line, at the file's start or anywhere, makes
+  the log unknown.
 - **Reminders.** A system message whose head already shows a reminder is
   not decoded: it is never shown.
 - **Identity.** Opening the file, taking the
@@ -797,16 +807,19 @@ predates step 4 and every listing does it
 YA's watcher observes each conversation's database and WAL and the
 summaries index, not the brain log, while cold history now comes from the
 log. A scratch native run (real `agy` 1.5.13 and 1.5.14, the scripted
-model, one tool call then a reply, 1 ms stat polling; not committed) found
-each log append followed within 0–3 ms by a write to the conversation's
-WAL. After the turn went idle, 1.5.14 wrote the WAL once more; about a
-second later the summaries WAL changed; on stop, `agy` wrote the database
-(393,216 → 425,984 bytes), emptied and removed the WAL, and wrote the
-summaries index. No log append came after the last database event, so a
-refresh that the watcher's 200 ms debounce schedules after that event reads
-every record. A running child's log and database are written the same way
-by the parent's `agy`. A log append with no later database write would not
-be observed; none was seen
+model, one tool call then a reply, file stats sampled every 1 ms; not
+committed) is one workload per version, so it shows sampled timing, not
+write order for every turn. On 1.5.13 the last log change (127.3 ms)
+came 0.1 ms after the last foreground WAL change, and the next database
+change was at stop, about 1.5 s later. On 1.5.14 the first log change
+(110.3 ms) came 4.1 ms before the next WAL change. In both samples the log
+was complete before a refresh that the watcher's 200 ms debounce would run
+after a nearby WAL event. On stop, `agy` wrote the database (393,216 →
+425,984 bytes), emptied and removed the WAL, and wrote the summaries index.
+The samples do not show that a browser received the refresh, and an
+earlier observation of a stale page on a shared server is still
+unexplained. A log append with no later database write would not be
+observed
 ([gap](../gaps/antigravity-log-only-append-not-observed.md)).
 
 ## Runtime identity

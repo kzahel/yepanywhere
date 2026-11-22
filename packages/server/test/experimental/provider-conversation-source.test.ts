@@ -351,6 +351,136 @@ describe("an Antigravity conversation source", () => {
     }
   });
 
+  /** Holds the reader's next result, once read, until `release`. */
+  function holdNextRead(reader: AntigravitySessionReader) {
+    const original = reader.getSession.bind(reader);
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let armed = true;
+    vi.spyOn(reader, "getSession").mockImplementation(async (...args) => {
+      const result = await original(...args);
+      if (armed) {
+        armed = false;
+        entered.resolve();
+        await release.promise;
+      }
+      return result;
+    });
+    return { entered: entered.promise, release: () => release.resolve() };
+  }
+  const uuids = (input: { messages: readonly { uuid?: string }[] }) =>
+    input.messages.map((m) => m.uuid);
+
+  it("re-reads when the first resumed owner attaches over a cold baseline", async () => {
+    const {
+      reader,
+      row: source,
+      scope,
+    } = await setup(
+      prompt + record(1, "PLANNER_RESPONSE", { content: "Reply" }),
+    );
+    let current: ReturnType<typeof owner> | undefined;
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => source,
+      getProcess: () => current?.process as never,
+    });
+    const abort = new AbortController();
+    try {
+      // One observer holds a stopped baseline in the log's IDs.
+      const settled = await open(nativeId, () => {}, abort.signal);
+      expect(uuids(await settled.read(abort.signal))).toEqual([
+        `${nativeId}:step-0`,
+        `${nativeId}:step-1:text`,
+      ]);
+      // Another's cold read is in flight when the owner attaches in turn.
+      const held = holdNextRead(reader);
+      const racing = await open(nativeId, () => {}, abort.signal);
+      const reading = racing.read(abort.signal);
+      await held.entered;
+      const resumed = [
+        row(`${nativeId}:0`, "user", "Ask"),
+        row(`${nativeId}:1`, "assistant", "Reply"),
+        row(`${nativeId}:2`, "user", "Next"),
+      ];
+      const native = ownAntigravitySession(scope, nativeId);
+      for (const message of resumed) native.record(message as never);
+      current = owner(resumed);
+      held.release();
+      // Both show the owner's turns once, never beside the log's copies.
+      const expected = resumed.map((m) => m.uuid);
+      expect(uuids(await reading)).toEqual(expected);
+      expect(uuids(await settled.read(abort.signal))).toEqual(expected);
+      expect(uuids(await racing.read(abort.signal))).toEqual(expected);
+      native.release();
+      settled.close();
+      racing.close();
+    } finally {
+      abort.abort();
+      await reader.close();
+    }
+  });
+
+  it("re-reads when a replacement owner attaches during the read after a departure", async () => {
+    const {
+      reader,
+      row: source,
+      scope,
+    } = await setup(
+      prompt + record(1, "PLANNER_RESPONSE", { content: "Reply" }),
+    );
+    const first = [
+      row(`${nativeId}:0`, "user", "Ask"),
+      row(`${nativeId}:1`, "assistant", "Reply"),
+    ];
+    const firstOwner = ownAntigravitySession(scope, nativeId);
+    for (const message of first) firstOwner.record(message as never);
+    const a = owner(first);
+    let current: ReturnType<typeof owner> | undefined = a;
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => source,
+      getProcess: () => current?.process as never,
+    });
+    const abort = new AbortController();
+    try {
+      const views = [
+        await open(nativeId, () => {}, abort.signal),
+        await open(nativeId, () => {}, abort.signal),
+      ];
+      for (const view of views)
+        expect(uuids(await view.read(abort.signal))).toEqual(
+          first.map((m) => m.uuid),
+        );
+      // A departs; the cold read after it is in flight when B attaches.
+      firstOwner.release();
+      a.emit("terminated");
+      current = undefined;
+      const held = holdNextRead(reader);
+      const reading = views[0]!.read(abort.signal);
+      await held.entered;
+      const second = [
+        row(`${nativeId}:r0`, "user", "Ask"),
+        row(`${nativeId}:r1`, "assistant", "Reply"),
+        row(`${nativeId}:r2`, "user", "Next"),
+      ];
+      const secondOwner = ownAntigravitySession(scope, nativeId);
+      for (const message of second) secondOwner.record(message as never);
+      current = owner(second);
+      held.release();
+      const expected = second.map((m) => m.uuid);
+      expect(uuids(await reading)).toEqual(expected);
+      // Both observers agree, and stay so while B is in turn.
+      for (const view of views)
+        expect(uuids(await view.read(abort.signal))).toEqual(expected);
+      secondOwner.release();
+      for (const view of views) view.close();
+    } finally {
+      abort.abort();
+      await reader.close();
+    }
+  });
+
   it("reports a page cut by bytes as incomplete within the requested scope", async () => {
     const big = "r".repeat(2 * 1024 * 1024);
     const { reader, row } = await setup(

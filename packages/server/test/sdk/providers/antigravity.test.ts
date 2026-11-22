@@ -956,7 +956,7 @@ describe("Antigravity native process boundary", () => {
         const overlay = await get("?afterMessageId=overlay-1");
         expect(overlay.messages).toEqual([]);
         expect(reads.mock.calls.at(-1)?.[3]).toMatchObject({
-          tailCompactions: 2,
+          boundedCatchUp: 2,
         });
         reads.mockRestore();
         // An overlay older than the newest page is a missed anchor: the

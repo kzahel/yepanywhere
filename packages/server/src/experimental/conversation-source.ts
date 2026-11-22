@@ -78,10 +78,15 @@ export function createConversationSource(
       { message: Message; bytes: number; owner: number }
     >();
     // Each owner's rows carry its generation. An Antigravity owner's live IDs
-    // differ from its log's (until plan 195 step 6), so when it departs, the
-    // next durable read replaces all of its rows, as a cold reader would
-    // show the conversation, and is taken even while a new owner is in turn.
+    // differ from its log's (until plan 195 step 6), and its reader serves the
+    // owner's projection while one is live, so a snapshot belongs to the
+    // generation it was read under: any owner change, including the first
+    // attach to a cold conversation, takes a new read even while the owner is
+    // in turn, and a read the generation changed under is read again. When an
+    // owner departs, that read replaces all of its rows, as a cold reader
+    // would show the conversation.
     let ownerGeneration = 0;
+    let baselineGeneration = -1;
     const departed = new Set<number>();
     const drop = () => {
       failed = true;
@@ -268,15 +273,20 @@ export function createConversationSource(
           (row.location.kind !== "file" || !supports(row.catalogFamily))
         )
           throw new Error("Unsupported conversation source");
-        if (
-          row &&
-          row.location.kind === "file" &&
-          (!baseline ||
-            departed.size > 0 ||
-            (dirty && process?.state.type !== "in-turn"))
+        const generational = row?.catalogFamily === "antigravity";
+        const stale = () =>
+          !baseline ||
+          departed.size > 0 ||
+          (generational && baselineGeneration !== ownerGeneration) ||
+          (dirty && process?.state.type !== "in-turn");
+        for (
+          let attempt = 1;
+          row?.location.kind === "file" && stale();
+          attempt++
         ) {
           const liveAtReadStart = new Map(live);
           const departedAtReadStart = new Set(departed);
+          const generationAtReadStart = ownerGeneration;
           const observedRevision = durableRevision;
           const settledAtReadStart =
             !process ||
@@ -295,7 +305,16 @@ export function createConversationSource(
               });
           readSignal.throwIfAborted();
           signal.throwIfAborted();
+          if (generational) attachProcess();
+          if (generational && ownerGeneration !== generationAtReadStart) {
+            // Read under another owner's ID space: neither published nor
+            // allowed to consume a departure.
+            if (attempt >= 3)
+              throw new Error("Conversation owner changed during every read");
+            continue;
+          }
           baseline = { ...result, sessionId };
+          baselineGeneration = generationAtReadStart;
           if (settledAtReadStart && observedRevision === durableRevision) {
             liveLimits.clear();
             liveOmittedPrefix = false;
@@ -336,6 +355,7 @@ export function createConversationSource(
               liveBytes > MAX_PROJECTION_INPUT_BYTES ||
               live.size >= MAX_PROJECTION_RECORDS;
           }
+          break;
         }
         if (failed) throw new Error("Unreconciled live conversation");
         // A durable record wins over its replay echo. Unpersisted records retain
