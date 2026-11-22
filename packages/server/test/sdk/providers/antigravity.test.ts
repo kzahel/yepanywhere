@@ -41,6 +41,7 @@ const send = value => process.stdout.write(JSON.stringify(value)+'\\n');
 const reply = (id, result) => send({jsonrpc:'2.0', id, result});
 const update = (value, meta) => send({jsonrpc:'2.0',method:'session/update',params:{sessionId:id,update:value,_meta:meta}});
 let prompt;
+let replayHeld = false;
 readline.createInterface({input:process.stdin}).on('line', line => {
  const m = JSON.parse(line);
  if(m.method) fs.appendFileSync(process.env.AGY_TEST_LOG,m.method+'\\n');
@@ -55,18 +56,13 @@ readline.createInterface({input:process.stdin}).on('line', line => {
   return send({jsonrpc:'2.0',id:m.id,error:{code:-32000,message:'Native resume refused'}});
  if(m.method === 'session/load') {
   update({sessionUpdate:'user_message_chunk',content:{type:'text',text:'Original question'}});
-  const replayGate = process.env.AGY_TEST_REPLAY_GATE;
-  if (replayGate) {
+  if (process.env.AGY_TEST_HOLD_REPLAY) {
    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Saved prefix'}});
    if (process.env.AGY_TEST_INCOMPLETE_REPLAY) {
     reply(m.id,{});
     return process.stdout.write('', () => process.exit(0));
    }
-   const watcher = fs.watch(path.dirname(replayGate), () => {
-    if (!fs.existsSync(replayGate)) return;
-    watcher.close();
-    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:' Final replay frame'}},{isReplay:true});
-   });
+   replayHeld = true;
    return reply(m.id,{});
   }
   if (process.env.AGY_TEST_LARGE_REPLAY) {
@@ -76,6 +72,10 @@ readline.createInterface({input:process.stdin}).on('line', line => {
   }
   update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Saved answer'}});
   return reply(m.id,{});
+ }
+ if(m.method === 'test/releaseReplay' && replayHeld) {
+  replayHeld = false;
+  return update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:' Final replay frame'}},{isReplay:true});
  }
  if(m.method === 'session/list') return reply(m.id,{sessions:[{sessionId:id,title:'Original question'}]});
  if(m.method === 'session/prompt') {
@@ -193,7 +193,7 @@ describe("Antigravity native process boundary", () => {
     let app = boot();
     const startup = vi.spyOn(app.supervisor, "startSession");
     const projectId = toUrlProjectId(directory);
-    let failure: unknown;
+    let failure: { error: unknown } | undefined;
     try {
       const response = await app.app.request(
         `/api/projects/${projectId}/session-creations`,
@@ -367,30 +367,29 @@ describe("Antigravity native process boundary", () => {
         nativeId,
       );
     } catch (error) {
-      failure = error;
-      throw error;
-    } finally {
-      app.stopNotifications();
-      await Promise.allSettled(startup.mock.results.map(({ value }) => value));
-      startup.mockRestore();
-      const cleanup = await Promise.allSettled(
-        app.supervisor.getAllProcesses().map((process) => process.abort()),
-      );
-      const errors = cleanup.flatMap((result) =>
-        result.status === "rejected" ? [result.reason] : [],
-      );
-      try {
-        await app.disposeSessionReaders();
-      } catch (error) {
-        errors.push(error);
-      }
-      if (errors.length > 0) {
-        throw new AggregateError(
-          failure === undefined ? errors : [failure, ...errors],
-          "Antigravity admission fixture cleanup failed",
-        );
-      }
+      failure = { error };
     }
+    app.stopNotifications();
+    await Promise.allSettled(startup.mock.results.map(({ value }) => value));
+    startup.mockRestore();
+    const cleanup = await Promise.allSettled(
+      app.supervisor.getAllProcesses().map((process) => process.abort()),
+    );
+    const errors = cleanup.flatMap((result) =>
+      result.status === "rejected" ? [result.reason] : [],
+    );
+    try {
+      await app.disposeSessionReaders();
+    } catch (error) {
+      errors.push(error);
+    }
+    if (errors.length > 0) {
+      throw new AggregateError(
+        failure ? [failure.error, ...errors] : errors,
+        "Antigravity admission fixture cleanup failed",
+      );
+    }
+    if (failure) throw failure.error;
   }
 
   // Exact native signal status is POSIX-only; the exit-code path stays portable.
@@ -653,10 +652,15 @@ describe("Antigravity native process boundary", () => {
       await mkdir(logs, { recursive: true });
       const finalText = "Saved prefix Final replay frame";
       const transcriptPath = join(logs, "transcript_full.jsonl");
-      const replayGate = join(directory, "release-final-frame");
       const reader = new AntigravitySessionReader({ projectPath: directory });
       const projectId = toUrlProjectId(directory);
-      let loadReplied = Promise.withResolvers<void>();
+      let loadReplied = Promise.withResolvers<AntigravityRuntime>();
+      const releaseTail = (runtime: AntigravityRuntime) => {
+        const transport = runtime as unknown as {
+          send(frame: Record<string, unknown>): void;
+        };
+        transport.send({ jsonrpc: "2.0", method: "test/releaseReplay" });
+      };
       const call = AntigravityRuntime.prototype.call;
       const observeReply = vi
         .spyOn(AntigravityRuntime.prototype, "call")
@@ -667,7 +671,7 @@ describe("Antigravity native process boundary", () => {
           timeoutMs,
         ) {
           const result = await call.call(this, method, params, timeoutMs);
-          if (method === "session/load") loadReplied.resolve();
+          if (method === "session/load") loadReplied.resolve(this);
           return result;
         });
       try {
@@ -693,17 +697,23 @@ describe("Antigravity native process boundary", () => {
             content: finalText,
           }) + "\n",
         );
-        vi.stubEnv("AGY_TEST_REPLAY_GATE", replayGate);
+        vi.stubEnv("AGY_TEST_HOLD_REPLAY", "1");
         vi.stubEnv("AGY_TEST_INCOMPLETE_REPLAY", "1");
         await expect(reader.getSession(nativeId, projectId)).rejects.toThrow(
           "closed before its saved replay tail arrived",
         );
         vi.stubEnv("AGY_TEST_INCOMPLETE_REPLAY", "");
-        loadReplied = Promise.withResolvers<void>();
+        loadReplied = Promise.withResolvers<AntigravityRuntime>();
         const reopened = reader.getSession(nativeId, projectId);
         // Propagate a production read failure even if the load never starts.
-        await Promise.race([loadReplied.promise, reopened]);
-        await writeFile(replayGate, "release");
+        releaseTail(
+          await Promise.race([
+            loadReplied.promise,
+            reopened.then(() => {
+              throw new Error("Cold history returned before replay release");
+            }),
+          ]),
+        );
         const first = await reopened;
         const second = await reader.getSession(nativeId, projectId);
         for (const result of [first, second]) {
@@ -719,8 +729,7 @@ describe("Antigravity native process boundary", () => {
           .filter((line) => line === "session/load");
         expect(loads).toHaveLength(3);
 
-        await rm(replayGate);
-        loadReplied = Promise.withResolvers<void>();
+        loadReplied = Promise.withResolvers<AntigravityRuntime>();
         const session = await new AntigravityProvider().startSession({
           cwd: directory,
           resumeSessionId: nativeId,
@@ -735,9 +744,14 @@ describe("Antigravity native process boundary", () => {
             }
             return messages;
           })();
-          await Promise.race([loadReplied.promise, resumed]);
+          const runtime = await Promise.race([
+            loadReplied.promise,
+            resumed.then(() => {
+              throw new Error("Resume finished before replay release");
+            }),
+          ]);
           expect(await readFile(log, "utf8")).not.toContain("session/prompt");
-          await writeFile(replayGate, "release");
+          releaseTail(runtime);
           const messages = await resumed;
           expect(
             messages
@@ -755,6 +769,9 @@ describe("Antigravity native process boundary", () => {
         await reader.close();
       }
     },
+    // Multiple peer launches shared a 5s test deadline that was exhausted
+    // while qualifying the native suites under concurrent load.
+    10_000,
   );
 
   it.skipIf(process.platform === "win32")(

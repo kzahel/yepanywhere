@@ -317,10 +317,8 @@ import { createProvidersRoutes } from "./routes/providers.js";
 import { createCodexUpdateRoutes } from "./routes/codex-updates.js";
 import { mountPublicShareRoutes } from "./routes/public-share-mounting.js";
 import { createRecentsRoutes } from "./routes/recents.js";
-import {
-  createServerAdminRoutes,
-  triggerServerRestart,
-} from "./routes/server-admin.js";
+import { createServerAdminRoutes } from "./routes/server-admin.js";
+import { triggerSafeServerRestart } from "./safe-server-restart.js";
 import { createEnvSettingsRoutes } from "./routes/env-settings.js";
 import { createServerInfoRoutes } from "./routes/server-info.js";
 import { createSessionArchiveRoutes } from "./routes/session-archive.js";
@@ -2407,6 +2405,7 @@ export function createApp(options: AppOptions): AppResult {
   const stopNotifications = () => {
     pushNotifier?.dispose();
     inactivityPushNotifier?.dispose();
+    safeRestartService?.dispose();
     // Fence automation before provider shutdown; reader disposal joins work
     // already admitted before closing its metadata/catalog dependencies.
     void supervisor.stopBackgroundTasks();
@@ -2976,10 +2975,11 @@ export function createApp(options: AppOptions): AppResult {
           },
           cancelPreservedWork: () =>
             options.queueRestartHandoff?.forgetPreservedPatients(),
-          restart: () =>
-            triggerServerRestart({
-              notificationService: options.notificationService,
-              beforeRestart: disposeSessionReaders,
+          restart: (canCommit) =>
+            triggerSafeServerRestart({
+              canCommit,
+              flush: () => options.notificationService?.flush(),
+              stopBackgroundTasks: () => supervisor.stopBackgroundTasks(),
             }),
           ...safeRestartQueueCallbacks(options),
         })

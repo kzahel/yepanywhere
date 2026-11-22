@@ -15,7 +15,7 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
   "real application reload",
   () => {
     it.for(["claude", "codex"] as const)(
-      "%s survives actual API replacement and delivers the next input once",
+      "%s survives scheduled safe replacement and delivers the next input once",
       {
         // Hosted M1 run 42123429243 exhausts 30s during API reattachment;
         // cleanup completes by 30.734s. 90s is 2.93x that observed bound.
@@ -42,7 +42,10 @@ describe.runIf(process.env.YEP_NATIVE_APP_TESTS === "1")(
         const processesBefore = await f.processes();
         const safe = await f.api("/dev/safe-restart");
         expect(safe.canRestartNow).toBe(true);
-        await f.api("/server/restart", {});
+        expect(await f.api("/dev/safe-restart", {})).toMatchObject({
+          status: "restarting",
+          blockers: [],
+        });
         const after = await appBarrier(async () => {
           const worker = (await f.inventory()).find(
             (w) => w.runtimeId === before.runtimeId,

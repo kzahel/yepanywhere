@@ -224,6 +224,7 @@ const expectedProviderHostIdentity = providerHostPaths
 const wrapperToken = randomBytes(32).toString("base64url");
 
 let wrapperState = "starting";
+let forceReloadAfterPreparation;
 let serverChild = null;
 let clientChild = null;
 let extensionChild = null;
@@ -669,6 +670,8 @@ async function startWrapperControlServer() {
     wrapperControlSockets.add(socket);
     socket.setEncoding("utf8");
     let buffer = "";
+    let approveSafeReload;
+    let safeReloadDeclined = false;
     socket.on("data", (chunk) => {
       buffer += chunk;
       const lines = buffer.split("\n");
@@ -747,6 +750,46 @@ async function startWrapperControlServer() {
           socket.end(`${JSON.stringify({ ok: true })}\n`);
           continue;
         }
+        if (request.op === "commitSafeReload" && approveSafeReload) {
+          approveSafeReload(true);
+          approveSafeReload = undefined;
+          socket.end();
+          continue;
+        }
+        if (request.op === "declineSafeReload" && approveSafeReload) {
+          safeReloadDeclined = true;
+          approveSafeReload(false);
+          approveSafeReload = undefined;
+          continue;
+        }
+        if (request.op === "safeReload") {
+          const server = serverChild;
+          if (
+            !server?.backendPid ||
+            request.generation !== server.yaGeneration ||
+            request.pid !== server.backendPid
+          ) {
+            socket.end(
+              `${JSON.stringify({ ok: false, error: "stale safe reload request" })}\n`,
+            );
+            return;
+          }
+          void requestServerReload("safe API request", () => {
+            if (socket.destroyed || serverChild !== server) return false;
+            return new Promise((resolve) => {
+              approveSafeReload = resolve;
+              socket.write(`${JSON.stringify({ ok: true })}\n`);
+            });
+          }).then((started) => {
+            if (!started && !socket.destroyed) {
+              const response = safeReloadDeclined
+                ? { ok: true, declined: true }
+                : { ok: false, error: "safe reload was not committed" };
+              socket.end(`${JSON.stringify(response)}\n`);
+            }
+          });
+          continue;
+        }
         if (request.op !== "reload") {
           socket.end(
             `${JSON.stringify({ ok: false, error: "unknown operation" })}\n`,
@@ -765,7 +808,10 @@ async function startWrapperControlServer() {
         }, 100);
       }
     });
-    socket.on("close", () => wrapperControlSockets.delete(socket));
+    socket.on("close", () => {
+      approveSafeReload?.(false);
+      wrapperControlSockets.delete(socket);
+    });
     socket.on("error", () => wrapperControlSockets.delete(socket));
   });
   await new Promise((resolve, reject) => {
@@ -794,18 +840,35 @@ async function closeWrapperControlServer() {
   await new Promise((resolve) => server.close(() => resolve()));
 }
 
-async function requestServerReload(source) {
-  if (wrapperState === "shutting-down") return;
-  if (wrapperState === "reloading") {
+async function requestServerReload(source, authorizeSafeReload) {
+  if (wrapperState === "shutting-down") return false;
+  if (wrapperState === "preparing-safe-reload" && !authorizeSafeReload) {
+    forceReloadAfterPreparation ??= source;
+    return false;
+  }
+  if (
+    wrapperState === "reloading" ||
+    wrapperState === "preparing-safe-reload"
+  ) {
     console.log(`[Reload] Coalesced ${source}`);
-    return;
+    return false;
   }
   const server = serverChild;
   if (!server || server.exitCode !== null || server.signalCode !== null) {
     console.error(`[Reload] ${source} arrived without a live server`);
-    return;
+    return false;
   }
-  wrapperState = "reloading";
+  const preparingState = authorizeSafeReload
+    ? "preparing-safe-reload"
+    : "reloading";
+  wrapperState = preparingState;
+  function abandonPreparation() {
+    if (wrapperState !== preparingState || serverChild !== server) return;
+    wrapperState = "running";
+    const forced = forceReloadAfterPreparation;
+    forceReloadAfterPreparation = undefined;
+    if (forced) void requestServerReload(forced);
+  }
   if (builtClient) {
     try {
       clientBuildPromise = buildClient();
@@ -814,27 +877,35 @@ async function requestServerReload(source) {
       console.error(
         `[Reload] Client build failed; keeping the running backend: ${errorMessage(error)}`,
       );
-      if (wrapperState !== "shutting-down") wrapperState = "running";
-      return;
+      abandonPreparation();
+      return false;
     }
-    if (wrapperState === "shutting-down") return;
+    if (wrapperState !== preparingState || serverChild !== server) return false;
   }
+  if (authorizeSafeReload && !(await authorizeSafeReload())) {
+    abandonPreparation();
+    return false;
+  }
+  if (wrapperState !== preparingState || serverChild !== server) return false;
+  wrapperState = "reloading";
+  forceReloadAfterPreparation = undefined;
   console.log(
     `[Reload] Replacing ${builtClient ? "backend" : "backend and Vite"} after ${source}...`,
   );
-  if (!isWindows) signalManagedChild(server, "SIGHUP");
-  void completeServerReload(server);
+  if (!authorizeSafeReload && !isWindows) signalManagedChild(server, "SIGHUP");
+  void completeServerReload(server, Boolean(authorizeSafeReload));
+  return true;
 }
 
-async function completeServerReload(server) {
+async function completeServerReload(server, backendStopping = false) {
   const client = clientChild;
   try {
-    if (isWindows) {
+    if (isWindows && !backendStopping) {
       await stopManagedChild(server, "backend reload");
     } else if (
       !(await waitForProcessTargetsExit(managedTargets(server), 10_000))
     ) {
-      console.warn("[Reload] Backend did not stop after SIGHUP; escalating");
+      console.warn("[Reload] Backend did not finish shutdown; escalating");
       await stopManagedChild(server, "backend reload", 2_000);
     }
     if (wrapperState !== "reloading") return;
@@ -983,6 +1054,10 @@ function startServer() {
     if (serverChild !== server) return;
     if (wrapperState === "shutting-down" || wrapperState === "reloading") {
       return;
+    }
+    if (wrapperState === "preparing-safe-reload") {
+      wrapperState = "running";
+      forceReloadAfterPreparation = undefined;
     }
     void recoverUnexpectedServer(server, code, signal);
   });

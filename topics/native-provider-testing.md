@@ -932,8 +932,10 @@ version. Record the baseline and candidate results separately.
 - **YA contract faults.** The controlled ACP peer holds the final replay frame
   until a test releases it. The test runs in the server suite and checks
   refusal on premature peer exit, a complete cold retry and the held replay
-  on resume. The opt-in app repros characterize the lifecycle gaps. A changed
-  outcome is evidence to investigate during an upgrade.
+  on resume. The opt-in app scenarios check retained wakes, patient delivery,
+  idle reap, safe and immediate reload, and history reopened on the next
+  backend generation. A changed outcome is evidence to investigate during
+  an upgrade.
 - **Native history depth.** The short native replay checks the wire order for
   its own transcript. The native acceptance case for an early response on a
   long transcript is a stopped saved session with a known final reply. Open it
@@ -945,6 +947,13 @@ On 2026-11-22, the 29 selected cases passed on macOS arm64 with the 1.5.13 pin
 and the 1.5.14 candidate. The focused rerun with an independent ACP load also
 passed on both versions. Specifying the wrong candidate version was refused
 before native session startup.
+
+The reliability fixes raised the same selection to 30 passing cases on each
+version. The app journey covers a detached wake, a patient send, scheduled
+reload, and the final replies reopened on the replacement backend. On the
+original long saved session, `agy` 1.5.14 projected 820 messages with the
+final report on both the first read and the cached read. There was one native
+load across those reads.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup

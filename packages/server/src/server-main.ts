@@ -256,7 +256,7 @@ let queueRestartForShutdown: QueueRestartHandoff | undefined;
  * clients release their socket claim while their wrapper-lifetime host keeps
  * the runtime alive for the next generation.
  */
-async function gracefulShutdown(signal: string): Promise<void> {
+async function gracefulShutdown(signal: string, source = signal) {
   if (isShuttingDown) {
     console.log(`[Shutdown] Already shutting down, ignoring ${signal}`);
     return;
@@ -268,7 +268,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   // locally or detached to the Linux host. Cleanup is not new task activity.
   stopNotificationsForShutdown?.();
 
-  console.log(`[Shutdown] Received ${signal}, cleaning up...`);
+  console.log(`[Shutdown] Received ${source}, cleaning up...`);
 
   // An admitted provider package mutation (npm install -g) must not be
   // interrupted mid-replacement: hold reload/shutdown on a bounded drain.
@@ -391,8 +391,8 @@ async function gracefulShutdown(signal: string): Promise<void> {
   process.exit(0);
 }
 
-setServerRestartHandler(() => {
-  void gracefulShutdown("restart");
+setServerRestartHandler((kind) => {
+  void gracefulShutdown(kind, kind === "SIGHUP" ? "safe reload" : kind);
 });
 
 // Register shutdown handlers early

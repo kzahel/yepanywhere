@@ -29,7 +29,12 @@ export async function shutdownProviderSessions(
   if (supervisor.getWorkerActivity().queueLength > 0) orderly = false;
   // Inspect before teardown changes a busy owner into an apparently idle one.
   for (const p of processes) {
-    if (!canReleaseWithoutInterruption(signal, p)) orderly = false;
+    if (!canReleaseWithoutInterruption(signal, p)) {
+      orderly = false;
+      console.warn(
+        `[Shutdown] ${signal} is interrupting ${p.provider} session ${p.sessionId} (${p.getLivenessSnapshot().derivedStatus})`,
+      );
+    }
   }
   if (processes.length > 0)
     console.log(`[Shutdown] Aborting ${processes.length} active session(s)...`);

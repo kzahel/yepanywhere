@@ -13,8 +13,7 @@ Evidence below is from YA `eb520d058`. The
 Live Gemini 3.8 Flash Low probes used `agy` 1.5.14 on macOS arm64. Linux has
 scripted native coverage. Windows execution remains unavailable pending native
 child-tree teardown qualification. The standalone ACP 1.4.5 path remains
-available for its own store and uses ordinary queueing and the flat model
-catalog.
+available for its own store and uses the flat model catalog.
 
 | Surface | Current support and limits |
 | --- | --- |
@@ -22,14 +21,15 @@ catalog.
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Reader and resume keep collecting ACP history after an early load response until they observe the persisted text tail. A missing expected tail fails the operation. |
-| Backend reload | `agy` is backend-local. A scheduled reload can miss a detached wake or admit new foreground work after its blocker snapshot. Either can interrupt work. The original interrupted session later resumed and finished. [Reload gap](../gaps/antigravity-backend-reload-interrupts-active-work.md) |
+| Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
 | Other controls | Model and effort changes, offered permission choices, and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Inline images/documents, rewind and fork remain unavailable. |
 
 The [native lifecycle tests](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
 use real `agy` with a scripted model. They cover idle reap and scheduled
-reload during detached replies, patient delivery after settlement, and the late
-foreground reload race. The long native cold replay qualification uses a
-saved session. The
+reload during detached replies, patient delivery after settlement, and late
+foreground admission at the wrapper handoff. One scenario follows a wake
+through patient delivery, safe reload, and reopening the final history. The
+long native cold replay qualification uses a saved session. The
 [upgrade checks](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
 can run with an explicitly selected `agy` version. They check wire order in a
 short native replay. A controlled ACP peer verifies that YA handles a final

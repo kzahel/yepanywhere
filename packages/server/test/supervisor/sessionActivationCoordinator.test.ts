@@ -541,8 +541,10 @@ describe("SessionActivationCoordinator", () => {
         "setEffort:low",
         "setModel:gemini-4-neon",
         "setEffort:high",
-        "prompt:patient-turn",
         "prompt:concurrent-turn",
+      ]);
+      expect(process.getDeferredQueueSummary()).toMatchObject([
+        { tempId: "patient-1", metadata: { deliveryIntent: "patient" } },
       ]);
     } finally {
       await process.abort();
@@ -552,6 +554,7 @@ describe("SessionActivationCoordinator", () => {
   it("keeps queued work paused when an Antigravity rollback fails until a later switch recovers", async () => {
     const queue = new MessageQueue();
     const inputIterator = queue.generator();
+    const ordinaryDelivered = deferred<void>();
     const promptDelivered = deferred<void>();
     const ops: string[] = [];
     let failRollbackModel = true;
@@ -568,6 +571,8 @@ describe("SessionActivationCoordinator", () => {
         for await (const msg of inputIterator) {
           ops.push(`prompt:${String(msg.message.content)}`);
           yield { type: "result" as const, session_id: "agy-rollback-fail" };
+          if (msg.message.content === "held-after-rollback-fail")
+            ordinaryDelivered.resolve();
           if (msg.message.content === "patient-after-rollback-fail")
             promptDelivered.resolve();
         }
@@ -658,6 +663,15 @@ describe("SessionActivationCoordinator", () => {
         thinking: { type: "adaptive", display: "summarized" },
         effort: "high",
       });
+      await ordinaryDelivered.promise;
+      expect(process.getDeferredQueueSummary()).toMatchObject([
+        { tempId: "patient-2", metadata: { deliveryIntent: "patient" } },
+      ]);
+      expect(
+        process.promoteEligiblePatientDeferredMessages({
+          quietSinceMs: Date.now() - 2_000,
+        }).promoted,
+      ).toBe(true);
       await promptDelivered.promise;
       expect(ops.slice(-2)).toEqual([
         "prompt:held-after-rollback-fail",

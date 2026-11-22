@@ -10,6 +10,7 @@ import { serverAgentApiAdmission } from "../src/server-agent-api-admission.js";
 import {
   beginServerShutdown,
   drainServerRequests,
+  fenceServerWritesForRestart,
   finishServerRestart,
   holdQueueRecoveryAdmission,
   serverAdmissionMiddleware,
@@ -79,6 +80,8 @@ it("fences real provider HTTP ingress and joins agent/browser writes before rest
   });
   const app = new Hono();
   app.use("*", serverAdmissionMiddleware);
+  app.get("/status", (c) => c.json({ running: true }));
+  app.post("/probe", (c) => c.json({ admitted: true }));
   app.post("/write", async (c) => {
     browserEntered();
     await browserHeld;
@@ -101,11 +104,29 @@ it("fences real provider HTTP ingress and joins agent/browser writes before rest
     );
     const browserWrite = app.request("/write", { method: "POST" });
     await Promise.all([agentStarted, browserStarted]);
+    const releaseFence = fenceServerWritesForRestart();
+    try {
+      expect(releaseFence).toBeTypeOf("function");
+      expect((await app.request("/status")).status).toBe(200);
+      expect((await app.request("/probe", { method: "POST" })).status).toBe(
+        503,
+      );
+      expect(
+        await sendAgentInput(
+          runtime,
+          lease.environment.AGENT_YA_V0_AUTHORIZATION!,
+        ),
+      ).toBe(503);
+    } finally {
+      releaseFence?.();
+    }
+    expect((await app.request("/probe", { method: "POST" })).status).toBe(200);
     beginServerShutdown();
     let drained = false;
     const drain = drainServerRequests().then((result) => {
       drained = result;
     });
+    const secondDrain = drainServerRequests();
     expect((await app.request("/write", { method: "POST" })).status).toBe(503);
     expect(
       await sendAgentInput(
@@ -119,6 +140,7 @@ it("fences real provider HTTP ingress and joins agent/browser writes before rest
     releaseAgent();
     expect(await agentWrite).toBe(202);
     await drain;
+    expect(await secondDrain).toBe(true);
     expect(drained).toBe(true);
     expect(read).toHaveBeenCalledOnce();
     const restart = vi.fn();

@@ -21,7 +21,9 @@ export interface SafeRestartServiceOptions {
   getPreservedWork?: () => SafeRestartPreservedWork[];
   preparePreservedWork?: () => Promise<void> | void;
   cancelPreservedWork?: () => void;
-  restart: () => Promise<void> | void;
+  restart: (
+    canCommit: () => boolean,
+  ) => Promise<boolean> | Promise<void> | boolean | void;
   pauseProjectQueueDispatch?: () => Promise<boolean> | boolean;
   resumeProjectQueueDispatch?: () => Promise<void>;
   now?: () => Date;
@@ -34,6 +36,8 @@ const RELEVANT_EVENT_TYPES = new Set([
   "queue-position-changed",
   "session-queue-persistence-changed",
 ]);
+const HANDOFF_RETRY_BASE_MS = 1_000;
+const MAX_HANDOFF_RETRIES = 5;
 
 export class SafeRestartService {
   private readonly eventBus: EventBus;
@@ -43,7 +47,7 @@ export class SafeRestartService {
     | undefined;
   private readonly preparePreservedWork?: () => Promise<void> | void;
   private readonly cancelPreservedWork?: () => void;
-  private readonly restart: () => Promise<void> | void;
+  private readonly restart: SafeRestartServiceOptions["restart"];
   private readonly pauseProjectQueueDispatch?: () => Promise<boolean> | boolean;
   private readonly resumeProjectQueueDispatch?: () => Promise<void>;
   private readonly now: () => Date;
@@ -55,6 +59,10 @@ export class SafeRestartService {
   private restartTriggered = false;
   private projectQueuePausedBySchedule = false;
   private evaluationPromise: Promise<void> | undefined;
+  private reevaluateAfterAttempt = false;
+  private handoffRetries = 0;
+  private handoffRetryTimer: ReturnType<typeof setTimeout> | undefined;
+  private disposed = false;
 
   constructor(options: SafeRestartServiceOptions) {
     this.eventBus = options.eventBus;
@@ -69,12 +77,15 @@ export class SafeRestartService {
     this.updatedAt = this.timestamp();
     this.unsubscribe = this.eventBus.subscribe((event) => {
       if (!RELEVANT_EVENT_TYPES.has(event.type)) return;
-      void this.evaluateAndMaybeRestart();
+      if (this.evaluationPromise) this.reevaluateAfterAttempt = true;
+      else void this.evaluateAndMaybeRestart();
     });
   }
 
   dispose(): void {
+    this.disposed = true;
     this.unsubscribe();
+    this.cancelHandoffRetry();
   }
 
   getState(): SafeRestartState {
@@ -96,6 +107,7 @@ export class SafeRestartService {
   }
 
   async schedule(): Promise<SafeRestartState> {
+    this.handoffRetries = 0;
     if (this.status === "idle") {
       this.status = "scheduled";
       this.scheduledAt = this.timestamp();
@@ -118,6 +130,7 @@ export class SafeRestartService {
     this.scheduledAt = undefined;
     this.updatedAt = this.timestamp();
     this.restartTriggered = false;
+    this.cancelHandoffRetry();
     if (this.projectQueuePausedBySchedule) {
       await this.resumeProjectQueueDispatch?.();
     }
@@ -183,12 +196,18 @@ export class SafeRestartService {
     }
     this.evaluationPromise = this.evaluateAndMaybeRestartOnce().finally(() => {
       this.evaluationPromise = undefined;
+      const reevaluate = this.reevaluateAfterAttempt;
+      this.reevaluateAfterAttempt = false;
+      if (reevaluate && this.status === "scheduled")
+        void this.evaluateAndMaybeRestart();
     });
     return this.evaluationPromise;
   }
 
   private async evaluateAndMaybeRestartOnce(): Promise<void> {
-    if (this.status !== "scheduled" || this.restartTriggered) return;
+    if (this.disposed || this.status !== "scheduled" || this.restartTriggered)
+      return;
+    this.cancelHandoffRetry();
 
     this.updatedAt = this.timestamp();
     if (this.preparePreservedWork) {
@@ -211,7 +230,34 @@ export class SafeRestartService {
     this.restartTriggered = true;
     this.updatedAt = this.timestamp();
     this.emitChange();
-    await this.restart();
+    try {
+      const committed = await this.restart(
+        () => this.getBlockers().length === 0,
+      );
+      if (committed !== false) return;
+    } catch (error) {
+      console.warn("[SafeRestartService] Restart handoff failed:", error);
+    }
+    this.status = "scheduled";
+    this.restartTriggered = false;
+    this.updatedAt = this.timestamp();
+    this.emitChange();
+    if (this.getBlockers().length === 0) this.scheduleHandoffRetry();
+  }
+
+  private scheduleHandoffRetry(): void {
+    if (this.disposed || this.handoffRetries >= MAX_HANDOFF_RETRIES) return;
+    const delay = HANDOFF_RETRY_BASE_MS * 2 ** this.handoffRetries++;
+    this.handoffRetryTimer = setTimeout(() => {
+      this.handoffRetryTimer = undefined;
+      void this.evaluateAndMaybeRestart();
+    }, delay);
+    this.handoffRetryTimer.unref?.();
+  }
+
+  private cancelHandoffRetry(): void {
+    clearTimeout(this.handoffRetryTimer);
+    this.handoffRetryTimer = undefined;
   }
 
   private emitChange(): void {

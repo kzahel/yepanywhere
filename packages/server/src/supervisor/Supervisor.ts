@@ -1525,6 +1525,7 @@ export class Supervisor {
       throw error;
     } finally {
       this.pendingCreationStarts--;
+      this.emitWorkerActivity();
       // Reuse the incumbent queue after an admission slot settles. A microtask
       // avoids recursive draining when many saved requests fail preflight.
       queueMicrotask(() => {
@@ -6481,7 +6482,7 @@ export class Supervisor {
   }
 
   private getQueuedSessionMessageCount(): number {
-    let count = this.workerQueue.length;
+    let count = this.workerQueue.length + this.pendingCreationStarts;
     for (const process of this.processes.values()) {
       count += process.queueDepth;
       count += process.getDeferredQueueSummary().length;

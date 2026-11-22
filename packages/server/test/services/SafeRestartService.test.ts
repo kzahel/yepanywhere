@@ -80,6 +80,83 @@ describe("SafeRestartService", () => {
     expect(restart).toHaveBeenCalledTimes(1);
   });
 
+  it("backs out when work enters during the handoff and retries after it settles", async () => {
+    const eventBus = new EventBus();
+    const ready = Promise.withResolvers<void>();
+    const handoff = Promise.withResolvers<void>();
+    const committed = Promise.withResolvers<void>();
+    let activeWorkers = 0;
+    const activity = () => ({
+      activeWorkers,
+      interruptibleSessionCount: activeWorkers,
+      queueLength: 0,
+      hasActiveWork: activeWorkers > 0,
+    });
+    const report = () =>
+      eventBus.emit({
+        type: "worker-activity-changed",
+        ...activity(),
+        timestamp: new Date().toISOString(),
+      });
+    const restart = vi.fn(async (canCommit: () => boolean) => {
+      ready.resolve();
+      await handoff.promise;
+      const safe = canCommit();
+      if (safe) committed.resolve();
+      return safe;
+    });
+    const service = new SafeRestartService({
+      eventBus,
+      getWorkerActivity: activity,
+      restart,
+    });
+
+    const initial = service.schedule();
+    await ready.promise;
+    activeWorkers = 1;
+    report();
+    handoff.resolve();
+    expect(await initial).toMatchObject({
+      status: "scheduled",
+      blockers: [{ type: "active-sessions", count: 1 }],
+    });
+    expect(restart).toHaveBeenCalledTimes(1);
+
+    activeWorkers = 0;
+    report();
+    await committed.promise;
+    expect(service.getState().status).toBe("restarting");
+    expect(restart).toHaveBeenCalledTimes(2);
+    service.dispose();
+  });
+
+  it("retries a declined handoff without a worker event and stops on cancellation", async () => {
+    vi.useFakeTimers();
+    const restart = vi.fn(async () => false);
+    const service = new SafeRestartService({
+      eventBus: new EventBus(),
+      getWorkerActivity: () => ({
+        activeWorkers: 0,
+        queueLength: 0,
+        hasActiveWork: false,
+      }),
+      restart,
+    });
+    try {
+      expect((await service.schedule()).status).toBe("scheduled");
+      await vi.advanceTimersByTimeAsync(999);
+      expect(restart).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(restart).toHaveBeenCalledTimes(2);
+      expect((await service.cancel()).status).toBe("idle");
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(restart).toHaveBeenCalledTimes(2);
+    } finally {
+      service.dispose();
+      vi.useRealTimers();
+    }
+  });
+
   it("reports preserved recovered queue entries without blocking restart", async () => {
     const eventBus = new EventBus();
     const restart = vi.fn();

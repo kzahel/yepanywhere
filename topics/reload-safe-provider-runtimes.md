@@ -1128,18 +1128,29 @@ The banner behavior should remain conservative:
 - **queued work not owned durably by a survivor:** keep it as a blocker; and
 - **continuity state unknown:** hide the seamless action rather than guess.
 
-Both the authenticated API action and wrapper `SIGHUP` enter this same decision
-path. HUP is sent only to the wrapper. Codex app-server interprets HUP as a
-request to drain and exit after active work, so forwarding it would retire the
-very runtime that Hono reload is meant to preserve.
+**Reload When Safe** prepares the development wrapper's replacement before
+committing to shutdown. At the wrapper handoff, the backend temporarily
+fences new writes, joins admitted browser and Agent API writes, and checks
+the current blockers, including native launches that are still binding.
+If work appeared while the wrapper prepared, the backend keeps serving and
+the reload returns to scheduled. A transient handoff failure with no
+remaining work blockers retries with bounded backoff. A successful check
+closes admission and starts graceful reload cleanup. The wrapper replaces
+that generation after it receives the backend's approval.
+
+Immediate reload requests through the authenticated API or wrapper
+`SIGHUP` can interrupt backend-local work. Shutdown logs identify affected
+sessions and their observed liveness. Codex app-server interprets HUP as a
+request to drain and exit after active work, so the wrapper targets its Hono
+generation and preserves detached provider workers.
 
 In the development wrapper, both paths also replace Vite after the old Hono
 generation exits. Expected frontend termination is part of reload, so it does
 not trigger wrapper shutdown. The replacement reads current Vite configuration
 and builds a fresh in-memory module graph; backend and frontend process IDs
 change while the wrapper, provider host, and worker identities remain stable.
-Concurrent reload requests coalesce. The safe-restart blocker decision remains
-unchanged; restarting Vite never bypasses the queue or provider-detach checks.
+Concurrent reload requests coalesce. The backend's final blocker check covers
+both the Vite and backend-only replacement paths.
 
 A frontend exit or launch error keeps Hono and the provider host alive. The
 wrapper reports that Vite needs attention and the next server reload retries
