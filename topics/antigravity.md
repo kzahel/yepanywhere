@@ -22,7 +22,7 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Reader and resume keep collecting ACP history after an early load response until they observe the persisted text tail. A missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
-| Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions; real `agy` cases cover Allow, Deny and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
+| Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions. Real `agy` cases cover Allow, Deny and Stop for the tested `write_file` and `run_command` calls, and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
 The [native lifecycle tests](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
 use real `agy` with a scripted model. They cover idle reap and scheduled
@@ -198,17 +198,52 @@ bypass-permissions launches that session's server with
 `--dangerously-skip-permissions` and keeps the native `default` mode. YA's Plan permission mode is refused; use native `/plan`.
 Permission replies use the actual offered option IDs and never promote Allow
 once to Allow always. Native fixed-choice questions require an offered answer.
-Missing handlers and interrupted requests cancel. A permission request is
-recognized whatever its JSON-RPC ID type (`agy` 1.5.13 and 1.5.14 send
-strings), and the answer echoes that ID unchanged; responses match YA's own
-requests only by YA's own IDs. In `agy`'s default mode, `write_file` and
-`run_command` ask; in accept-edits only `run_command` asks; bypass asks for
-nothing. After Allow the tool runs and the turn continues. After Deny the
-tool does not run, its result is an error, and `agy` ends the turn without
-asking the model again; the next message starts a new turn. Interrupting a
-turn answers its pending permission requests as cancelled and withdraws
-their prompts, as ACP asks of a client. Stop requests native
-`session/cancel`; hard abort closes the owned process group and waits for exit.
+Missing handlers and interrupted requests cancel.
+
+Permission requests ([owner](../packages/server/src/sdk/providers/antigravity-permission-requests.ts)):
+
+- **IDs.** A request is recognized whatever its JSON-RPC ID type (`agy`
+  1.5.13 and 1.5.14 send strings), and its answer echoes that ID unchanged.
+  Each request gets exactly one answer. A response only ever answers a
+  request YA issued: it must have no `method` and one of YA's numeric IDs.
+  A frame that is not JSON-RPC 2.0, has a non-string method, or is a
+  request YA does not serve (including a `session/update` that carries an
+  ID) gets an error and opens no prompt. So does a permission request
+  without a session, a tool call ID or options.
+- **Ownership.** While a YA prompt runs for a conversation, that
+  conversation's requests belong to the prompt:
+  - Stop (`session/cancel`) answers the conversation's pending requests as
+    cancelled and withdraws their prompts;
+  - a request arriving after Stop, before the cancelled prompt returns, is
+    answered cancelled without a prompt;
+  - any request still open when the prompt returns is withdrawn.
+
+  A withdrawn prompt's late answer is refused and does not move the session
+  back in-turn. A request raised outside a YA prompt (a wake or detached
+  work) stays answerable until answered, until its conversation is
+  stopped, or until the connection ends. Stop withdraws only requests that
+  name the conversation it cancels. A request naming a child conversation
+  stays open through a root Stop.
+- **Limits.** At most 32 requests wait at once; more are answered
+  cancelled. If two pending requests share an ID, the first is withdrawn and
+  the ID gets one error answer. When the connection ends, intake closes and
+  every waiting prompt is withdrawn, including for a frame flushed during
+  shutdown.
+- **Observed tool calls** (real `agy` with a scripted model):
+  - in default mode, a scripted `write_file` and `run_command` asked;
+  - in accept-edits, a `write_file` ran without asking and a `run_command`
+    asked;
+  - with bypass, neither asked;
+  - after Allow of `write_file`, the file was written and the turn
+    continued;
+  - after Deny, nothing was written, YA showed an error result, and `agy`
+    ended the turn without asking the model again; the next message
+    started a new turn;
+  - Stop while a `write_file` waited withdrew the prompt, wrote nothing,
+    and the next message worked.
+
+Stop requests native `session/cancel`; hard abort closes the owned process
+group and waits for exit.
 
 Initial support covers text and file references. Inline image/document blocks
 fail explicitly rather than being discarded. Steer sends a second native prompt

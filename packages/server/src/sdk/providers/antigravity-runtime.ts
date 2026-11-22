@@ -12,6 +12,10 @@ import {
   readAgyVersion,
 } from "./antigravity-version.js";
 import type { SDKMessage } from "../types.js";
+import {
+  AntigravityPermissionRequests,
+  type JsonRpcId,
+} from "./antigravity-permission-requests.js";
 
 export interface AntigravityConfigOption {
   id: string;
@@ -263,10 +267,31 @@ export async function findAntigravityRuntime(): Promise<AntigravityRuntimeComman
 class AcpErrorResponse extends Error {}
 
 /** A request ID as JSON-RPC allows it. `agy` sends strings; YA sends numbers. */
-type JsonRpcId = string | number | null;
 const isJsonRpcId = (id: unknown): id is JsonRpcId =>
-  typeof id === "string" || typeof id === "number" || id === null;
-const CANCELLED_PERMISSION = { outcome: { outcome: "cancelled" } };
+  typeof id === "string" ||
+  (typeof id === "number" && Number.isFinite(id)) ||
+  id === null;
+
+/** The fields YA needs to put a permission request to its user. */
+function isPermissionRequest(
+  params: unknown,
+): params is { sessionId: string } & Record<string, unknown> {
+  if (!params || typeof params !== "object") return false;
+  const { sessionId, toolCall, options } = params as Record<string, unknown>;
+  return (
+    typeof sessionId === "string" &&
+    !!toolCall &&
+    typeof toolCall === "object" &&
+    typeof (toolCall as { toolCallId?: unknown }).toolCallId === "string" &&
+    Array.isArray(options) &&
+    options.every(
+      (option) =>
+        !!option &&
+        typeof option.optionId === "string" &&
+        typeof option.kind === "string",
+    )
+  );
+}
 
 /** Native ACP transport. No authenticate/logout calls or credential inspection.
  * The retained shared ACP SDK predates this agent's usage_update notifications.
@@ -289,19 +314,19 @@ export class AntigravityRuntime {
   // Aborted only by the owner's close(), never by an internal failure.
   private readonly cancelled = new AbortController();
   private versionProbe?: Promise<unknown>;
-  // Permission requests from the runtime awaiting YA's answer, keyed by
-  // their own ID as JSON so "1" and 1 stay distinct. Each leaves when it is
-  // answered, cancelled with its session, or the runtime shuts down.
-  private permissions = new Map<
-    string,
-    { id: JsonRpcId; sessionId?: string; controller: AbortController }
-  >();
+  // Requests from the runtime awaiting YA's answer; closed with the connection.
+  private readonly permissions = new AntigravityPermissionRequests(
+    (id, reply) => {
+      if (this.alive && !this.stopped)
+        this.send({ jsonrpc: "2.0", id, ...reply });
+    },
+  );
   onUpdate?: (
     update: AntigravityUpdate,
     sessionId: string,
     isReplay?: boolean,
   ) => void;
-  /** `signal` aborts when the request is cancelled before YA answers. */
+  /** `signal` aborts when the request ends before YA answers it. */
   onPermission?: (
     params: Record<string, unknown>,
     signal: AbortSignal,
@@ -429,13 +454,18 @@ export class AntigravityRuntime {
   }
 
   private receive(message: Record<string, unknown>): void {
-    if (!message.method) {
-      // A response. YA's own requests carry numeric IDs, so a response with
-      // any other ID cannot be one of them.
-      if (typeof message.id !== "number") return;
-      const pending = this.pending.get(message.id);
+    if (message.jsonrpc !== "2.0") {
+      if (typeof message.method === "string" && isJsonRpcId(message.id))
+        this.reject(message.id, -32600, "Invalid Request");
+      return;
+    }
+    if (!("method" in message)) {
+      // A response: only to a request YA issued, which carries a numeric ID.
+      const id = message.id;
+      if (typeof id !== "number" || !Number.isSafeInteger(id)) return;
+      const pending = this.pending.get(id);
       if (!pending) return;
-      this.pending.delete(message.id);
+      this.pending.delete(id);
       if (message.error) {
         const error = message.error as {
           message?: string;
@@ -451,63 +481,42 @@ export class AntigravityRuntime {
       } else pending.resolve(message.result);
       return;
     }
-    const params = message.params as Record<string, unknown> | undefined;
-    const isRequest = "id" in message && isJsonRpcId(message.id);
+    const isRequest = "id" in message;
     if (
-      message.method === "session/update" &&
-      params?.update &&
-      typeof params.sessionId === "string"
+      typeof message.method !== "string" ||
+      (isRequest && !isJsonRpcId(message.id))
     ) {
-      const meta = params._meta as { isReplay?: unknown } | undefined;
-      this.onUpdate?.(
-        params.update as AntigravityUpdate,
-        params.sessionId,
-        meta?.isReplay === true,
-      );
-    } else if (message.method === "session/request_permission" && isRequest) {
-      this.requestPermission(message.id as JsonRpcId, params ?? {});
-    } else if (isRequest) {
-      this.send({
-        jsonrpc: "2.0",
-        id: message.id,
-        error: { code: -32601, message: "Unsupported client method" },
-      });
-    }
-  }
-
-  private requestPermission(id: JsonRpcId, params: Record<string, unknown>) {
-    const key = JSON.stringify(id);
-    // A reused ID while the first is unanswered would make answers ambiguous.
-    if (this.permissions.has(key)) {
-      this.send({
-        jsonrpc: "2.0",
-        id,
-        error: { code: -32600, message: "Duplicate request ID" },
-      });
+      if (isRequest && isJsonRpcId(message.id))
+        this.reject(message.id, -32600, "Invalid Request");
       return;
     }
-    const controller = new AbortController();
-    this.permissions.set(key, {
-      id,
-      sessionId:
-        typeof params.sessionId === "string" ? params.sessionId : undefined,
-      controller,
-    });
-    void (
-      this.onPermission?.(params, controller.signal) ??
-      Promise.resolve(CANCELLED_PERMISSION)
-    )
-      .catch(() => CANCELLED_PERMISSION)
-      .then((result) => this.answerPermission(key, result));
+    const params = message.params as Record<string, unknown> | undefined;
+    if (!isRequest) {
+      if (
+        message.method === "session/update" &&
+        params?.update &&
+        typeof params.sessionId === "string"
+      ) {
+        const meta = params._meta as { isReplay?: unknown } | undefined;
+        this.onUpdate?.(
+          params.update as AntigravityUpdate,
+          params.sessionId,
+          meta?.isReplay === true,
+        );
+      }
+      return;
+    }
+    const id = message.id as JsonRpcId;
+    if (message.method !== "session/request_permission")
+      this.reject(id, -32601, "Unsupported client method");
+    else if (!isPermissionRequest(params))
+      this.reject(id, -32602, "Invalid permission request");
+    else this.permissions.receive(id, params, this.onPermission);
   }
 
-  /** Answers a pending permission request once, echoing its own ID. */
-  private answerPermission(key: string, result: unknown): void {
-    const request = this.permissions.get(key);
-    if (!request) return;
-    this.permissions.delete(key);
+  private reject(id: JsonRpcId, code: number, message: string): void {
     if (this.alive && !this.stopped)
-      this.send({ jsonrpc: "2.0", id: request.id, result });
+      this.send({ jsonrpc: "2.0", id, error: { code, message } });
   }
 
   async call<T = unknown>(
@@ -519,6 +528,13 @@ export class AntigravityRuntime {
       throw new Error("Too many Antigravity requests");
     const id = ++this.sequence;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // A prompt owns the session's permission requests until it returns.
+    const promptSession =
+      method === "session/prompt"
+        ? (params as { sessionId?: unknown } | undefined)?.sessionId
+        : undefined;
+    if (typeof promptSession === "string")
+      this.permissions.promptStarted(promptSession);
     try {
       return await new Promise<T>((resolve, reject) => {
         this.pending.set(id, {
@@ -540,13 +556,14 @@ export class AntigravityRuntime {
       });
     } finally {
       if (timer) clearTimeout(timer);
+      if (typeof promptSession === "string")
+        this.permissions.promptSettled(promptSession);
     }
   }
 
   /**
-   * Cancels the session's prompt turn. As ACP asks of a client, YA then
-   * answers the session's pending permission requests as cancelled and
-   * withdraws their approval prompts.
+   * Cancels the session's prompt turn, then answers that session's pending
+   * permission requests as cancelled (see AntigravityPermissionRequests).
    */
   cancel(sessionId: string): void {
     this.send({
@@ -554,15 +571,12 @@ export class AntigravityRuntime {
       method: "session/cancel",
       params: { sessionId },
     });
-    for (const [key, request] of [...this.permissions]) {
-      if (request.sessionId !== undefined && request.sessionId !== sessionId)
-        continue;
-      request.controller.abort();
-      this.answerPermission(key, CANCELLED_PERMISSION);
-    }
+    this.permissions.cancelSession(sessionId);
   }
 
+  /** The connection is ending: outbound calls fail and inbound intake closes. */
   private fail(error: Error): void {
+    this.permissions.close();
     for (const request of this.pending.values()) request.reject(error);
     this.pending.clear();
   }
@@ -578,8 +592,6 @@ export class AntigravityRuntime {
     if (this.stopped) return this.exited;
     this.stopped = true;
     this.fail(new Error("Antigravity runtime closed"));
-    for (const request of this.permissions.values()) request.controller.abort();
-    this.permissions.clear();
     const pid = this.child?.pid;
     const kill = (signal: NodeJS.Signals) => {
       if (!pid) return;

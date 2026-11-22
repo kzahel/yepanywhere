@@ -366,6 +366,31 @@ export class AntigravityProvider implements AgentProvider {
     };
   }
 
+  /**
+   * Asks while both the session and the request are live. The listeners on
+   * the long-lived session signal are removed when the answer settles, so a
+   * completed approval is not retained for the session's lifetime (as an
+   * `AbortSignal.any` composite with a live source would be).
+   */
+  private async permissionUntil(
+    params: Record<string, unknown>,
+    options: StartSessionOptions,
+    session: AbortSignal,
+    request: AbortSignal,
+  ): Promise<unknown> {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (session.aborted || request.aborted) abort();
+    session.addEventListener("abort", abort, { once: true });
+    request.addEventListener("abort", abort, { once: true });
+    try {
+      return await this.permission(params, options, controller.signal);
+    } finally {
+      session.removeEventListener("abort", abort);
+      request.removeEventListener("abort", abort);
+    }
+  }
+
   private async permission(
     params: Record<string, unknown>,
     options: StartSessionOptions,
@@ -510,11 +535,7 @@ export class AntigravityProvider implements AgentProvider {
         await this.validateResumeSource(options, namespace);
       }
       runtime.onPermission = (params, requestSignal) =>
-        this.permission(
-          params,
-          options,
-          AbortSignal.any([signal, requestSignal]),
-        );
+        this.permissionUntil(params, options, signal, requestSignal);
       // agy offers no bypass mode; that session's server skips permissions.
       const skipPermissions = options.permissionMode === "bypassPermissions";
       // Pin the concrete profile path passed to ACP to the verified physical

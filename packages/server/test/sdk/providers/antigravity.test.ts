@@ -49,9 +49,6 @@ readline.createInterface({input:process.stdin}).on('line', line => {
  const m = JSON.parse(line);
  if(m.method) fs.appendFileSync(process.env.AGY_TEST_LOG,m.method+'\\n');
  if(m.method === 'initialize') {
-  // A response carrying a string ID is never the answer to YA's numeric one.
-  if (process.env.AGY_TEST_STRING_ID_DECOY)
-   reply(String(m.id),{protocolVersion:1,agentInfo:{version:'1.4.5'}});
   return reply(m.id,{protocolVersion:1,agentInfo:{version:'${nativeVersion}'}});
  }
  if(m.method === 'session/new') {
@@ -95,7 +92,7 @@ readline.createInterface({input:process.stdin}).on('line', line => {
   update({sessionUpdate:'user_message_chunk',content:{type:'text',text:m.params.prompt[0].text}});
   update({sessionUpdate:'usage_update',used:123,size:1048576});
   // agy sends permission requests with string IDs; numeric ones are valid too.
-  const permissionId = {approval:'1','approval-hold':'1','approval-numeric':100}[m.params.prompt[0].text];
+  const permissionId = {approval:'1','approval-numeric':100}[m.params.prompt[0].text];
   if(permissionId !== undefined) {
    return send({jsonrpc:'2.0',id:permissionId,method:'session/request_permission',params:{sessionId:id,
     toolCall:{toolCallId:'tool-1',title:'Write file',kind:'edit'},
@@ -553,74 +550,6 @@ describe("Antigravity native process boundary", () => {
         await session.abort();
       }
       expect(session.isProcessAlive?.()).toBe(false);
-    },
-  );
-
-  it.skipIf(process.platform === "win32")(
-    "answers a pending approval as cancelled when the turn is interrupted",
-    async () => {
-      let asked!: () => void;
-      const approvalAsked = new Promise<void>((resolve) => {
-        asked = resolve;
-      });
-      let withdrawn = false;
-      const session = await new AntigravityProvider().startSession({
-        cwd: directory,
-        initialMessage: { text: "approval-hold", uuid: "input-1" },
-        onToolApproval: (_tool, _input, { signal }) =>
-          new Promise((resolve) => {
-            asked();
-            signal.addEventListener("abort", () => {
-              withdrawn = true;
-              resolve({ behavior: "allow" });
-            });
-          }),
-      });
-      try {
-        const done = (async () => {
-          for await (const message of session.iterator)
-            if (message.type === "result" || message.type === "error")
-              return message;
-        })();
-        await approvalAsked;
-        expect(await session.interrupt?.()).toBe(true);
-        expect((await done)?.type).toBe("result");
-        expect(withdrawn).toBe(true);
-        const lines = (await readFile(log, "utf8")).trim().split("\n");
-        // Exactly one answer, the cancellation, even though the withdrawn
-        // prompt resolved afterwards.
-        expect(lines.filter((line) => line.startsWith("answer "))).toEqual([
-          'answer "1" cancelled',
-        ]);
-        expect(lines).toContain("session/cancel");
-      } finally {
-        await session.abort();
-      }
-    },
-  );
-
-  it.skipIf(process.platform === "win32")(
-    "never takes a string-ID response as the answer to YA's own request",
-    async () => {
-      vi.stubEnv("AGY_TEST_STRING_ID_DECOY", "1");
-      const session = await new AntigravityProvider().startSession({
-        cwd: directory,
-        initialMessage: { text: "hello", uuid: "input-1" },
-      });
-      try {
-        const messages: SDKMessage[] = [];
-        for await (const message of session.iterator) {
-          messages.push(message);
-          if (message.type === "result" || message.type === "error") break;
-        }
-        // Matching the decoy would have refused agy as version 1.4.5.
-        expect(messages.at(-1)?.type).toBe("result");
-        expect(messages.filter((message) => message.type === "error")).toEqual(
-          [],
-        );
-      } finally {
-        await session.abort();
-      }
     },
   );
 

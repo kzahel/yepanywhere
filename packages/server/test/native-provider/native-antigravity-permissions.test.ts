@@ -25,9 +25,10 @@ function writeFile(request: Exchange, path: string) {
   });
 }
 
+/** A command with an observable effect: it creates `<marker>.txt`. */
 function command(request: Exchange, marker: string) {
   request.tool("run_command", {
-    CommandLine: `echo ${marker}`,
+    CommandLine: `echo ${marker} > ${marker}.txt`,
     WaitMsBeforeAsync: 5000,
     toolSummary: "permission probe",
   });
@@ -118,6 +119,43 @@ describe.skipIf(!providers.includes("antigravity"))(
       expect(f.model.failures).toEqual([]);
     }, 30_000);
 
+    it("Stop while a write waits withdraws the prompt, writes nothing, and the next message works", async () => {
+      let withdrawn = false;
+      let asked!: () => void;
+      const waiting = new Promise<void>((resolve) => {
+        asked = resolve;
+      });
+      const f = await nativeFixture("antigravity", "gentle", {
+        permissionMode: "default",
+        onToolApproval: (_tool, input, { signal }) =>
+          new Promise((resolve) => {
+            asked();
+            signal.addEventListener("abort", () => {
+              withdrawn = true;
+              resolve({ behavior: "allow", updatedInput: input });
+            });
+          }),
+      });
+      fixture = f;
+      const held = join(f.project, "held.txt");
+      writeFile(await f.model.next(), held);
+      await waiting;
+      await f.proc.interrupt();
+      await f.idle();
+      expect(withdrawn).toBe(true);
+      expect(existsSync(held)).toBe(false);
+      expect(f.proc.queueMessage({ text: "AFTER_STOP_TURN" }).success).toBe(
+        true,
+      );
+      const after = await f.model.next();
+      expect(JSON.stringify(after.body.contents)).toContain("AFTER_STOP_TURN");
+      after.finish("AFTER_STOP_DONE");
+      await f.output("AFTER_STOP_DONE");
+      await f.idle();
+      expect(existsSync(held)).toBe(false);
+      expect(f.errors).toEqual([]);
+    }, 30_000);
+
     it("accept-edits writes without asking and asks for a command", async () => {
       const asked: string[] = [];
       const f = await nativeFixture("antigravity", "gentle", {
@@ -132,14 +170,16 @@ describe.skipIf(!providers.includes("antigravity"))(
       writeFile(await f.model.next(), written);
       command(await f.model.next(), "ACCEPT_EDITS_COMMAND");
       const last = await f.model.next();
-      expect(JSON.stringify(last.body.contents)).toContain(
-        "ACCEPT_EDITS_COMMAND",
-      );
       last.finish("ACCEPT_EDITS_DONE");
       await f.output("ACCEPT_EDITS_DONE");
       await f.idle();
       expect(existsSync(written)).toBe(true);
-      expect(asked).toEqual(["echo ACCEPT_EDITS_COMMAND"]);
+      expect(existsSync(join(f.project, "ACCEPT_EDITS_COMMAND.txt"))).toBe(
+        true,
+      );
+      expect(asked).toEqual([
+        "echo ACCEPT_EDITS_COMMAND > ACCEPT_EDITS_COMMAND.txt",
+      ]);
       expect(f.errors).toEqual([]);
     }, 30_000);
 
@@ -157,11 +197,11 @@ describe.skipIf(!providers.includes("antigravity"))(
       writeFile(await f.model.next(), written);
       command(await f.model.next(), "BYPASS_COMMAND");
       const last = await f.model.next();
-      expect(JSON.stringify(last.body.contents)).toContain("BYPASS_COMMAND");
       last.finish("BYPASS_DONE");
       await f.output("BYPASS_DONE");
       await f.idle();
       expect(existsSync(written)).toBe(true);
+      expect(existsSync(join(f.project, "BYPASS_COMMAND.txt"))).toBe(true);
       expect(asked).toEqual([]);
       expect(f.errors).toEqual([]);
     }, 30_000);
