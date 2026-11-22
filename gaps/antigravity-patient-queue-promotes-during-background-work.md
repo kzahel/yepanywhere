@@ -9,14 +9,14 @@ chooses **Wait until fully done** or **Next topic when done** can start the
 queued topic while Antigravity is still working on the previous one.
 
 Reproduced on 2026-11-22 at `eb520d058` with the
-[opt-in native app cases](antigravity-detached-wakes-look-idle.md#reproduction).
+[opt-in native app cases](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts).
 The composer endpoint accepted an item with patient intent and 120 seconds of
 patience. Finishing the parent's foreground response immediately delivered the
 queued text to the native model while the child's request was still held open.
 
 Live Gemini 3.8 Flash Low through `agy` 1.5.14 reproduced early delivery with
 a native schedule. Submit a patient message during the initial foreground
-turn of the [live schedule probe](antigravity-detached-wakes-look-idle.md#reproduction),
+turn that schedules a wake,
 with 120 seconds of patience. The native transcript recorded the patient
 input and its reply one second after the foreground reply and thirteen seconds
 before the scheduled wake. The patient message asked for a distinct reply

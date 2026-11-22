@@ -413,6 +413,11 @@ export interface StartSessionOptions {
   shouldEmitLiveDeltas?: () => boolean;
   /** Called when provider-owned retention evidence changes. */
   onProviderRetentionChange?: () => void;
+  /** Shares the backend's native summaries observation with local agy. */
+  observeAntigravitySummaries?: (
+    scope: string,
+    listener: () => void,
+  ) => (() => void) | undefined;
   /** Prepared YA host sandbox applied to every provider child for this session. */
   sessionSandbox?: SessionSandboxRuntime;
   /** Cloneable sandbox request used when a provider worker owns preparation. */

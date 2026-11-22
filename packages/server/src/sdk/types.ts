@@ -179,6 +179,11 @@ export interface ProviderActivitySnapshot {
 export interface ProviderRetentionSnapshot {
   retained: boolean;
   reasons: string[];
+  /** Native root activity after the last YA-submitted turn. */
+  detachedReply?: {
+    status: "unverified" | "progressing" | "settled";
+    at: Date;
+  };
   backgroundTaskCount?: number;
   sessionCronCount?: number;
   liveTaskCount?: number;

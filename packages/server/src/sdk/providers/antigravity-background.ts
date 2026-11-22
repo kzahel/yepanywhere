@@ -5,9 +5,11 @@ import {
 } from "@yep-anywhere/shared";
 import {
   type AntigravityChildStatus,
+  type AntigravitySummaryRow,
   isAntigravityChildRunning,
 } from "../../sessions/antigravity-summaries.js";
 import type { ProviderRetentionSnapshot } from "../types.js";
+import { AntigravityRootActivity } from "./antigravity-root-activity.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
 
 const DEFAULT_PROVISIONAL_SUBAGENT_GRACE_MS = 30_000;
@@ -26,11 +28,47 @@ export class AntigravityBackground {
     }
   >();
   private lastUpdatedAt?: Date;
+  private root?: AntigravityRootActivity;
 
   constructor(private readonly changed?: () => void) {}
 
+  trackRoot(): void {
+    this.root ??= new AntigravityRootActivity();
+  }
+
+  stopTrackingRoot(): boolean {
+    const wasPending = this.hasUnsettledRoot();
+    this.root = undefined;
+    if (wasPending) this.lastUpdatedAt = new Date();
+    return wasPending;
+  }
+
+  hasUnsettledRoot(): boolean {
+    const reply = this.root?.snapshot;
+    return !!reply && reply.status !== "settled";
+  }
+
+  needsSummaryObservation(): boolean {
+    return this.hasUnsettledRoot() || this.hasActiveSubagents();
+  }
+
+  reconcileRoot(read: () => AntigravitySummaryRow | undefined): boolean {
+    const state = this.root?.snapshot;
+    if (!state || state.status === "settled" || !this.root?.reconcile(read()))
+      return false;
+    this.lastUpdatedAt = new Date();
+    return true;
+  }
+
   observe(update: AntigravityUpdate, inTurn: boolean): void {
     const id = update.toolCallId;
+    if (
+      !inTurn &&
+      update.status !== "completed" &&
+      update.status !== "failed" &&
+      this.root?.observe(update)
+    )
+      this.publish();
     if (
       !id ||
       (update.sessionUpdate !== "tool_call" &&
@@ -38,7 +76,11 @@ export class AntigravityBackground {
     )
       return;
     if (update.status === "completed" || update.status === "failed") {
-      if (this.active.delete(id)) this.publish();
+      const work = this.active.get(id);
+      if (!work) return;
+      if (!inTurn && work.detached && !work.daemon) this.root?.expectReply();
+      this.active.delete(id);
+      this.publish();
       return;
     }
     if (
@@ -205,6 +247,16 @@ export class AntigravityBackground {
       }
       work.seenInSummaries = true;
       if (!isAntigravityChildRunning(status)) {
+        if (this.root && work.detached && !status.killed) {
+          // The status transition can publish before the child's native
+          // timestamp. Preserve ownership until we can anchor the wake.
+          if (
+            status.status !== "CASCADE_RUN_STATUS_IDLE" ||
+            status.lastModifiedMs === undefined
+          )
+            continue;
+          this.root.expectReply(new Date(status.lastModifiedMs));
+        }
         this.active.delete(key);
         changed = true;
       }
@@ -216,7 +268,8 @@ export class AntigravityBackground {
     return changed;
   }
 
-  foregroundSettled(): void {
+  foregroundSettled(startedAt?: Date): void {
+    if (startedAt) this.root?.observeForegroundSettlement(startedAt);
     let changed = false;
     for (const work of this.active.values()) {
       if (work.detached) continue;
@@ -229,14 +282,20 @@ export class AntigravityBackground {
   snapshot(): ProviderRetentionSnapshot {
     const backgroundWork: ProviderWorkItem[] = [];
     const foregroundWaits: ProviderWorkItem[] = [];
-    let retained = false;
+    let retainedByTask = false;
     for (const { item, detached, daemon } of this.active.values()) {
       (detached ? backgroundWork : foregroundWaits).push(item);
-      retained ||= detached && !daemon;
+      retainedByTask ||= detached && !daemon;
     }
+    const reply = this.root?.snapshot;
+    const retainedByReply = !!reply && reply.status !== "settled";
     return {
-      retained,
-      reasons: retained ? ["antigravity-background-work"] : [],
+      retained: retainedByTask || retainedByReply,
+      reasons: [
+        ...(retainedByTask ? ["antigravity-background-work"] : []),
+        ...(retainedByReply ? ["antigravity-detached-reply"] : []),
+      ],
+      ...(reply ? { detachedReply: reply } : {}),
       backgroundTaskCount: backgroundWork.length,
       backgroundWork,
       foregroundWaits,
@@ -245,8 +304,9 @@ export class AntigravityBackground {
   }
 
   clear(): void {
-    if (!this.active.size) return;
+    if (!this.active.size && !this.root?.snapshot) return;
     this.active.clear();
+    this.root?.clear();
     this.publish();
   }
 

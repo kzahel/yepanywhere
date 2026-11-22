@@ -60,6 +60,7 @@ export interface AntigravityChildStatus {
   status?: string;
   notFullyIdle: boolean;
   killed: boolean;
+  lastModifiedMs?: number;
 }
 
 export interface AntigravityActiveDirectChild {
@@ -201,7 +202,12 @@ export function normalizeAntigravitySummaryRow(
     typeof row.status === "string" && row.status.length > 0
       ? row.status
       : undefined;
-  const notFullyIdle = row.not_fully_idle === 1 || row.not_fully_idle === true;
+  const notFullyIdle =
+    row.not_fully_idle === 1 || row.not_fully_idle === true
+      ? true
+      : row.not_fully_idle === 0 || row.not_fully_idle === false
+        ? false
+        : undefined;
   const killed = row.killed === 1 || row.killed === true;
   const lastModifiedMs = parseAntigravitySummaryTime(row.last_modified_time);
   return {
@@ -213,7 +219,7 @@ export function normalizeAntigravitySummaryRow(
     isChild,
     ...(nestingDepth !== undefined ? { nestingDepth } : {}),
     ...(status ? { status } : {}),
-    notFullyIdle,
+    ...(notFullyIdle !== undefined ? { notFullyIdle } : {}),
     killed,
     ...(lastModifiedMs !== undefined ? { lastModifiedMs } : {}),
   };
@@ -491,6 +497,22 @@ export class AntigravitySummariesReader {
   readRow(conversationId: string): AntigravitySummaryRow | undefined {
     try {
       return this.readRowStrict(conversationId);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Unknown until the database can be opened; false for an older schema. */
+  supportsRootSettlement(): boolean | undefined {
+    const db = this.ensureDb(false);
+    if (!db) return undefined;
+    try {
+      const columns = this.readColumns(db);
+      return (
+        columns.has("status") &&
+        columns.has("not_fully_idle") &&
+        columns.has("last_modified_time")
+      );
     } catch {
       return undefined;
     }
@@ -821,7 +843,10 @@ export class AntigravitySummariesReader {
         ? "not_fully_idle"
         : "0 AS not_fully_idle";
       const killedCol = columns.has("killed") ? "killed" : "0 AS killed";
-      const sql = `SELECT conversation_id, ${parentCol}, ${statusCol}, ${idleCol}, ${killedCol}
+      const modifiedCol = columns.has("last_modified_time")
+        ? "substr(last_modified_time, 1, 128) AS last_modified_time"
+        : "NULL AS last_modified_time";
+      const sql = `SELECT conversation_id, ${parentCol}, ${statusCol}, ${idleCol}, ${killedCol}, ${modifiedCol}
         FROM conversation_summaries
         WHERE conversation_id IN (SELECT value FROM json_each(?))`;
       const rows = this.useSlot(db, this.statusSlot, sql).all<{
@@ -830,6 +855,7 @@ export class AntigravitySummariesReader {
         status: unknown;
         not_fully_idle: unknown;
         killed: unknown;
+        last_modified_time: unknown;
       }>(JSON.stringify([...new Set(childIds)]));
       for (const row of rows) {
         if (typeof row.conversation_id !== "string") continue;
@@ -838,6 +864,9 @@ export class AntigravitySummariesReader {
           row.parent_conversation_id.trim()
             ? row.parent_conversation_id.trim()
             : undefined;
+        const lastModifiedMs = parseAntigravitySummaryTime(
+          row.last_modified_time,
+        );
         out.set(row.conversation_id, {
           conversationId: row.conversation_id,
           ...(parentId ? { parentConversationId: parentId } : {}),
@@ -846,6 +875,7 @@ export class AntigravitySummariesReader {
             : {}),
           notFullyIdle: row.not_fully_idle === 1 || row.not_fully_idle === true,
           killed: row.killed === 1 || row.killed === true,
+          ...(lastModifiedMs !== undefined ? { lastModifiedMs } : {}),
         });
       }
       return out;

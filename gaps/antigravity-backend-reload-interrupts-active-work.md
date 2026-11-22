@@ -25,13 +25,14 @@ a **Reload When Safe** request or its blocker snapshot. The
 requires an active backend-local turn to block a scheduled reload.
 `Supervisor.processHasInterruptibleActiveWork` in
 [Supervisor.ts](../packages/server/src/supervisor/Supervisor.ts) counts
-an `in-turn` local session. The related
-[detached-wake gap](antigravity-detached-wakes-look-idle.md) can hide
-background activity from that decision when foreground state is `idle`.
+an `in-turn` local session and now also accounts for
+[unsettled detached wakes](../topics/provider-wait-and-background-work.md#recorded-work).
+The final wrapper handoff still needs to guard against new work after the
+blocker check.
 
 ## Reproduction
 
-The [opt-in native app cases](antigravity-detached-wakes-look-idle.md#reproduction)
+The [opt-in native app cases](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
 reproduced two scheduled-reload failures on 2026-11-22 at `eb520d058` with
 `agy` 1.5.13 and a scripted model. Both used private app instances.
 
@@ -48,8 +49,7 @@ reproduced two scheduled-reload failures on 2026-11-22 at `eb520d058` with
   the still-held foreground response.
 
 The detached case also reproduced with live Gemini 3.8 Flash Low and installed
-`agy` 1.5.14 in a disposable backend. Start the
-[live schedule probe](antigravity-detached-wakes-look-idle.md#reproduction),
+`agy` 1.5.14 in a disposable backend. Schedule a wake in a foreground turn,
 ask the wake to emit a longer list with an explicit end marker, and choose
 **Reload When Safe** after the first wake text arrives while YA reports
 `verified-idle`. The endpoint accepted with zero blockers, the backend took

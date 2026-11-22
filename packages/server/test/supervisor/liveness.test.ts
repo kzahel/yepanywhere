@@ -62,6 +62,24 @@ describe("buildSessionLivenessSnapshot", () => {
     });
   });
 
+  it("keeps a silent detached reply retained without claiming progress", () => {
+    expect(
+      snapshot({
+        provider: "antigravity",
+        state: { type: "idle", since: STALE_STATE_CHANGE_AT },
+        providerRetention: {
+          retained: true,
+          reasons: ["antigravity-detached-reply"],
+          detachedReply: { status: "progressing", at: STALE_STATE_CHANGE_AT },
+        },
+      }),
+    ).toMatchObject({
+      derivedStatus: "long-silent-unverified",
+      lastVerifiedIdleAt: null,
+      providerRetention: { retained: true },
+    });
+  });
+
   it("flags a live active turn as unverified after long provider silence", () => {
     const lastProviderMessageAt = new Date("2026-05-05T23:59:30.000Z");
 

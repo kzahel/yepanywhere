@@ -310,7 +310,11 @@ export class AntigravityRuntime {
   >();
   private exited: Promise<void> = Promise.resolve();
   private stopped = false;
-  onUpdate?: (update: AntigravityUpdate, sessionId: string) => void;
+  onUpdate?: (
+    update: AntigravityUpdate,
+    sessionId: string,
+    isReplay?: boolean,
+  ) => void;
   onPermission?: (params: Record<string, unknown>) => Promise<unknown>;
 
   get pid(): number | undefined {
@@ -438,7 +442,12 @@ export class AntigravityRuntime {
       params?.update &&
       typeof params.sessionId === "string"
     ) {
-      this.onUpdate?.(params.update as AntigravityUpdate, params.sessionId);
+      const meta = params._meta as { isReplay?: unknown } | undefined;
+      this.onUpdate?.(
+        params.update as AntigravityUpdate,
+        params.sessionId,
+        meta?.isReplay === true,
+      );
     } else if (
       message.method === "session/request_permission" &&
       typeof message.id === "number"

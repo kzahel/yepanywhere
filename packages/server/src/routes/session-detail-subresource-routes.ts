@@ -25,7 +25,10 @@ import {
   creationStatusForSession,
   savedCreationView,
 } from "../sessions/session-creation-view.js";
-import { sessionOwnershipFromProcess } from "../sessions/session-runtime-overlay.js";
+import {
+  sessionActivityFromProcess,
+  sessionOwnershipFromProcess,
+} from "../sessions/session-runtime-overlay.js";
 import type { ISessionReader } from "../sessions/types.js";
 import {
   type SessionDetailRouteDeps,
@@ -407,7 +410,8 @@ export function registerSessionDetailSubresourceRoutes(
         ...(providerChildren ? { providerChildren } : {}),
       },
       ownership,
-      processState: process?.state.type ?? null,
+      processState:
+        sessionActivityFromProcess(process) ?? process?.state.type ?? null,
       providerRuntimeStatus,
       pendingInputRequest,
       slashCommands,

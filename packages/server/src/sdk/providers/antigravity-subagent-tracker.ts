@@ -59,6 +59,14 @@ export class AntigravitySubagentTracker {
     return this.summariesReader;
   }
 
+  readRootSummary() {
+    return this.getSummariesReader().readRow(this.opts.sessionId);
+  }
+
+  supportsRootSettlement(): boolean | undefined {
+    return this.getSummariesReader().supportsRootSettlement();
+  }
+
   /**
    * Initialize the session's `USER_INPUT` anchor and seed historical child IDs
    * on resumed sessions so an earlier turn's child can never be misattributed

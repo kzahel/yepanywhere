@@ -61,7 +61,7 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
   "Antigravity gap reproductions",
   () => {
     it(
-      "reports verified idle with a detached native reply still streaming",
+      "retains a detached reply and verifies idle after delayed native settlement",
       caseBudget,
       async (context) => {
         const app = await nativeAppTestFixture("antigravity", context, {
@@ -76,25 +76,46 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
         await expect
           .poll(async () => (await ownedSession(app, session.sessionId)).state)
           .toBe("background");
-        expect((await app.api(metadataPath)).processState).toBe("idle");
+        expect((await app.api(metadataPath)).processState).toBe("in-turn");
 
         const wake = await app.model.next();
         expect(JSON.stringify(wake.body)).toContain("AGY_GAP_WAKE");
+        expect((await ownedSession(app, session.sessionId)).state).toBe(
+          "background",
+        );
         const live = await app.connect(session.sessionId);
         wake.partial("AGY_GAP_DETACHED_PARTIAL");
         await live.wait("AGY_GAP_DETACHED_PARTIAL");
-        expect((await ownedSession(app, session.sessionId)).state).toBe("idle");
+        expect((await ownedSession(app, session.sessionId)).state).toBe(
+          "background",
+        );
         const snapshot = await app.connect(session.sessionId);
-        await snapshot.wait('"derivedStatus":"verified-idle"');
+        await snapshot.wait('"derivedStatus":"verified-progressing"');
 
         await app.api("/settings", { idleReapHours: 0 }, "PUT");
+        const closed = Promise.all(
+          [live, snapshot].map(
+            ({ ws }) =>
+              new Promise<void>((resolve) => {
+                ws.addEventListener("close", () => resolve(), { once: true });
+              }),
+          ),
+        );
         live.ws.close();
         snapshot.ws.close();
+        await closed;
+        expect((await ownedSession(app, session.sessionId)).state).toBe(
+          "background",
+        );
+
+        // Finishing without additional text takes the native completion path.
+        // With no viewers, the shared summaries observation still settles and
+        // releases the owner for immediate idle reap.
+        wake.finish("");
         await appBarrier(async () => {
           const current = await ownedSession(app, session.sessionId);
           return current.state === "not-running";
-        }, "held native wake reaped after last viewer leaves");
-        await wake.cancelled;
+        }, "completed native wake reaped after settlement");
         expect(app.model.failures).toEqual([]);
       },
     );
@@ -154,7 +175,7 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
     );
 
     it(
-      "waits for a foreground turn but reloads during a held detached wake",
+      "blocks scheduled reload during foreground work and a held detached wake",
       caseBudget,
       async (context) => {
         const app = await nativeAppTestFixture("antigravity", context, {
@@ -179,13 +200,23 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
         wake.partial("AGY_GAP_BEFORE_RELOAD");
         await live.wait("AGY_GAP_BEFORE_RELOAD");
         expect(await app.api("/dev/safe-restart")).toMatchObject({
-          canRestartNow: true,
-          blockers: [],
+          canRestartNow: false,
+          blockers: [{ type: "active-sessions", count: 1 }],
         });
         expect(await app.api("/dev/safe-restart", {})).toMatchObject({
-          status: "restarting",
+          status: "scheduled",
+          blockers: [{ type: "active-sessions", count: 1 }],
         });
-        await expectReloadInterruption(app, before, sessionId, wake);
+        expect((await app.processes()).backend).toBe(before.backend);
+        wake.finish("AGY_GAP_WAKE_BEFORE_SAFE_RELOAD");
+        const replacement = await appBarrier(async () => {
+          const processes = await app.processes();
+          return processes.backend !== before.backend && processes;
+        }, "replacement after native wake settlement");
+        expect(replacement.wrapper).toBe(before.wrapper);
+        await app.ready();
+        expect((await ownedSession(app, sessionId)).state).toBe("not-running");
+        expect(app.model.failures).toEqual([]);
       },
     );
 

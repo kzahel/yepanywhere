@@ -452,6 +452,7 @@ export class AntigravityProvider implements AgentProvider {
     const input = queue[Symbol.asyncIterator]();
     let owner: ReturnType<typeof ownAntigravitySession> | undefined;
     let subagents: AntigravitySubagentTracker | undefined;
+    let unobserveSummaries: (() => void) | undefined;
     let wake: (() => void) | undefined;
     const changed = () => {
       wake?.();
@@ -837,7 +838,44 @@ export class AntigravityProvider implements AgentProvider {
         onProviderRetentionChange: options.onProviderRetentionChange,
       });
       await subagents.initialize(Boolean(options.resumeSessionId));
-      controls.reconcileSubagents = (opts) => subagents?.reconcile(opts);
+      const reconcileRoot = (silent = false) => {
+        if (
+          foregroundUpdate ||
+          compacting ||
+          !background.needsSummaryObservation()
+        )
+          return;
+        const changed =
+          subagents?.supportsRootSettlement() === false
+            ? background.stopTrackingRoot()
+            : background.reconcileRoot(() => subagents?.readRootSummary());
+        if (!changed) return;
+        const notify = () => {
+          if (!signal.aborted) options.onProviderRetentionChange?.();
+        };
+        if (silent) queueMicrotask(notify);
+        else notify();
+      };
+      controls.reconcileSubagents = (opts) => {
+        subagents?.reconcile(opts);
+        reconcileRoot(opts?.silent);
+      };
+      if (modern)
+        unobserveSummaries = options.observeAntigravitySummaries?.(
+          namespace.storageScope,
+          () => {
+            if (
+              signal.aborted ||
+              !runtime.alive ||
+              !background.needsSummaryObservation()
+            )
+              return;
+            subagents?.reconcile();
+            reconcileRoot();
+          },
+        );
+      if (unobserveSummaries && subagents.supportsRootSettlement() !== false)
+        background.trackRoot();
       if (modern)
         controls.compact = async (argument) => {
           if (compacting || foregroundUpdate || inputHeld())
@@ -870,11 +908,13 @@ export class AntigravityProvider implements AgentProvider {
             return result;
           } finally {
             compacting = false;
+            reconcileRoot();
             changed();
           }
         };
-      runtime.onUpdate = (update, updateSessionId) => {
+      runtime.onUpdate = (update, updateSessionId, isReplay) => {
         if (
+          isReplay ||
           updateSessionId !== id ||
           update.sessionUpdate === "user_message_chunk"
         )
@@ -912,7 +952,8 @@ export class AntigravityProvider implements AgentProvider {
             session_id: id,
             slash_command_inventory: controls.commands,
           });
-        if (modern) background.observe(update, !!foregroundUpdate);
+        if (modern)
+          background.observe(update, !!foregroundUpdate || compacting);
         if (foregroundUpdate) {
           foregroundUpdate(update);
         } else if (modern && !compacting) {
@@ -941,6 +982,7 @@ export class AntigravityProvider implements AgentProvider {
             );
           }
           subagents?.reconcile({ inTurn: false });
+          if (update.sessionUpdate === "usage_update") reconcileRoot();
         }
       };
       let nextInput: Awaited<ReturnType<typeof input.next>> | undefined;
@@ -981,6 +1023,7 @@ export class AntigravityProvider implements AgentProvider {
                   return block.text;
                 })
                 .join("\n");
+        const promptStartedAt = new Date();
         const initialStartPosition = await subagents.readStartPosition();
         if (signal.aborted) break;
         const transcript = new AntigravityTranscript(id, `${id}:${uuid}`, true);
@@ -1172,8 +1215,9 @@ export class AntigravityProvider implements AgentProvider {
         await subagents.drainPending();
         subagents.releasePromptScopes(turnPromptScopes);
         while (updates.length) yield updates.shift()!;
-        background.foregroundSettled();
+        background.foregroundSettled(failure ? undefined : promptStartedAt);
         subagents.reconcile({ inTurn: false });
+        reconcileRoot();
         const last = transcript.close();
         if (last) {
           publish(last, activeTurnModel);
@@ -1197,6 +1241,7 @@ export class AntigravityProvider implements AgentProvider {
       controls.setEffort = undefined;
       controls.onInputHoldChanged = undefined;
       controls.reconcileSubagents = undefined;
+      unobserveSummaries?.();
       subagents?.close();
       subagents = undefined;
       background.clear();

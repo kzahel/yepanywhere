@@ -20,15 +20,16 @@ catalog.
 | --- | --- |
 | Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. On `agy` 1.5.x, Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
 | Patient delivery | YA saves patient intent durably. Antigravity delivers it at the ordinary turn boundary, including when a native child or schedule can still wake the root. The per-item quiet interval and verified-idle gate belong to the intended patient behavior. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Early patient delivery](../gaps/antigravity-patient-queue-promotes-during-background-work.md) |
-| Detached work | Known shell tasks, schedules and native subagents appear in live work state. Native child links, settled child replay and running-child read-only views are implemented. The root can still report `verified-idle` while answering a wake, and idle reap can cancel that reply. Metadata can show `idle` even while retention is active. [Detached-wake gap](../gaps/antigravity-detached-wakes-look-idle.md) |
+| Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Reader and resume keep collecting ACP history after an early load response until they observe the persisted text tail. A missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. A scheduled reload can miss a detached wake or admit new foreground work after its blocker snapshot. Either can interrupt work. The original interrupted session later resumed and finished. [Reload gap](../gaps/antigravity-backend-reload-interrupts-active-work.md) |
 | Other controls | Model and effort changes, offered permission choices, and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Inline images/documents, rewind and fork remain unavailable. |
 
-The [lifecycle reproductions](../gaps/antigravity-detached-wakes-look-idle.md#reproduction)
-use real `agy` with a scripted model for early patient delivery, false idle
-and idle reap, scheduled reload during a wake, and the late foreground reload
-race. The long native cold replay qualification uses a saved session. The
+The [native lifecycle tests](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
+use real `agy` with a scripted model. They cover idle reap and scheduled
+reload during detached replies, early patient delivery, and the late
+foreground reload race. The long native cold replay qualification uses a
+saved session. The
 [upgrade checks](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
 can run with an explicitly selected `agy` version. They check wire order in a
 short native replay. A controlled ACP peer verifies that YA handles a final

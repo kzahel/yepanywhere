@@ -156,7 +156,26 @@ export function buildSessionLivenessSnapshot({
 
   switch (state.type) {
     case "idle":
-      if (providerRetention?.retained) {
+      if (providerRetention?.detachedReply?.status === "progressing") {
+        activeWorkKind = "agent-turn";
+        const observed = providerRetention.detachedReply.at;
+        if (!lastVerifiedProgressAt || observed > lastVerifiedProgressAt)
+          lastVerifiedProgressAt = observed;
+        derivedStatus =
+          now.getTime() - lastVerifiedProgressAt.getTime() <
+          longSilenceThresholdMs
+            ? "verified-progressing"
+            : "long-silent-unverified";
+        evidence.push("provider-detached-reply");
+      } else if (providerRetention?.detachedReply?.status === "unverified") {
+        derivedStatus =
+          now.getTime() - providerRetention.detachedReply.at.getTime() <
+          longSilenceThresholdMs
+            ? "recently-active-unverified"
+            : "long-silent-unverified";
+        activeWorkKind = "agent-turn";
+        evidence.push("provider-detached-reply-unverified");
+      } else if (providerRetention?.retained) {
         derivedStatus = "verified-waiting-provider";
         activeWorkKind = "agent-turn";
         lastVerifiedProgressAt =
@@ -172,7 +191,9 @@ export function buildSessionLivenessSnapshot({
       } else {
         derivedStatus = "verified-idle";
         activeWorkKind = "none";
-        lastVerifiedIdleAt = state.since;
+        const settled = providerRetention?.detachedReply?.at;
+        lastVerifiedIdleAt =
+          settled && settled > state.since ? settled : state.since;
         evidence.push("idle-boundary");
       }
       break;

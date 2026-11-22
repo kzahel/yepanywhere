@@ -7,6 +7,7 @@ import type {
   CreationAttachments,
   CreationAttachmentSource,
 } from "../sessions/creation-attachments.js";
+import { observeAntigravitySummaries } from "../sessions/antigravity-summary-observation.js";
 import {
   type AgentAuthRouter,
   RouterRefusedBeforeProvider,
@@ -2941,6 +2942,11 @@ export class Supervisor {
           processHolder.process?.setAppliedPermissionMode(mode),
         onProviderRetentionChange: () =>
           this.handleProviderRetentionChanged(processHolder),
+        observeAntigravitySummaries:
+          activeProvider.name === "antigravity"
+            ? (scope, listener) =>
+                observeAntigravitySummaries(this.eventBus, scope, listener)
+            : undefined,
         onToolApproval: async (toolName, input, opts) => {
           if (!processHolder.process) {
             return { behavior: "deny", message: "Process not ready" };
@@ -6448,10 +6454,7 @@ export class Supervisor {
     ) {
       return true;
     }
-    return (
-      process.getLivenessSnapshot().derivedStatus ===
-      "verified-waiting-provider"
-    );
+    return process.isRetainingProviderWork();
   }
 
   private processHasInterruptibleActiveWork(process: Process): boolean {

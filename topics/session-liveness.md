@@ -51,6 +51,14 @@ and why Codex background terminals do not retain a session.
   activity as `idle`). In particular an idle process that still retains
   provider work (background tasks, crons) reports `activity: "in-turn"` on
   every one of those surfaces and in their live updates.
+  The session metadata endpoint also uses that live activity projection.
+- Antigravity can answer an autonomous wake while the foreground process
+  state is `idle`. A pending wake with no evidence of model output is
+  `recently-active-unverified`. Unsolicited model output makes it
+  `verified-progressing`. Silence past the regular threshold yields
+  `long-silent-unverified`. The wake retains its owner until native root
+  settlement starts a new verified-idle boundary.
+  [Provider settlement evidence](provider-wait-and-background-work.md#contracts)
 - An idle grace owns one absolute deadline. Delays longer than Node can arm in
   one timer are scheduled in safe chunks against that unchanged deadline; a
   chunk firing is not grace expiry. Live timeout changes replace the deadline

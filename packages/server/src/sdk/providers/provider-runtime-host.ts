@@ -823,6 +823,7 @@ function cloneableOptions(
     onPermissionModeApplied: _onPermissionModeApplied,
     shouldEmitLiveDeltas: _shouldEmitLiveDeltas,
     onProviderRetentionChange: _onProviderRetentionChange,
+    observeAntigravitySummaries: _observeAntigravitySummaries,
     sessionSandbox: _sessionSandbox,
     instructionReadHistory: _instructionReadHistory,
     getSessionChildEnv,
