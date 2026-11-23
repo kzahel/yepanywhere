@@ -1056,6 +1056,20 @@ moves the boundary at the candidate taken before the idle. The selection
 then passed with 72 cases and 3 skipped on 2026-11-23, with the 1.5.13 pin
 and with the 1.5.14 candidate, on Node 24.22.1.
 
+Plan 195 step 8 (removing the ACP replay fallback) dropped the
+`session/load` frame-order check from the cold-resume case, which no longer
+qualifies anything YA sends, and moved the projection case's replay oracle
+into a test utility. It added one real-`agy` case to
+`native-antigravity-live-memory.test.ts`: a conversation whose log was
+deleted, the same with one unknown record, and one never prompted, each
+resumed with `session/resume`, the selected model and effort in the next
+model request, the earlier context kept (none for the never-prompted one),
+the owner's rows bounded, and the row saying earlier history cannot be
+shown where it cannot. In `antigravity.test.ts` the three fallback cases
+became three resume cases. The selection passed with 73 cases and 3
+skipped on 2026-11-23, with the 1.5.13 pin and with the 1.5.14 candidate,
+on Node 24.22.1.
+
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
 joins the operation and stops any registered owner before deleting fixture
