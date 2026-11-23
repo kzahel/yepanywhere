@@ -1,3 +1,4 @@
+import { antigravityAllSessionsDirs } from "../../sdk/providers/antigravity-runtime.js";
 import type { NativeSessionCatalogAdapter } from "../catalog-types.js";
 import type { ProviderCatalogFamily } from "../provider-catalog-family.js";
 import { AntigravitySessionCatalogAdapter } from "./antigravity-catalog-adapter.js";
@@ -18,9 +19,9 @@ const factories = {
     new PiSessionCatalogAdapter({ sessionsDir: options.piSessionsDir }),
   opencode: () => new OpenCodeSessionCatalogAdapter(),
   antigravity: (options: NativeCatalogOptions) =>
-    new AntigravitySessionCatalogAdapter({
-      sessionsDir: options.antigravitySessionsDir,
-    }),
+    antigravityAllSessionsDirs(options.antigravitySessionsDir).map(
+      (sessionsDir) => new AntigravitySessionCatalogAdapter({ sessionsDir }),
+    ),
 };
 
 /** Register native discovery once; execution, auth and history remain provider-owned. */
@@ -28,7 +29,11 @@ export function nativeCatalogAdapters(
   families: readonly ProviderCatalogFamily[],
   options: NativeCatalogOptions = {},
 ): NativeSessionCatalogAdapter[] {
-  return Object.entries(factories).flatMap(([family, create]) =>
-    families.includes(family as ProviderCatalogFamily) ? [create(options)] : [],
+  return Object.entries(factories).flatMap<NativeSessionCatalogAdapter>(
+    ([family, create]) => {
+      if (!families.includes(family as ProviderCatalogFamily)) return [];
+      const created = create(options);
+      return Array.isArray(created) ? created : [created];
+    },
   );
 }

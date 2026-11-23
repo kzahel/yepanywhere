@@ -202,7 +202,9 @@ export function SessionPageModals({
               SERVER_CAPABILITIES.agentAuthRouter,
             ) &&
             (effectiveProvider === "claude" ||
-              effectiveProvider === "codex") ? (
+              effectiveProvider === "codex" ||
+              (effectiveProvider === "antigravity" &&
+                Boolean(session.routerBinding))) ? (
               <SessionRouterAccountPane
                 sessionId={actualSessionId}
                 binding={session.routerBinding}
@@ -214,6 +216,8 @@ export function SessionPageModals({
                   serviceTier: savedLaunchSettings?.serviceTier,
                 }}
                 canSwitch={
+                  (effectiveProvider === "claude" ||
+                    effectiveProvider === "codex") &&
                   creationPrincipalResolved &&
                   creationPrincipal.username === null &&
                   serverHasCapability(

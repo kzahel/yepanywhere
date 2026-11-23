@@ -32,6 +32,37 @@ export class ProviderStartupUnavailable extends Error {
   readonly outcome = "startup-unavailable";
 }
 
+export function assertSavedProviderLaunch(
+  provider: AgentProvider | null,
+  hosted: boolean,
+  hasInlineImage: boolean,
+): asserts provider is AgentProvider {
+  if (hasInlineImage && !provider?.supportsInlineImages)
+    throw new Error(
+      "This provider does not accept inline images; use uploaded file references instead",
+    );
+  if (
+    !provider ||
+    (provider.runtimeOwner ?? "local") !== (hosted ? "host" : "local")
+  )
+    throw new Error("Saved creation cannot switch its selected runtime owner");
+  if (!provider.getNewSessionNamespace)
+    throw new Error("Provider has no durable namespace contract");
+}
+
+export function resolveSavedCreationNamespace(
+  provider: AgentProvider,
+  projectPath: string,
+  sessionSandbox: Parameters<
+    NonNullable<AgentProvider["getNewSessionNamespace"]>
+  >[1],
+  routed: boolean,
+) {
+  return provider.getNewSessionNamespace!(projectPath, sessionSandbox, {
+    routed,
+  });
+}
+
 export function assertSavedProviderReady(
   store: SessionCreationStore,
   fence: CreationAttemptFence,

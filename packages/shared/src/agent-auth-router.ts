@@ -41,7 +41,7 @@ export interface AgentAuthRouterAccount {
   displayName?: string;
   directAccountAccess?: boolean;
   id: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
   enabled: boolean;
   renewal: string;
 }
@@ -69,7 +69,7 @@ export interface AgentAuthRouterPolicyInfo {
 export interface AgentAuthRouterPool {
   id: string;
   name: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
   accountIds: string[];
   policy: AgentAuthRouterPoolPolicy;
   revision: number;
@@ -124,7 +124,15 @@ export interface AgentAuthRouterOverview {
       remainingPercent: number | null;
       remainingCapacityUnits?: number | null;
       resetsAt: string | null;
-      scope: "all" | "opus" | "sonnet" | "unknown";
+      scope:
+        | "all"
+        | "opus"
+        | "sonnet"
+        | "gemini"
+        | "gemini-argon"
+        | "gemini-carbon"
+        | "3p"
+        | "unknown";
     }[];
   })[];
   selection?: {

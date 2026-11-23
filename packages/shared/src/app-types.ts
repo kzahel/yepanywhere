@@ -717,7 +717,7 @@ export interface AppSessionSummary
     id: string;
     routerId: string;
     accountId: string;
-    provider: "claude" | "codex";
+    provider: "claude" | "codex" | "antigravity";
   };
   /** Iterations a running `/clearloop` still has to do; absent when none runs. */
   clearloop?: SessionClearloopBadge;

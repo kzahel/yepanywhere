@@ -75,7 +75,7 @@ export interface SessionMetadata {
     id: string;
     routerId: string;
     accountId: string;
-    provider: "claude" | "codex";
+    provider: "claude" | "codex" | "antigravity";
   };
   /** Client-declared UI that first created this YA-owned session. */
   creationProvenance?: SessionCreationProvenance;

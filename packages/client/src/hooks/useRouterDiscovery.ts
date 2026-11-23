@@ -16,7 +16,13 @@ export function useRouterDiscovery(provider: string | null, enabled: boolean) {
   }>({ key, data: null, busy: false, error: false, loaded: false });
   const generation = useRef(0);
   const reload = useCallback(async () => {
-    if (!enabled || (provider !== "claude" && provider !== "codex")) return;
+    if (
+      !enabled ||
+      (provider !== "claude" &&
+        provider !== "codex" &&
+        provider !== "antigravity")
+    )
+      return;
     const id = ++generation.current;
     setState((old) => ({
       key,

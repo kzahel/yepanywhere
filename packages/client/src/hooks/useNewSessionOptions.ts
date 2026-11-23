@@ -219,7 +219,13 @@ export function useNewSessionOptions({
     ) &&
     !launchLock.limited &&
     effectiveSandboxLevel === "none" &&
-    (selectedProvider === "claude" || selectedProvider === "codex");
+    (selectedProvider === "claude" ||
+      selectedProvider === "codex" ||
+      (selectedProvider === "antigravity" &&
+        serverHasCapability(
+          versionInfo,
+          SERVER_CAPABILITIES.agentAuthRouterAntigravity.name,
+        )));
   const routerDiscovery = useRouterDiscovery(selectedProvider, routerEnabled);
   const routerThinking: ThinkingOption =
     selectedThinkingMode === "off"

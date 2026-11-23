@@ -231,3 +231,92 @@ it("distinguishes live applied controls, durable selections, unknown history and
     }).settings.source,
   ).toBe("saved");
 });
+
+it("accepts Antigravity AAR pools and accounts in v0 selection", async () => {
+  const agyOverview = {
+    ...overview,
+    pools: [
+      {
+        id: "agy-pool",
+        name: "Personal AGY",
+        provider: "antigravity",
+        policy: "manual",
+        revision: 1,
+        accountIds: ["personal-antigravity"],
+        bindings: [],
+      },
+    ],
+    accounts: [
+      {
+        id: "personal-antigravity",
+        provider: "antigravity",
+        displayName: "Personal Antigravity",
+        enabled: true,
+        renewal: "manual",
+        freshness: "fresh",
+        catalogAt: "2026-11-23T00:00:00Z",
+        models: [{ id: "gemini-3.8-flash", name: "Gemini 3.8 Flash" }],
+        attemptedAt: "2026-11-23T00:00:00Z",
+        error: null,
+        quota: null,
+        windows: [],
+      },
+    ],
+  } as unknown as AgentAuthRouterOverview;
+  const sources = productionApiSources({
+    scanner: {
+      readRetainedProjects: async () => ({
+        projects: [],
+        complete: true,
+        refreshing: false,
+      }),
+    },
+    sessions: {
+      read: async () => ({
+        rows: [],
+        catalog: {
+          catalogEpoch: "fixture",
+          catalogGeneration: 1,
+          complete: true,
+          refreshing: false,
+        },
+      }),
+    },
+    providers: () => [
+      {
+        name: "antigravity",
+        displayName: "Antigravity",
+        supportsSteering: true,
+        supportsPermissionMode: true,
+        getAvailableModels: async () => [],
+      },
+    ],
+    agentAuthRouter: { selection: async () => agyOverview },
+    hiddenProjects: async () => new Set(),
+  });
+  const api = new CoreApi("A", sources);
+  const app = new Hono<{ Variables: { yaPrincipal: ApiPrincipal } }>();
+  app.use("*", async (c, next) => {
+    c.set(PRINCIPAL_VARIABLE, SUPERUSER);
+    await next();
+  });
+  app.route("/v0", createV0Routes(api));
+
+  const res = await app.request(
+    "/v0/servers/self/selection?provider=antigravity&routing=aar",
+  );
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({
+    provider: "antigravity",
+    routing: "aar",
+    available: true,
+    pools: [{ id: "agy-pool", provider: "antigravity" }],
+    accounts: [
+      {
+        id: "personal-antigravity",
+        provider: "antigravity",
+        models: [{ id: "gemini-3.8-flash" }],
+      },
+    ],
+  });
+});

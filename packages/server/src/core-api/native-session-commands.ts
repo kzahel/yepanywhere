@@ -251,10 +251,7 @@ export function nativeSessionCommandOwner(
           const binding = routed.poolName
             ? `The caller uses the "${routed.poolName}" pool for ${routed.provider}.`
             : `The caller has a ${routed.provider} router binding.`;
-          const routerOption =
-            request.provider === "antigravity"
-              ? ""
-              : ` To use the router, specify a ${request.provider} pool (routerPoolId) or account (routerAccountId) and a model.`;
+          const routerOption = ` To use the router, specify a ${request.provider} pool (routerPoolId) or account (routerAccountId) and a model.`;
           return {
             rejected: true,
             message: `${binding} To start ${request.provider}, set routing to "direct".${routerOption}`,

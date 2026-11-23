@@ -736,7 +736,14 @@ export function deriveComposerNewSessionSettings({
       )
     )
       return { refuse: "routerQueueUnsupported" };
-    if (!serverHasCapability(version, SERVER_CAPABILITIES.agentAuthRouter.name))
+    if (
+      !serverHasCapability(
+        version,
+        session.provider === "antigravity"
+          ? SERVER_CAPABILITIES.agentAuthRouterAntigravity.name
+          : SERVER_CAPABILITIES.agentAuthRouter.name,
+      )
+    )
       return { refuse: "routerLaunchUnsupported" };
     if (binding.poolId) {
       settings.routerPoolId = binding.poolId;

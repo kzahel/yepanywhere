@@ -19,7 +19,9 @@ import {
 } from "../services/AgentAuthRouter.js";
 import { ProviderMemoryCapacityError } from "../sdk/providers/provider-memory-budget.mjs";
 import {
+  assertSavedProviderLaunch,
   assertSavedProviderReady,
+  resolveSavedCreationNamespace,
   recordKnownProviderRefusal,
   reserveLocalMemory,
 } from "./provider-launch-admission.js";
@@ -1359,29 +1361,22 @@ export class Supervisor {
         effort: request.settings.effort ?? undefined,
       };
       const provider = this.resolveProvider(modelSettings);
-      if (!provider?.getNewSessionNamespace)
-        throw new Error("Provider has no durable namespace contract");
-      if (
-        request.attachments?.files.some((file) => file.inlineImage) &&
-        !provider.supportsInlineImages
-      )
-        throw new Error(
-          "This provider does not accept inline images; use uploaded file references instead",
-        );
-      if ((provider.runtimeOwner ?? "local") !== (hosted ? "host" : "local"))
-        throw new Error(
-          "Saved creation cannot switch its selected runtime owner",
-        );
+      assertSavedProviderLaunch(
+        provider,
+        hosted,
+        Boolean(request.attachments?.files.some((file) => file.inlineImage)),
+      );
       if (hosted)
         await assertHostedCreationSupport(request.provider, {
           sandbox: launch.sandboxLevel === "project-write",
         });
+      const routed = Boolean(launch.routerAccountId || launch.routerPoolId);
       assertSavedProviderReady(
         store,
         fence,
         provider.name,
         await provider.getAuthStatus(),
-        Boolean(launch.routerAccountId || launch.routerPoolId),
+        routed,
       );
       const sessionSandbox = await prepareSessionSandbox(
         this.newSessionSandboxOptions(
@@ -1391,9 +1386,11 @@ export class Supervisor {
           undefined,
         ),
       );
-      const namespace = await provider.getNewSessionNamespace(
+      const namespace = await resolveSavedCreationNamespace(
+        provider,
         request.projectPath,
         sessionSandbox,
+        routed,
       );
       await authorize(store.assertCurrent(fence));
       const attachments = request.attachments

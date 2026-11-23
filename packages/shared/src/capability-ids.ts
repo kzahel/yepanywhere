@@ -996,6 +996,12 @@ export const CAPABILITY_ID_ALLOCATIONS = {
     name: "agent-auth-router-hosted",
     introducedIn: "0.12.1",
   },
+  agentAuthRouterAntigravity: {
+    id: 163,
+    direction: "server",
+    name: "agent-auth-router-antigravity",
+    introducedIn: "0.13.1",
+  },
 } as const satisfies Record<string, CapabilityIdAllocation>;
 
 export type CapabilityBitset = readonly (readonly [

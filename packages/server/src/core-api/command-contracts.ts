@@ -110,11 +110,8 @@ export const createSessionRequest = z
   .refine(
     (body) =>
       body.provider !== "antigravity" ||
-      (body.serviceTier === undefined &&
-        !body.routerPoolId &&
-        !body.routerAccountId &&
-        body.permissionMode !== "plan"),
-    "Antigravity uses direct launch and native model IDs, with /plan as a session command",
+      (body.serviceTier === undefined && body.permissionMode !== "plan"),
+    "Antigravity uses native model IDs without service tiers, with /plan as a session command",
   )
   .refine(
     (body) => body.routerPolicy !== "manual" || !!body.routerAccountId,

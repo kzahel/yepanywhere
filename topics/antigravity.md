@@ -125,11 +125,14 @@ reads tokens, calls `authenticate` or `logout`, forwards an OAuth callback,
 switches accounts, or selects an API-billed method. A missing login fails with
 the native error; it does not start YA-managed sign-in.
 
-For an explicitly configured `CLOUD_CODE_URL`, YA passes a configured
-`GEMINI_HOME` to `agy acp` as `--gemini-dir` so the runtime and YA's history
-reader use the same profile. See the experimental
-[AAR Antigravity bridge](https://github.com/kzahel/agent-auth-router/blob/main/docs/antigravity.md)
-for the manual subscription gateway setup.
+For per-session Agent Auth Router (AAR) routing without server-wide env vars,
+YA starts a session-scoped loopback bridge per routed `agy acp` process using a
+dedicated profile under `<dataDir>/agent-auth-router/antigravity-home` and
+passes `--cloud_code_endpoint` and `--gemini-dir` on that launch only; see
+[Agent Auth Router — Antigravity per-session routing](agent-auth-router.md#antigravity-per-session-routing-2026-11-23).
+For an explicitly configured `CLOUD_CODE_URL`, YA also continues to pass a
+configured `GEMINI_HOME` to `agy acp` as `--gemini-dir` so manual bridge setups
+keep working ([AAR Antigravity docs](https://github.com/kzahel/agent-auth-router/blob/main/docs/antigravity.md)).
 
 On 2026-11-13, `agy acp` 1.5.8 reused the CLI's login with no further
 sign-in. The ACP runtime saved its own `auth.type=oauth-personal` setting;
@@ -289,7 +292,7 @@ completions. ACP does not guarantee a result notification for those replies. YA
 displays them as background output, with steering and verified turn completion
 available on submitted prompts.
 
-The v0 API supports direct model discovery, creation, conversation following,
+The v0 API supports direct and AAR-routed model discovery (`selection?provider=antigravity&routing=aar|direct`), creation, conversation following,
 steering, background state, queued compaction and verified Stop using the
 existing authority and receipt contracts. Eligible bypass-permissions CLI
 launches receive their own private v0 connection when Agent API discovery is

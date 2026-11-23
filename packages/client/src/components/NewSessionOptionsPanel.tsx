@@ -1063,7 +1063,13 @@ export function NewSessionOptionsPanel({
         ) &&
           !launchLock.limited &&
           effectiveSandboxLevel === "none" &&
-          (selectedProvider === "claude" || selectedProvider === "codex") && (
+          (selectedProvider === "claude" ||
+            selectedProvider === "codex" ||
+            (selectedProvider === "antigravity" &&
+              serverHasCapability(
+                versionInfo,
+                SERVER_CAPABILITIES.agentAuthRouterAntigravity.name,
+              ))) && (
             <RouterPoolSelector
               provider={selectedProvider}
               model={selectedModel}

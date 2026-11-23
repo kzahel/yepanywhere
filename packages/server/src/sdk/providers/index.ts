@@ -134,6 +134,8 @@ export interface ProviderRuntimeSnapshot {
   grokBuildUseXaiApiKey?: boolean;
   /** The operator's default advertisement of installed Machine Control. */
   machineControlEnabled?: boolean;
+  /** Dedicated profile directory for AAR-routed Antigravity sessions. */
+  antigravityRoutedHomeDir?: string;
 }
 
 let isClaudeOllamaVisible = () => false;

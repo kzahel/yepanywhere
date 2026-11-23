@@ -106,6 +106,12 @@ const WINDOW_SHORT_KEYS = {
   seven_day_opus: "routerWindowShortWeeklyOpus",
   seven_day_sonnet: "routerWindowShortWeeklySonnet",
   seven_day_oauth_apps: "routerWindowShortWeeklyApps",
+  "gemini-5h": "routerWindowShortGeminiFiveHour",
+  "gemini-weekly": "routerWindowShortGeminiWeekly",
+  "3p-5h": "routerWindowShortThirdPartyFiveHour",
+  "3p-weekly": "routerWindowShortThirdPartyWeekly",
+  "gemini-argon-wtu-weekly": "routerWindowShortArgonWeekly",
+  "gemini-carbon-wtu-weekly": "routerWindowShortCarbonWeekly",
 } as const;
 
 type OverviewAccount = AgentAuthRouterOverview["accounts"][number];
@@ -258,11 +264,46 @@ function effortLabel(t: Translate, thinking: ThinkingOption): string {
   return EFFORT_KEYS[effort] ? t(EFFORT_KEYS[effort]) : effort;
 }
 
+function antigravityModelScope(
+  concreteModel: string | undefined,
+): "gemini" | "gemini-argon" | "gemini-carbon" | "3p" | undefined {
+  if (!concreteModel) return undefined;
+  const lower = concreteModel.toLowerCase();
+  if (lower.startsWith("gemini-pro-orchestrator-")) return undefined;
+  if (lower.startsWith("gemini-")) {
+    if (lower.includes("argon")) return "gemini-argon";
+    if (lower.includes("carbon")) return "gemini-carbon";
+    return "gemini";
+  }
+  if (lower.startsWith("claude-") || lower.startsWith("gpt-")) return "3p";
+  return undefined;
+}
+
 /** Windows that bound the selected model: provider-wide or the model's family. */
-function windowApplies(w: QuotaWindow, concreteModel: string | undefined) {
-  return (
-    w.scope === "all" ||
-    (w.scope !== "unknown" && !!concreteModel?.includes(w.scope))
+function applicableAccountWindows(
+  account: OverviewAccount,
+  concreteModel: string | undefined,
+): QuotaWindow[] {
+  const windows = account.windows ?? [];
+  if (account.provider === "antigravity") {
+    const scope = antigravityModelScope(concreteModel);
+    if (!scope) return windows.filter((w) => w.scope === "all");
+    const hasDedicated =
+      (scope === "gemini-argon" || scope === "gemini-carbon") &&
+      windows.some((w) => w.scope === scope);
+    return windows.filter(
+      (w) =>
+        w.scope === "all" ||
+        w.scope === scope ||
+        (!hasDedicated &&
+          (scope === "gemini-argon" || scope === "gemini-carbon") &&
+          w.scope === "gemini"),
+    );
+  }
+  return windows.filter(
+    (w) =>
+      w.scope === "all" ||
+      (w.scope !== "unknown" && !!concreteModel?.includes(w.scope)),
   );
 }
 
@@ -275,8 +316,8 @@ function quotaExhausted(
     account.quota?.ordinaryUsageAllowed !== undefined
   )
     return !account.quota.ordinaryUsageAllowed;
-  return (account.windows ?? []).some(
-    (w) => w.remainingPercent === 0 && windowApplies(w, concreteModel),
+  return applicableAccountWindows(account, concreteModel).some(
+    (w) => w.remainingPercent === 0,
   );
 }
 
@@ -285,10 +326,8 @@ export function tightestRemaining(
   account: OverviewAccount,
   concreteModel: string | undefined,
 ): number | null {
-  const percents = (account.windows ?? [])
-    .filter(
-      (w) => w.remainingPercent !== null && windowApplies(w, concreteModel),
-    )
+  const percents = applicableAccountWindows(account, concreteModel)
+    .filter((w) => w.remainingPercent !== null)
     .map((w) => w.remainingPercent as number);
   const remaining = percents.length ? Math.min(...percents) : null;
   return remaining === 0 && account.quota?.ordinaryUsageAllowed === true

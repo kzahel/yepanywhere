@@ -11,9 +11,11 @@ import {
 } from "@yep-anywhere/shared";
 import type { Message, SessionSummary } from "../supervisor/types.js";
 import {
+  antigravityAllSessionsDirs,
   antigravitySessionsDir,
   antigravitySummariesPath,
 } from "../sdk/providers/antigravity-runtime.js";
+import { MergedSessionReader } from "./merged-reader.js";
 import {
   type AntigravityLogBoundary,
   antigravitySessionOwned,
@@ -79,6 +81,24 @@ import type {
  * explicit interest.
  */
 export class AntigravitySessionReader implements ISessionReader {
+  /** Create a single reader or a merged reader across direct + routed stores. */
+  static create(options: {
+    projectPath: string;
+    sessionsDir?: string;
+    catalogRows?: () => Promise<readonly Readonly<SessionCatalogRow>[]>;
+  }): ISessionReader {
+    const dirs = antigravityAllSessionsDirs(options.sessionsDir);
+    if (dirs.length <= 1) {
+      return new AntigravitySessionReader({ ...options, sessionsDir: dirs[0] });
+    }
+    return new MergedSessionReader(
+      dirs.map(
+        (sessionsDir) =>
+          new AntigravitySessionReader({ ...options, sessionsDir }),
+      ),
+    );
+  }
+
   private readonly directory: string;
   private readonly projectPath: string;
   // At most eight active detail reads per cached reader.

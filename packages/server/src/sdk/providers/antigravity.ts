@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { statSync } from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import {
   fromUrlProjectId,
   parseNativeSessionId,
@@ -36,8 +36,11 @@ import {
 import { ownAntigravitySession } from "./antigravity-owners.js";
 import {
   AntigravityRuntime,
+  antigravityRoutedHomeDir,
+  antigravityRoutedSessionsDir,
   antigravityRuntimeStoreDir,
   antigravitySessionsDir,
+  buildAntigravityRoutedLaunch,
   findAntigravityRuntime,
   pinAntigravityLaunchToScope,
   resolveAntigravityRuntime,
@@ -45,6 +48,11 @@ import {
   type AntigravitySessionSetup,
   type AntigravityUpdate,
 } from "./antigravity-runtime.js";
+import {
+  prepareAntigravityBridgeProfile,
+  startAntigravityRouterBridge,
+  type AntigravityRouterBridge,
+} from "./antigravity-router-bridge.js";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   buildAntigravityModels,
@@ -196,10 +204,33 @@ export class AntigravityProvider implements AgentProvider {
     return normalizeAntigravityUsage(await this.usageRead.result, models);
   }
 
-  async getNewSessionNamespace() {
+  async getNewSessionNamespace(
+    _cwd?: string,
+    _sandbox?: unknown,
+    options?: { routed?: boolean },
+  ) {
+    const dir = options?.routed
+      ? antigravityRoutedSessionsDir()
+      : antigravitySessionsDir();
+    if (!dir)
+      throw new Error("Antigravity routed profile directory is unavailable");
     return {
       family: "antigravity" as const,
-      storageScope: await nativeStorageScope(antigravitySessionsDir()),
+      storageScope: await nativeStorageScope(dir),
+    };
+  }
+
+  private async resolveLaunchNamespace(options: StartSessionOptions) {
+    if (!options.routerLaunch) return this.getNewSessionNamespace();
+    const profileDir =
+      options.routerLaunch.profileDir ?? antigravityRoutedHomeDir();
+    if (!profileDir)
+      throw new Error("Antigravity routed profile directory is unavailable");
+    return {
+      family: "antigravity" as const,
+      storageScope: await nativeStorageScope(
+        resolve(profileDir, "antigravity-cli", "conversations"),
+      ),
     };
   }
 
@@ -332,10 +363,11 @@ export class AntigravityProvider implements AgentProvider {
     if (options.nativeResumeSource) {
       await this.validateResumeSource(
         options,
-        await this.getNewSessionNamespace(),
+        await this.resolveLaunchNamespace(options),
       );
     }
     const controls: AntigravityControls = { commands: [] };
+    const bridgeRef: { current?: AntigravityRouterBridge } = {};
     const queue = Object.assign(new MessageQueue(), {
       setConfigurationInputHeld(held: boolean) {
         controls.inputHeld = held;
@@ -372,6 +404,7 @@ export class AntigravityProvider implements AgentProvider {
         controls,
         resolveReady,
         rejectReady,
+        bridgeRef,
       ),
       ...(this.supportsSteering
         ? {
@@ -380,7 +413,10 @@ export class AntigravityProvider implements AgentProvider {
             steerConsumptionReported: true,
           }
         : {}),
-      supportedModels: async () => controls.models ?? this.getAvailableModels(),
+      supportedModels: async () =>
+        options.routerLaunch?.models?.length
+          ? options.routerLaunch.models
+          : (controls.models ?? this.getAvailableModels()),
       setModel: async (model?: string) => {
         await ready;
         if (!controls.setModel)
@@ -412,7 +448,11 @@ export class AntigravityProvider implements AgentProvider {
       retentionReadReconciles: true,
       abort: async () => {
         controller.abort();
-        await runtime.close();
+        try {
+          await runtime.close();
+        } finally {
+          await bridgeRef.current?.close();
+        }
       },
       interrupt: async () => {
         if (!controls.id || !runtime.alive) return false;
@@ -531,6 +571,7 @@ export class AntigravityProvider implements AgentProvider {
     controls: AntigravityControls,
     resolveReady: () => void,
     rejectReady: (error: Error) => void,
+    bridgeRef: { current?: AntigravityRouterBridge },
   ): AsyncIterableIterator<SDKMessage> {
     let settledReady = false;
     const markReady = () => {
@@ -572,35 +613,77 @@ export class AntigravityProvider implements AgentProvider {
           "Install Google's Antigravity CLI (agy) and sign in with it first",
         );
       const launchEnvironment = agentApiEnvironmentFor(options);
-      // Derive the live storage scope from the exact launch command
-      // used to spawn ACP, and revalidate the resume source against it before
-      // acquiring ownership or launching ACP.
-      const namespace = {
-        family: "antigravity" as const,
-        storageScope: await nativeStorageScope(
-          antigravityRuntimeStoreDir(command),
-        ),
-      };
-      await this.validateResumeSource(options, namespace);
-      // Held before `agy` starts, so every write it makes is YA's own.
-      if (options.resumeSessionId)
-        owner = ownAntigravitySession(
+      const routerLaunch = options.routerLaunch;
+      let namespace: { family: "antigravity"; storageScope: string };
+      let pinned: {
+        args: string[];
+        env?: Record<string, string | undefined>;
+      } | null;
+      if (routerLaunch) {
+        const profileDir =
+          routerLaunch.profileDir ?? antigravityRoutedHomeDir();
+        if (!profileDir) {
+          throw new Error(
+            "Antigravity routed profile directory is unavailable",
+          );
+        }
+        const prepared = prepareAntigravityBridgeProfile(profileDir);
+        namespace = {
+          family: "antigravity" as const,
+          storageScope: await nativeStorageScope(
+            resolve(prepared.profileDir, "antigravity-cli", "conversations"),
+          ),
+        };
+        await this.validateResumeSource(options, namespace);
+        if (options.resumeSessionId)
+          owner = ownAntigravitySession(
+            namespace.storageScope,
+            options.resumeSessionId,
+            options.nativeOwnerHost,
+          );
+        const bridge = await startAntigravityRouterBridge({
+          baseUrl: routerLaunch.baseUrl,
+          token: routerLaunch.token,
+          marker: prepared.marker,
+        });
+        bridgeRef.current = bridge;
+        pinned = buildAntigravityRoutedLaunch(
+          command,
           namespace.storageScope,
-          options.resumeSessionId,
-          options.nativeOwnerHost,
+          bridge.endpoint,
+          launchEnvironment,
         );
+      } else {
+        // Derive the live storage scope from the exact launch command
+        // used to spawn ACP, and revalidate the resume source against it before
+        // acquiring ownership or launching ACP.
+        namespace = {
+          family: "antigravity" as const,
+          storageScope: await nativeStorageScope(
+            antigravityRuntimeStoreDir(command),
+          ),
+        };
+        await this.validateResumeSource(options, namespace);
+        // Held before `agy` starts, so every write it makes is YA's own.
+        if (options.resumeSessionId)
+          owner = ownAntigravitySession(
+            namespace.storageScope,
+            options.resumeSessionId,
+            options.nativeOwnerHost,
+          );
+        // Pin the concrete profile path passed to ACP to the verified physical
+        // storage scope so a mutable symlink (including below the profile root)
+        // cannot redirect ACP at spawn time. Reject if pinning is impossible.
+        pinned = pinAntigravityLaunchToScope(
+          command,
+          namespace.storageScope,
+          launchEnvironment,
+        );
+      }
       runtime.onPermission = (params, requestSignal) =>
         this.permissionUntil(params, options, signal, requestSignal);
       // agy offers no bypass mode; that session's server skips permissions.
       const skipPermissions = options.permissionMode === "bypassPermissions";
-      // Pin the concrete profile path passed to ACP to the verified physical
-      // storage scope so a mutable symlink (including below the profile root)
-      // cannot redirect ACP at spawn time. Reject if pinning is impossible.
-      const pinned = pinAntigravityLaunchToScope(
-        command,
-        namespace.storageScope,
-        launchEnvironment,
-      );
       if (!pinned) {
         throw new Error(
           "Antigravity continuation requires its original native store and project",
@@ -751,7 +834,11 @@ export class AntigravityProvider implements AgentProvider {
           ? currentThought()?.currentValue
           : undefined;
         if (base !== resolvedModel) {
-          if (!modelOption?.options?.some((entry) => entry.value === base)) {
+          if (
+            !modelOption?.options?.some((entry) => entry.value === base) ||
+            (options.routerLaunch?.models?.length &&
+              !options.routerLaunch.models.some((entry) => entry.id === base))
+          ) {
             throw new Error(`Antigravity does not offer model "${target}"`);
           }
           // agy carries a compatible effort across base models. Clear an
@@ -1374,9 +1461,20 @@ export class AntigravityProvider implements AgentProvider {
       subagents = undefined;
       background.clear();
       signal.removeEventListener("abort", stop);
-      await input.return?.();
-      await runtime.close();
-      owner?.release();
+      try {
+        await input.return?.();
+      } finally {
+        try {
+          await runtime.close();
+        } finally {
+          try {
+            await bridgeRef.current?.close();
+          } finally {
+            bridgeRef.current = undefined;
+            owner?.release();
+          }
+        }
+      }
     }
   }
 }

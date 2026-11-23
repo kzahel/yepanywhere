@@ -51,6 +51,8 @@ import { writeFileAtomically } from "../utils/writeFileAtomically.js";
 
 /** AAR accepts the gateway token in `x-aar-gateway-token`. */
 const GATEWAY_TOKEN_HEADER = "gateway-token-header-v1";
+/** AAR supports Antigravity control plane (grants, pools, catalog, quotas). */
+const ANTIGRAVITY_CONTROL = "antigravity-control-v1";
 
 export interface RouterLaunch {
   models?: ModelInfo[];
@@ -60,6 +62,8 @@ export interface RouterLaunch {
    * this computer's claude.ai login, and with it claude.ai connectors.
    */
   claudeAiConnectors?: boolean;
+  /** Dedicated profile directory for AAR-routed Antigravity sessions. */
+  profileDir?: string;
   bindingId: string;
   accountId: string;
   baseUrl: string;
@@ -82,7 +86,7 @@ interface Allocation {
   id: string;
   connectionId: string;
   accountId: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
   model: string;
   token: string;
 }
@@ -95,7 +99,7 @@ export interface RouterAccount {
   displayName?: string;
   directAccountAccess?: boolean;
   id: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
   enabled: boolean;
   renewal: string;
 }
@@ -196,6 +200,7 @@ function routerLabel(value: unknown): string | undefined {
 export class AgentAuthRouter {
   private state: PrivateState;
   private readonly directory: string;
+  readonly antigravityProfileDir: string;
   private readonly file: string;
   private readonly hosted: HostedRouterPairing;
   private tail: Promise<unknown> = Promise.resolve();
@@ -206,6 +211,7 @@ export class AgentAuthRouter {
     private readonly claudeAiLogin?: () => Promise<{ email?: string } | null>,
   ) {
     this.directory = join(dataDir, "agent-auth-router");
+    this.antigravityProfileDir = join(this.directory, "antigravity-home");
     this.file = join(this.directory, "private.json");
     if (existsSync(this.directory)) {
       const directory = lstatSync(this.directory);
@@ -593,7 +599,7 @@ export class AgentAuthRouter {
   }
   private readonly discoveryJobs = new Map<
     string,
-    Promise<AgentAuthRouterOverview>
+    Promise<AgentAuthRouterOverview | null>
   >();
   /** On-demand support observation, with no account/provider I/O or state mutation. */
   async supportsServiceTierSelection(): Promise<boolean> {
@@ -607,7 +613,11 @@ export class AgentAuthRouter {
     }
   }
   async selection(provider: unknown): Promise<AgentAuthRouterOverview | null> {
-    if (provider !== "claude" && provider !== "codex")
+    if (
+      provider !== "claude" &&
+      provider !== "codex" &&
+      provider !== "antigravity"
+    )
       throw new RouterUnavailable(400, "Invalid router provider");
     if (this.summary().state === "disconnected") return null;
     const c = this.connection();
@@ -616,6 +626,11 @@ export class AgentAuthRouter {
     if (!job) {
       job = (async () => {
         const info = await this.info(c);
+        if (
+          provider === "antigravity" &&
+          !info.capabilities.includes(ANTIGRAVITY_CONTROL)
+        )
+          return null;
         const result = await routerRequest<AgentAuthRouterOverview>(
           routerEndpoint(c),
           "/v1/selection",
@@ -1132,13 +1147,27 @@ export class AgentAuthRouter {
       )
         existing = undefined;
       if (!existing && !accountId && !poolId) return undefined;
-      if (!this.metadata || (provider !== "claude" && provider !== "codex"))
+      if (
+        !this.metadata ||
+        (provider !== "claude" &&
+          provider !== "codex" &&
+          provider !== "antigravity")
+      )
         throw new RouterUnavailable(
           409,
-          "Router requires a retained native Claude or Codex session",
+          "Router requires a retained native Claude, Codex or Antigravity session",
         );
       const c = this.connection(),
         info = await this.info(c);
+      if (
+        provider === "antigravity" &&
+        !info.capabilities.includes(ANTIGRAVITY_CONTROL)
+      )
+        throw new RouterUnavailable(
+          409,
+          "Update AAR to route Antigravity sessions.",
+          "unsupported",
+        );
       if (poolId && !info.capabilities.includes("pools-v1"))
         throw new RouterUnavailable(
           409,
@@ -1328,6 +1357,9 @@ export class AgentAuthRouter {
         models: accountModels,
         serviceTierSelection: info.capabilities.includes("service-tiers-v1"),
         ...(claudeAiConnectors ? { claudeAiConnectors } : {}),
+        ...(provider === "antigravity"
+          ? { profileDir: this.antigravityProfileDir }
+          : {}),
         bindingId: allocation.id,
         accountId: allocation.accountId,
         baseUrl: `${info.inferenceOrigin}/${provider}`,

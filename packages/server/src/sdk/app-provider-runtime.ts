@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { setAntigravityRoutedHomeDir } from "./providers/antigravity-runtime.js";
 import {
   configureProviderRuntime,
   type ProviderRuntimeConfig,
@@ -22,6 +24,11 @@ export function configureAppProviderRuntime(
   config: ProviderRuntimeConfig,
 ): void {
   const settings = options.serverSettingsService;
+  const resolvedDataDir = settings?.dataDirectory ?? options.dataDir;
+  const antigravityRoutedHomeDir = resolvedDataDir
+    ? join(resolvedDataDir, "agent-auth-router", "antigravity-home")
+    : undefined;
+  setAntigravityRoutedHomeDir(antigravityRoutedHomeDir);
   if (!settings) setCliInstallationService(undefined);
   if (settings) {
     const dataDir = settings.dataDirectory ?? options.dataDir;
@@ -44,6 +51,16 @@ export function configureAppProviderRuntime(
         ...snapshot?.(),
         cliInstallationDataDir: dataDir,
         cliInstallations: settings.getSetting("cliInstallations"),
+        ...(antigravityRoutedHomeDir ? { antigravityRoutedHomeDir } : {}),
+      }),
+    };
+  } else if (antigravityRoutedHomeDir) {
+    const snapshot = config.getProviderRuntimeSnapshot;
+    config = {
+      ...config,
+      getProviderRuntimeSnapshot: () => ({
+        ...snapshot?.(),
+        antigravityRoutedHomeDir,
       }),
     };
   }

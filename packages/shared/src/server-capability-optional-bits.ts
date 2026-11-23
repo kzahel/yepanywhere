@@ -102,6 +102,11 @@ export const OPTIONAL_SERVER_CAPABILITY_BIT_ALLOCATIONS = {
     index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterHosted.id,
     introducedIn: "0.12.1",
   },
+  agentAuthRouterAntigravity: {
+    name: "agent-auth-router-antigravity",
+    index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterAntigravity.id,
+    introducedIn: "0.13.1",
+  },
   agentAuthRouterRecovery: {
     name: "agent-auth-router-recovery",
     index: CAPABILITY_ID_ALLOCATIONS.agentAuthRouterRecovery.id,

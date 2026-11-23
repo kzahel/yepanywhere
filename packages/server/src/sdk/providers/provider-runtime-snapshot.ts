@@ -9,6 +9,7 @@ import { configureCliInstallations } from "../cli-installation-runtime.js";
  * ignores, since nothing else in the process ever hears about it.
  */
 
+import { setAntigravityRoutedHomeDir } from "./antigravity-runtime.js";
 import { ClaudeGatewayProvider } from "./claude-gateway.js";
 import { ClaudeOllamaProvider } from "./claude-ollama.js";
 import { codexOSSProvider } from "./codex-oss.js";
@@ -37,6 +38,7 @@ export async function applyProviderRuntimeSnapshot(
     isClaudeOllamaVisible: () => true,
     getProviderRuntimeSnapshot: () => config,
   });
+  setAntigravityRoutedHomeDir(config.antigravityRoutedHomeDir);
   ClaudeOllamaProvider.setOllamaUrl(config.ollamaUrl);
   ClaudeOllamaProvider.setSystemPrompt(config.ollamaSystemPrompt);
   ClaudeOllamaProvider.setUseFullSystemPrompt(

@@ -2104,14 +2104,12 @@ export function createApp(options: AppOptions): AppResult {
             }),
         );
       case "antigravity":
-        return getOrCreateReader(
-          `antigravity::${project.path}`,
-          () =>
-            new AntigravitySessionReader({
-              projectPath: project.path,
-              sessionsDir: options.antigravitySessionsDir,
-              catalogRows: readCatalogRows,
-            }),
+        return getOrCreateReader(`antigravity::${project.path}`, () =>
+          AntigravitySessionReader.create({
+            projectPath: project.path,
+            sessionsDir: options.antigravitySessionsDir,
+            catalogRows: readCatalogRows,
+          }),
         );
       case "grok":
         return getOrCreateReader(

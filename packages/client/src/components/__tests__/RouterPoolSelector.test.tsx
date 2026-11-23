@@ -754,3 +754,68 @@ it("unions pool tiers but excludes accounts that cannot serve the selected speed
     )?.text,
   ).toBe("routerReasonSpeedUnsupported");
 });
+
+it("scopes Antigravity quota windows by model family with Pro Argon fallback and renders short labels", () => {
+  const agyAccount = {
+    id: "agy-ultra",
+    displayName: "Personal AGY",
+    provider: "antigravity" as const,
+    enabled: true,
+    renewal: "manual",
+    freshness: "fresh" as const,
+    models: [
+      { id: "gemini-4-neon", name: "Gemini 4 Neon" },
+      { id: "gemini-4-argon", name: "Gemini 4 Argon" },
+      { id: "claude-opus-5-5", name: "Claude Opus 5.5" },
+    ],
+    catalogAt: "2026-11-23T00:00:00Z",
+    attemptedAt: "2026-11-23T00:00:00Z",
+    error: null,
+    quota: { observedAt: "2026-11-23T00:00:00Z", source: "probe" as const },
+    windows: [
+      {
+        bucket: "gemini-5h",
+        windowMinutes: 300,
+        usedPercent: 10,
+        remainingPercent: 90,
+        resetsAt: "2026-11-23T05:00:00Z",
+        scope: "gemini" as const,
+      },
+      {
+        bucket: "gemini-weekly",
+        windowMinutes: 10080,
+        usedPercent: 25,
+        remainingPercent: 75,
+        resetsAt: "2026-11-30T00:00:00Z",
+        scope: "gemini" as const,
+      },
+      {
+        bucket: "gemini-argon-wtu-weekly",
+        windowMinutes: 10080,
+        usedPercent: 60,
+        remainingPercent: 40,
+        resetsAt: "2026-11-30T00:00:00Z",
+        scope: "gemini-argon" as const,
+      },
+      {
+        bucket: "3p-5h",
+        windowMinutes: 300,
+        usedPercent: 80,
+        remainingPercent: 20,
+        resetsAt: "2026-11-23T05:00:00Z",
+        scope: "3p" as const,
+      },
+    ],
+  };
+
+  expect(tightestRemaining(agyAccount, "gemini-4-neon")).toBe(75);
+  expect(tightestRemaining(agyAccount, "gemini-4-argon")).toBe(40);
+  expect(tightestRemaining(agyAccount, "claude-opus-5-5")).toBe(20);
+
+  // Without a dedicated argon bucket (Pro plan), argon falls back to gemini.
+  const proAccount = {
+    ...agyAccount,
+    windows: agyAccount.windows.filter((w) => w.scope !== "gemini-argon"),
+  };
+  expect(tightestRemaining(proAccount, "gemini-4-argon")).toBe(75);
+});

@@ -80,6 +80,95 @@ export function antigravityRuntimeStoreDir(
   );
 }
 
+let configuredAntigravityRoutedHomeDir: string | undefined;
+
+/** Configure YA's dedicated profile directory for AAR-routed Antigravity sessions. */
+export function setAntigravityRoutedHomeDir(dir: string | undefined): void {
+  configuredAntigravityRoutedHomeDir = dir ? resolve(dir) : undefined;
+}
+
+export function antigravityRoutedHomeDir(): string | undefined {
+  return configuredAntigravityRoutedHomeDir;
+}
+
+export function antigravityRoutedSessionsDir(): string | undefined {
+  return configuredAntigravityRoutedHomeDir
+    ? resolve(
+        configuredAntigravityRoutedHomeDir,
+        "antigravity-cli",
+        "conversations",
+      )
+    : undefined;
+}
+
+/**
+ * All Antigravity conversation stores YA observes: direct plus AAR-routed when
+ * configured. An explicit test override keeps its single store isolated.
+ */
+export function antigravityAllSessionsDirs(
+  overrideSessionsDir?: string,
+): string[] {
+  if (overrideSessionsDir) return [overrideSessionsDir];
+  const direct = antigravitySessionsDir();
+  const routed = antigravityRoutedSessionsDir();
+  return routed && routed !== direct ? [direct, routed] : [direct];
+}
+
+function stripAntigravityFlag(args: readonly string[], flag: string): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg === flag) {
+      i++;
+      continue;
+    }
+    if (arg.startsWith(`${flag}=`)) continue;
+    result.push(arg);
+  }
+  return result;
+}
+
+/**
+ * Build per-session `agy acp` arguments and environment for an AAR-routed
+ * launch, pinned to the verified physical routed store and session loopback
+ * bridge endpoint. Clears ambient routing overrides from the child env.
+ */
+export function buildAntigravityRoutedLaunch(
+  command: Pick<AntigravityRuntimeCommand, "args">,
+  physicalScope: string,
+  endpoint: string,
+  launchEnvironment?: Record<string, string>,
+): { args: string[]; env: Record<string, string | undefined> } | null {
+  const canPin =
+    basename(physicalScope) === "conversations" &&
+    basename(dirname(physicalScope)) === "antigravity-cli";
+  if (!canPin) return null;
+  const physicalGeminiDir = dirname(dirname(physicalScope));
+  const baseArgs = stripAntigravityFlag(
+    stripAntigravityFlag(command.args, "--gemini-dir"),
+    "--cloud_code_endpoint",
+  );
+  return {
+    args: [
+      ...baseArgs,
+      "--cloud_code_endpoint",
+      endpoint,
+      "--gemini-dir",
+      physicalGeminiDir,
+    ],
+    env: {
+      ...launchEnvironment,
+      GEMINI_HOME: physicalGeminiDir,
+      SSH_CONNECTION: "127.0.0.1 0 127.0.0.1 0",
+      CLOUD_CODE_URL: undefined,
+      AGY_LLM_GATEWAY_URL: undefined,
+      AGY_ACP_CCPA_PROJECT: undefined,
+      GEMINI_API_KEY: undefined,
+      GOOGLE_API_KEY: undefined,
+    },
+  };
+}
+
 /**
  * Pin the concrete ACP launch arguments and environment to a verified physical
  * `conversations/` directory so a mutable symlink on `GEMINI_HOME` or `~/.gemini`
@@ -259,16 +348,22 @@ export class AntigravityRuntime {
     command: string,
     cwd: string,
     args: string[] = [],
-    launchEnvironment?: Record<string, string>,
+    launchEnvironment?: Record<string, string | undefined>,
   ): Promise<void> {
     if (this.child || this.stopped)
       throw new Error("Antigravity runtime is closed");
+    const spawnEnv: NodeJS.ProcessEnv = {
+      ...stripYaControlPlaneCredentials(process.env),
+    };
+    if (launchEnvironment) {
+      for (const [key, value] of Object.entries(launchEnvironment)) {
+        if (value === undefined) delete spawnEnv[key];
+        else spawnEnv[key] = value;
+      }
+    }
     this.child = spawn(command, args, {
       cwd,
-      env: {
-        ...stripYaControlPlaneCredentials(process.env),
-        ...launchEnvironment,
-      },
+      env: spawnEnv,
       stdio: ["pipe", "pipe", "pipe"],
       detached: process.platform !== "win32",
     });

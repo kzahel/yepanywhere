@@ -155,12 +155,6 @@ export function productionApiSources(deps: {
           catalog,
         });
       }
-      if (query.provider === "antigravity")
-        throw new CoreApiError(
-          "invalid_request",
-          "Antigravity selection requires routing=direct",
-          400,
-        );
       const overview = await deps.agentAuthRouter?.selection(query.provider);
       signal?.throwIfAborted();
       return selectionSchema.parse({

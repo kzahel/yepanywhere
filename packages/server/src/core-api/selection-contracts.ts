@@ -67,7 +67,7 @@ export const selectionSchema = z.object({
       z.object({
         id: z.string(),
         name: z.string(),
-        provider: z.enum(["claude", "codex"]),
+        provider: selectableProvider,
         accountIds: z.array(z.string()),
         policy: z.string(),
         revision: z.number(),
@@ -79,7 +79,7 @@ export const selectionSchema = z.object({
       z.object({
         id: z.string(),
         displayName: z.string().optional(),
-        provider: z.enum(["claude", "codex"]),
+        provider: selectableProvider,
         enabled: z.boolean(),
         directAccountAccess: z.boolean().optional(),
         freshness: z.enum(["fresh", "stale", "unknown"]),

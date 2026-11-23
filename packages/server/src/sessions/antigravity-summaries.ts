@@ -109,9 +109,7 @@ export function isAntigravityChildRunning(row: {
  * invalidate both the retained catalog and provider-child relationships
  * without recursively watching sibling directories like `brain/`.
  */
-export function antigravitySessionWatcherSpec(
-  sessionsDir: string,
-): ProviderSessionWatcherSpec {
+function antigravityWatchOptions(sessionsDir: string) {
   let physicalDir = sessionsDir;
   try {
     physicalDir = realpathSync(sessionsDir);
@@ -121,8 +119,7 @@ export function antigravitySessionWatcherSpec(
   const summariesName = basename(antigravitySummariesPath(physicalDir));
   const walName = `${summariesName}-wal`;
   return {
-    family: "antigravity",
-    provider: "antigravity",
+    provider: "antigravity" as const,
     watchDir: physicalDir,
     recursive: false,
     companionWatchDir: {
@@ -130,6 +127,30 @@ export function antigravitySessionWatcherSpec(
       files: [summariesName, walName],
     },
     debounceMs: 200,
+  };
+}
+
+export function antigravitySessionWatcherSpec(
+  sessionsDir: string,
+  routedDataDir?: string,
+): ProviderSessionWatcherSpec {
+  const primary = antigravityWatchOptions(sessionsDir);
+  const routedDir = routedDataDir
+    ? join(
+        routedDataDir,
+        "agent-auth-router",
+        "antigravity-home",
+        "antigravity-cli",
+        "conversations",
+      )
+    : undefined;
+  const routed = routedDir ? antigravityWatchOptions(routedDir) : undefined;
+  return {
+    family: "antigravity",
+    ...primary,
+    ...(routed && routed.watchDir !== primary.watchDir
+      ? { additionalWatchers: [routed] }
+      : {}),
   };
 }
 

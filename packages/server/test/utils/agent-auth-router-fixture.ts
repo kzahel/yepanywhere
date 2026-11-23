@@ -45,7 +45,8 @@ export async function agentAuthRouterFixture(
     serviceTiers = false,
     loginLapsed = false,
     accountProvider = "codex",
-    gatewayTokenHeader = false;
+    gatewayTokenHeader = false,
+    antigravityControl = false;
   const server = http.createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -72,6 +73,7 @@ export async function agentAuthRouterFixture(
             ...(ownerManaged ? ["router-owned-pools-v1"] : []),
             ...(cliModels ? ["catalog-cli-models-v1"] : []),
             ...(gatewayTokenHeader ? ["gateway-token-header-v1"] : []),
+            ...(antigravityControl ? ["antigravity-control-v1"] : []),
           ],
           ...(policyList
             ? {
@@ -222,6 +224,10 @@ export async function agentAuthRouterFixture(
     },
     claudeAccount: () => {
       accountProvider = "claude";
+    },
+    antigravityAccount: (controlSupported = true) => {
+      accountProvider = "antigravity";
+      antigravityControl = controlSupported;
     },
     gatewayTokenHeader: (supported = true) => {
       gatewayTokenHeader = supported;

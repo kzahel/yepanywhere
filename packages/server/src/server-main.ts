@@ -473,7 +473,7 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
   activationDelayMs: PROVIDER_WATCH_ACTIVATION_DELAY_MS,
   activationYieldMs: PROVIDER_WATCH_ACTIVATION_YIELD_MS,
   specs: [
-    antigravitySessionWatcherSpec(antigravitySessionsDir()),
+    antigravitySessionWatcherSpec(antigravitySessionsDir(), config.dataDir),
     {
       family: "claude",
       watchDir: config.claudeSessionsDir,

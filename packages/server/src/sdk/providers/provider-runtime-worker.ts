@@ -177,6 +177,7 @@ async function main(): Promise<void> {
         const namespace = await provider.getNewSessionNamespace?.(
           providerOptions.cwd,
           sessionSandbox,
+          { routed: Boolean(providerOptions.routerLaunch) },
         );
         if (
           !namespace ||

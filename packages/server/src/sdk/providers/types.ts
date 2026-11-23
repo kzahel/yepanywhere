@@ -775,6 +775,7 @@ export interface AgentProvider {
   getNewSessionNamespace?(
     cwd: string,
     sandbox?: Pick<SessionSandboxRuntime, "transcriptDir">,
+    options?: { routed?: boolean },
   ): Promise<Pick<NativeSessionRef, "family" | "storageScope">>;
 
   /**

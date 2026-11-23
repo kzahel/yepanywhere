@@ -264,13 +264,20 @@ export function AgentAuthRouterPools({
               onChange={(e) =>
                 setDraft({
                   ...draft,
-                  provider: e.target.value as "codex" | "claude",
+                  provider: e.target.value as
+                    | "codex"
+                    | "claude"
+                    | "antigravity",
                   accountIds: [],
                 })
               }
             >
               <option value="codex">Codex</option>
               <option value="claude">Claude</option>
+              {serverHasCapability(
+                version,
+                SERVER_CAPABILITIES.agentAuthRouterAntigravity.name,
+              ) && <option value="antigravity">Antigravity</option>}
             </Select>
           </Field>
           <Field label={t("routerPoolPolicy")}>
@@ -430,6 +437,14 @@ export function AgentAuthRouterPools({
                           seven_day_oauth_apps: "routerPoolWeeklyApps",
                           "codex:primary": "routerPoolPrimary",
                           "codex:secondary": "routerPoolSecondary",
+                          "gemini-5h": "routerWindowShortGeminiFiveHour",
+                          "gemini-weekly": "routerWindowShortGeminiWeekly",
+                          "3p-5h": "routerWindowShortThirdPartyFiveHour",
+                          "3p-weekly": "routerWindowShortThirdPartyWeekly",
+                          "gemini-argon-wtu-weekly":
+                            "routerWindowShortArgonWeekly",
+                          "gemini-carbon-wtu-weekly":
+                            "routerWindowShortCarbonWeekly",
                         } as const
                       )[window.bucket as "five_hour"] ?? window.bucket,
                     )}
