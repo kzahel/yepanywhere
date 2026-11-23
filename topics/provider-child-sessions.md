@@ -147,9 +147,11 @@ overlays without SQL commits when structure is unchanged.
 `AntigravityTranscript` normalizes `invoke_subagent` to `spawn_agent` so
 existing clients render inline expand and Open links with no wire change;
 `getAgentSession` authorizes only verified descendants of the parent (revalidating
-before `session/load` and before returning), uses a bounded read-only
-`transcript.jsonl` projection without starting ACP while a child is running, and
-replays settled children via `session/load`. `getAgentMappings` correlates
+before returning) and shows the latest page of the child's brain log, running
+or settled, without starting ACP; a settled child whose log is missing or
+unreadable shows one row saying so
+([history YA cannot show](antigravity.md#history-ya-cannot-show)).
+`getAgentMappings` correlates
 already-loaded calls against bounded `brain/<parentId>/.system_generated/logs/transcript.jsonl`
 tails anchored to the physical native store and cross-checked with
 `conversation_summaries.db`.

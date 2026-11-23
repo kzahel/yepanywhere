@@ -95,6 +95,7 @@ export async function readAntigravityMetadata(
       agentName,
       nestingDepth,
       status,
+      stepCount,
     } = summary;
     if (!isAbsolutePath(cwd))
       throw new Error("Antigravity session has no absolute project path");
@@ -119,6 +120,7 @@ export async function readAntigravityMetadata(
       agentName,
       nestingDepth,
       status,
+      stepCount,
       path: dbPath,
       info,
       updatedAtMs: Math.max(

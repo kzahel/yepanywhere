@@ -252,7 +252,7 @@ describe("Antigravity census staging", () => {
       expect(conversations[KEPT]).toMatchObject({
         status: "known",
         recordsDecoded: 2,
-        replayComplete: true,
+        replayMessages: 2,
         mismatches: {},
       });
     },

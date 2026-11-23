@@ -68,12 +68,8 @@ describe
     fixture = f;
     // Known once the first turn has reported the native identity.
     let scope: string | undefined;
-    const projection = () => {
-      const view = scope
-        ? antigravityOwnerView(scope, f.nativeId())
-        : undefined;
-      return view?.state === "open" ? view : undefined;
-    };
+    const projection = () =>
+      scope ? antigravityOwnerView(scope, f.nativeId()) : undefined;
     const heap = () => {
       const proc = f.proc as unknown as {
         currentBucket: unknown[];

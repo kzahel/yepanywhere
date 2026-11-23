@@ -381,6 +381,56 @@ test("shows another program's append to an open stopped conversation, with the e
   }
 });
 
+// Plan 195 step 8: no ACP replay fallback. A stopped conversation whose
+// log YA cannot read shows one row saying so, and starts no agy to read it.
+test("shows a stopped conversation whose log it cannot read as one row saying so", async ({
+  browser,
+}) => {
+  const unreadableId = "a9a90000-0000-4000-8000-000000000198";
+  const { server, projectId, started, store, nextStep } =
+    await serve(unreadableId);
+  // A record with a field no observed agy writes: an unknown log.
+  await appendFile(
+    join(
+      store,
+      "brain",
+      unreadableId,
+      ".system_generated",
+      "logs",
+      "transcript_full.jsonl",
+    ),
+    `${JSON.stringify({ step_index: nextStep, source: "MODEL", type: "PLANNER_RESPONSE", status: "DONE", created_at: "2026-11-23T08:00:00Z", content: "UNSHOWN_REPLY", novel: 1 })}\n`,
+  );
+  for (const viewport of [
+    { name: "desktop" as const, width: 1000, height: 600 },
+    { name: "phone" as const, width: 375, height: 812 },
+  ]) {
+    const context = await browser.newContext({
+      serviceWorkers: "block",
+      viewport,
+    });
+    const page = await context.newPage();
+    await page.goto(
+      `${server.baseUrl}/projects/${projectId}/sessions/${unreadableId}`,
+    );
+    const main = page.getByRole("main");
+    await expect(
+      main.getByText(/Earlier history cannot be shown: YA cannot read/),
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(main.getByText(/TURN_\d+_REPLY/)).toHaveCount(0);
+    await expect(main.getByText("UNSHOWN_REPLY")).toHaveCount(0);
+    await recordUiCapture(
+      page,
+      `antigravity-unreadable-log-${viewport.name}`,
+      viewport,
+    );
+    await context.close();
+  }
+  expect(await readFile(started, "utf8").catch(() => "")).not.toContain(
+    "--gemini-dir",
+  );
+});
+
 test("resumes a long Antigravity conversation from the browser without replaying it", async ({
   browser,
 }) => {

@@ -231,11 +231,7 @@ export class AntigravityRuntime {
     },
     () => this.onPermission,
   );
-  onUpdate?: (
-    update: AntigravityUpdate,
-    sessionId: string,
-    isReplay?: boolean,
-  ) => void;
+  onUpdate?: (update: AntigravityUpdate, sessionId: string) => void;
   /** `signal` aborts when the request ends before YA answers it. */
   onPermission?: (
     params: Record<string, unknown>,
@@ -435,12 +431,7 @@ export class AntigravityRuntime {
             update.toolCallId,
             update.status,
           );
-        const meta = params._meta as { isReplay?: unknown } | undefined;
-        this.onUpdate?.(
-          params.update as AntigravityUpdate,
-          params.sessionId,
-          meta?.isReplay === true,
-        );
+        this.onUpdate?.(params.update as AntigravityUpdate, params.sessionId);
       }
       return;
     }

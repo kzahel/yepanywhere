@@ -64,6 +64,13 @@ export type AntigravityLogWindow =
       anchor?: "found" | "missed";
       /** The conversation's first prompt, when it was read. */
       firstPrompt?: string;
+      /**
+       * When the window reaches the file's start: the first record's step.
+       * Above 0, the log lacks the records before it (`agy` numbers steps
+       * from its database, so a log recreated after it was lost starts
+       * later).
+       */
+      firstStep?: number;
       /** For a latest page: the last record it read to. */
       last?: AntigravityLogBoundary;
       /** The file the window was read from; none for an empty boundary. */
@@ -208,6 +215,13 @@ class WindowRead {
 
   firstPrompt(): Promise<string | undefined> {
     return this.source.firstPrompt(this.end);
+  }
+
+  /** The step of the file's first record (a page from the start holds it). */
+  async firstStep(): Promise<number> {
+    const line = await this.source.lineFrom(0, this.end);
+    this.source.release(line);
+    return (await this.source.head(line)).step;
   }
 
   /** The last record the window reads to. */
@@ -576,8 +590,13 @@ export async function readAntigravityLogWindow(
           read.firstPrompt = read.omittedPrefix
             ? await window.firstPrompt()
             : firstUserText(read.messages);
+          if (!read.omittedPrefix && options.request.kind !== "head")
+            read.firstStep = await window.firstStep();
           const last =
-            options.request.kind === "latest" ? await window.last() : undefined;
+            options.request.kind === "latest" ||
+            (options.request.kind === "head" && !options.boundary)
+              ? await window.last()
+              : undefined;
           if (last) read.last = { ...last, dev: opened.dev, ino: opened.ino };
         }
       } catch (error) {
@@ -619,26 +638,38 @@ export async function readAntigravityLogWindow(
 export type AntigravityResumePoint =
   | { status: "known"; boundary: AntigravityLogBoundary }
   | { status: "missing" }
-  | { status: "unknown"; reason: string };
+  /**
+   * `boundary`: the log's last complete line, when its head reads, so the
+   * resumed owner's rows join after the history YA cannot show.
+   */
+  | { status: "unknown"; reason: string; boundary?: AntigravityLogBoundary };
 
 /**
  * Where a stopped conversation resumes from its log: its last complete
  * record, provided the latest page (what a viewer is shown first) reads as
- * known. A missing or unknown log has no resume point.
+ * known. For an unknown log, the last complete line if its head reads; a
+ * missing log has none.
  */
 export async function readAntigravityResumePoint(
   scope: string,
   conversationId: string,
 ): Promise<AntigravityResumePoint> {
-  const window = await readAntigravityLogWindow({
-    scope,
-    conversationId,
-    ownerLive: false,
-    request: { kind: "latest", compactions: 2 },
-  });
+  const read = (request: AntigravityLogWindowRequest) =>
+    readAntigravityLogWindow({
+      scope,
+      conversationId,
+      ownerLive: false,
+      request,
+    });
+  const window = await read({ kind: "latest", compactions: 2 });
   if (window.status === "missing") return window;
-  if (window.status === "unknown") return window;
-  return window.last
-    ? { status: "known", boundary: window.last }
-    : { status: "unknown", reason: "the log has no last record" };
+  if (window.status === "known")
+    return window.last
+      ? { status: "known", boundary: window.last }
+      : { status: "unknown", reason: "the log has no last record" };
+  // Only the last line's head and offsets, never the records before it.
+  const end = await read({ kind: "head" });
+  return end.status === "known" && end.last
+    ? { ...window, boundary: end.last }
+    : window;
 }

@@ -219,14 +219,14 @@ export class AntigravityLiveProjection {
   /** Bumped by every move and every eviction: readers compare it across a read. */
   generation = 0;
   /** The boundary the owner opened at: log rows after it were once live. */
-  readonly opened?: AntigravityLogBoundary;
+  readonly opened: AntigravityLogBoundary;
 
   constructor(
-    public boundary?: AntigravityLogBoundary,
+    public boundary: AntigravityLogBoundary,
     private readonly check?: AntigravitySplitCheck,
     private readonly now: () => number = () => performance.now(),
   ) {
-    this.opened = boundary ? { ...boundary } : undefined;
+    this.opened = { ...boundary };
   }
 
   /** Whether the cap evicted rows the log does not serve yet, or a held row is cut. */
@@ -273,13 +273,10 @@ export class AntigravityLiveProjection {
     )
       this.cut.add(id);
     else this.cut.delete(id);
-    // Without a log to take the title from (a new session's empty log, or a
-    // fallback owner's whole history), the first prompt this owner recorded
-    // stays the title even after the cap evicts its row.
-    if (
-      this.firstPrompt === undefined &&
-      (!this.opened || this.opened.end === 0)
-    ) {
+    // Without a log to take the title from (an empty log at open), the
+    // first prompt this owner recorded stays the title even after the cap
+    // evicts its row.
+    if (this.firstPrompt === undefined && this.opened.end === 0) {
       const text = userText(message);
       if (text !== undefined)
         this.firstPrompt = text.slice(0, FIRST_PROMPT_CHARS);
@@ -294,7 +291,7 @@ export class AntigravityLiveProjection {
    * others are thinned where they lie closest together.
    */
   addCandidate(candidate: AntigravitySplitCandidate): void {
-    if (this.closed || !this.check || !this.boundary) return;
+    if (this.closed || !this.check) return;
     const last = this.candidates.at(-1);
     if (last && last.seq >= candidate.seq) return;
     this.candidates.push(candidate);
@@ -335,7 +332,7 @@ export class AntigravityLiveProjection {
    * older one is tried.
    */
   private moveIfOver(): void {
-    if (this.checking || this.closed || !this.check || !this.boundary) return;
+    if (this.checking || this.closed || !this.check) return;
     if (this.bytes <= limits.softBytes && this.rows.size <= limits.softRows)
       return;
     const ready = this.now() - limits.splitAgeMs;

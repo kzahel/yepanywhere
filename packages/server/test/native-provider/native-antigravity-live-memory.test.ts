@@ -1,11 +1,14 @@
 import { createReadStream } from "node:fs";
-import { realpath } from "node:fs/promises";
+import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setAntigravityLiveLimitsForTests } from "../../src/sdk/providers/antigravity-live-projection.js";
 import { antigravityOwnerView } from "../../src/sdk/providers/antigravity-owners.js";
-import { AntigravityRuntime } from "../../src/sdk/providers/antigravity-runtime.js";
+import {
+  AntigravityRuntime,
+  findAntigravityRuntime,
+} from "../../src/sdk/providers/antigravity-runtime.js";
 import { AntigravitySubagentTracker } from "../../src/sdk/providers/antigravity-subagent-tracker.js";
 import { prepareQueuedCompaction } from "../../src/routes/session-input-admission.js";
 import {
@@ -84,13 +87,8 @@ async function session() {
     expect(new Set(messages.map((m) => m.uuid)).size).toBe(messages.length);
     return messages;
   };
-  const owner = async () => {
-    const view = antigravityOwnerView(
-      await realpath(join(store(), "conversations")),
-      id(),
-    );
-    return view?.state === "open" ? view : undefined;
-  };
+  const owner = async () =>
+    antigravityOwnerView(await realpath(join(store(), "conversations")), id());
   return {
     f,
     viewer,
@@ -473,5 +471,151 @@ describe.skipIf(!providers.includes("antigravity"))(
       expect(f.errors).toEqual([]);
       expect(f.model.failures).toEqual([]);
     }, 60_000);
+
+    // Plan 195 step 8: no ACP replay fallback. A conversation whose log is
+    // gone or unreadable, or that was never prompted, resumes with
+    // session/resume like any other.
+    it("resumes with session/resume without a readable log, reapplying model and effort, its rows shown and bounded", async () => {
+      // Moves at once past four rows; at most eight rows are kept.
+      setAntigravityLiveLimitsForTests({
+        softRows: 4,
+        capRows: 8,
+        splitAgeMs: 0,
+      });
+      const s = await session();
+      const { f, viewer } = s;
+      const sent = promptsSent();
+      const projectId = toUrlProjectId(f.project);
+      try {
+        (await f.model.next()).finish("FIRST_DONE");
+        await f.output("FIRST_DONE");
+        await f.idle();
+        const prompted = f.nativeId();
+        await f.stop();
+        const store = join(f.environment.GEMINI_HOME!, "antigravity-cli");
+        const logOf = (id: string) =>
+          join(
+            store,
+            "brain",
+            id,
+            ".system_generated",
+            "logs",
+            "transcript_full.jsonl",
+          );
+        // A conversation created and never prompted: no log, 0 steps.
+        const command = (await findAntigravityRuntime())!;
+        const scratch = new AntigravityRuntime();
+        let never: string;
+        try {
+          await scratch.connect(command.command, f.project, command.args);
+          never = (
+            await scratch.call<{ sessionId: string }>("session/new", {
+              cwd: f.project,
+              mcpServers: [],
+            })
+          ).sessionId;
+        } finally {
+          await scratch.close();
+        }
+        const notice = (id: string) => `${id}:history-unavailable`;
+
+        const resume = async (
+          id: string,
+          label: string,
+          expected: { earlier?: string; context: boolean },
+        ) => {
+          const before = sent.methods.length;
+          await f.restart({
+            resumeSessionId: id,
+            model: "gemini-3.7-flash",
+            effort: "low",
+            initialMessage: { text: `${label}_PROMPT` },
+          });
+          const request = await f.model.next();
+          // The model and effort are reapplied to the resumed session.
+          expect(request.model).toBe("gemini-3.7-flash");
+          const body = JSON.stringify(request.body);
+          expect(body).toMatch(/"thinkingLevel":"LOW"|"thinking_level":"LOW"/i);
+          // agy keeps the conversation's context in its database.
+          expect(body.includes("FIRST_DONE")).toBe(expected.context);
+          request.finish(`${label}_DONE`);
+          await f.output(`${label}_DONE`);
+          await f.idle();
+          for (const turn of [1, 2, 3])
+            await s.turn(`${label}_${turn}`, `${label}_${turn}_DONE`);
+          const methods = sent.methods.slice(before);
+          expect(methods).toContain("session/resume");
+          expect(methods).not.toContain("session/load");
+          const owner = (await s.owner())!;
+          expect(owner.earlier).toBe(expected.earlier);
+          // Bounded as for any owner: the cap at least, and moves where
+          // the log proves them.
+          expect(owner.history().length).toBeLessThanOrEqual(8);
+          const loaded = await viewer.getSession(id, projectId, undefined, {
+            tailCompactions: 2,
+          });
+          const messages = (loaded!.data.session as { messages: Message[] })
+            .messages;
+          if (expected.earlier) {
+            expect(messages[0]?.uuid).toBe(notice(id));
+            expect(loaded?.transcriptComplete).toBe(false);
+          } else expect(messages.map((m) => m.uuid)).not.toContain(notice(id));
+          expect(prose(messages).slice(-2)).toEqual([
+            `${label}_3`,
+            `${label}_3_DONE`,
+          ]);
+          const result = {
+            boundary: owner.boundary,
+            rows: owner.history().length,
+            log: await readFile(logOf(id), "utf8").then(
+              (text) =>
+                text
+                  .trim()
+                  .split("\n")
+                  .map((line) => {
+                    const record = JSON.parse(line);
+                    return `${record.step_index}:${record.type}`;
+                  }),
+              () => undefined,
+            ),
+          };
+          await f.stop();
+          return result;
+        };
+
+        // The log gone: the turn keeps the earlier context, which YA says
+        // it cannot show; agy writes a new log from its own step counter.
+        await rm(logOf(prompted));
+        const missing = await resume(prompted, "MISSING", {
+          earlier: "missing",
+          context: true,
+        });
+        expect(missing.log?.[0]).toMatch(/^[1-9]\d*:USER_INPUT$/);
+        expect(missing.boundary.end).toBeGreaterThan(0);
+        // Stopped, the new log starts after step 0: still said, not hidden.
+        const stopped = await viewer.getSession(prompted, projectId);
+        expect(
+          (stopped!.data.session as { messages: Message[] }).messages[0]?.uuid,
+        ).toBe(notice(prompted));
+        expect(stopped?.transcriptComplete).toBe(false);
+
+        // A record shape the projection does not know: unreadable.
+        const lines = (await readFile(logOf(prompted), "utf8")).split("\n");
+        lines[0] = JSON.stringify({ ...JSON.parse(lines[0]!), novel: 1 });
+        await writeFile(logOf(prompted), lines.join("\n"));
+        await resume(prompted, "UNKNOWN", {
+          earlier: "unknown",
+          context: true,
+        });
+
+        // Never prompted: an empty conversation, as a new session's.
+        const fresh = await resume(never, "NEVER", { context: false });
+        expect(fresh.log?.[0]).toBe("0:USER_INPUT");
+      } finally {
+        await viewer.close();
+      }
+      expect(f.errors).toEqual([]);
+      expect(f.model.failures).toEqual([]);
+    }, 120_000);
   },
 );

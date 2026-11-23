@@ -930,24 +930,14 @@ version. Record the baseline and candidate results separately.
 - **Native protocol and behavior.** Actual `agy` runs the production adapter's
   model, steering, cancellation, tools, compaction, and resume scenarios.
   The cold-resume case resumes with `session/resume`, sends no
-  `session/load`, and checks the resumed session's view. It then checks, for
-  the replay fallback, that the final assistant text precedes the
-  `session/load` response in the received frame order, even when both frames
-  arrive in the same stdout read. It independently checks that the reader
-  returns the persisted output.
-- **YA contract faults.** The controlled ACP peer holds the final replay frame
-  until a test releases it. The test runs in the server suite and checks
-  refusal on premature peer exit, a complete cold retry and the held replay
-  on resume. The opt-in app scenarios check retained wakes, patient delivery,
-  idle reap, safe and immediate reload, and history reopened on the next
-  backend generation. A changed outcome is evidence to investigate during
-  an upgrade.
-- **Native history depth.** The short native replay checks the wire order for
-  its own transcript. The native acceptance case for an early response on a
-  long transcript is a stopped saved session with a known final reply. Open it
-  through the production reader and verify the final reply before and after
-  a cached read. The original wire probe and saved-session identifiers are in
-  git history under `gaps/antigravity-cold-replay-drops-the-transcript-tail.md`.
+  `session/load`, and checks the resumed session's view and that the reader
+  returns the persisted output. YA sends no `session/load` at all since plan
+  195 step 8; the projection case still replays its conversation through
+  `agy` as the oracle the log projection is compared with.
+- **YA contract faults.** The opt-in app scenarios check retained wakes,
+  patient delivery, idle reap, safe and immediate reload, and history
+  reopened on the next backend generation. A changed outcome is evidence to
+  investigate during an upgrade.
 
 On 2026-11-22, the 29 selected cases passed on macOS arm64 with the 1.5.13 pin
 and the 1.5.14 candidate. The focused rerun with an independent ACP load also
@@ -1085,9 +1075,8 @@ alias, and an installed host needs no group configuration for Antigravity.
 
 The shared cold-resume scenario stops its initial owner, opens history through
 an independent production reader, then resumes from native persistence. This
-covers opening a stopped session before sending new input, including the
-Antigravity reader's native `session/load`, which may update continuation
-metadata. The resumed model request must contain the initial prompt, actual
+covers opening a stopped session before sending new input (the Antigravity
+reader reads the brain log and starts no `agy`). The resumed model request must contain the initial prompt, actual
 tool result and prior reply; after stopping the resumed owner, another
 independent reader must recover both old and new turns.
 

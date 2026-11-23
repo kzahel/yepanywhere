@@ -291,10 +291,7 @@ describe.skipIf(!providers.includes("antigravity"))(
         await f.idle();
       };
       await turn("BEFORE_IDLE");
-      const view = () => {
-        const owner = antigravityOwnerView(scope, id);
-        return owner?.state === "open" ? owner : undefined;
-      };
+      const view = () => antigravityOwnerView(scope, id);
       const opened = view()!.boundary;
       // The window is full: the next prompt passes it.
       setAntigravityLiveLimitsForTests({

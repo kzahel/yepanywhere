@@ -1,9 +1,10 @@
 import type {
+  AntigravityHistoryGap,
   AntigravityLogBoundary,
   AntigravityOwnerView,
 } from "../sdk/providers/antigravity-owners.js";
-import type { SDKMessage } from "../sdk/types.js";
 import type { Message, SessionSummary } from "../supervisor/types.js";
+import { antigravityHistoryNotice } from "./antigravity-history-notice.js";
 import {
   type AntigravityLogWindow,
   type AntigravityLogWindowRequest,
@@ -41,8 +42,8 @@ export type AntigravityJoinPlan =
 
 /** What a plan needs of an open owner. */
 export interface AntigravityJoinOwner {
-  boundary?: AntigravityLogBoundary;
-  opened?: AntigravityLogBoundary;
+  boundary: AntigravityLogBoundary;
+  opened: AntigravityLogBoundary;
   has(messageId: string): boolean;
 }
 
@@ -72,9 +73,7 @@ export function planAntigravityJoin(
       // were live once (past where the owner opened), which this client may
       // hold under live IDs. Decided from the steps alone, conservatively.
       if (step !== undefined)
-        return owner.boundary &&
-          owner.opened &&
-          owner.boundary.step > owner.opened.step &&
+        return owner.boundary.step > owner.opened.step &&
           step < owner.boundary.step
           ? { ...latest(request.compactions), anchor: "missed" }
           : { kind: "join", request };
@@ -94,15 +93,13 @@ export function antigravityPlanWindow(
   plan: AntigravityJoinPlan,
   view: AntigravityOwnerView | undefined,
 ): { request: AntigravityLogWindowRequest; boundary?: AntigravityLogBoundary } {
-  const boundary = view?.state === "open" ? view.boundary : undefined;
+  const boundary = view?.boundary;
   // A live-only catch-up reads no records, but checks the log through the
   // boundary and takes the title from it.
   return plan.kind === "live"
     ? { request: { kind: "head" }, boundary }
     : { request: plan.request, boundary };
 }
-
-type OpenView = Extract<AntigravityOwnerView, { state: "open" }>;
 
 /**
  * An open owner's answer from a window read under `plan` (taken while the
@@ -113,9 +110,9 @@ export function joinAntigravityOwnerRead(
   request: AntigravityLogWindowRequest,
   plan: AntigravityJoinPlan,
   window: AntigravityLogWindow,
-  view: OpenView,
+  view: AntigravityOwnerView,
   settled: boolean,
-): Extract<AntigravitySessionRead, { kind: "log" }> {
+): AntigravitySessionRead {
   // This request's plan by the owner now: whether it holds live rows, and
   // whether a move since makes it a miss.
   const now = settled
@@ -126,10 +123,9 @@ export function joinAntigravityOwnerRead(
     (plan.kind === "join" && plan.anchor) ||
     (now.kind === "join" && now.anchor);
   return {
-    kind: "log",
     window: settled
       ? window
-      : throughAntigravityBoundary(conversationId, window, view.boundary!),
+      : throughAntigravityBoundary(conversationId, window, view.boundary),
     ...(plan.kind !== "log" || (!settled && joined)
       ? { live: view.history() as Message[] }
       : {}),
@@ -138,37 +134,29 @@ export function joinAntigravityOwnerRead(
     ...(view.firstPrompt !== undefined
       ? { firstPrompt: view.firstPrompt }
       : {}),
+    ...(view.earlier ? { earlier: view.earlier } : {}),
     // History before the boundary that the log cannot supply now, or rows
     // the owner's cap evicted before the log served them.
     incomplete: window.status !== "known" || !settled || view.incomplete,
   };
 }
 
-/** An open owner's boundary, or none for a cold read or a starting owner. */
-export function ownerBoundary(
-  view: AntigravityOwnerView | undefined,
-): AntigravityLogBoundary | undefined {
-  return view?.state === "open" ? view.boundary : undefined;
-}
-
 /**
  * Whether a read taken under `before` still describes the conversation once
  * it returns under `after`: the same open owner at the same generation (no
  * boundary move, no row left memory), or no open owner either time. An
- * owner that only started meanwhile has written nothing (it writes only
- * after it opens and is prompted), so a cold read stays valid; one that
- * opened, closed, moved its boundary or evicted rows makes the read describe a
+ * owner that is only starting has written nothing (it writes only after it
+ * opens and is prompted), so a cold read stays valid; one that opened,
+ * closed, moved its boundary or evicted rows makes the read describe a
  * different split.
  */
 export function sameAntigravitySplit(
   before: AntigravityOwnerView | undefined,
   after: AntigravityOwnerView | undefined,
 ): boolean {
-  return before?.state === "open"
-    ? after?.state === "open" &&
-        after.owner === before.owner &&
-        after.generation === before.generation
-    : after?.state !== "open";
+  return before
+    ? after?.owner === before.owner && after.generation === before.generation
+    : !after;
 }
 
 /**
@@ -201,39 +189,26 @@ export function throughAntigravityBoundary(
   };
 }
 
-/** One read of a conversation, divided between the log and an owner. */
-export type AntigravitySessionRead =
+/** One read of a conversation: the log (through an open owner's boundary), then that owner's rows. */
+export interface AntigravitySessionRead {
+  window: AntigravityLogWindow;
+  /** An open owner's rows, after the log's. */
+  live?: Message[];
+  /** Whether the log was read as a page of this request. */
+  paged: boolean;
+  /** For an `afterMessageId` read: a deliberate miss. */
+  anchor?: "missed";
+  /** The owner's first prompt, when the log cannot title the conversation. */
+  firstPrompt?: string;
+  /** The owner resumed with no readable log: history before it is not shown. */
+  earlier?: AntigravityHistoryGap;
   /**
-   * An owner whose projection is the whole history; `incomplete` once its
-   * cap evicted the oldest rows.
+   * Earlier history the answer cannot supply: an open owner's log is
+   * missing or unknown through its boundary, or the owner kept changing
+   * during every read.
    */
-  | {
-      kind: "owner";
-      messages: SDKMessage[];
-      incomplete?: boolean;
-      firstPrompt?: string;
-    }
-  /** The log (through an owner's boundary), then that owner's rows. */
-  | {
-      kind: "log";
-      window: AntigravityLogWindow;
-      /** An open owner's rows, after the log's. */
-      live?: Message[];
-      /** Whether the log was read as a page of this request. */
-      paged: boolean;
-      /** For an `afterMessageId` read: a deliberate miss. */
-      anchor?: "missed";
-      /** The owner's first prompt, when the log cannot title the conversation. */
-      firstPrompt?: string;
-      /**
-       * Earlier history the answer cannot supply: an open owner's log is
-       * missing or unknown through its boundary, or the owner kept
-       * changing during every read.
-       */
-      incomplete?: boolean;
-    }
-  /** The log is missing or unknown and no owner holds the conversation. */
-  | { kind: "fallback" };
+  incomplete?: boolean;
+}
 
 function firstUserText(messages: readonly Message[]): string | undefined {
   for (const message of messages)
@@ -251,25 +226,60 @@ function lastModel(messages: readonly Message[]): string | undefined {
 }
 
 /**
- * A detail response for a log read: the window, then an open owner's rows.
- * An owner whose log is unreadable now still serves its own rows, as an
- * incomplete transcript.
+ * Which history before the window's rows cannot be shown: a log YA cannot
+ * read; no log for a conversation that was prompted (one never prompted
+ * has no history to show); or, at the log's start, history before an
+ * owner's resume point that had no readable log then, or records a log
+ * that starts after step 0 lacks.
+ */
+function antigravityHistoryGap(
+  window: AntigravityLogWindow,
+  read: AntigravitySessionRead,
+  neverPrompted: boolean,
+): AntigravityHistoryGap | undefined {
+  if (window.status === "unknown") return "unknown";
+  if (window.status === "missing") return neverPrompted ? undefined : "missing";
+  if (window.omittedPrefix) return undefined;
+  return read.earlier ?? (window.firstStep ? "missing" : undefined);
+}
+
+/**
+ * A detail response for a read: the window, then an open owner's rows. A
+ * log that is missing or unknown, or history an owner resumed without, is
+ * one informational row where that history would be, and the transcript is
+ * incomplete; an owner whose log is unreadable now still serves its rows.
  */
 export function antigravityJoinedSession(
+  conversationId: string,
   summary: SessionSummary,
   mtime: Date,
   request: AntigravityLogWindowRequest,
-  read: Extract<AntigravitySessionRead, { kind: "log" }>,
+  read: AntigravitySessionRead,
+  /** No log and `agy`'s step count is 0: there is nothing to show. */
+  neverPrompted: boolean,
 ): LoadedSession {
   const { window, live, paged } = read;
   const known = window.status === "known" ? window : undefined;
-  const messages = [...(known?.messages ?? []), ...(live ?? [])];
+  const gap = antigravityHistoryGap(window, read, neverPrompted);
+  const messages = [
+    ...(gap
+      ? [
+          antigravityHistoryNotice(
+            conversationId,
+            gap,
+            window.status === "unknown" ? window.reason : undefined,
+          ),
+        ]
+      : []),
+    ...(known?.messages ?? []),
+    ...(live ?? []),
+  ];
   // The conversation's first prompt, from the log: a resumed owner's own
   // prompt never titles it. A log that holds nothing yet (a new session's)
   // leaves it to the owner's first prompt, kept even once evicted.
   const title =
     known?.firstPrompt ??
-    (known && !known.omittedPrefix && !known.messages.length
+    (known && !known.omittedPrefix && !known.messages.length && !read.earlier
       ? (read.firstPrompt ?? firstUserText(live ?? []))
       : undefined);
   if (title !== undefined) {
@@ -280,9 +290,7 @@ export function antigravityJoinedSession(
   summary.model = lastModel(messages);
   return {
     summary,
-    ...(read.incomplete || window.status === "unknown"
-      ? { transcriptComplete: false as const }
-      : {}),
+    ...(read.incomplete || gap ? { transcriptComplete: false as const } : {}),
     ...(read.anchor ? { afterAnchor: read.anchor } : {}),
     transcriptSnapshotUpdatedAt: mtime.toISOString(),
     ...(request.kind === "complete" || !known || !paged
@@ -296,26 +304,6 @@ export function antigravityJoinedSession(
             ...(known.cut ? { cut: known.cut } : {}),
           },
         }),
-    data: { provider: "antigravity", session: { messages } },
-  };
-}
-
-/** A whole history: an owner's projection, or the ACP fallback's replay. */
-export function antigravityWholeSession(
-  summary: SessionSummary,
-  mtime: Date,
-  messages: Message[],
-  loaded: { model?: string; complete: boolean; firstPrompt?: string },
-): LoadedSession {
-  const title = loaded.firstPrompt ?? firstUserText(messages);
-  summary.title = title?.slice(0, 120) ?? null;
-  summary.fullTitle = title ?? null;
-  summary.messageCount = messages.length;
-  summary.model = loaded.model ?? lastModel(messages);
-  return {
-    summary,
-    ...(!loaded.complete ? { transcriptComplete: false as const } : {}),
-    transcriptSnapshotUpdatedAt: mtime.toISOString(),
     data: { provider: "antigravity", session: { messages } },
   };
 }

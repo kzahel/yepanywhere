@@ -31,6 +31,8 @@ export interface AntigravitySummaryRow {
   notFullyIdle?: boolean;
   killed?: boolean;
   lastModifiedMs?: number;
+  /** Steps `agy` counts for the conversation: 0 when it was never prompted. */
+  stepCount?: number;
 }
 
 export interface AntigravitySummaryRawRow {
@@ -45,6 +47,7 @@ export interface AntigravitySummaryRawRow {
   not_fully_idle: unknown;
   killed: unknown;
   last_modified_time: unknown;
+  step_count?: unknown;
 }
 
 export interface AntigravityRelationshipSnapshot {
@@ -210,6 +213,12 @@ export function normalizeAntigravitySummaryRow(
         : undefined;
   const killed = row.killed === 1 || row.killed === true;
   const lastModifiedMs = parseAntigravitySummaryTime(row.last_modified_time);
+  const stepCount =
+    typeof row.step_count === "number" &&
+    Number.isSafeInteger(row.step_count) &&
+    row.step_count >= 0
+      ? row.step_count
+      : undefined;
   return {
     conversationId: row.conversation_id,
     ...(cwd ? { cwd } : {}),
@@ -222,6 +231,7 @@ export function normalizeAntigravitySummaryRow(
     ...(notFullyIdle !== undefined ? { notFullyIdle } : {}),
     killed,
     ...(lastModifiedMs !== undefined ? { lastModifiedMs } : {}),
+    ...(stepCount !== undefined ? { stepCount } : {}),
   };
 }
 
@@ -490,6 +500,7 @@ export class AntigravitySummariesReader {
       raw("not_fully_idle"),
       raw("killed"),
       str("last_modified_time", 128),
+      raw("step_count"),
     ].join(", ");
   }
 

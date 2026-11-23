@@ -12,11 +12,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
 import {
-  claimAntigravityStart,
-  ownAntigravitySession,
-} from "../../src/sdk/providers/antigravity-owners.js";
-import { setAntigravityLiveLimitsForTests } from "../../src/sdk/providers/antigravity-live-projection.js";
+  EMPTY_ANTIGRAVITY_LOG,
+  setAntigravityLiveLimitsForTests,
+} from "../../src/sdk/providers/antigravity-live-projection.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 import {
@@ -37,9 +37,6 @@ function publish(input: ConversationInput, compactions = 2) {
 }
 import { createProviderConversationSource } from "../../src/experimental/provider-conversation-source.js";
 import { ConversationSubscriptions } from "../../src/experimental/conversation-subscriptions.js";
-import { createConversationRead } from "../../src/core-api/conversation.js";
-import { readAntigravityResumePoint } from "../../src/sessions/antigravity-log-window.js";
-import { EventBus } from "../../src/watcher/EventBus.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
@@ -258,9 +255,9 @@ describe("an Antigravity conversation source", () => {
       row(`${nativeId}:2`, "user", "yes"),
       row(`${nativeId}:3`, "user", "QUEUED_PROMPT"),
     ];
-    // A new session's owner: its projection is the whole history.
+    // A new session's owner: its log was empty when it opened.
     const native = ownAntigravitySession(scope, nativeId);
-    native.open();
+    native.open(EMPTY_ANTIGRAVITY_LOG);
     for (const message of live) native.record(message as never);
     let current: ReturnType<typeof owner> | undefined = owner(live);
     let changed: (() => void) | undefined;
@@ -466,7 +463,7 @@ describe("an Antigravity conversation source", () => {
       row(`${nativeId}:1`, "assistant", "Reply"),
     ];
     const firstOwner = ownAntigravitySession(scope, nativeId);
-    firstOwner.open();
+    firstOwner.open(EMPTY_ANTIGRAVITY_LOG);
     for (const message of first) firstOwner.record(message as never);
     let current = owner(first);
     const open = createProviderConversationSource({
@@ -537,7 +534,6 @@ describe("an Antigravity conversation source", () => {
       expect(uuids(await settled.read(abort.signal))).toEqual(coldIds);
       // The resumed process is registered and in turn, its prompt queued,
       // while its provider has only started: no native session is open.
-      const release = claimAntigravityStart(scope, nativeId);
       const prompt = row("prompt-uuid", "user", "Next");
       current = owner([prompt]);
       const starting = await open(nativeId, () => {}, abort.signal);
@@ -549,7 +545,6 @@ describe("an Antigravity conversation source", () => {
       // it is still producing are live rows.
       const native = ownAntigravitySession(scope, nativeId);
       native.open(resumedAt);
-      release();
       native.record(prompt as never);
       const reply = row("reply-uuid", "assistant", "Reply 2 (growing)");
       native.record(reply as never);
@@ -602,7 +597,7 @@ describe("an Antigravity conversation source", () => {
       row(`${nativeId}:1`, "assistant", "Reply"),
     ];
     const firstOwner = ownAntigravitySession(scope, nativeId);
-    firstOwner.open();
+    firstOwner.open(EMPTY_ANTIGRAVITY_LOG);
     for (const message of first) firstOwner.record(message as never);
     const a = owner(first);
     let current: ReturnType<typeof owner> | undefined = a;
@@ -653,94 +648,6 @@ describe("an Antigravity conversation source", () => {
     marker: string,
   ) => messages.filter((m) => JSON.stringify(m.content).includes(marker));
 
-  // Review round 1, finding 1: a fallback owner (no resume point) supplies
-  // the whole history as its replay; a warm observer's log rows go.
-  it.each([
-    {
-      trigger: "a log readable at the observer's scope but unknown at resume's",
-      compactions: 1,
-      log:
-        prompt +
-        record(1, "PLANNER_RESPONSE", { content: "Reply" }) +
-        record(2, "CHECKPOINT", { content: "First summary" }) +
-        record(3, "UNRECOGNIZED_NATIVE_TYPE", { content: "unknown" }) +
-        record(5, "CHECKPOINT", { content: "Second summary" }) +
-        record(6, "USER_INPUT", {
-          content: "<USER_REQUEST>\nSaved prompt\n</USER_REQUEST>",
-        }) +
-        record(7, "PLANNER_RESPONSE", { content: "Saved reply" }),
-      resume: "unknown",
-    },
-    {
-      trigger: "a log unlinked before the resume",
-      compactions: 2,
-      log:
-        record(6, "USER_INPUT", {
-          content: "<USER_REQUEST>\nSaved prompt\n</USER_REQUEST>",
-        }) + record(7, "PLANNER_RESPONSE", { content: "Saved reply" }),
-      resume: "missing",
-    },
-  ])(
-    "publishes a fallback owner's replayed turns once to a warm observer: $trigger",
-    async ({ compactions, log, resume }) => {
-      const { reader, row: source, scope } = await setup(log);
-      const bus = new EventBus();
-      let current: ReturnType<typeof owner> | undefined;
-      const open = createProviderConversationSource({
-        eventBus: bus,
-        readerFactory: () => reader,
-        resolve: async () => source,
-        getProcess: () => current?.process as never,
-      });
-      const published = new ConversationSubscriptions(open);
-      const views: unknown[] = [];
-      const unsubscribe = published.subscribe(
-        { sessionId: nativeId, maxMessages: 100, anchorMessageId: null },
-        "warm",
-        { send: (raw: string) => views.push(JSON.parse(raw).view), close() {} },
-        compactions,
-      );
-      const native = ownAntigravitySession(scope, nativeId);
-      try {
-        await vi.waitFor(() => expect(views.length).toBeGreaterThan(0));
-        expect(JSON.stringify(views.at(-1))).toContain(":step-6");
-        if (resume === "missing") await rm(logPath());
-        expect((await readAntigravityResumePoint(scope, nativeId)).status).toBe(
-          resume,
-        );
-        // The fallback owner replays the saved turns under positional IDs
-        // (marked as replay, as the provider yields them) and is in turn.
-        const replayed = [
-          row(`${nativeId}:0`, "user", "Saved prompt"),
-          row(`${nativeId}:1`, "assistant", "Saved reply"),
-        ].map((message) => ({ ...message, isReplay: true }));
-        native.open();
-        for (const message of replayed) native.record(message as never);
-        const next = row("next-uuid", "user", "Next");
-        native.record(next as never);
-        current = owner([...replayed, next]);
-        bus.emit({
-          type: "ownership-change",
-          sessionId: nativeId,
-          ownership: { owner: "self" },
-        } as never);
-        const read = await createConversationRead(published)(nativeId, {
-          tailCompactions: compactions,
-          maxMessages: 100,
-        });
-        expect(mentioning(read.messages, "Saved prompt")).toHaveLength(1);
-        expect(mentioning(read.messages, "Saved reply")).toHaveLength(1);
-        expect(mentioning(read.messages, "Next")).toHaveLength(1);
-        expect(JSON.stringify(read.messages)).not.toContain(":step-");
-      } finally {
-        unsubscribe();
-        published.close();
-        native.release();
-        await reader.close();
-      }
-    },
-  );
-
   // Review round 1, finding 2.
   it("reports the history before a live owner's resume point as unavailable once its log is gone", async () => {
     const { reader, row: source, scope } = await setup(logged);
@@ -763,7 +670,11 @@ describe("an Antigravity conversation source", () => {
       await rm(logPath());
       const fresh = await open(nativeId, () => {}, abort.signal);
       const input = await fresh.read(abort.signal);
-      expect(uuids(input)).toEqual(["next-uuid"]);
+      // One row says the earlier history cannot be shown.
+      expect(uuids(input)).toEqual([
+        `${nativeId}:history-unavailable`,
+        "next-uuid",
+      ]);
       expect(input.sourceCoverage).toMatchObject({
         complete: false,
         earlierOutsideScope: "unknown",

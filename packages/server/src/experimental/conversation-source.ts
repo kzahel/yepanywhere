@@ -91,9 +91,9 @@ export function createConversationSource(
     // 6) or once the owner exits. The source drops a row the owner recorded
     // and then retired, and, at a read taken after the row's process went,
     // a row the read lacks: the view is what the reader shows. Each row
-    // carries its process's token, never the process. An owner change forces
-    // that read even in turn (a fallback owner's replay, a departed owner's
-    // turns).
+    // carries its process's token, never the process. An owner leaving
+    // forces that read even in turn (its turns are the log's now); one
+    // attaching joins its rows after the log the baseline already holds.
     let ownerChanged = false;
     let ownerToken = 0;
     const drop = () => {
@@ -107,12 +107,11 @@ export function createConversationSource(
       // Finalized provider records and YA's identity-preserving user echoes are
       // usable now. Raw token frames need a separate block assembler.
       if (raw.type === "stream_event" || raw._isStreaming === true) return;
-      // A fallback owner's replay is the history the reader serves from its
-      // projection under the same IDs; a retired row is served from the log.
+      // A retired row is served from the log.
       if (
         process?.provider === "antigravity" &&
-        (raw.isReplay === true ||
-          (row !== undefined && deps.retired?.(row, raw)))
+        row !== undefined &&
+        deps.retired?.(row, raw)
       )
         return;
       if (!["assistant", "user", "error", "system"].includes(String(raw.type)))
@@ -176,11 +175,7 @@ export function createConversationSource(
     const attachProcess = () => {
       const next = deps.getProcess(sessionId);
       if (next === process) return;
-      if (
-        process?.provider === "antigravity" ||
-        next?.provider === "antigravity"
-      )
-        ownerChanged = true;
+      if (process?.provider === "antigravity") ownerChanged = true;
       releaseProcess?.();
       releaseProcess = undefined;
       process = next;

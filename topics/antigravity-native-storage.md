@@ -55,9 +55,10 @@ database's content and the brain log matched their state before launch.
 While `agy` ran, an empty WAL and a shared-memory file sat beside the
 database, and `agy` wrote store-wide files (see
 [what load and resume write](#what-load-and-resume-write)). Snapshots show
-the files at those moments, not that nothing was written between them. What
-a second process does to a conversation that a live owner is writing is not
-measured, which is why YA still never runs a load beside a live owner.
+the files at those moments, not that nothing was written between them. A
+second `agy` resuming and prompting a conversation a live owner holds does
+write it ([writers](#writers--plan-195-step-7)); since plan 195 step 8 YA
+never runs a load at all.
 Its tables:
 
 ```text
@@ -181,7 +182,8 @@ Rule for a reader that projects groups:
   interrupted with no output, neither pending nor failed with invented text.
   This was observed only for the last calls of a group.
 - Anything else makes the group unknown, and the reader treats the log as
-  unknown and falls back: a `GENERIC` record whose step no group owns
+  unknown (since plan 195 step 8 it shows a row saying so; it once fell
+  back to ACP replay): a `GENERIC` record whose step no group owns
   (outside every range, or more results than calls), or a non-`GENERIC`
   record inside P+1..P+*k*.
 - A group still open at the end of the file is in progress while the
@@ -391,9 +393,8 @@ of the two `ERROR_MESSAGE` steps. Why those two were not logged is unknown.
 
 `agy` 1.5.13 and 1.5.14 advertise no undo or rewind command over ACP, and YA
 offers no rewind for Antigravity, so a conversation YA owns is never undone.
-Fallback for one rewound by another program: a reader treats a
-`step_index` that does not increase as an unknown log, as for any unexpected
-record, and falls back to ACP.
+For one rewound by another program, a reader treats a `step_index` that
+does not increase as an unknown log, as for any unexpected record.
 
 ### Live session retention
 
@@ -499,7 +500,7 @@ skip steps, so a page has the same IDs however it was reached. They differ
 from today's cold IDs, which count replayed messages and use ACP's random
 tool call IDs.
 
-The log is **unknown**, and the caller falls back, on:
+The log is **unknown** on:
 
 - a complete line that is not valid UTF-8, is not JSON, or is empty. An
   unterminated final line is an append in progress, not a record, even
@@ -642,9 +643,9 @@ attempt starts, or whose full log is not in the staged copy, is reported
 inconclusive and the census continues. An error on an unchanged source,
 such as a refused link, stops the census. For each
 conversation it projects the copy's log and replays the copy through `agy
-acp` `session/load` into YA's cold transcript, observing for 500 ms after
+acp` `session/load` into YA's ACP normalization, observing for 500 ms after
 the load. It counts the replay's raw tool frames, recognizing a subagent's updates
-by the ID its call announced, and YA's normalized results, then compares the projection and transcript after removing the expected differences that
+by the ID its call announced, then compares the projection and the replayed messages after removing the expected differences that
 [`antigravity-projection-compare.ts`](../packages/server/test/utils/antigravity-projection-compare.ts)
 lists: IDs, tool names (ACP titles), the projection's results, system
 messages, checkpoints, errors, timestamps and models, and replay's habit of
@@ -684,8 +685,10 @@ tail did not arrive"), so YA could not open those conversations cold before
 [step 4](#serving-cold-history--plan-195-step-4), which opens them from the log:
 three whose replay joins a database-only reply to the log's last text, and
 one whose last text is a `USER_INPUT`, which the check compares with its
-whole wrapped content. See the
-[replay completion gap](../gaps/antigravity-acp-replay-completion-signal.md).
+whole wrapped content. Step 8 removed the replay and the check with it
+([the replay fallback](#the-replay-fallback--plan-195-step-8)). The census
+reports were taken with YA's cold transcript and the check; the census now
+replays through the live normalization, with no check.
 
 [`native-antigravity-log-projection.test.ts`](../packages/server/test/native-provider/native-antigravity-log-projection.test.ts)
 runs real `agy` with the scripted model through thinking, text, one call,
@@ -924,10 +927,9 @@ conversation (created, never prompted, no log) on 1.5.13 and 1.5.14, two
 samples per version: `session/load` took 136–140 ms and `session/resume`
 33–48 ms, neither streaming history. After either, the summaries index
 row had `step_count = 0` and the sentinel `last_modified_time`; a prompted
-fixture had `step_count = 2`. YA does not read `step_count`. It is a
-possible later way to resume a conversation with no log through
-`session/resume` instead of the fallback, if a zero proves reliable across
-stale rows and crash recovery. Not implemented.
+fixture had `step_count = 2`. Plan 195 step 8 confirmed it on both
+versions and uses it: a conversation with no log and a `step_count` of 0
+was never prompted ([the replay fallback](#the-replay-fallback--plan-195-step-8)).
 
 ## Live memory — plan 195 step 6
 
@@ -1111,9 +1113,10 @@ appends to the log alone is seen only by the log's own observation.
 and each numbers steps from its own counter: the log held steps 21 to 23
 from the second process, then 21 to 23 again from the first (both
 versions). A log whose `step_index` does not increase is unknown to YA's
-reader from that record on, so its pages there fall back to ACP replay once
-no owner holds the conversation, and a live owner's split check cannot
-read a span across it.
+reader from that record on, so its pages there show the row that says so
+once no owner holds the conversation (the replay that stood in for it
+refused this log; see [the replay fallback](#the-replay-fallback--plan-195-step-8)),
+and a live owner's split check cannot read a span across it.
 
 **The idle close (review round 1).** The idle row was first measured over
 3 to 6 s only. Rerun with `--idle 200000` on 1.5.13 and `--idle 50000` on
@@ -1146,6 +1149,101 @@ conversation as the owner's, and a change after it let go by the file's
 modification time against the release, not by when the watcher reported
 it ([provider contract](antigravity.md#another-writer)).
 
+## The replay fallback — plan 195 step 8
+
+Until step 8, a log YA could not read (missing, or unknown) was replaced by
+ACP `session/load` replay of the whole conversation, for viewing and for
+resuming. Step 8 counted when it fired and what it gave, then removed it;
+the [provider contract](antigravity.md#history-ya-cannot-show) owns what
+users see now. Measured 2026-11-23 on one macOS arm64 host, Node 24.22.1,
+with real `agy` 1.5.13 and 1.5.14 and the scripted model on owned profiles
+(scratch probes, not committed), and with the controlled ACP peer. The
+maintainer's real store was not opened again; its numbers are the step 3
+census's.
+
+**When it fired.**
+
+| Cause | Step 3 census (12 logs) | Native selection, per version | Ordinary use with one writer |
+| --- | ---: | ---: | --- |
+| Never prompted (no log) | not counted (the census enumerates logs) | 0 | A conversation created and left empty, by another client or a first prompt that never reached `agy`; YA's own creation always prompts |
+| Log deleted or unreadable | 0 | 0 | Never seen; YA deletes nothing and every prompted conversation in every run had a log |
+| A record shape the projection does not know | 0 (on both binaries) | 0 | Never seen on 1.5.13 or 1.5.14; a later `agy` that changes the format would make every conversation it writes unknown |
+| Duplicate step indexes (two `agy` processes) | 0 | 0 | Not designed for (plan 195 decisions); measured in step 7 |
+| A clipped prompt | 0 | 0 | Not a cause since step 6 |
+
+An unterminated final line is not a cause: the log stays known. The native
+count instrumented the replay's two entry points (viewing and resuming)
+during the whole upgrade selection (72 passed, 3 skipped, on each
+version): on real `agy` it fired once per version, in the projection case's
+deliberate replay oracle; it never fired for a resume. The controlled-peer
+cases reached it 14 times per version (9 views, 5 resumes), every one in a
+case built to reach it.
+
+**What it gave, and how often it failed.** A never-prompted conversation
+replayed nothing (an empty `session/load` took 200–217 ms here, 136–143 ms
+in step 5, against 33–48 ms for `session/resume`). A short prompted
+conversation with its log deleted, or with one unknown record, replayed
+whole in 206–229 ms. Every other shape real `agy` produced was refused by
+the replay's own check that it reached the log's last text, after its
+10-second deadline:
+
+| Conversation (log made unknown by one unexpected field, unless named) | 1.5.13 | 1.5.14 |
+| --- | --- | --- |
+| Two `agy` processes took turns (log `0 1 2 3 4 2 3`, unknown as written) | refused, 10,210 ms | refused, 10,212 ms |
+| A turn ended on a model HTTP 400 (log: the prompt only) | refused, 10,207 ms | refused, 10,237 ms |
+| A reply cut off by killing `agy` (log: the prompt only) | refused, 10,226 ms | refused, 10,224 ms |
+| The same two, log known | the log page, 1–3 ms, no `agy` | the same |
+
+The controlled peer refused the census's two shapes the same way (a prompt
+last: 10,336 ms; a database-only reply after the last text: 10,060 ms) and
+served a matching tail in 52 ms. So the fallback failed on 4 of the 12 real
+conversations in the census, and on every unreadable log real `agy` wrote
+in these runs.
+
+**`step_count`.** The summaries index counted 0 steps for the conversation
+created and never prompted, and 2 for each one-turn conversation,
+including the two whose log holds only the prompt (the HTTP 400 and the
+killed reply: the database holds a step the log lacks), and 4 for the
+two-writer conversation, on both versions. YA reads it to tell a
+never-prompted conversation from one whose log is gone.
+
+**What the fallback cost to keep.** Runtime code that existed only for
+it: the replay loader and its saved-tail check (`antigravity-replay.ts`,
+85 lines; the tail reader in `antigravity-subagent-links.ts`, 58), the
+reader's replay path with its cold-read cache, shared admissions and
+runtime launch (about 400 of `antigravity-reader.ts`'s 491 removed lines),
+`historyRead` owners, start claims and their rechecks in the owner registry
+(about 100 lines), the fallback branch of resume with its retained, capped
+replay and the transcript's replay mode with its 8 MiB / 10,000-message
+limit and error (about 150 lines across `antigravity.ts`,
+`antigravity-resume.ts` and `antigravity-transcript.ts`), the boundaryless
+owner in the join and the live window, the v0 source's replacement when a
+fallback owner attached, and `isReplay` plumbing: 1,165 runtime lines were removed with it and 430
+added (the notice, the resume of a log YA cannot read, `step_count`), and
+about 950 test lines were removed. To keep it in step 9, the Provider Host would have had to publish
+every starting and open owner to the backend synchronously enough for the
+reader's recheck right before `session/load`, keep a fallback owner's
+whole-history projection and replay stream in the host, and still bound
+`agy` launches by readers across processes.
+
+**Decision: delete.** By the rule the plan set: no cause is common in
+ordinary use with one writer (0 of 12 logs, 0 native resumes); every
+conversation the fallback could resume resumes without it, with
+`session/resume` (below); and what the user sees instead is one row that
+says the history cannot be shown and why.
+
+**Resuming without a readable log** (native case in
+`native-antigravity-live-memory.test.ts`, both versions). With the log
+deleted, `session/resume` answered, the selected model and effort were
+applied, and the next model request held the earlier turn: `agy` keeps the
+context in its database. `agy` then wrote a new log numbered from its own
+counter: its first record was step 2 (`USER_INPUT`, then a
+`SYSTEM_MESSAGE` at 3), and with the window's limits lowered the owner
+moved its boundary into it as usual. With one unknown record, the same,
+except that no split was proven and the cap bounded the rows. A
+never-prompted conversation resumed with no earlier context and its first
+log record at step 0. No `session/load` was sent.
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
@@ -1165,13 +1263,12 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | Reader | File | Purpose |
 | --- | --- | --- |
 | [Catalog adapter and metadata](../packages/server/src/sessions/antigravity-metadata.ts) | `conversations/<id>.db` and `-wal` file facts | Discovery and source versions. The database is never opened. |
-| [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
+| [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns, and `step_count`, whose 0 marks a conversation with no log as never prompted. A conversation with no workspace row is not listed. |
 | [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
-| `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | Whether a resume can use `session/resume`, and its resume point: the latest page must read as known, and its last record is the boundary ([step 5](#resuming-from-the-log--plan-195-step-5)). |
+| `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | A resume's resume point: the latest page's last record when the page reads as known; for an unknown log, its last complete line when that line's head reads ([step 5](#resuming-from-the-log--plan-195-step-5), [step 8](#the-replay-fallback--plan-195-step-8)). |
 | [Split check](../packages/server/src/sdk/providers/antigravity-live-advance.ts) | `transcript_full.jsonl` | A live owner's stat at a prompt and, when it needs a move, bounded reads at that offset and the retired span's pages that prove a split point ([step 6](#live-memory--plan-195-step-6)). |
 | [Writer evidence](../packages/server/src/sessions/antigravity-writer-evidence.ts) | `conversations/<id>.db` and `-wal` file facts from the watcher; `transcript_full.jsonl` size and time from an open page's focused watch | Whether another program wrote a conversation ([step 7](#writers--plan-195-step-7)). Never opens the database or reads the log's content. |
 | Split check, at idle points | `transcript_full.jsonl` | One asynchronous stat at each turn's result or command's end, compared with the stat at the next turn's first prompt: growth with nothing of the owner's own running is another writer ([step 7](#writers--plan-195-step-7)). |
-| `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay, or a fallback resume, must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
 | [Compaction check](../packages/server/src/sdk/providers/antigravity-compaction.ts) | `transcript.jsonl` | A new completed `CHECKPOINT` confirms `/compact`. |
@@ -1182,10 +1279,10 @@ The other named log readers are in
 and each read is bounded to 4 MiB. The projection reads nothing itself.
 Cold history, root and child, comes from the log. A live session, new or
 resumed from the log, is the log through its owner's boundary and the
-owner's recent rows after it; one resumed through the fallback is its
-owner's projection. ACP `session/load` replay runs only
-when a log is missing or unknown, as [identity and history](antigravity.md#identity-and-history)
-describes. [Provider history facts](provider-history-facts.md#consumers) lists
+owner's recent rows after it. Nothing replays history through ACP: a
+missing or unknown log is a row saying so
+([history YA cannot show](antigravity.md#history-ya-cannot-show)).
+[Provider history facts](provider-history-facts.md#consumers) lists
 these readers among YA's history consumers.
 
 ## What T3 Code reads
@@ -1232,7 +1329,13 @@ The existing readers follow these constraints, and a new reader should too:
 - A record that does not parse as expected yields "unknown", never a guess.
   [Provider history facts](provider-history-facts.md#how-to-fix-a-reader)
   owns that rule.
-- ACP remains the fallback for anything the log cannot answer.
+- What the log cannot answer is said, not guessed: since plan 195 step 8
+  there is no ACP replay to fall back to, so a new `agy` that changes the
+  log's shape shows the row that says its history cannot be shown, for
+  every conversation it writes, until YA reads the new shape. The
+  [upgrade checks](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
+  compare the projection with what `agy` replays, and catch that change
+  before a version is qualified.
 - No protobuf decoding. The [provider contract](antigravity.md#identity-and-history)
   rules it out, and field numbers would tie YA to one runtime's schema.
 
@@ -1245,9 +1348,10 @@ The existing readers follow these constraints, and a new reader should too:
 - What `agy` writes between the snapshot moments of a load or resume.
 - Why two `ERROR_MESSAGE` steps on this host were not logged, when a cancel's
   is.
-- Whether a load beside a live owner writes the conversation's files. A
-  second `agy` resuming and prompting beside one does write them, with
-  colliding step indexes ([writers](#writers--plan-195-step-7)).
+- Whether a `session/load` beside a live owner writes the conversation's
+  files (YA sends none since plan 195 step 8). A second `agy` resuming and
+  prompting beside one does write them, with colliding step indexes
+  ([writers](#writers--plan-195-step-7)).
 - What `presence/<id>.lock` means. The one file observed was empty and
   dated 2026-11-03, although conversations had run since.
 - What the full-text index's step byte offsets address.

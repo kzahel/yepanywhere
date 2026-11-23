@@ -264,64 +264,6 @@ export async function openPhysicalBrainTranscript(
   }
 }
 
-export type AntigravityReplayTail =
-  | { status: "known"; kind: "user" | "assistant"; text: string }
-  | { status: "absent" | "unavailable" };
-
-/** The latest persisted content that ACP can replay. Some display records
- * omit long text, so prefer the native unabridged log when present. */
-export async function readAntigravityReplayTail(
-  scope: string,
-  sessionId: string,
-): Promise<AntigravityReplayTail> {
-  let opened = await openPhysicalBrainTranscript(
-    scope,
-    sessionId,
-    "transcript_full.jsonl",
-  );
-  if (opened.status === "missing")
-    opened = await openPhysicalBrainTranscript(scope, sessionId);
-  if (opened.status === "missing") return { status: "absent" };
-  if (opened.status !== "ok") return { status: "unavailable" };
-  try {
-    let reachedStart = false;
-    for await (const batch of readLinesBackwardFromHandle(opened.handle, {
-      endByte: opened.size,
-      maxBytes: TRANSCRIPT_TAIL_POINT_BYTE_BUDGET,
-    })) {
-      reachedStart = batch.reachedStart;
-      for (const line of batch.lines.reverse()) {
-        const step: unknown = JSON.parse(line);
-        if (!step || typeof step !== "object") return { status: "unavailable" };
-        const record = step as Record<string, unknown>;
-        if (record.type !== "USER_INPUT" && record.type !== "PLANNER_RESPONSE")
-          continue;
-        const text = record.content;
-        if (typeof text !== "string" || !text.trim()) {
-          if (record.thinking) return { status: "unavailable" };
-          continue;
-        }
-        if (
-          (Array.isArray(record.truncated_fields) &&
-            record.truncated_fields.includes("content")) ||
-          /\n<truncated \d+ bytes>\n/.test(text)
-        )
-          return { status: "unavailable" };
-        return {
-          status: "known",
-          kind: record.type === "USER_INPUT" ? "user" : "assistant",
-          text: text.trim(),
-        };
-      }
-    }
-    return { status: reachedStart ? "absent" : "unavailable" };
-  } catch {
-    return { status: "unavailable" };
-  } finally {
-    await opened.handle.close();
-  }
-}
-
 export interface AntigravityTurnBoundary {
   step: number;
   dev?: number;

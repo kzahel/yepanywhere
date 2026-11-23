@@ -78,7 +78,7 @@ function effortFields(
 }
 
 /**
- * Project Antigravity's ACP `session/new` / `session/load` setup into YA's
+ * Project Antigravity's ACP `session/new` / `session/resume` setup into YA's
  * model catalog: structured `configOptions` for base models and
  * `thought_level`, with each model's levels taken from the paired
  * effort-suffixed entries in `models.availableModels`. Without a model option

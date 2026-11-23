@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AntigravityRuntime } from "../../src/sdk/providers/antigravity-runtime.js";
+import {
+  AntigravityRuntime,
+  findAntigravityRuntime,
+  pinAntigravityLaunchToScope,
+} from "../../src/sdk/providers/antigravity-runtime.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { prepareQueuedCompaction } from "../../src/routes/session-input-admission.js";
 import {
@@ -12,6 +16,7 @@ import {
   projectAntigravityLog,
 } from "../../src/sessions/antigravity-log-projection.js";
 import type { Message } from "../../src/supervisor/types.js";
+import { replayAntigravityConversation } from "../utils/antigravity-acp-replay.js";
 import { compareProjectionWithReplay } from "../utils/antigravity-projection-compare.js";
 import { nativeFixture } from "./fixture.js";
 import { providers } from "./selection.js";
@@ -191,18 +196,28 @@ describe.skipIf(!providers.includes("antigravity"))(
       );
       if (projected.status !== "known") throw Error(projected.reason);
       expect(viewed).toEqual(projected.messages);
-      const replayReader = new AntigravitySessionReader({
-        projectPath: f.project,
-        historySource: "acp-replay",
-      });
+      // The oracle: what agy replays of the same conversation.
+      const command = (await findAntigravityRuntime())!;
+      const pinned = pinAntigravityLaunchToScope(
+        command,
+        await realpath(join(store, "conversations")),
+      )!;
+      const runtime = new AntigravityRuntime();
       let replay: Message[];
       try {
-        replay = (
-          (await replayReader.getSession(id, toUrlProjectId(f.project)))!.data
-            .session as { messages: Message[] }
-        ).messages;
+        await runtime.connect(
+          command.command,
+          f.project,
+          pinned.args,
+          pinned.env,
+        );
+        replay = (await replayAntigravityConversation({
+          runtime,
+          sessionId: id,
+          cwd: f.project,
+        })) as Message[];
       } finally {
-        await replayReader.close();
+        await runtime.close();
       }
       const compared = compareProjectionWithReplay(projected.messages, replay);
       expect(compared.mismatches).toEqual([]);

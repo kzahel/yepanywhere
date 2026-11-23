@@ -10,7 +10,13 @@ import { loadSqliteDriver } from "../../src/storage/sqlite.js";
  */
 export async function writeAntigravitySummaries(
   store: string,
-  rows: ReadonlyArray<{ id: string; cwd: string; title?: string }>,
+  rows: ReadonlyArray<{
+    id: string;
+    cwd: string;
+    title?: string;
+    /** `agy`'s step count; 0 for a conversation never prompted. */
+    stepCount?: number;
+  }>,
 ): Promise<void> {
   await mkdir(join(store, "conversations"), { recursive: true });
   const path = join(store, "conversation_summaries.db");
@@ -18,16 +24,17 @@ export async function writeAntigravitySummaries(
   const db = loadSqliteDriver()!.open(path);
   try {
     db.exec(
-      "CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', workspace_uris TEXT NOT NULL)",
+      "CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', workspace_uris TEXT NOT NULL, step_count INTEGER)",
     );
     const insert = db.prepare(
-      "INSERT INTO conversation_summaries VALUES (?, ?, ?)",
+      "INSERT INTO conversation_summaries VALUES (?, ?, ?, ?)",
     );
     for (const row of rows)
       insert.run(
         row.id,
         row.title ?? "",
         JSON.stringify([pathToFileURL(row.cwd).href]),
+        row.stepCount ?? null,
       );
     insert.finalize();
   } finally {

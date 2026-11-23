@@ -681,7 +681,11 @@ Step 2 has landed: the history limits have flip-ready tests, the log's
 behavior is [measured](../../topics/antigravity-native-storage.md#measurements--plan-195-step-2),
 and `session/resume` qualified on a large compacted conversation. Step 2b
 fixed what step 2 found: YA refused `agy`'s permission requests, which carry
-string IDs, so every prompted tool was denied without a prompt.
+string IDs, so every prompted tool was denied without a prompt. Steps 3 to 8
+have landed: history is read from the log a page at a time, resume uses
+`session/resume`, a live session's memory is bounded, another writer shows
+the external banner, and the ACP replay fallback is removed, so no history
+read starts `agy`. Step 9, the owner in the Provider Host, remains.
 
 **Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
 leave provider discovery and execution. Both IDs remain in readable history.

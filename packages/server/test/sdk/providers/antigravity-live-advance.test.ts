@@ -658,7 +658,7 @@ describe("a live Antigravity window", () => {
 
   // Review round 4 finding 6: an overflowing chunk was dropped whole.
   it("keeps the part of an overflowing chunk that fits, then the notice", () => {
-    const transcript = new AntigravityTranscript(ID, `${ID}:turn`, true);
+    const transcript = new AntigravityTranscript(ID, `${ID}:turn`);
     const [snapshot] = transcript.accept({
       sessionUpdate: "agent_message_chunk",
       content: { type: "text", text: "é".repeat((9 * 1024 * 1024) / 2) },
@@ -672,7 +672,7 @@ describe("a live Antigravity window", () => {
 
   // Review round 3 item 8: the block being assembled grew without bound.
   it("stops a live text block at the cap, with the same notice, and marks the view incomplete", () => {
-    const transcript = new AntigravityTranscript(ID, `${ID}:turn`, true);
+    const transcript = new AntigravityTranscript(ID, `${ID}:turn`);
     const chunk = "z".repeat(1024 * 1024);
     let last: SDKMessage | undefined;
     for (let i = 0; i < 10; i++)

@@ -29,7 +29,6 @@ import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owner
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import {
   correlateAntigravitySubagentCalls,
-  formatSpawnAgentResult,
   parseSpawnAgentResultId,
   readAntigravitySubagentLaunches,
   readAntigravityTranscriptPosition,
@@ -123,8 +122,8 @@ async function createSubagentFixture() {
 }
 
 describe("Antigravity subagent transcript, links, reader, and background retention", () => {
-  it("normalizes live and cold-replayed invoke_subagent into spawn_agent and enriches agent_id in-place", () => {
-    const live = new AntigravityTranscript(PARENT_ID, PARENT_ID, true);
+  it("normalizes a live invoke_subagent into spawn_agent and enriches agent_id in place", () => {
+    const live = new AntigravityTranscript(PARENT_ID, PARENT_ID);
     const callOut = live.accept({
       sessionUpdate: "tool_call",
       toolCallId: "tc-1",
@@ -161,9 +160,6 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
     });
     const enriched = live.enrichSubagentResult("tc-1", CHILD_ID);
     expect(enriched?.uuid).toBe("tc-1:result");
-    // A live turn retains nothing itself: its owner's projection keeps one
-    // row per ID (plan 195 step 6).
-    expect(live.messages).toEqual([]);
     const resultBlock = Array.isArray(enriched?.message?.content)
       ? enriched.message.content[0]
       : undefined;
@@ -176,45 +172,8 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       });
     }
 
-    // Cold session/load emits a single completed tool_call with no tool_call_update.
-    const cold = new AntigravityTranscript(PARENT_ID, PARENT_ID, false);
-    const coldOut = cold.accept({
-      sessionUpdate: "tool_call",
-      toolCallId: "cold-1",
-      name: "invoke_subagent",
-      title: "Run invoke_subagent",
-      status: "completed",
-      rawInput: {
-        Role: "Cold Helper",
-        TypeName: "self",
-        Prompt: "Check logs",
-        Model: "inherit",
-      },
-    });
-    expect(coldOut).toHaveLength(2);
-    expect(coldOut[0]?.uuid).toBe("cold-1:call");
-    expect(coldOut[1]?.uuid).toBe("cold-1:result");
-    expect(cold.listSubagentCalls()).toEqual([
-      {
-        toolUseId: "cold-1",
-        role: "Cold Helper",
-        typeName: "self",
-        prompt: "Check logs",
-        completed: true,
-        failed: false,
-      },
-    ]);
-    cold.enrichSubagentResult("cold-1", CHILD_ID, "Cold Helper");
-    expect(cold.messages).toHaveLength(2);
-    const coldResult = cold.messages[1]?.message?.content;
-    expect(
-      Array.isArray(coldResult) && coldResult[0]?.type === "tool_result"
-        ? coldResult[0].content
-        : "",
-    ).toBe(formatSpawnAgentResult(CHILD_ID, "Cold Helper"));
-
     // A failed invoke_subagent call preserves is_error and refuses enrichment.
-    const failedTx = new AntigravityTranscript(PARENT_ID, PARENT_ID, true);
+    const failedTx = new AntigravityTranscript(PARENT_ID, PARENT_ID);
     failedTx.accept({
       sessionUpdate: "tool_call",
       toolCallId: "fail-1",
@@ -1095,7 +1054,6 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       const liveTranscript = new AntigravityTranscript(
         GRANDCHILD_ID,
         `${GRANDCHILD_ID}:turn`,
-        true,
       );
       liveTranscript.accept({
         sessionUpdate: "tool_call",
@@ -1485,7 +1443,7 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
     expect(bg.snapshot().retained).toBe(false);
   });
 
-  it("replays verified children and grandchildren via getAgentSession, enriches cold getSession + getAgentMappings, and blocks unauthorized UUIDs before ACP", async () => {
+  it("reads verified children from their logs, says when one has no log, and blocks unauthorized UUIDs, starting no agy", async () => {
     if (process.platform === "win32") return;
     const f = await createSubagentFixture();
     await writeFile(join(f.conversationsDir, `${PARENT_ID}.db`), "parent");
@@ -1588,7 +1546,7 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       },
     ]);
     // The child's full log; the parent and grandchild have none, so their
-    // history falls back to ACP replay.
+    // history cannot be shown.
     const childLog = join(
       f.brainDir,
       CHILD_ID,
@@ -1615,8 +1573,8 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       ) + childRecord(1, "PLANNER_RESPONSE", "RUNNING_LOG_PROGRESS"),
     );
 
-    const spyLog = join(f.root, "acp-loads.log");
-    const listLog = join(f.root, "acp-lists.log");
+    // Any agy process this test starts records its methods here.
+    const spyLog = join(f.root, "acp-methods.log");
     const peerBin = join(f.root, "agy");
     await writeFile(
       peerBin,
@@ -1626,27 +1584,8 @@ const readline = require("node:readline");
 const send = (v) => process.stdout.write(JSON.stringify(v) + "\\n");
 readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const m = JSON.parse(line);
+  fs.appendFileSync(${JSON.stringify(spyLog)}, m.method + "\\n");
   if (m.method === "initialize") return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1, agentInfo: { version: "1.5.13" } } });
-  if (m.method === "session/list") {
-    fs.appendFileSync(${JSON.stringify(listLog)}, "list\\n");
-    return setTimeout(() => send({ jsonrpc: "2.0", id: m.id, result: { sessions: [{ sessionId: ${JSON.stringify(PARENT_ID)}, title: "Listed Parent" }] } }), 40);
-  }
-  if (m.method === "session/load") {
-    const sid = m.params.sessionId;
-    fs.appendFileSync(${JSON.stringify(spyLog)}, sid + "\\n");
-    if (sid === ${JSON.stringify(PARENT_ID)}) {
-      send({ jsonrpc: "2.0", method: "session/update", params: { sessionId: sid, update: { sessionUpdate: "user_message_chunk", content: { type: "text", text: "Delegate task" } } } });
-      send({ jsonrpc: "2.0", method: "session/update", params: { sessionId: sid, update: { sessionUpdate: "tool_call", toolCallId: "cold-tc-1", name: "invoke_subagent", title: "Run invoke_subagent", status: "completed", rawInput: { Role: "Code Researcher", TypeName: "research", Prompt: "Inspect module" } } } });
-      send({ jsonrpc: "2.0", method: "session/update", params: { sessionId: sid, update: { sessionUpdate: "tool_call", toolCallId: "cold-tc-failed", name: "invoke_subagent", title: "Run invoke_subagent", status: "failed", rawInput: { Role: "Code Researcher", TypeName: "research", Prompt: "Inspect module" }, rawOutput: "permission denied" } } });
-    } else if (sid === ${JSON.stringify(CHILD_ID)}) {
-      // Also emit a stray parent session_info_update to verify strict sessionId filtering.
-      send({ jsonrpc: "2.0", method: "session/update", params: { sessionId: ${JSON.stringify(PARENT_ID)}, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "STRAY_PARENT_TEXT" } } } });
-      send({ jsonrpc: "2.0", method: "session/update", params: { sessionId: sid, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "CHILD_REPLY_TEXT" } } } });
-    } else if (sid === ${JSON.stringify(GRANDCHILD_ID)}) {
-      send({ jsonrpc: "2.0", method: "session/update", params: { sessionId: sid, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "GRANDCHILD_REPLY_TEXT" } } } });
-    }
-    return send({ jsonrpc: "2.0", id: m.id, result: {} });
-  }
   return send({ jsonrpc: "2.0", id: m.id, result: {} });
 });
 `,
@@ -1669,48 +1608,22 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       expect(await reader.getAgentSession(CHILD_ID)).toBeNull();
       expect(await readFile(spyLog, "utf8").catch(() => "")).toBe("");
 
-      // Before cold getSession, getAgentMappings never spawns ACP.
+      // The parent has no log: one row says so, and there is nothing to map.
+      const projectId = toUrlProjectId(f.project);
+      const loadedParent = await reader.getSession(PARENT_ID, projectId);
+      expect(loadedParent?.transcriptComplete).toBe(false);
+      expect(loadedParent?.data.session.messages.map((m) => m.uuid)).toEqual([
+        `${PARENT_ID}:history-unavailable`,
+      ]);
       expect(await reader.getAgentMappings(PARENT_ID)).toEqual([]);
       expect(await readFile(spyLog, "utf8").catch(() => "")).toBe("");
 
-      // Cold getSession enriches spawn_agent tool_result with verified childId.
-      const projectId = toUrlProjectId(f.project);
-      const loadedParent = await reader.getSession(PARENT_ID, projectId);
-      expect(loadedParent).not.toBeNull();
-      const parentMsgs = loadedParent!.data.session.messages;
-      const resultMsg = parentMsgs.find((m) => m.uuid === "cold-tc-1:result");
-      expect(resultMsg).toBeDefined();
-      const block = Array.isArray(resultMsg?.message?.content)
-        ? resultMsg.message.content[0]
-        : undefined;
-      expect(
-        block && typeof block === "object" && block.type === "tool_result"
-          ? parseSpawnAgentResultId(block.content)
-          : undefined,
-      ).toBe(CHILD_ID);
-
-      // Now getAgentMappings returns the verified mapping from cached coldReads without another ACP spawn!
-      const loadsBeforeMappings = await readFile(spyLog, "utf8");
-      expect(await reader.getAgentMappings(PARENT_ID)).toEqual([
-        {
-          toolUseId: "cold-tc-1",
-          agentId: CHILD_ID,
-          agentType: "research",
-          description: "Code Researcher",
-          spawnDepth: 1,
-        },
-      ]);
-      expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeMappings);
-
       // A running child is read from its log and never starts ACP.
-      const loadsBeforeRunningChild = await readFile(spyLog, "utf8");
       const childSession = await reader.getAgentSession(CHILD_ID, PARENT_ID);
       expect(childSession?.status).toBe("running");
       expect(JSON.stringify(childSession?.messages)).toContain(
         "RUNNING_LOG_PROGRESS",
       );
-      expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeRunningChild);
-
       // Once settled IDLE, the child is still read from its log.
       await appendFile(
         childLog,
@@ -1728,21 +1641,20 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       expect(settledChild?.status).toBe("completed");
       const childText = JSON.stringify(settledChild?.messages);
       expect(childText).toContain("CHILD_REPLY_TEXT");
-      expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeRunningChild);
 
-      // A grandchild without a log replays through ACP, and filters stray
-      // parent frames, with completed status.
+      // A settled grandchild without a log: one row says so.
       const grandchildSession = await reader.getAgentSession(
         GRANDCHILD_ID,
         PARENT_ID,
       );
       expect(grandchildSession?.status).toBe("completed");
-      expect(JSON.stringify(grandchildSession?.messages)).toContain(
-        "GRANDCHILD_REPLY_TEXT",
-      );
+      expect(grandchildSession?.messages.map((m) => m.uuid)).toEqual([
+        `${GRANDCHILD_ID}:history-unavailable`,
+      ]);
+      expect(await readFile(spyLog, "utf8").catch(() => "")).toBe("");
 
-      // Reparenting a settled child away BEFORE returning (even when cached in
-      // coldReads) or mid-read MUST refuse playback under the old parent!
+      // Reparenting a settled child away before or during the read refuses
+      // it under the old parent.
       const moveChild = f.db.prepare(
         "UPDATE conversation_summaries SET parent_conversation_id = ? WHERE conversation_id = ?",
       );
@@ -1751,12 +1663,8 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       } finally {
         moveChild.finalize();
       }
-      const loadsBeforeReparentCheck = await readFile(spyLog, "utf8");
       expect(await reader.getAgentSession(CHILD_ID, PARENT_ID)).toBeNull();
-      expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeReparentCheck);
 
-      // Reparenting mid-read (between initial lineage check and session/load)
-      // must abort the fallback before calling session/load.
       const restoreChild = f.db.prepare(
         "UPDATE conversation_summaries SET parent_conversation_id = ? WHERE conversation_id = ?",
       );
@@ -1765,20 +1673,14 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       } finally {
         restoreChild.finalize();
       }
-      // Clear coldReads so GRANDCHILD_ID would otherwise run session/load.
-      (
-        reader as unknown as { coldReads: Map<string, unknown> }
-      ).coldReads.clear();
-      const origMetadata = (
-        reader as unknown as { metadata(id: string): Promise<unknown> }
-      ).metadata.bind(reader);
-      const metadataSpy = vi
-        .spyOn(
-          reader as unknown as { metadata(id: string): Promise<unknown> },
-          "metadata",
-        )
-        .mockImplementationOnce(async (id: string) => {
-          const res = await origMetadata(id);
+      const internals = reader as unknown as {
+        readLog(...args: unknown[]): Promise<unknown>;
+      };
+      const readLog = internals.readLog.bind(reader);
+      const readSpy = vi
+        .spyOn(internals, "readLog")
+        .mockImplementationOnce(async (...args: unknown[]) => {
+          const result = await readLog(...args);
           const reparentMidFlight = f.db.prepare(
             "UPDATE conversation_summaries SET parent_conversation_id = ? WHERE conversation_id = ?",
           );
@@ -1787,16 +1689,14 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
           } finally {
             reparentMidFlight.finalize();
           }
-          return res;
+          return result;
         });
       try {
-        const loadsBeforeMidFlight = await readFile(spyLog, "utf8");
         expect(
           await reader.getAgentSession(GRANDCHILD_ID, PARENT_ID),
         ).toBeNull();
-        expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeMidFlight);
       } finally {
-        metadataSpy.mockRestore();
+        readSpy.mockRestore();
       }
 
       // Combined 8-read cap MUST apply identically when 8 agent reads precede getSession.
@@ -1917,7 +1817,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
         summariesReader.close();
       }
 
-      // A summary comes from the summaries index and starts no ACP list.
+      // A summary comes from the summaries index and starts no agy.
       const summaries = await Promise.all(
         Array.from({ length: 12 }, () =>
           reader.getSessionSummary(PARENT_ID, projectId),
@@ -1926,170 +1826,55 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       expect(summaries.map((summary) => summary?.title)).toEqual(
         Array(12).fill("Parent"),
       );
-      expect(await readFile(listLog, "utf8").catch(() => "")).toBe("");
+      expect(await readFile(spyLog, "utf8").catch(() => "")).toBe("");
 
-      // Two-store isolation with the SAME UUID:
-      // 1. Reader bound to Store B refuses ACP replay when active runtime targets Store A.
-      // 2. With GEMINI_HOME set and CLOUD_CODE_URL unset, `agy acp` omits `--gemini-dir`
-      //    (opening OS home instead of GEMINI_HOME), so Store A reader MUST also refuse replay!
+      // Resume revalidation across lazy iterator start: authorize Store A in
+      // startSession(), switch GEMINI_HOME to Store B before advancing the
+      // iterator, and verify run() rejects before starting agy.
       const storeB = await createSubagentFixture();
-      await writeFile(join(storeB.conversationsDir, `${PARENT_ID}.db`), "p-b");
-      await writeFile(join(storeB.conversationsDir, `${CHILD_ID}.db`), "c-b");
-      storeB.insert.run(
-        PARENT_ID,
-        "Store B Parent",
-        storeB.projectUri,
-        "",
-        "",
-        0,
-        "CASCADE_RUN_STATUS_IDLE",
-        0,
-        0,
-        "2026-11-21 17:00:00+00:00",
-      );
-      storeB.insert.run(
-        CHILD_ID,
-        "Store B Child",
-        storeB.projectUri,
-        "research",
-        PARENT_ID,
-        1,
-        "CASCADE_RUN_STATUS_IDLE",
-        0,
-        0,
-        "2026-11-21 17:01:00+00:00",
-      );
-      const readerB = new AntigravitySessionReader({
-        projectPath: storeB.project,
-        sessionsDir: storeB.conversationsDir,
+      const provider = new AntigravityProvider();
+      const physicalStoreA = await realpath(f.conversationsDir);
+      const resumed = await provider.startSession({
+        cwd: f.project,
+        resumeSessionId: PARENT_ID,
+        nativeResumeSource: {
+          native: nativeSessionRef(
+            "antigravity",
+            physicalStoreA,
+            parseNativeSessionId(PARENT_ID),
+          ),
+          filePath: join(physicalStoreA, `${PARENT_ID}.db`),
+          projectId,
+        },
       });
+      vi.stubEnv("GEMINI_HOME", storeB.root);
       try {
-        const loadsBeforeStoreB = await readFile(spyLog, "utf8");
-        expect(await readerB.getAgentSession(CHILD_ID, PARENT_ID)).toBeNull();
-        expect(
-          await readerB.getSession(PARENT_ID, toUrlProjectId(storeB.project)),
-        ).toBeNull();
-        expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeStoreB);
-
-        // Resume revalidation across lazy iterator start: authorize Store A in
-        // startSession(), switch GEMINI_HOME to Store B before advancing the
-        // iterator, and verify run() rejects BEFORE spawning ACP session/load!
-        const provider = new AntigravityProvider();
-        const physicalStoreA = await realpath(f.conversationsDir);
-        const resumed = await provider.startSession({
-          cwd: f.project,
-          resumeSessionId: PARENT_ID,
-          nativeResumeSource: {
-            native: nativeSessionRef(
-              "antigravity",
-              physicalStoreA,
-              parseNativeSessionId(PARENT_ID),
-            ),
-            filePath: join(physicalStoreA, `${PARENT_ID}.db`),
-            projectId,
-          },
+        const first = await resumed.iterator.next();
+        expect(first.value).toMatchObject({
+          type: "error",
+          error:
+            "Antigravity continuation requires its original native store and project",
         });
-        vi.stubEnv("GEMINI_HOME", storeB.root);
-        try {
-          const first = await resumed.iterator.next();
-          expect(first.value).toMatchObject({
-            type: "error",
-            error:
-              "Antigravity continuation requires its original native store and project",
-          });
-          expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeStoreB);
-        } finally {
-          await resumed.abort();
-          vi.stubEnv("GEMINI_HOME", f.root);
-        }
-
-        // Unset CLOUD_CODE_URL while GEMINI_HOME still points to f.root: `agy`
-        // no longer passes `--gemini-dir`, so reader AND live namespace MUST
-        // derive the OS-home store (never f.root) and refuse cold replay!
-        // The reader's own log, read without `agy`, is unaffected.
-        (
-          reader as unknown as { coldReads: Map<string, unknown> }
-        ).coldReads.clear();
-        vi.stubEnv("CLOUD_CODE_URL", "");
-        const restoreGrandchild = f.db.prepare(
-          "UPDATE conversation_summaries SET parent_conversation_id = ? WHERE conversation_id = ?",
-        );
-        try {
-          restoreGrandchild.run(CHILD_ID, GRANDCHILD_ID);
-        } finally {
-          restoreGrandchild.finalize();
-        }
-        expect(
-          await reader.getAgentSession(GRANDCHILD_ID, PARENT_ID),
-        ).toBeNull();
-        expect(
-          JSON.stringify(await reader.getAgentSession(CHILD_ID, PARENT_ID)),
-        ).toContain("CHILD_REPLY_TEXT");
-        expect(await readFile(spyLog, "utf8")).toBe(loadsBeforeStoreB);
-        const { antigravitySessionsDir } = await import(
-          "../../src/sdk/providers/antigravity-runtime.js"
-        );
-        expect(antigravitySessionsDir()).not.toBe(f.conversationsDir);
-        vi.stubEnv("CLOUD_CODE_URL", "http://127.0.0.1:1");
+        expect(await readFile(spyLog, "utf8").catch(() => "")).toBe("");
       } finally {
-        await readerB.close();
+        await resumed.abort();
+        vi.stubEnv("GEMINI_HOME", f.root);
       }
 
-      // Mid-replay store rebind: swapping a symlinked sessionsDir from Store A
-      // to Store B during session/load MUST discard the replay (return null)
-      // and NEVER cache Store A's messages under Store B!
-      const rebindLink = join(f.root, "rebind-conversations");
-      await symlink(f.conversationsDir, rebindLink);
-      const rebindReader = new AntigravitySessionReader({
-        projectPath: f.project,
-        sessionsDir: rebindLink,
-      });
-      try {
-        const origMeta = (
-          rebindReader as unknown as { metadata(id: string): Promise<unknown> }
-        ).metadata.bind(rebindReader);
-        let metaCalls = 0;
-        const metaSpy = vi
-          .spyOn(
-            rebindReader as unknown as {
-              metadata(id: string): Promise<unknown>;
-            },
-            "metadata",
-          )
-          .mockImplementation(async (id: string) => {
-            metaCalls++;
-            // Call 1 is pre-load metadata(GRANDCHILD_ID), which has no log;
-            // Call 2 is post-load metadata(GRANDCHILD_ID).
-            if (metaCalls === 2) {
-              await unlink(rebindLink);
-              await symlink(storeB.conversationsDir, rebindLink);
-            }
-            return origMeta(id);
-          });
-        try {
-          // Make Store B match f.project so post-load metadata(CHILD_ID) resolves in Store B!
-          const fixB = storeB.db.prepare(
-            "UPDATE conversation_summaries SET workspace_uris = ?",
-          );
-          try {
-            fixB.run(f.projectUri);
-          } finally {
-            fixB.finalize();
-          }
-          expect(
-            await rebindReader.getAgentSession(GRANDCHILD_ID, PARENT_ID),
-          ).toBeNull();
-          // coldReads MUST NOT contain any entry for Store B!
-          expect(
-            (rebindReader as unknown as { coldReads: Map<string, unknown> })
-              .coldReads.size,
-          ).toBe(0);
-        } finally {
-          metaSpy.mockRestore();
-        }
-      } finally {
-        await rebindReader.close();
-      }
+      // Unset CLOUD_CODE_URL while GEMINI_HOME still points to f.root: `agy`
+      // no longer passes `--gemini-dir`, so the live namespace derives the
+      // OS-home store. The reader's own log, read without `agy`, is
+      // unaffected.
+      vi.stubEnv("CLOUD_CODE_URL", "");
+      expect(
+        JSON.stringify(await reader.getAgentSession(CHILD_ID, PARENT_ID)),
+      ).toContain("CHILD_REPLY_TEXT");
+      const { antigravitySessionsDir } = await import(
+        "../../src/sdk/providers/antigravity-runtime.js"
+      );
+      expect(antigravitySessionsDir()).not.toBe(f.conversationsDir);
+      vi.stubEnv("CLOUD_CODE_URL", "http://127.0.0.1:1");
+      expect(await readFile(spyLog, "utf8").catch(() => "")).toBe("");
     } finally {
       await reader.close();
     }
@@ -2336,7 +2121,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   if (m.method === "initialize") {
     return send({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: 1, agentInfo: { version: "1.5.14" } } });
   }
-  if (m.method === "session/new" || m.method === "session/load") {
+  if (m.method === "session/new" || m.method === "session/resume") {
     return send({ jsonrpc: "2.0", id: m.id, result: { sessionId: ${JSON.stringify(PARENT_ID)}, models: { currentModelId: "m1", availableModels: [{ modelId: "m1", name: "M1" }] }, modes: { currentModeId: "default", availableModes: [{ id: "default" }] } } });
   }
   if (m.method === "session/prompt") {

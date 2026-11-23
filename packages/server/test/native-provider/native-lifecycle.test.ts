@@ -1,79 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  AntigravityRuntime,
-  resolveAntigravityRuntime,
-} from "../../src/sdk/providers/antigravity-runtime.js";
+import { AntigravityRuntime } from "../../src/sdk/providers/antigravity-runtime.js";
 import { nativeFixture } from "./fixture.js";
 import { readOwnedFile } from "./actions.js";
 import { providers } from "./selection.js";
 
 type Fixture = Awaited<ReturnType<typeof nativeFixture>>;
-
-async function verifyAgyReplayOrder(fixture: Fixture, finalText: string) {
-  if (fixture.provider !== "antigravity") return;
-  const command = resolveAntigravityRuntime();
-  if (!command) throw Error("Expected the owned agy CLI");
-  const runtime = new AntigravityRuntime();
-
-  // Observe the real frames before promise continuations can blur their order.
-  const transport = runtime as unknown as {
-    send(frame: Record<string, unknown>): void;
-    receive(frame: Record<string, unknown>): void;
-  };
-  const sessionId = fixture.nativeId();
-  const order: string[] = [];
-  let loadRequestId: unknown;
-  let suffix = "";
-  const { send, receive } = transport;
-  const outgoing = vi.spyOn(transport, "send").mockImplementation(function (
-    this: AntigravityRuntime,
-    frame,
-  ) {
-    if (frame.method === "session/load") loadRequestId = frame.id;
-    send.call(this, frame);
-  });
-  const incoming = vi.spyOn(transport, "receive").mockImplementation(function (
-    this: AntigravityRuntime,
-    frame,
-  ) {
-    if (loadRequestId !== undefined && frame.id === loadRequestId)
-      order.push("load response");
-    if (frame.method === "session/update") {
-      const params = frame.params as {
-        sessionId?: string;
-        update?: { sessionUpdate?: string; content?: { text?: string } };
-      };
-      const update = params?.update;
-      if (
-        params?.sessionId === sessionId &&
-        update?.sessionUpdate === "agent_message_chunk" &&
-        typeof update.content?.text === "string" &&
-        !order.includes("final assistant text")
-      ) {
-        const text = suffix + update.content.text;
-        if (text.includes(finalText)) order.push("final assistant text");
-        suffix = text.slice(-finalText.length);
-      }
-    }
-    receive.call(this, frame);
-  });
-  try {
-    await runtime.connect(command.command, fixture.project, command.args);
-    await runtime.call("session/load", {
-      sessionId,
-      cwd: fixture.project,
-      mcpServers: [],
-    });
-    expect(
-      order,
-      `agy ${fixture.version} ACP session/load frame order`,
-    ).toEqual(["final assistant text", "load response"]);
-  } finally {
-    incoming.mockRestore();
-    outgoing.mockRestore();
-    await runtime.close();
-  }
-}
 
 let fixture: Fixture | undefined;
 let coldPhases:
@@ -494,7 +425,6 @@ describe.each(providers)("native lifecycle: %s", (provider) => {
       calls.mockRestore();
       mark("resumed-stop");
       await f.stop();
-      await verifyAgyReplayOrder(f, "COLD_RESUME_DONE");
       mark("persisted-history");
       const persisted = JSON.stringify(await f.history());
       expect(persisted.includes("BEFORE_COLD_RESTART")).toBe(true);

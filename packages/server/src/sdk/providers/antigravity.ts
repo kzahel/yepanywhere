@@ -32,11 +32,7 @@ import {
   liveModelCatalog,
   modelCatalogError,
 } from "./model-catalog-status.js";
-import {
-  claimAntigravityStart,
-  ownAntigravitySession,
-  ownAntigravitySessionAfterReads,
-} from "./antigravity-owners.js";
+import { ownAntigravitySession } from "./antigravity-owners.js";
 import {
   AntigravityRuntime,
   antigravityRuntimeStoreDir,
@@ -306,15 +302,12 @@ export class AntigravityProvider implements AgentProvider {
       throw new Error(
         "Use Antigravity's native /plan command with the default permission mode",
       );
-    const namespace =
-      options.resumeSessionId || options.nativeResumeSource
-        ? await this.getNewSessionNamespace()
-        : undefined;
-    if (options.nativeResumeSource && namespace)
-      await this.validateResumeSource(options, namespace);
-    // A resumed owner is starting from the moment its iterator runs (see
-    // claimAntigravityStart), keyed by the store the resume names.
-    const startScope = namespace?.storageScope;
+    if (options.nativeResumeSource) {
+      await this.validateResumeSource(
+        options,
+        await this.getNewSessionNamespace(),
+      );
+    }
     const controls: AntigravityControls = { commands: [] };
     const queue = Object.assign(new MessageQueue(), {
       setConfigurationInputHeld(held: boolean) {
@@ -352,7 +345,6 @@ export class AntigravityProvider implements AgentProvider {
         controls,
         resolveReady,
         rejectReady,
-        startScope,
       ),
       ...(this.supportsSteering
         ? {
@@ -510,7 +502,6 @@ export class AntigravityProvider implements AgentProvider {
     controls: AntigravityControls,
     resolveReady: () => void,
     rejectReady: (error: Error) => void,
-    startScope?: string,
   ): AsyncIterableIterator<SDKMessage> {
     let settledReady = false;
     const markReady = () => {
@@ -544,11 +535,6 @@ export class AntigravityProvider implements AgentProvider {
       changed();
     };
     signal.addEventListener("abort", stop, { once: true });
-    // Taken as the iterator first runs, which is before Process registers it.
-    const releaseStart =
-      startScope && options.resumeSessionId
-        ? claimAntigravityStart(startScope, options.resumeSessionId)
-        : undefined;
     try {
       if (signal.aborted) return;
       const command = await findAntigravityRuntime();
@@ -567,24 +553,12 @@ export class AntigravityProvider implements AgentProvider {
         ),
       };
       await this.validateResumeSource(options, namespace);
-      if (options.resumeSessionId) {
-        owner = await ownAntigravitySessionAfterReads(
+      // Held before `agy` starts, so every write it makes is YA's own.
+      if (options.resumeSessionId)
+        owner = ownAntigravitySession(
           namespace.storageScope,
           options.resumeSessionId,
-          signal,
         );
-        // Revalidate again after waiting on in-progress history reads so a
-        // profile or store rebind cannot redirect `session/load`.
-        const currentScope = await nativeStorageScope(
-          antigravityRuntimeStoreDir(command),
-        );
-        if (currentScope !== namespace.storageScope) {
-          throw new Error(
-            "Antigravity continuation requires its original native store and project",
-          );
-        }
-        await this.validateResumeSource(options, namespace);
-      }
       runtime.onPermission = (params, requestSignal) =>
         this.permissionUntil(params, options, signal, requestSignal);
       // agy offers no bypass mode; that session's server skips permissions.
@@ -653,12 +627,21 @@ export class AntigravityProvider implements AgentProvider {
           : {}),
       };
       runtime.onUpdate = observeCommands;
-      const opened = options.resumeSessionId
+      const resumeId = options.resumeSessionId;
+      // A new session's log is empty.
+      const opened = resumeId
         ? await resumeAntigravitySession({
             runtime,
             scope: namespace.storageScope,
-            params: { ...setupParams, sessionId: options.resumeSessionId },
-            onUpdate: observeCommands,
+            params: { ...setupParams, sessionId: resumeId },
+            // An unreadable summaries index counts as prompted.
+            neverPrompted: async () =>
+              (
+                await readAntigravityMetadata(
+                  namespace.storageScope,
+                  resumeId,
+                ).catch(() => null)
+              )?.stepCount === 0,
             authorize: () => !signal.aborted,
           })
         : {
@@ -666,18 +649,10 @@ export class AntigravityProvider implements AgentProvider {
               "session/new",
               setupParams,
             ),
+            boundary: EMPTY_ANTIGRAVITY_LOG,
           };
       if (!opened) return;
-      const { setup, replay } = opened;
-      // A new session's log is empty, and so is that of a conversation the
-      // fallback reopened with no log and nothing to replay.
-      const boundary =
-        "boundary" in opened && opened.boundary
-          ? opened.boundary
-          : !options.resumeSessionId ||
-              ("logMissing" in opened && opened.logMissing && !replay?.length)
-            ? EMPTY_ANTIGRAVITY_LOG
-            : undefined;
+      const { setup, boundary } = opened;
       // A failed resume is terminal; never create a fresh native conversation.
       const id = parseNativeSessionId(
         options.resumeSessionId || setup.sessionId,
@@ -852,21 +827,17 @@ export class AntigravityProvider implements AgentProvider {
       if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
         await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
       // Rows leave memory only past the soft budget, at a proven split
-      // point; without a boundary (a fallback replay of a log YA cannot
-      // read) only the cap bounds them.
+      // point; a log YA cannot read proves none, and the cap bounds them.
       const live = owner.open(
         boundary,
         antigravitySplitCheck(namespace.storageScope, id),
+        "earlier" in opened ? opened.earlier : undefined,
       );
       liveWindow = live;
-      for (const message of replay ?? []) live.record(message);
       const sampler = new AntigravitySplitSampler(namespace.storageScope, id);
-      if (live.boundary) {
-        sampler.prepare();
-        // The log as the resume left it, for telling another writer's appends.
-        sampler.settle();
-      }
-      releaseStart?.();
+      sampler.prepare();
+      // The log as the resume left it, for telling another writer's appends.
+      sampler.settle();
       markReady();
       yield {
         type: "system",
@@ -876,7 +847,6 @@ export class AntigravityProvider implements AgentProvider {
         model: resolvedModel,
         slash_command_inventory: controls.commands,
       };
-      for (const message of replay ?? []) yield { ...message, isReplay: true };
       const updates: SDKMessage[] = [];
       const publish = (
         converted: SDKMessage,
@@ -986,9 +956,8 @@ export class AntigravityProvider implements AgentProvider {
           changed();
         }
       };
-      runtime.onUpdate = (update, updateSessionId, isReplay) => {
+      runtime.onUpdate = (update, updateSessionId) => {
         if (
-          isReplay ||
           updateSessionId !== id ||
           update.sessionUpdate === "user_message_chunk"
         )
@@ -1037,7 +1006,6 @@ export class AntigravityProvider implements AgentProvider {
           passiveTranscript ??= new AntigravityTranscript(
             id,
             `${id}:${randomUUID()}`,
-            true,
           );
           const passiveOut = passiveTranscript.accept(update);
           for (const { _isStreaming: _partial, ...converted } of passiveOut)
@@ -1127,7 +1095,7 @@ export class AntigravityProvider implements AgentProvider {
           yield { type: "result", session_id: id };
           continue;
         }
-        const transcript = new AntigravityTranscript(id, `${id}:${uuid}`, true);
+        const transcript = new AntigravityTranscript(id, `${id}:${uuid}`);
         let activePromptScope: AntigravityTurnScope | undefined;
         let activePromptCallIds = new Set<string>();
         const turnPromptScopes: AntigravityTurnScope[] = [];
@@ -1147,7 +1115,7 @@ export class AntigravityProvider implements AgentProvider {
         let activeTurnModel = resolvedModel;
         foregroundUpdate = (update) => {
           // A new session's log exists once its first turn has output.
-          if (live.boundary) sampler.prepare();
+          sampler.prepare();
           // A new owner has no earlier turn that could produce this output.
           // Confirm startup on native progress so the first turn can be steered.
           if (
@@ -1231,13 +1199,12 @@ export class AntigravityProvider implements AgentProvider {
             message: { role: "user", content: promptText },
           });
           // A turn's first prompt is sent only while idle: a split candidate.
-          const candidate =
-            !steer && live.boundary
-              ? sampler.sample(
-                  seq,
-                  background.working ? undefined : runtime.lastActivityMs,
-                )
-              : undefined;
+          const candidate = !steer
+            ? sampler.sample(
+                seq,
+                background.working ? undefined : runtime.lastActivityMs,
+              )
+            : undefined;
           if (candidate === "foreign") {
             live.foreignWrite();
             getLogger().warn(
@@ -1375,7 +1342,6 @@ export class AntigravityProvider implements AgentProvider {
       await input.return?.();
       await runtime.close();
       owner?.release();
-      releaseStart?.();
     }
   }
 }

@@ -13,8 +13,8 @@
 // the profile resolves outside it, so no session/load can reach a
 // conversation another process may own. For each conversation it projects
 // the copy's log, replays the copy through `agy acp` session/load into
-// YA's AntigravityTranscript, and reports bytes read, records decoded, the
-// replay's raw tool frames and normalized ordinary tool_result rows, and
+// YA's ACP normalization (test/utils/antigravity-acp-replay.ts), and
+// reports bytes read, records decoded, the replay's raw tool frames, and
 // every mismatch class left after the expected differences documented in
 // packages/server/test/utils/antigravity-projection-compare.ts. The report
 // names steps and classes only, never content.
@@ -112,11 +112,8 @@ if (argv[0] !== "census") {
 const support = await import(
   join(repo, "scripts/perf-repro/antigravity-probe-support.mjs")
 );
-const { AntigravityTranscript } = await import(
-  join(server, "src/sdk/providers/antigravity-transcript.ts")
-);
-const { loadAntigravityReplay } = await import(
-  join(server, "src/sdk/providers/antigravity-replay.ts")
+const { replayAntigravityConversation } = await import(
+  join(server, "test/utils/antigravity-acp-replay.ts")
 );
 
 const staging = await import(
@@ -157,7 +154,6 @@ const coherently = (stage) => {
 try {
   if (!coherently(() => staging.stageSummaries(source, profile.store)).coherent)
     throw new Error("the summaries index changed during every copy");
-  const conversations = join(profile.store, "conversations");
   const totals = {
     conversations: ids.length,
     inconclusive: 0,
@@ -174,7 +170,6 @@ try {
       subagentToolCalls: 0,
       subagentToolCallUpdates: 0,
     },
-    normalizedOrdinaryResults: 0,
     classes: {},
   };
   for (const id of ids) {
@@ -218,7 +213,7 @@ try {
       continue;
     }
     entry.projectedMessages = projected.messages.length;
-    const transcript = new AntigravityTranscript(id);
+    let replayed = [];
     const frames = totals.frames;
     // An update may carry only the call's ID and status, so a subagent is
     // recognized by the ID its call announced as well as by its own name.
@@ -255,53 +250,25 @@ try {
       t0: support.now(),
     });
     try {
-      const loaded = await support.bounded(
-        loadAntigravityReplay({
+      // Late frames (500 ms after the load response) count too.
+      replayed = await support.bounded(
+        replayAntigravityConversation({
           runtime: agent.runtime,
-          scope: conversations,
-          params: { sessionId: id, cwd: profile.project, mcpServers: [] },
-          transcript,
+          sessionId: id,
+          cwd: profile.project,
           onUpdate: count,
         }),
         `session/load ${id}`,
         60_000,
       );
-      entry.replayComplete = loaded?.complete ?? false;
     } catch (error) {
-      // YA's reader would refuse this replay; what arrived is still compared.
       entry.replayError = String(error?.message ?? error);
       totals.replayFailed++;
     } finally {
-      // Late frames still reach the transcript and the counts.
-      await support.sleep(500);
       await agent.runtime.close();
     }
-    entry.replayMessages = transcript.messages.length;
-    const spawns = new Set(
-      transcript.messages.flatMap((message) =>
-        Array.isArray(message.message?.content)
-          ? message.message.content
-              .filter(
-                (block) =>
-                  block.type === "tool_use" && block.name === "spawn_agent",
-              )
-              .map((block) => block.id)
-          : [],
-      ),
-    );
-    entry.normalizedOrdinaryResults = transcript.messages.filter(
-      (message) =>
-        Array.isArray(message.message?.content) &&
-        message.message.content.some(
-          (block) =>
-            block.type === "tool_result" && !spawns.has(block.tool_use_id),
-        ),
-    ).length;
-    totals.normalizedOrdinaryResults += entry.normalizedOrdinaryResults;
-    const compared = compareProjectionWithReplay(
-      projected.messages,
-      transcript.messages,
-    );
+    entry.replayMessages = replayed.length;
+    const compared = compareProjectionWithReplay(projected.messages, replayed);
     entry.comparedItems = {
       projection: compared.projection.length,
       replay: compared.replay.length,

@@ -1,6 +1,5 @@
 import { realpathSync } from "node:fs";
 import { realpath } from "node:fs/promises";
-import { resolve } from "node:path";
 
 import {
   nativeSessionRef,
@@ -11,26 +10,15 @@ import {
   type UrlProjectId,
 } from "@yep-anywhere/shared";
 import type { Message, SessionSummary } from "../supervisor/types.js";
-import type { SDKMessage } from "../sdk/types.js";
 import {
-  AntigravityRuntime,
-  type AntigravityRuntimeCommand,
-  antigravityRuntimeStoreDir,
   antigravitySessionsDir,
   antigravitySummariesPath,
-  findAntigravityRuntime,
-  pinAntigravityLaunchToScope,
 } from "../sdk/providers/antigravity-runtime.js";
 import {
   type AntigravityLogBoundary,
-  antigravityOwnerSettled,
   antigravityOwnerView,
   antigravitySessionOwned,
-  antigravityStartPending,
-  ownAntigravitySession,
 } from "../sdk/providers/antigravity-owners.js";
-import { loadAntigravityReplay } from "../sdk/providers/antigravity-replay.js";
-import { AntigravityTranscript } from "../sdk/providers/antigravity-transcript.js";
 import { getProjectIdentityKey, isAbsolutePath } from "../projects/paths.js";
 import { getLogger } from "../logging/logger.js";
 import { AntigravityChildSourceOwner } from "./antigravity-child-source.js";
@@ -45,14 +33,13 @@ import {
   type AntigravityLogWindowRequest,
   readAntigravityLogWindow,
 } from "./antigravity-log-window.js";
+import { antigravityHistoryNotice } from "./antigravity-history-notice.js";
 import {
   type AntigravitySessionRead,
   antigravityJoinedSession,
-  antigravityWholeSession,
   type AntigravityJoinPlan,
   antigravityPlanWindow,
   joinAntigravityOwnerRead,
-  ownerBoundary,
   planAntigravityJoin,
   sameAntigravitySplit,
 } from "./antigravity-live-join.js";
@@ -84,42 +71,18 @@ import type {
   LoadedSession,
 } from "./types.js";
 
-/** Read Google's native store: history from `agy`'s brain log, a page at a
- * time, and ACP `session/load` replay only when the log is missing or unknown.
- * No background watcher or polling: bounded reads are owned by explicit interest.
+/**
+ * Reads Google's native store: history from `agy`'s brain log, a page at a
+ * time. Reading never starts `agy` (plan 195 step 8 removed the ACP replay
+ * fallback): a log that is missing or unknown is one informational row
+ * saying so. No background watcher or polling: bounded reads are owned by
+ * explicit interest.
  */
-/** A replay its own caller was refused, which another caller may retry. */
-const REFUSED = Symbol("refused");
-/** A replay refused because an owner is starting or open: read its view. */
-const OWNER = Symbol("owner");
-
 export class AntigravitySessionReader implements ISessionReader {
   private readonly directory: string;
   private readonly projectPath: string;
   // At most eight active detail reads per cached reader.
   private details = new Map<string, Promise<LoadedSession | null>>();
-  private replays = new Map<
-    string,
-    Promise<
-      | { entries: SDKMessage[]; model?: string; complete: boolean }
-      | null
-      | typeof REFUSED
-      | typeof OWNER
-    >
-  >();
-  // The ACP fallback's session/load writes the store's summaries index, which
-  // the provider watcher reports as a change and viewers refetch. Reuse a
-  // replay until the files differ from their post-load state, so it cannot loop.
-  private coldReads = new Map<
-    string,
-    {
-      version: string;
-      entries: SDKMessage[];
-      model?: string;
-      complete: boolean;
-    }
-  >();
-  private runtimes = new Set<AntigravityRuntime>();
   private readonly retireListeners = new Set<() => void>();
   private readonly nativeStorageScope?: string;
   private readonly childSourceOwner: AntigravityChildSourceOwner;
@@ -137,17 +100,12 @@ export class AntigravitySessionReader implements ISessionReader {
     readonly Readonly<SessionCatalogRow>[]
   >;
 
-  /** Reads only through ACP replay: for comparing it with the log. */
-  private readonly replayOnly: boolean;
-
   constructor(options: {
     projectPath: string;
     sessionsDir?: string;
     nativeStorageScope?: string;
     catalogRows?: () => Promise<readonly Readonly<SessionCatalogRow>[]>;
-    historySource?: "log" | "acp-replay";
   }) {
-    this.replayOnly = options.historySource === "acp-replay";
     this.catalogRows = options.catalogRows;
     this.projectPath = options.projectPath;
     this.directory =
@@ -178,72 +136,6 @@ export class AntigravitySessionReader implements ISessionReader {
         : null;
     } catch {
       return null;
-    }
-  }
-
-  private runtimeMatchesScopeSync(
-    command: AntigravityRuntimeCommand,
-    expectedScope: string,
-  ): boolean {
-    if (!pinAntigravityLaunchToScope(command, expectedScope)) {
-      return false;
-    }
-    const runtimeStore = antigravityRuntimeStoreDir(command);
-    let runtimeScope: string;
-    try {
-      runtimeScope = realpathSync(runtimeStore);
-    } catch {
-      runtimeScope = resolve(runtimeStore);
-    }
-    return runtimeScope === expectedScope;
-  }
-
-  private async resolveRuntimeForScope(
-    expectedScope?: string,
-  ): Promise<AntigravityRuntimeCommand | null> {
-    if (this.closed) throw new Error("Antigravity reader is closed");
-    const command = await findAntigravityRuntime();
-    if (!command)
-      throw new Error("Antigravity is not installed (install the agy CLI)");
-    if (
-      expectedScope &&
-      !this.runtimeMatchesScopeSync(command, expectedScope)
-    ) {
-      return null;
-    }
-    return command;
-  }
-
-  private async withRuntime<T>(
-    operation: (runtime: AntigravityRuntime) => Promise<T>,
-    commandOverride?: AntigravityRuntimeCommand,
-    pinnedScope?: string,
-  ): Promise<T> {
-    if (this.closed) throw new Error("Antigravity reader is closed");
-    const command = commandOverride ?? (await findAntigravityRuntime());
-    if (!command)
-      throw new Error("Antigravity is not installed (install the agy CLI)");
-    const pinned = pinnedScope
-      ? pinAntigravityLaunchToScope(command, pinnedScope)
-      : { args: command.args, env: undefined };
-    if (!pinned) {
-      throw new Error(
-        "Antigravity store cannot be pinned to ACP launch arguments",
-      );
-    }
-    const runtime = new AntigravityRuntime();
-    this.runtimes.add(runtime);
-    try {
-      await runtime.connect(
-        command.command,
-        this.projectPath,
-        pinned.args,
-        pinned.env,
-      );
-      return await operation(runtime);
-    } finally {
-      await runtime.close();
-      this.runtimes.delete(runtime);
     }
   }
 
@@ -364,9 +256,8 @@ export class AntigravitySessionReader implements ISessionReader {
   }
 
   /**
-   * One window of a stopped conversation's log, with its verified children
-   * linked. Unknown and missing logs are logged and returned for the caller's
-   * fallback; a read error is an unknown log.
+   * One window of a conversation's log, with its verified children linked.
+   * A read error is an unknown log; an unknown log is logged.
    */
   private async readLog(
     scope: string,
@@ -377,15 +268,13 @@ export class AntigravitySessionReader implements ISessionReader {
   ): Promise<AntigravityLogWindow> {
     let window: AntigravityLogWindow;
     try {
-      window = this.replayOnly
-        ? { status: "missing", bytesRead: 0 }
-        : await readAntigravityLogWindow({
-            scope,
-            conversationId: id,
-            ownerLive,
-            request,
-            ...(boundary ? { boundary } : {}),
-          });
+      window = await readAntigravityLogWindow({
+        scope,
+        conversationId: id,
+        ownerLive,
+        request,
+        ...(boundary ? { boundary } : {}),
+      });
     } catch (error) {
       window = {
         status: "unknown",
@@ -397,7 +286,7 @@ export class AntigravitySessionReader implements ISessionReader {
     if (window.status === "unknown")
       getLogger().info(
         { conversationId: id, reason: window.reason, error: window.error },
-        "Antigravity log unknown; history falls back to ACP replay",
+        "Antigravity log unknown; its history is not shown",
       );
     if (
       window.status === "known" &&
@@ -434,7 +323,7 @@ export class AntigravitySessionReader implements ISessionReader {
   /**
    * Synchronously verify scope, project membership, and cycle-free descendant
    * lineage against a single SQLite read snapshot with ZERO intervening awaits,
-   * eliminating TOCTOU windows between authorization and `session/load` or return.
+   * eliminating TOCTOU windows between authorization and return.
    */
   private readVerifiedDescendantsSync(
     scope: string,
@@ -535,201 +424,11 @@ export class AntigravitySessionReader implements ISessionReader {
     return this.readVerifiedDescendantsSync(scope, parentId).get(agentId);
   }
 
-  private cloneMessages(entries: readonly SDKMessage[]): Message[] {
-    return entries.map((entry) => ({
-      ...entry,
-      message: entry.message
-        ? {
-            ...entry.message,
-            content:
-              typeof entry.message.content === "string"
-                ? entry.message.content
-                : entry.message.content.map((block) => ({ ...block })),
-          }
-        : undefined,
-    }));
-  }
-
   /**
-   * The ACP fallback's history: a cached replay of this conversation
-   * version, or one shared replay. `OWNER` when an owner is starting or
-   * open, whose view the caller reads instead: `session/load` never runs
-   * beside or ahead of an owner.
-   */
-  private async loadTranscriptEntries(
-    id: string,
-    scope: string,
-    cwd: string,
-    sourceVersion: string,
-    enrichSubagents: boolean,
-    beforeLoad?: () => boolean,
-  ): Promise<
-    | {
-        entries: SDKMessage[];
-        model?: string;
-        complete: boolean;
-      }
-    | null
-    | typeof OWNER
-  > {
-    if (antigravityOwnerView(scope, id)) return OWNER;
-    const cacheKey = `${scope}\0${id}`;
-    const cached = this.coldReads.get(cacheKey);
-    if (cached?.version === sourceVersion)
-      return {
-        entries: cached.entries,
-        model: cached.model,
-        complete: cached.complete,
-      };
-    // Callers for one conversation share one replay, whatever window each
-    // asked for: a second caller never claims a second native owner. A
-    // replay its own caller was not admitted to is no answer for another
-    // caller, who asks again once that attempt has let go.
-    for (;;) {
-      const shared = this.replays.get(cacheKey);
-      if (shared) {
-        const result = await shared;
-        if (result !== REFUSED) return result;
-        if (this.replays.get(cacheKey) === shared)
-          this.replays.delete(cacheKey);
-        continue;
-      }
-      const own = this.replay(id, scope, cwd, enrichSubagents, beforeLoad);
-      this.replays.set(cacheKey, own);
-      void own
-        .finally(() => {
-          if (this.replays.get(cacheKey) === own) this.replays.delete(cacheKey);
-        })
-        .catch(() => {});
-      const result = await own;
-      return result === REFUSED ? null : result;
-    }
-  }
-
-  /** The ACP fallback: one `session/load` replay, refused beside an owner. */
-  private async replay(
-    id: string,
-    scope: string,
-    cwd: string,
-    enrichSubagents: boolean,
-    beforeLoad?: () => boolean,
-  ): Promise<
-    | {
-        entries: SDKMessage[];
-        model?: string;
-        complete: boolean;
-      }
-    | null
-    | typeof REFUSED
-    | typeof OWNER
-  > {
-    const cacheKey = `${scope}\0${id}`;
-    let refused = false;
-    let ownerStarted = false;
-    const admitted = () => {
-      refused = !!beforeLoad && !beforeLoad();
-      return !refused;
-    };
-    // Rechecked right before `session/load`: a resuming owner that started
-    // meanwhile goes first, and this read serves its view instead.
-    const noOwner = () => {
-      ownerStarted = antigravityStartPending(scope, id);
-      return !ownerStarted;
-    };
-    let complete = true;
-    let model: string | undefined;
-    // Refuse ACP replay if the active runtime targets a different physical
-    // store than the verified scope (even if both stores share a UUID).
-    const command = await this.resolveRuntimeForScope(scope);
-    if (!command) return null;
-    if (!admitted()) return REFUSED;
-    if (antigravityOwnerView(scope, id)) return OWNER;
-    if (antigravitySessionOwned(scope, id)) return null;
-    const owner = ownAntigravitySession(scope, id, {
-      historyRead: true,
-    });
-    const transcript = new AntigravityTranscript(id);
-    let aborted = false;
-    try {
-      await this.withRuntime(
-        async (runtime) => {
-          // Never prompt, authenticate, or allocate a replacement when reading history.
-          const loaded = await loadAntigravityReplay({
-            runtime,
-            scope,
-            params: { sessionId: id, cwd, mcpServers: [] },
-            transcript,
-            // Revalidate synchronously immediately before sending session/load.
-            authorize: () =>
-              !this.closed &&
-              this.runtimeMatchesScopeSync(command, scope) &&
-              admitted() &&
-              noOwner(),
-          });
-          aborted = !loaded;
-          complete = loaded?.complete ?? false;
-          model = loaded?.setup.models?.currentModelId;
-        },
-        command,
-        scope,
-      );
-    } finally {
-      owner.release();
-    }
-    if (aborted) return ownerStarted ? OWNER : refused ? REFUSED : null;
-    const subagentCalls = enrichSubagents ? transcript.listSubagentCalls() : [];
-    if (subagentCalls.length > 0) {
-      const descendants = this.readVerifiedDescendantsSync(scope, id);
-      const directChildIds = new Set<string>();
-      for (const row of descendants.values()) {
-        if (row.parentConversationId === id) {
-          directChildIds.add(row.conversationId);
-        }
-      }
-      if (directChildIds.size > 0) {
-        const launches = await readAntigravitySubagentLaunches(scope, id);
-        const correlated = correlateAntigravitySubagentCalls(
-          subagentCalls,
-          launches,
-          directChildIds,
-        );
-        for (const [toolUseId, launch] of correlated) {
-          transcript.enrichSubagentResult(
-            toolUseId,
-            launch.childId,
-            launch.role,
-          );
-        }
-      }
-    }
-    const entries = transcript.messages;
-    const loaded = await this.metadata(id);
-    this.coldReads.delete(cacheKey);
-    if (!loaded || loaded.scope !== scope) {
-      // Store rebound or disappeared mid-replay: discard the replay so the
-      // old store's transcript can never leak into or pollute the new store.
-      return null;
-    }
-    this.coldReads.set(cacheKey, {
-      version: loaded.sourceVersion,
-      entries,
-      model,
-      complete,
-    });
-    // A few recently opened sessions per project; each is bounded.
-    if (this.coldReads.size > 4)
-      this.coldReads.delete(this.coldReads.keys().next().value!);
-    return { entries, model, complete };
-  }
-
-  /**
-   * One read of a conversation as its owner divides it. With no owner, or
-   * one still starting, it is the log's window, or the fallback for a
-   * missing or unknown log. An owner that resumed from the log is the log
-   * through its boundary plus its rows ({@link planAntigravityJoin}). An
-   * owner without a boundary holds the whole history. A read that an owner
-   * opened or closed under is read again; a starting owner that the
-   * fallback would load beside is waited for.
+   * One read of a conversation as its open owner divides it: with no open
+   * owner, the log's window; with one, the log through its boundary plus
+   * its rows ({@link planAntigravityJoin}). A read that an owner opened,
+   * closed or moved under is read again.
    */
   private async readConversation(
     scope: string,
@@ -741,18 +440,9 @@ export class AntigravitySessionReader implements ISessionReader {
       // incomplete: never a missing conversation or a dropped prefix.
       const last = attempt >= 4;
       const before = antigravityOwnerView(scope, id);
-      if (before?.state === "open" && !before.boundary)
-        return {
-          kind: "owner",
-          messages: before.history(),
-          incomplete: before.incomplete,
-          firstPrompt: before.firstPrompt,
-        };
-      const boundary = ownerBoundary(before);
-      const plan: AntigravityJoinPlan =
-        before?.state === "open" && boundary
-          ? planAntigravityJoin(id, request, before)
-          : { kind: "log", request };
+      const plan: AntigravityJoinPlan = before
+        ? planAntigravityJoin(id, request, before)
+        : { kind: "log", request };
       const through = antigravityPlanWindow(plan, before);
       const window = await this.readLog(
         scope,
@@ -764,14 +454,7 @@ export class AntigravitySessionReader implements ISessionReader {
       const after = antigravityOwnerView(scope, id);
       const settled = sameAntigravitySplit(before, after);
       if (!settled && !last) continue;
-      if (after?.state === "open" && !after.boundary)
-        return {
-          kind: "owner",
-          messages: after.history(),
-          incomplete: after.incomplete || !settled,
-          firstPrompt: after.firstPrompt,
-        };
-      if (after?.state === "open")
+      if (after)
         return joinAntigravityOwnerRead(
           id,
           request,
@@ -780,17 +463,11 @@ export class AntigravitySessionReader implements ISessionReader {
           after,
           settled,
         );
-      if (window.status === "known")
-        return {
-          kind: "log",
-          window,
-          paged: true,
-          ...(settled ? {} : { incomplete: true }),
-        };
-      if (after?.state !== "starting") return { kind: "fallback" };
-      if (last) return null;
-      // The fallback never loads ahead of a starting owner: serve its view.
-      await antigravityOwnerSettled(scope, id);
+      return {
+        window,
+        paged: true,
+        ...(settled ? {} : { incomplete: true }),
+      };
     }
     return null;
   }
@@ -807,87 +484,31 @@ export class AntigravitySessionReader implements ISessionReader {
       (this.nativeStorageScope && metadata.scope !== this.nativeStorageScope)
     )
       return null;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const read = await this.readConversation(metadata.scope, id, request);
-      if (!read) return null;
-      if (read.kind === "log") {
-        // Publish only what the store bound now holds, from a reader still
-        // open: a rebind during the read leaves the old store's messages unused.
-        const latest = await this.metadata(id);
-        if (
-          this.closed ||
-          !latest ||
-          latest.isChild ||
-          latest.scope !== metadata.scope
-        )
-          return null;
-        return this.logSession(id, projectId, latest, request, read);
-      }
-      const loaded =
-        read.kind === "owner"
-          ? {
-              entries: read.messages,
-              complete: !read.incomplete,
-              firstPrompt: read.firstPrompt,
-            }
-          : await this.loadTranscriptEntries(
-              id,
-              metadata.scope,
-              metadata.cwd,
-              metadata.sourceVersion,
-              true,
-            );
-      // An owner started while the fallback was being admitted: read again.
-      if (loaded === OWNER) continue;
-      if (!loaded) return null;
-      return this.wholeSession(id, projectId, metadata, loaded);
-    }
-    return null;
-  }
-
-  /** A log window, with an open owner's rows after it. */
-  private logSession(
-    id: string,
-    projectId: UrlProjectId,
-    metadata: NonNullable<Awaited<ReturnType<typeof this.metadata>>>,
-    request: AntigravityLogWindowRequest,
-    read: Extract<AntigravitySessionRead, { kind: "log" }>,
-  ): LoadedSession {
+    const read = await this.readConversation(metadata.scope, id, request);
+    if (!read) return null;
+    // Publish only what the store bound now holds, from a reader still
+    // open: a rebind during the read leaves the old store's messages unused.
+    const latest = await this.metadata(id);
+    if (
+      this.closed ||
+      !latest ||
+      latest.isChild ||
+      latest.scope !== metadata.scope
+    )
+      return null;
     return antigravityJoinedSession(
-      this.summaryFromMetadata(id, projectId, metadata),
-      metadata.info.mtime,
+      id,
+      this.summaryFromMetadata(id, projectId, latest),
+      latest.info.mtime,
       request,
       read,
+      latest.stepCount === 0,
     );
-  }
-
-  /** A whole history: an owner's projection, or the ACP fallback's replay. */
-  private async wholeSession(
-    id: string,
-    projectId: UrlProjectId,
-    metadata: NonNullable<Awaited<ReturnType<typeof this.metadata>>>,
-    loaded: {
-      entries: SDKMessage[];
-      model?: string;
-      complete: boolean;
-      firstPrompt?: string;
-    },
-  ): Promise<LoadedSession | null> {
-    const summary = await this.summary(id, projectId);
-    return summary
-      ? antigravityWholeSession(
-          summary,
-          metadata.info.mtime,
-          this.cloneMessages(loaded.entries),
-          loaded,
-        )
-      : null;
   }
 
   /**
    * The newest messages a viewer sees: the log's latest page, or an owner's
-   * view of it (the page through its boundary and its rows, or its whole
-   * projection). Never a replay.
+   * view of it (the page through its boundary and its rows).
    */
   private async latestMessages(
     scope: string,
@@ -898,32 +519,25 @@ export class AntigravitySessionReader implements ISessionReader {
       kind: "latest",
       compactions,
     });
-    if (read?.kind === "owner")
-      return {
-        messages: read.messages as Message[],
-        omittedPrefix: read.incomplete === true,
-      };
-    if (read?.kind !== "log") return undefined;
+    if (!read) return undefined;
     const { window, live } = read;
     if (window.status === "known")
       return {
         messages: [...window.messages, ...(live ?? [])],
-        omittedPrefix: window.omittedPrefix,
+        omittedPrefix: window.omittedPrefix || !!read.earlier,
       };
     return live ? { messages: live, omittedPrefix: true } : undefined;
   }
 
-  /** The hover excerpt from the latest page, never from a replay. */
+  /** The hover excerpt from the latest page. */
   async getLastAgentExcerpt(id: string): Promise<string | undefined> {
     const metadata = await this.metadata(id);
     if (!metadata || metadata.isChild) return undefined;
     // An owner's own reply needs no log read.
     const owner = antigravityOwnerView(metadata.scope, id);
-    if (owner?.state === "open") {
-      const { prose, trailingTool } = scanAgentExcerpt(
-        owner.history() as Message[],
-      );
-      if (prose || !owner.boundary) return prose ?? toolExcerpt(trailingTool);
+    if (owner) {
+      const { prose } = scanAgentExcerpt(owner.history() as Message[]);
+      if (prose) return prose;
     }
     const latest = await this.latestMessages(metadata.scope, id, 1);
     if (!latest) return undefined;
@@ -1011,20 +625,10 @@ export class AntigravitySessionReader implements ISessionReader {
     }
     if (directChildren.size === 0) return [];
 
-    // Use the latest page as an owner divides it, or a fresh fallback
-    // replay; never spawn `agy acp` `session/load` just to answer a mapping
-    // request.
-    let entries = (
+    // The latest page as an owner divides it.
+    const entries = (
       await this.latestMessages(metadata.scope, parentSessionId, 2)
     )?.messages;
-    if (!entries) {
-      const cached = this.coldReads.get(
-        `${metadata.scope}\0${parentSessionId}`,
-      );
-      if (cached?.version === metadata.sourceVersion) {
-        entries = cached.entries as Message[];
-      }
-    }
     if (!entries || entries.length === 0) return [];
 
     const calls: AntigravitySubagentCall[] = [];
@@ -1193,19 +797,15 @@ export class AntigravitySessionReader implements ISessionReader {
           : "completed";
 
     // Strictly authorize `agentId` as a cycle-free, project-eligible descendant
-    // of `parentSessionId` BEFORE touching child files or starting ACP.
+    // of `parentSessionId` BEFORE touching child files.
     const childRow = authorize();
     if (!childRow) return null;
 
     // A child's view is its log's latest page. While it runs its owner is
-    // the parent's `agy`, so the log lacks the step in progress and no ACP
-    // fallback may start beside it.
-    const settled = () => {
-      const row = authorize();
-      return !!row && !isAntigravityChildRunning(row);
-    };
-    const running = () => !settled() || antigravitySessionOwned(scope, agentId);
-    const live = running();
+    // the parent's `agy`, so the log lacks the step in progress.
+    const live =
+      isAntigravityChildRunning(childRow) ||
+      antigravitySessionOwned(scope, agentId);
     // The latest page, as a tail: the agent-session contract has no signal
     // for earlier content, so older steps of a long child are not shown.
     const window = await this.readLog(
@@ -1214,39 +814,24 @@ export class AntigravitySessionReader implements ISessionReader {
       { kind: "latest", compactions: 2 },
       live,
     );
-    if (window.status === "known" || live) {
-      const finalRow = authorize();
-      if (!finalRow) return null;
-      if (window.status === "known")
-        return { messages: window.messages, status: status(finalRow) };
-      return window.status === "missing"
-        ? { messages: [], status: status(finalRow) }
-        : null;
-    }
-
-    const metadata = await this.metadata(agentId);
-    if (!metadata || metadata.scope !== scope) return null;
-    // Synchronously revalidate lineage & running status after reading metadata.
-    if (running()) return null;
-
-    const loaded = await this.loadTranscriptEntries(
-      agentId,
-      metadata.scope,
-      metadata.cwd,
-      metadata.sourceVersion,
-      true,
-      // The fallback's own ownership claim is checked before it is made.
-      settled,
-    );
-    // A child with its own owner is never replayed beside it.
-    if (!loaded || loaded === OWNER) return null;
-
     // Final synchronous lineage verification immediately before returning
-    // cached or freshly loaded messages (zero awaits before return).
+    // (zero awaits before return).
     const finalRow = authorize();
     if (!finalRow) return null;
+    if (window.status === "known")
+      return { messages: window.messages, status: status(finalRow) };
+    // A running child's log may not be written yet; a settled one with no
+    // log that `agy` counts no steps for was never prompted.
+    if (window.status === "missing" && (live || finalRow.stepCount === 0))
+      return { messages: [], status: status(finalRow) };
     return {
-      messages: this.cloneMessages(loaded.entries),
+      messages: [
+        antigravityHistoryNotice(
+          agentId,
+          window.status,
+          window.status === "unknown" ? window.reason : undefined,
+        ),
+      ],
       status: status(finalRow),
     };
   }
@@ -1258,7 +843,5 @@ export class AntigravitySessionReader implements ISessionReader {
     this.childSourceOwner.close();
     this.summariesReader?.reader.close();
     this.summariesReader = undefined;
-    this.coldReads.clear();
-    await Promise.all([...this.runtimes].map((runtime) => runtime.close()));
   }
 }

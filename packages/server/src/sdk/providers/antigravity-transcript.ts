@@ -20,15 +20,11 @@ function trimOldest<V>(map: Map<string, V>): void {
 }
 
 /**
- * One ACP replay or one live turn, as normalized messages. A replay keeps
- * its messages, capped at 8 MiB and 10,000 (the fallback's history limit).
- * A live turn keeps none: its owner's projection holds what readers serve
- * (bounded there), so only the open text block and the turn's calls stay.
+ * One live turn's ACP updates as normalized messages. It keeps none: its
+ * owner's projection holds what readers serve (bounded there), so only the
+ * open text block and the turn's recent calls stay.
  */
 export class AntigravityTranscript {
-  /** A replay's history; always empty for a live turn. */
-  readonly messages: SDKMessage[] = [];
-  private bytes = 0;
   private count = 0;
   private text?: {
     kind: string;
@@ -37,20 +33,18 @@ export class AntigravityTranscript {
     /** UTF-8 bytes in `value`; a live block stops growing past the cap. */
     bytes: number;
   };
-  // A replay's are bounded by its limits; a live transcript keeps its most
-  // recent calls (a passive one lasts until the next prompt).
+  // Its most recent calls (a passive transcript lasts until the next prompt).
   private tools = new Map<string, SDKMessage>();
   private subagents = new Map<string, AntigravitySubagentCall>();
 
-  /** `live` stamps arrival time; native replay carries no timestamps. */
+  /** Message IDs are `<prefix>:<n>`, numbered in arrival order. */
   constructor(
     private readonly sessionId: string,
     private readonly prefix = sessionId,
-    private readonly live = false,
   ) {}
 
-  private stamp(): { timestamp?: string } {
-    return this.live ? { timestamp: new Date().toISOString() } : {};
+  private stamp(): { timestamp: string } {
+    return { timestamp: new Date().toISOString() };
   }
 
   /** Commits the open text block: the same id without `_isStreaming`. */
@@ -67,36 +61,6 @@ export class AntigravityTranscript {
     };
   }
 
-  private reserveHistory(bytes: number, addingMessage = false): void {
-    if (this.live) return;
-    if (
-      this.bytes + bytes > 8 * 1024 * 1024 ||
-      (addingMessage && this.messages.length >= 10_000)
-    ) {
-      throw new Error(
-        "Antigravity replay exceeds the experimental history limit",
-      );
-    }
-    this.bytes += bytes;
-  }
-
-  private record(message: SDKMessage, existing = -1): void {
-    if (this.live) {
-      if (existing < 0) this.count++;
-      return;
-    }
-    const previous = existing < 0 ? undefined : this.messages[existing];
-    const oldBytes = previous
-      ? Buffer.byteLength(JSON.stringify(previous), "utf8")
-      : 0;
-    this.reserveHistory(
-      Buffer.byteLength(JSON.stringify(message), "utf8") - oldBytes,
-      existing < 0,
-    );
-    if (existing < 0) this.messages.push(message);
-    else this.messages[existing] = message;
-  }
-
   /** Normalized `spawn_agent` calls observed in this transcript, in order. */
   listSubagentCalls(): AntigravitySubagentCall[] {
     return [...this.subagents.values()];
@@ -109,8 +73,8 @@ export class AntigravityTranscript {
 
   /**
    * Attach or update a verified `agent_id` on a `spawn_agent` `tool_result`
-   * in-place (reusing `${toolCallId}:result` so live streams and cold replays
-   * stay idempotent and never duplicate result entries). Never overwrites a
+   * in place (reusing `${toolCallId}:result`, so the owner's projection
+   * replaces the result row rather than adding one). Never overwrites a
    * failed invocation.
    */
   enrichSubagentResult(
@@ -137,17 +101,14 @@ export class AntigravityTranscript {
         ],
       },
     };
-    const existing = this.messages.findIndex(
-      (entry) => entry.uuid === message.uuid,
-    );
-    this.record(message, existing);
+    this.count++;
     return structuredClone(message);
   }
 
   /**
    * Live messages for one native update, in order. A text or thinking block
    * publishes `_isStreaming` snapshots and is committed when another block
-   * starts or the caller closes it. `messages` holds committed history only.
+   * starts or the caller closes it.
    */
   accept(update: AntigravityUpdate): SDKMessage[] {
     const kind = update.sessionUpdate;
@@ -171,7 +132,7 @@ export class AntigravityTranscript {
         const role = kind === "user_message_chunk" ? "user" : "assistant";
         const message: SDKMessage = {
           type: role,
-          uuid: `${this.prefix}:${this.live ? this.count : this.messages.length}`,
+          uuid: `${this.prefix}:${this.count}`,
           session_id: this.sessionId,
           ...this.stamp(),
           message: {
@@ -182,16 +143,12 @@ export class AntigravityTranscript {
                 : "",
           },
         };
-        this.record(message);
+        this.count++;
         this.text = { kind, message, value: "", bytes: 0 };
       }
-      // Reserve the serialized text delta without rescanning the entire block.
-      this.reserveHistory(
-        Buffer.byteLength(JSON.stringify(content.text), "utf8") - 2,
-      );
       const added = Buffer.byteLength(content.text, "utf8");
-      // A live block past the cap keeps its beginning and one notice.
-      if (this.live && this.text!.bytes + added > LIVE_TEXT_BYTES) {
+      // A block past the cap keeps its beginning and one notice.
+      if (this.text!.bytes + added > LIVE_TEXT_BYTES) {
         // Already cut: nothing new to show.
         if (this.text!.bytes > LIVE_TEXT_BYTES) return out;
         // The part of this chunk that fits, cut at a character boundary.
@@ -258,57 +215,12 @@ export class AntigravityTranscript {
             ],
           },
         };
-        this.record(message);
+        this.count++;
         this.tools.set(id, message);
-        if (this.live) {
-          trimOldest(this.tools);
-          trimOldest(this.subagents);
-        }
+        trimOldest(this.tools);
+        trimOldest(this.subagents);
       }
       out.push(structuredClone(message));
-      // Cold ACP `session/load` replays `invoke_subagent` as a single
-      // `tool_call` with `status: "completed"` and no `tool_call_update`.
-      // Synthesize the paired `tool_result` (enriched with verified `agent_id`
-      // after replay finishes) so the tool does not render stuck pending.
-      if (
-        !this.live &&
-        isSubagent &&
-        (update.status === "completed" || update.status === "failed")
-      ) {
-        const call = this.subagents.get(id);
-        if (call) {
-          call.completed = update.status === "completed";
-          call.failed = update.status === "failed";
-        }
-        const rawText =
-          typeof update.rawOutput === "string"
-            ? update.rawOutput
-            : typeof update.content === "string"
-              ? update.content
-              : "";
-        const resultMessage: SDKMessage = {
-          type: "user",
-          uuid: `${id}:result`,
-          session_id: this.sessionId,
-          ...this.stamp(),
-          message: {
-            role: "user",
-            content: [
-              {
-                type: "tool_result",
-                tool_use_id: id,
-                content: rawText,
-                is_error: update.status === "failed",
-              },
-            ],
-          },
-        };
-        const existing = this.messages.findIndex(
-          (entry) => entry.uuid === resultMessage.uuid,
-        );
-        this.record(resultMessage, existing);
-        out.push(structuredClone(resultMessage));
-      }
       return out;
     }
     if (update.status !== "completed" && update.status !== "failed") return out;
@@ -337,10 +249,7 @@ export class AntigravityTranscript {
         ],
       },
     };
-    const existing = this.messages.findIndex(
-      (entry) => entry.uuid === message.uuid,
-    );
-    this.record(message, existing);
+    this.count++;
     out.push(message);
     return out;
   }

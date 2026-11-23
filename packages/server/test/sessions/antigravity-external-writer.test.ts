@@ -121,18 +121,17 @@ describe("an Antigravity conversation written by another program", () => {
     expect(h.statuses).toEqual(["external"]);
   });
 
-  it("is not external for YA's own agy: starting or holding the conversation (idle close included), a history read's load, or before it let go", async () => {
+  it("is not external for YA's own agy: holding the conversation (idle close included) or before it let go", async () => {
     const h = await harness();
     const foreign = vi.spyOn(
       AntigravityLiveProjection.prototype,
       "foreignWrite",
     );
     const owner = ownAntigravitySession(h.scope, ID);
-    let release = () => owner.release();
-    cleanups.push(() => release());
+    cleanups.push(() => owner.release());
     // Attribution happens when the tracker handles an event, so each
     // phase is handled before the owner moves on.
-    // Not yet open (a resume under way).
+    // Registered, not yet open (a resume under way).
     h.change(`${ID}.db-wal`, { size: 98_408 });
     await h.settle();
     owner.open({ step: -1, end: 0 });
@@ -146,14 +145,6 @@ describe("an Antigravity conversation written by another program", () => {
     const closedAt = Date.now();
     owner.release();
     h.change(`${ID}.db`, { mtimeMs: closedAt });
-    await h.settle();
-    // A fallback history read's own load.
-    const read = ownAntigravitySession(h.scope, ID, { historyRead: true });
-    release = () => read.release();
-    h.change(`${ID}.db-wal`, { size: 0 });
-    h.change(`${ID}.db`, { mtimeMs: Date.now() + 10_000 });
-    await h.settle();
-    read.release();
     await h.settle();
     expect(h.tracker.isExternal(ID)).toBe(false);
     expect(h.statuses).toEqual([]);

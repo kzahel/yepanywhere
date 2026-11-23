@@ -44,7 +44,7 @@ export function createProviderConversationSource(
         row.nativeStorageScope,
         row.nativeSessionId ?? row.sessionId,
       );
-      return owner?.state === "open" && owner.retired(message.uuid);
+      return !!owner?.retired(message.uuid);
     },
     async readWindow(row, compactions, signal) {
       signal.throwIfAborted();

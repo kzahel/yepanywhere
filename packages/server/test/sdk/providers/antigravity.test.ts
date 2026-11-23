@@ -19,8 +19,6 @@ import { AntigravitySubagentTracker } from "../../../src/sdk/providers/antigravi
 import {
   antigravityLiveHistory,
   antigravityOwnerView,
-  claimAntigravityStart,
-  ownAntigravitySession,
 } from "../../../src/sdk/providers/antigravity-owners.js";
 import { setAntigravityLiveLimitsForTests } from "../../../src/sdk/providers/antigravity-live-projection.js";
 import {
@@ -31,7 +29,6 @@ import { AntigravitySessionCatalogAdapter } from "../../../src/sessions/catalog-
 import { createCatalogSessionLookup } from "../../../src/sessions/catalog-session-lookup.js";
 import { projectCatalogIdentities } from "../../../src/sessions/catalog-identity.js";
 import { AntigravitySessionReader } from "../../../src/sessions/antigravity-reader.js";
-import { readAntigravityReplayTail } from "../../../src/sessions/antigravity-subagent-links.js";
 import type { SDKMessage } from "../../../src/sdk/types.js";
 import type { Process } from "../../../src/supervisor/Process.js";
 import { createApp } from "../../setup/create-app.js";
@@ -61,7 +58,6 @@ const send = value => process.stdout.write(JSON.stringify(value)+'\\n');
 const reply = (id, result) => send({jsonrpc:'2.0', id, result});
 const update = (value, meta) => send({jsonrpc:'2.0',method:'session/update',params:{sessionId:id,update:value,_meta:meta}});
 let prompt;
-let replayHeld = false;
 // With AGY_TEST_LOG_TURNS, append each ended step to the brain log as agy does.
 const brainLog = path.join(process.env.GEMINI_HOME, 'antigravity-cli', 'brain', id, '.system_generated', 'logs', 'transcript_full.jsonl');
 const logStep = (type, source, fields) => {
@@ -127,37 +123,10 @@ const onLine = line => {
   fs.writeFileSync(path.join(root,id+'.db'),'native fixture');
   return reply(m.id,{sessionId:id,models:{currentModelId:'native-default',availableModels:[{modelId:'native-default',name:'Native default'}]}});
  }
- if((m.method === 'session/load' || m.method === 'session/resume') && m.params.sessionId !== id)
+ if(m.method === 'session/resume' && m.params.sessionId !== id)
   return send({jsonrpc:'2.0',id:m.id,error:{code:-32000,message:'Native resume refused'}});
  // session/resume replays nothing, whatever the history holds.
  if(m.method === 'session/resume') return reply(m.id,{});
- if(m.method === 'session/load') {
-  update({sessionUpdate:'user_message_chunk',content:{type:'text',text:'Original question'}});
-  if (process.env.AGY_TEST_HOLD_REPLAY) {
-   update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Saved prefix'}});
-   if (process.env.AGY_TEST_INCOMPLETE_REPLAY) {
-    reply(m.id,{});
-    return process.stdout.write('', () => process.exit(0));
-   }
-   replayHeld = true;
-   return reply(m.id,{});
-  }
-  if (process.env.AGY_TEST_LARGE_REPLAY) {
-   const content = [{type:'content',content:{type:'text',text:'x'.repeat(1024*1024)}}];
-   for (let tool = 0; tool < 9; tool++)
-    update({sessionUpdate:'tool_call',toolCallId:'replayed-'+tool,title:'Saved tool',status:'completed',content});
-  }
-  // Displayed history, unlike undisplayed tool fields, counts toward YA's cap.
-  if (process.env.AGY_TEST_OVERSIZED_REPLAY)
-   for (let chunk = 0; chunk < 9; chunk++)
-    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'z'.repeat(1024*1024)}});
-  update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Saved answer'}});
-  return reply(m.id,{});
- }
- if(m.method === 'test/releaseReplay' && replayHeld) {
-  replayHeld = false;
-  return update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:' Final replay frame'}},{isReplay:true});
- }
  if(m.method === 'session/list') return reply(m.id,{sessions:[{sessionId:id,title:'Original question'}]});
  if(m.method === 'session/prompt') {
   prompt=m.id;
@@ -283,14 +252,15 @@ describe("Antigravity native process boundary", () => {
         finished.resolve();
       }
     },
-    // Three real child launches and a large replay took up to 2.2s under
-    // local CPU contention. Earlier full-suite runs exhausted a 1s startup
+    // Three real child launches took up to 2.2s under local CPU contention. Earlier full-suite runs exhausted a 1s startup
     // wait before reaching any of the reopen steps.
     8_000,
   );
 
   async function exerciseAdmission(signal: AbortSignal) {
     vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
+    // The peer logs each turn, as agy does.
+    vi.stubEnv("AGY_TEST_LOG_TURNS", "1");
     const metadata = createTestSessionMetadataService(join(directory, "data"));
     await metadata.initialize();
     signal.throwIfAborted();
@@ -421,14 +391,13 @@ describe("Antigravity native process boundary", () => {
       await active.abort();
       app.stopNotifications();
       await app.disposeSessionReaders();
-      vi.stubEnv("AGY_TEST_LARGE_REPLAY", "1");
       app = boot();
       const history = await (
         await app.app.request(detailPath, {
           headers: { "X-Yep-Anywhere": "true" },
         })
       ).json();
-      expect(JSON.stringify(history.messages)).toContain("Saved answer");
+      expect(JSON.stringify(history.messages)).toContain("Hello world");
       const reactivate = await app.app.request(`${detailPath}/reactivate`, {
         method: "POST",
         headers: {
@@ -440,15 +409,11 @@ describe("Antigravity native process boundary", () => {
       expect(reactivate.status).toBe(200);
       active = app.supervisor.getProcessForSession(receipt.sessionId);
       if (!active) throw new Error("Reactivation has no active owner");
-      await waitForIdle(active, signal, (process) =>
-        process
-          .getMessageHistory()
-          .some(
-            (message) =>
-              message.type === "assistant" &&
-              message.message?.content === "Saved answer",
-          ),
+      // The reactivated owner reopens the conversation without a prompt.
+      await vi.waitFor(async () =>
+        expect(await readFile(log, "utf8")).toContain("session/resume"),
       );
+      await waitForIdle(active, signal);
       expect(
         (await readFile(log, "utf8"))
           .split("\n")
@@ -475,8 +440,12 @@ describe("Antigravity native process boundary", () => {
       if (!active) throw new Error("Resume has no active owner");
       await waitForIdle(active, signal);
       const resumedHistory = JSON.stringify(active.getMessageHistory());
-      expect(resumedHistory).toContain("Saved answer");
+      expect(resumedHistory).toContain("continue");
       expect(resumedHistory).toContain("Hello world");
+      // Reactivation and resume both reopened with session/resume.
+      const methods = (await readFile(log, "utf8")).split("\n");
+      expect(methods.filter((m) => m === "session/resume")).toHaveLength(2);
+      expect(methods).not.toContain("session/load");
       expect(metadata.identities.resolveYa(receipt.sessionId)?.native?.id).toBe(
         nativeId,
       );
@@ -714,7 +683,7 @@ describe("Antigravity native process boundary", () => {
         ]);
         expect((await readFile(log, "utf8")).trim().split("\n")).toEqual([
           "initialize",
-          "session/load",
+          "session/resume",
         ]);
       } finally {
         await session.abort();
@@ -723,7 +692,7 @@ describe("Antigravity native process boundary", () => {
   );
 
   it.skipIf(process.platform === "win32")(
-    "reads native history with no prompt/authentication and refuses another project",
+    "shows a conversation with no log as one row saying so, starting no agy, and refuses another project",
     async () => {
       const root = join(store, "conversations");
       await mkdir(root, { recursive: true });
@@ -734,12 +703,16 @@ describe("Antigravity native process boundary", () => {
           nativeId,
           toUrlProjectId(directory),
         );
-        expect(loaded?.summary.fullTitle).toBe("Original question");
         expect(loaded?.data.provider).toBe("antigravity");
-        expect((await readFile(log, "utf8")).trim().split("\n")).toEqual([
-          "initialize",
-          "session/load",
+        expect(loaded?.transcriptComplete).toBe(false);
+        expect(loaded?.data.session.messages).toEqual([
+          expect.objectContaining({
+            type: "system",
+            subtype: "informational",
+            uuid: `${nativeId}:history-unavailable`,
+          }),
         ]);
+        await expect(readFile(log, "utf8")).rejects.toThrow();
         const other = new AntigravitySessionReader({ projectPath: tmpdir() });
         expect(
           await other.getSession(nativeId, toUrlProjectId(tmpdir())),
@@ -751,259 +724,86 @@ describe("Antigravity native process boundary", () => {
     },
   );
 
-  it.skipIf(process.platform === "win32")(
-    "falls back to ACP replay for a missing or unknown log, never beside or ahead of an owner",
-    async () => {
-      const root = join(store, "conversations");
-      await mkdir(root, { recursive: true });
-      await writeFile(join(root, `${nativeId}.db`), "native fixture");
-      const logs = join(store, "brain", nativeId, ".system_generated", "logs");
-      await mkdir(logs, { recursive: true });
-      // A field no observed agy writes makes the log unknown.
-      await writeFile(
-        join(logs, "transcript_full.jsonl"),
-        `${JSON.stringify({ step_index: 1, source: "MODEL", type: "PLANNER_RESPONSE", status: "DONE", created_at: "2026-11-22T08:00:00Z", content: "Saved answer", novel: 1 })}\n`,
-      );
-      const scope = await realpath(root);
-      const projectId = toUrlProjectId(directory);
-      const loads = async () =>
-        (await readFile(log, "utf8").catch(() => ""))
-          .split("\n")
-          .filter((line) => line === "session/load").length;
-      const ownRow = {
-        type: "user" as const,
-        uuid: "owner-row",
-        message: { role: "user", content: "Owner's own row" },
-      };
-      const contents = (
-        loaded: Awaited<ReturnType<AntigravitySessionReader["getSession"]>>,
-      ) => loaded?.data.session.messages.map((m) => m.message?.content);
-      const pending = async (promise: Promise<unknown>) =>
-        (await Promise.race([
-          promise.then(() => "settled"),
-          new Promise((resolve) => setTimeout(resolve, 100, "pending")),
-        ])) === "pending";
-      let expectedLoads = 0;
-      for (const shape of ["unknown", "missing"]) {
-        if (shape === "missing") await rm(logs, { recursive: true });
-        // An open owner's projection is the answer.
-        const owner = ownAntigravitySession(scope, nativeId);
-        owner.open();
-        owner.record(ownRow);
-        const beside = new AntigravitySessionReader({ projectPath: directory });
-        try {
-          expect(
-            contents(await beside.getSession(nativeId, projectId)),
-          ).toEqual(["Owner's own row"]);
-          expect(await loads()).toBe(expectedLoads);
-        } finally {
-          owner.release();
-          await beside.close();
-        }
-        // A starting owner (registered, not yet holding its lease) is
-        // waited for, never loaded ahead of.
-        const ahead = new AntigravitySessionReader({ projectPath: directory });
-        try {
-          const release = claimAntigravityStart(scope, nativeId);
-          const read = ahead.getSession(nativeId, projectId);
-          expect(await pending(read)).toBe(true);
-          const started = ownAntigravitySession(scope, nativeId);
-          started.open();
-          started.record(ownRow);
-          release();
-          expect(contents(await read)).toEqual(["Owner's own row"]);
-          started.release();
-          expect(await loads()).toBe(expectedLoads);
-        } finally {
-          await ahead.close();
-        }
-        // The check is repeated right before session/load: an owner that
-        // starts after the read was admitted still goes first.
-        const raced = new AntigravitySessionReader({ projectPath: directory });
-        const gate = Promise.withResolvers<void>();
-        const connected = Promise.withResolvers<void>();
-        const connect = AntigravityRuntime.prototype.connect;
-        const hold = vi
-          .spyOn(AntigravityRuntime.prototype, "connect")
-          .mockImplementation(async function (
-            this: AntigravityRuntime,
-            ...args
-          ) {
-            await connect.apply(this, args);
-            connected.resolve();
-            await gate.promise;
-          });
-        try {
-          const read = raced.getSession(nativeId, projectId);
-          await connected.promise;
-          const release = claimAntigravityStart(scope, nativeId);
-          gate.resolve();
-          expect(await pending(read)).toBe(true);
-          const started = ownAntigravitySession(scope, nativeId);
-          started.open();
-          started.record(ownRow);
-          release();
-          expect(contents(await read)).toEqual(["Owner's own row"]);
-          started.release();
-          expect(await loads()).toBe(expectedLoads);
-        } finally {
-          hold.mockRestore();
-          await raced.close();
-        }
-        // With no owner, the fallback replays.
-        const reader = new AntigravitySessionReader({ projectPath: directory });
-        try {
-          const loaded = await reader.getSession(
-            nativeId,
-            projectId,
-            undefined,
-            {
-              tailCompactions: 2,
-            },
-          );
-          expect(contents(loaded)).toEqual([
-            "Original question",
-            "Saved answer",
-          ]);
-          expect(loaded?.readWindow).toBeUndefined();
-          expect(await loads()).toBe(++expectedLoads);
-        } finally {
-          await reader.close();
-        }
-      }
-    },
-  );
-
-  it.skipIf(process.platform === "win32")(
-    "requires the saved tail after an early load response, even on retry and resume",
-    async () => {
-      const root = join(store, "conversations");
-      await mkdir(root, { recursive: true });
-      await writeFile(join(root, `${nativeId}.db`), "native fixture");
-      const logs = join(store, "brain", nativeId, ".system_generated", "logs");
-      await mkdir(logs, { recursive: true });
-      const finalText = "Saved prefix Final replay frame";
-      const transcriptPath = join(logs, "transcript_full.jsonl");
-      const reader = new AntigravitySessionReader({ projectPath: directory });
-      const projectId = toUrlProjectId(directory);
-      let loadReplied = Promise.withResolvers<AntigravityRuntime>();
-      const releaseTail = (runtime: AntigravityRuntime) => {
-        const transport = runtime as unknown as {
-          send(frame: Record<string, unknown>): void;
-        };
-        transport.send({ jsonrpc: "2.0", method: "test/releaseReplay" });
-      };
-      const call = AntigravityRuntime.prototype.call;
-      const observeReply = vi
-        .spyOn(AntigravityRuntime.prototype, "call")
-        .mockImplementation(async function (
-          this: AntigravityRuntime,
-          method,
-          params,
-          timeoutMs,
-        ) {
-          const result = await call.call(this, method, params, timeoutMs);
-          if (method === "session/load") loadReplied.resolve(this);
-          return result;
-        });
-      try {
-        // A killed provider can leave a partial native line. Keep that reply
-        // labeled incomplete across watcher-triggered reads of the same version.
-        await writeFile(transcriptPath, '{"step_index":');
-        const fallback = await reader.getSession(nativeId, projectId);
-        expect(fallback?.transcriptComplete).toBe(false);
-        expect(fallback?.data.session.messages.at(-1)?.message?.content).toBe(
-          "Saved answer",
+  // Plan 195 step 8: every resume uses session/resume. Without a readable
+  // log agy keeps the context, and YA says the earlier history cannot be
+  // shown; a conversation never prompted starts as a new session does.
+  it.skipIf(process.platform === "win32").each([
+    ["an unknown log", "unknown"],
+    ["a missing log", "missing"],
+    ["a conversation never prompted", "never"],
+  ] as const)(
+    "resumes %s with session/resume, joining the new turn after a notice of what it cannot show",
+    async (_name, shape) => {
+      vi.stubEnv("AGY_TEST_LOG_TURNS", "1");
+      const conversations = join(store, "conversations");
+      await mkdir(conversations, { recursive: true });
+      await writeFile(join(conversations, `${nativeId}.db`), "db");
+      if (shape === "never")
+        await writeAntigravitySummaries(store, [
+          { id: nativeId, cwd: directory, stepCount: 0 },
+        ]);
+      if (shape === "unknown") {
+        const logs = join(
+          store,
+          "brain",
+          nativeId,
+          ".system_generated",
+          "logs",
         );
-        expect(
-          (await reader.getSession(nativeId, projectId))?.transcriptComplete,
-        ).toBe(false);
-        // Native writes create a new conversation version to recheck.
-        await writeFile(join(root, `${nativeId}.db`), "updated native fixture");
+        await mkdir(logs, { recursive: true });
+        // A field no observed agy writes makes the log unknown.
         await writeFile(
-          transcriptPath,
-          JSON.stringify({
-            step_index: 1,
-            type: "PLANNER_RESPONSE",
-            status: "DONE",
-            content: finalText,
-          }) + "\n",
+          join(logs, "transcript_full.jsonl"),
+          `${JSON.stringify({ step_index: 1, source: "MODEL", type: "PLANNER_RESPONSE", status: "DONE", created_at: "2026-11-22T08:00:00Z", content: "Saved answer", novel: 1 })}\n`,
         );
-        vi.stubEnv("AGY_TEST_HOLD_REPLAY", "1");
-        vi.stubEnv("AGY_TEST_INCOMPLETE_REPLAY", "1");
-        await expect(reader.getSession(nativeId, projectId)).rejects.toThrow(
-          "closed before its saved replay tail arrived",
-        );
-        vi.stubEnv("AGY_TEST_INCOMPLETE_REPLAY", "");
-        loadReplied = Promise.withResolvers<AntigravityRuntime>();
-        const reopened = reader.getSession(nativeId, projectId);
-        // Propagate a production read failure even if the load never starts.
-        releaseTail(
-          await Promise.race([
-            loadReplied.promise,
-            reopened.then(() => {
-              throw new Error("Cold history returned before replay release");
-            }),
-          ]),
-        );
-        const first = await reopened;
-        const second = await reader.getSession(nativeId, projectId);
-        for (const result of [first, second]) {
-          expect(result?.transcriptComplete).toBeUndefined();
-          expect(
-            result?.data.session.messages
-              .filter((message) => message.type === "assistant")
-              .map((message) => message.message?.content),
-          ).toEqual([finalText]);
+      }
+      const scope = await realpath(conversations);
+      const session = await new AntigravityProvider().startSession({
+        cwd: directory,
+        resumeSessionId: nativeId,
+        initialMessage: { text: "continue", uuid: "resumed-prompt" },
+      });
+      const reader = new AntigravitySessionReader({ projectPath: directory });
+      try {
+        // Not a for-await loop: leaving one would close the session.
+        for (;;) {
+          const { value, done } = await session.iterator.next();
+          if (done) throw new Error("The resumed session ended");
+          expect(value.type).not.toBe("error");
+          if (value.type === "result") break;
         }
-        const loads = (await readFile(log, "utf8"))
-          .split("\n")
-          .filter((line) => line === "session/load");
-        expect(loads).toHaveLength(3);
-
-        loadReplied = Promise.withResolvers<AntigravityRuntime>();
-        const session = await new AntigravityProvider().startSession({
-          cwd: directory,
-          resumeSessionId: nativeId,
-          initialMessage: { text: "continue" },
-        });
-        try {
-          const resumed = (async () => {
-            const messages: SDKMessage[] = [];
-            for await (const message of session.iterator) {
-              messages.push(message);
-              if (message.type === "result") break;
-            }
-            return messages;
-          })();
-          const runtime = await Promise.race([
-            loadReplied.promise,
-            resumed.then(() => {
-              throw new Error("Resume finished before replay release");
-            }),
-          ]);
-          expect(await readFile(log, "utf8")).not.toContain("session/prompt");
-          releaseTail(runtime);
-          const messages = await resumed;
-          expect(
-            messages
-              .filter(
-                (message) => message.isReplay && message.type === "assistant",
-              )
-              .map((message) => message.message?.content),
-          ).toEqual([finalText]);
-          expect(messages.at(-1)?.type).toBe("result");
-        } finally {
-          await session.abort();
-        }
+        expect(antigravityOwnerView(scope, nativeId)?.earlier).toBe(
+          shape === "never" ? undefined : shape,
+        );
+        const loaded = await reader.getSession(
+          nativeId,
+          toUrlProjectId(directory),
+          undefined,
+          { tailCompactions: 2 },
+        );
+        const rows = loaded?.data.session.messages.map((message) =>
+          message.type === "system"
+            ? message.uuid
+            : `${message.type}:${String(message.message?.content)}`,
+        );
+        expect(rows).toEqual([
+          ...(shape === "never" ? [] : [`${nativeId}:history-unavailable`]),
+          "user:continue",
+          "assistant:Hello world",
+        ]);
+        expect(loaded?.transcriptComplete).toBe(
+          shape === "never" ? undefined : false,
+        );
       } finally {
-        observeReply.mockRestore();
+        await session.abort();
         await reader.close();
       }
+      expect(await methods()).toEqual([
+        "initialize",
+        "session/resume",
+        "session/prompt",
+      ]);
     },
-    // Multiple peer launches shared a 5s test deadline that was exhausted
-    // while qualifying the native suites under concurrent load.
-    10_000,
   );
 
   // Plan 195 step 4 flipped the open half of this repro: cold history comes
@@ -1012,8 +812,6 @@ describe("Antigravity native process boundary", () => {
     "opens and pages a history over 8 MiB from the log, starting no agy",
     async () => {
       vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
-      // Were the history replayed, this replay would fail on the 8 MiB cap.
-      vi.stubEnv("AGY_TEST_OVERSIZED_REPLAY", "1");
       const scale = await writeAntigravityScaleConversation({
         store,
         id: nativeId,
@@ -1163,8 +961,6 @@ describe("Antigravity native process boundary", () => {
   it.skipIf(process.platform === "win32")(
     "resumes a history over 8 MiB without replaying it, retaining only the new turn",
     async () => {
-      // Were the history replayed, this replay would fail on the 8 MiB cap.
-      vi.stubEnv("AGY_TEST_OVERSIZED_REPLAY", "1");
       vi.stubEnv("AGY_TEST_LOG_TURNS", "1");
       const scale = await writeLargeConversation();
       const scope = await realpath(join(store, "conversations"));
@@ -1182,7 +978,6 @@ describe("Antigravity native process boundary", () => {
           retained = antigravityLiveHistory(scope, nativeId)!;
           break;
         }
-        expect(messages.filter((message) => message.isReplay)).toEqual([]);
         expect(messages.filter((message) => message.type === "error")).toEqual(
           [],
         );
@@ -1205,78 +1000,10 @@ describe("Antigravity native process boundary", () => {
     },
   );
 
-  // Step 3's census found 4 of 12 local conversations whose replay the
-  // saved-tail check refused; resume no longer replays, so they resume.
-  it.skipIf(process.platform === "win32")(
-    "resumes the conversation shapes whose replay the saved-tail check refused",
-    async () => {
-      const logs = join(store, "brain", nativeId, ".system_generated", "logs");
-      await mkdir(logs, { recursive: true });
-      await mkdir(join(store, "conversations"), { recursive: true });
-      await writeFile(join(store, "conversations", `${nativeId}.db`), "db");
-      const at = "2026-11-22T08:00:00Z";
-      const record = (step: number, type: string, fields: object) =>
-        `${JSON.stringify({
-          step_index: step,
-          source: type === "USER_INPUT" ? "USER_EXPLICIT" : "MODEL",
-          type,
-          status: "DONE",
-          created_at: at,
-          ...fields,
-        })}\n`;
-      const userInput = (step: number, text: string) =>
-        record(step, "USER_INPUT", {
-          content: `<USER_REQUEST>\n${text}\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: ${at}.\n</ADDITIONAL_METADATA>`,
-        });
-      const shapes = {
-        // The last text is a prompt, compared with its whole wrapped content.
-        "a prompt last": userInput(0, "Original question"),
-        // Replay joins a reply only in the database to the log's last text.
-        "a database-only reply after the last text":
-          userInput(0, "Original question") +
-          record(1, "PLANNER_RESPONSE", { content: "Saved" }),
-      };
-      for (const [shape, log] of Object.entries(shapes)) {
-        await writeFile(join(logs, "transcript_full.jsonl"), log);
-        await rm(join(directory, "methods.log"), { force: true });
-        const tail = await readAntigravityReplayTail(
-          await realpath(join(store, "conversations")),
-          nativeId,
-        );
-        // What the old check required of a replay ending "Saved answer".
-        expect(tail.status, shape).toBe("known");
-        if (tail.status === "known")
-          expect("Saved answer".endsWith(tail.text), shape).toBe(false);
-        const session = await new AntigravityProvider().startSession({
-          cwd: directory,
-          resumeSessionId: nativeId,
-          initialMessage: { text: "continue" },
-        });
-        try {
-          const types: string[] = [];
-          for await (const message of session.iterator) {
-            types.push(message.type);
-            if (message.type === "result" || message.type === "error") break;
-          }
-          expect(types, shape).not.toContain("error");
-          expect(types.at(-1), shape).toBe("result");
-        } finally {
-          await session.abort();
-        }
-        expect(await methods(), shape).toEqual([
-          "initialize",
-          "session/resume",
-          "session/prompt",
-        ]);
-      }
-    },
-  );
-
   it.skipIf(process.platform === "win32")(
     "serves a resumed session as its log through the resume point and its live rows after it",
     async () => {
       vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
-      vi.stubEnv("AGY_TEST_OVERSIZED_REPLAY", "1");
       vi.stubEnv("AGY_TEST_LOG_TURNS", "1");
       const scale = await writeLargeConversation();
       const before = await projectAntigravityLog(
@@ -1980,7 +1707,7 @@ describe("Antigravity native process boundary", () => {
         expect(route.shown(route.client.rows)).toEqual(expected);
         const boundary = () => {
           const view = antigravityOwnerView(route.scope, nativeId);
-          return view?.state === "open" ? view.boundary?.end : undefined;
+          return view?.boundary.end;
         };
         let moves = 0;
         for (let turn = 2; turn <= 7; turn++) {
@@ -1997,9 +1724,7 @@ describe("Antigravity native process boundary", () => {
           const view = antigravityOwnerView(route.scope, nativeId);
           const anchor = route.client.rows.at(-1)!.uuid;
           const left =
-            view?.state === "open" &&
-            !anchor.includes(":step-") &&
-            !view.has(anchor);
+            !!view && !anchor.includes(":step-") && !view.has(anchor);
           await route.client.catchUp();
           expect(route.client.replacements - replaced, `turn ${turn}`).toBe(
             left ? 1 : 0,
@@ -2136,7 +1861,7 @@ describe("Antigravity native process boundary", () => {
         );
         const boundary = () => {
           const view = antigravityOwnerView(route.scope, nativeId);
-          return view?.state === "open" ? view.boundary?.step : undefined;
+          return view?.boundary.step;
         };
         const before = boundary();
         for (let turn = 4; turn <= 7; turn++) {
@@ -2191,7 +1916,7 @@ describe("Antigravity native process boundary", () => {
         }
         const view = () => {
           const owner = antigravityOwnerView(route.scope, nativeId);
-          if (owner?.state !== "open") throw new Error("not open");
+          if (!owner) throw new Error("not open");
           return owner;
         };
         const opened = view().boundary;
@@ -2256,9 +1981,9 @@ describe("Antigravity native process boundary", () => {
         const opened = antigravityOwnerView(route.scope, nativeId);
         const boundary = () => {
           const view = antigravityOwnerView(route.scope, nativeId);
-          return view?.state === "open" ? view.boundary?.step : undefined;
+          return view?.boundary.step;
         };
-        const before = opened?.state === "open" ? opened.boundary?.step : -2;
+        const before = opened ? opened.boundary.step : -2;
         for (const message of [paste, "turn 3"]) {
           await route.post(`/api/sessions/${nativeId}/messages`, { message });
           await vi.waitFor(() =>

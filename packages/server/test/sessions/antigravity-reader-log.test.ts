@@ -119,44 +119,68 @@ describe("Antigravity reader over the log", () => {
     ).toEqual(["Ask", "REPLY_FROM_B"]);
   });
 
-  it("shares one fallback replay between requests for different windows", async () => {
-    // A record with a field no observed agy writes: an unknown log.
-    const conversations = await store("a", line({ step_index: 0, novel: 1 }));
-    const shared = reader(conversations);
-    const internals = shared as unknown as {
-      resolveRuntimeForScope(): Promise<unknown>;
-      withRuntime(): Promise<void>;
-    };
-    vi.spyOn(internals, "resolveRuntimeForScope").mockResolvedValue({});
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    const runtime = vi
-      .spyOn(internals, "withRuntime")
-      .mockImplementation(async () => {
-        entered.resolve();
-        await release.promise;
-      });
+  it("shows one row for history it cannot read, and none for a conversation never prompted, starting no agy", async () => {
+    vi.stubEnv("ANTIGRAVITY_ACP_PATH", join(root, "no-agy"));
     const projectId = toUrlProjectId(project);
-    const first = shared.getSession(ID, projectId, undefined, {
-      tailCompactions: 2,
-    });
-    await entered.promise;
-    // A catch-up from a stale live ID needs the same replay. Hold the first
-    // replay until the second request has reached the fallback.
-    const fallback = vi.spyOn(
-      shared as unknown as { loadTranscriptEntries(): Promise<unknown> },
-      "loadTranscriptEntries",
+    const notice = (gap: string) => [
+      expect.objectContaining({
+        type: "system",
+        subtype: "informational",
+        uuid: `${ID}:history-unavailable`,
+        content: expect.stringContaining(gap),
+      }),
+    ];
+    // A record with a field no observed agy writes: an unknown log, with
+    // the reason behind the row.
+    const unknown = reader(
+      await store("unknown", prompt("Ask") + line({ step_index: 1, novel: 1 })),
     );
-    const second = shared.getSession(ID, projectId, `${ID}:3`, {
-      tailCompactions: 2,
-    });
-    await vi.waitFor(() => expect(fallback).toHaveBeenCalledTimes(1));
-    await new Promise((resolve) => setImmediate(resolve));
-    release.resolve();
-    const [one, two] = await Promise.all([first, second]);
-    expect(one).not.toBeNull();
-    expect(two).not.toBeNull();
-    expect(runtime).toHaveBeenCalledTimes(1);
+    for (const after of [undefined, `${ID}:history-unavailable`]) {
+      const read = await unknown.getSession(ID, projectId, after, {
+        tailCompactions: 2,
+      });
+      expect(read?.transcriptComplete).toBe(false);
+      expect(read?.readWindow).toBeUndefined();
+      expect(read?.data.session.messages).toEqual(
+        notice("cannot read Antigravity's log"),
+      );
+      const [row] = (read?.data.session.messages ?? []) as Array<{
+        details?: string[];
+      }>;
+      expect(row?.details).toEqual([expect.stringMatching(/^Why: .+\.$/)]);
+    }
+    // No log: the summaries index counts steps (or says nothing), so the
+    // conversation was prompted and its history is gone.
+    const missingAt = await store("missing", "");
+    await rm(join(missingAt, "..", "brain"), { recursive: true });
+    const missing = await reader(missingAt).getSession(ID, projectId);
+    expect(missing?.transcriptComplete).toBe(false);
+    expect(missing?.data.session.messages).toEqual(
+      notice("log does not hold it"),
+    );
+    // A log recreated after it was lost starts at agy's next step.
+    const late = await reader(
+      await store(
+        "late",
+        prompt("Again").replace('"step_index":0', '"step_index":2') +
+          reply(3, "Answer"),
+      ),
+    ).getSession(ID, projectId, undefined, { tailCompactions: 2 });
+    expect(late?.transcriptComplete).toBe(false);
+    expect(late?.data.session.messages.map((m) => m.uuid)).toEqual([
+      `${ID}:history-unavailable`,
+      `${ID}:step-2`,
+      `${ID}:step-3:text`,
+    ]);
+    // Never prompted: `agy` counts 0 steps and wrote no log.
+    const neverAt = await store("never", "");
+    await rm(join(neverAt, "..", "brain"), { recursive: true });
+    await writeAntigravitySummaries(join(neverAt, ".."), [
+      { id: ID, cwd: project, stepCount: 0 },
+    ]);
+    const never = await reader(neverAt).getSession(ID, projectId);
+    expect(never?.transcriptComplete).toBeUndefined();
+    expect(never?.data.session.messages).toEqual([]);
   });
 
   it("titles an untitled summary from the log's first prompt, starting no agy", async () => {
@@ -195,63 +219,6 @@ describe("Antigravity reader over the log", () => {
     expect(
       await rebound.getSessionSummary(ID, toUrlProjectId(project)),
     ).toBeNull();
-  });
-
-  it("lets a still-admitted waiter retry a replay its first caller was refused", async () => {
-    const conversations = await store("a", line({ step_index: 0, novel: 1 }));
-    const shared = reader(conversations);
-    const internals = shared as unknown as {
-      resolveRuntimeForScope(): Promise<unknown>;
-      withRuntime(): Promise<void>;
-      metadata(id: string): Promise<{
-        scope: string;
-        cwd: string;
-        sourceVersion: string;
-      }>;
-      loadTranscriptEntries(
-        id: string,
-        scope: string,
-        cwd: string,
-        version: string,
-        enrich: boolean,
-        beforeLoad: () => boolean,
-      ): Promise<unknown>;
-    };
-    const release = Promise.withResolvers<void>();
-    const resolving = vi
-      .spyOn(internals, "resolveRuntimeForScope")
-      .mockImplementation(async () => {
-        await release.promise;
-        return {};
-      });
-    const runtime = vi
-      .spyOn(internals, "withRuntime")
-      .mockResolvedValue(undefined);
-    const { scope, cwd, sourceVersion } = await internals.metadata(ID);
-    let firstAdmitted = true;
-    const first = internals.loadTranscriptEntries(
-      ID,
-      scope,
-      cwd,
-      sourceVersion,
-      false,
-      () => firstAdmitted,
-    );
-    await vi.waitFor(() => expect(resolving).toHaveBeenCalledTimes(1));
-    const second = internals.loadTranscriptEntries(
-      ID,
-      scope,
-      cwd,
-      sourceVersion,
-      false,
-      () => true,
-    );
-    // The first caller loses its lineage before its replay is admitted.
-    firstAdmitted = false;
-    release.resolve();
-    expect(await first).toBeNull();
-    expect(await second).not.toBeNull();
-    expect(runtime).toHaveBeenCalledTimes(1);
   });
 
   /** Holds the reader's next log read, once it has read, until it returns. */
@@ -585,14 +552,17 @@ describe("Antigravity reader over the log", () => {
           const loaded = await target.getSession(ID, projectId, after, options);
           const label = JSON.stringify([damage, after, options]);
           expect(loaded?.transcriptComplete, label).toBe(false);
-          // The owner's rows are still served (a page before a log row is
-          // older than all of them), and nothing is replayed.
+          // One row says the earlier history cannot be shown; the owner's
+          // rows are still served (a page before a log row is older than
+          // all of them).
+          const ids = uuids(loaded);
+          expect(ids[0], label).toBe(`${ID}:history-unavailable`);
           if (
             "beforeMessageId" in options &&
             options.beforeMessageId !== "live-prompt"
           )
-            expect(uuids(loaded), label).toEqual([]);
-          else expect(uuids(loaded), label).toContain("live-prompt");
+            expect(ids, label).toHaveLength(1);
+          else expect(ids, label).toContain("live-prompt");
         }
       }
     } finally {
@@ -652,7 +622,7 @@ describe("Antigravity reader over the log", () => {
       expect(reads).toBe(4);
       expect(loaded?.transcriptComplete).toBe(false);
       // The old file's rows are not the final owner's history.
-      expect(uuids(loaded)).toEqual(["live-4"]);
+      expect(uuids(loaded)).toEqual([`${ID}:history-unavailable`, "live-4"]);
     } finally {
       owner.release();
     }
