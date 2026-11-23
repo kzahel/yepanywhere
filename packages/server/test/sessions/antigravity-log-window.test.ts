@@ -162,7 +162,21 @@ describe("Antigravity log windows", () => {
   });
 
   it("resolves every message ID it emits as a page boundary and as an incremental anchor", async () => {
-    await write({ steps: 260, targetBytes: 90_000, seed: 7 });
+    // Each anchor rereads part of the log. Keep scale coverage in the paging tests.
+    const scale = await write({
+      steps: 64,
+      targetBytes: 22_000,
+      seed: 5,
+      checkpointEvery: 36,
+      skipEvery: 20,
+      interruptedGroupEvery: 25,
+      interiorGapGroupEvery: 14,
+    });
+    expect(scale.checkpoints).toBe(1);
+    expect(scale.wakes).toBeGreaterThan(0);
+    expect(scale.interruptedGroups.map((group) => group.shape)).toEqual(
+      expect.arrayContaining(["suffix", "interior"]),
+    );
     const all = await whole();
     expect(ids(all).some((id) => id?.endsWith(":result"))).toBe(true);
     for (const [index, message] of all.entries()) {
@@ -182,6 +196,7 @@ describe("Antigravity log windows", () => {
       );
       expect(after.anchor).toBe("found");
       const at = ids(after.messages).indexOf(id);
+      expect(at).toBeGreaterThanOrEqual(0);
       expect(after.messages.slice(at + 1)).toEqual(all.slice(index + 1));
     }
   });

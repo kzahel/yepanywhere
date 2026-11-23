@@ -3,6 +3,7 @@ import {
   mkdir,
   mkdtemp,
   realpath,
+  rename,
   rm,
   truncate,
   writeFile,
@@ -204,8 +205,9 @@ describe("proving an Antigravity split candidate", () => {
         const text = input(0, "First") + reply(1, "Reply");
         await writeFile(log, text);
         const taken = await candidate();
-        await rm(log);
-        await writeFile(log, text + input(2, "Second"));
+        const replacement = join(root, "replacement.jsonl");
+        await writeFile(replacement, text + input(2, "Second"));
+        await rename(replacement, log);
         return taken;
       },
     ],
