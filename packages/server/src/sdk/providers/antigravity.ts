@@ -56,8 +56,14 @@ import {
   resolveAntigravityModelSelection,
   resolveAntigravityTargetEffort,
 } from "./antigravity-models.js";
-import { AntigravityLiveAdvancer } from "./antigravity-live-advance.js";
-import { EMPTY_ANTIGRAVITY_LOG } from "./antigravity-live-projection.js";
+import {
+  antigravitySplitCandidate,
+  antigravitySplitCheck,
+} from "./antigravity-live-advance.js";
+import {
+  type AntigravityLiveProjection,
+  EMPTY_ANTIGRAVITY_LOG,
+} from "./antigravity-live-projection.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
 import { AntigravityVersionError } from "./antigravity-version.js";
 import { resumeAntigravitySession } from "./antigravity-resume.js";
@@ -89,6 +95,8 @@ interface AntigravityControls {
   reconcileSubagents?: (options?: { silent?: boolean }) => void;
   /** From Stop until the cancelled prompts return, nothing is steered in. */
   stopping?: boolean;
+  /** Counts Stops: one during a staged input's start cancels it unsent. */
+  interrupts?: number;
   onConsumerIdle?: () => void;
 }
 
@@ -373,6 +381,7 @@ export class AntigravityProvider implements AgentProvider {
       },
       interrupt: async () => {
         if (!controls.id || !runtime.alive) return false;
+        controls.interrupts = (controls.interrupts ?? 0) + 1;
         // A follow-up sent now falls back to the queue: agy refuses a
         // prompt while it is cancelling the current one.
         if (controls.steer) controls.stopping = true;
@@ -503,7 +512,7 @@ export class AntigravityProvider implements AgentProvider {
     };
     const input = queue[Symbol.asyncIterator]();
     let owner: ReturnType<typeof ownAntigravitySession> | undefined;
-    let advancer: AntigravityLiveAdvancer | undefined;
+    let liveWindow: AntigravityLiveProjection | undefined;
     let subagents: AntigravitySubagentTracker | undefined;
     let unobserveSummaries: (() => void) | undefined;
     let wake: (() => void) | undefined;
@@ -826,24 +835,15 @@ export class AntigravityProvider implements AgentProvider {
         );
       if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
         await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
-      const live = owner.open(boundary);
-      for (const message of replay ?? []) live.record(message);
-      // Rows leave memory once the log holds them; without a boundary (a
-      // fallback replay of a log YA cannot read) only the cap bounds them.
       // Rows leave memory only past the soft budget, at a proven split
       // point; without a boundary (a fallback replay of a log YA cannot
       // read) only the cap bounds them.
-      let updateCount = 0;
-      advancer = live.boundary
-        ? new AntigravityLiveAdvancer({
-            scope: namespace.storageScope,
-            conversationId: id,
-            projection: live,
-            signal,
-            idle: () => !foregroundUpdate && !compacting,
-            updates: () => updateCount,
-          })
-        : undefined;
+      const live = owner.open(
+        boundary,
+        antigravitySplitCheck(namespace.storageScope, id),
+      );
+      liveWindow = live;
+      for (const message of replay ?? []) live.record(message);
       releaseStart?.();
       markReady();
       yield {
@@ -938,7 +938,6 @@ export class AntigravityProvider implements AgentProvider {
             error: "This Antigravity session does not advertise compaction",
           };
         compacting = true;
-        advancer?.compact(argument ? `/compact ${argument}` : "/compact");
         try {
           const result = await compactAntigravity(
             runtime,
@@ -958,15 +957,12 @@ export class AntigravityProvider implements AgentProvider {
           return result;
         } finally {
           compacting = false;
-          advancer?.ended();
           runtime.endingTurn();
           reconcileRoot();
           changed();
         }
       };
       runtime.onUpdate = (update, updateSessionId, isReplay) => {
-        // Any update at all rules out a split point at the next prompt.
-        if (updateSessionId === id) updateCount++;
         if (
           isReplay ||
           updateSessionId !== id ||
@@ -1017,7 +1013,6 @@ export class AntigravityProvider implements AgentProvider {
             true,
           );
           const passiveOut = passiveTranscript.accept(update);
-          advancer?.passive();
           for (const { _isStreaming: _partial, ...converted } of passiveOut)
             publish({ ...converted, _passiveProviderUpdate: true });
           if (
@@ -1076,10 +1071,15 @@ export class AntigravityProvider implements AgentProvider {
                   return block.text;
                 })
                 .join("\n");
-        await advancer?.beforePrompt();
+        const interrupts = controls.interrupts;
         const promptStartedAt = new Date();
         const initialStartPosition = await subagents.readStartPosition();
         if (signal.aborted) break;
+        // Stopped before it was sent: the input is cancelled, never sent.
+        if (controls.interrupts !== interrupts) {
+          yield { type: "result", session_id: id };
+          continue;
+        }
         const transcript = new AntigravityTranscript(id, `${id}:${uuid}`, true);
         let activePromptScope: AntigravityTurnScope | undefined;
         let activePromptCallIds = new Set<string>();
@@ -1173,6 +1173,7 @@ export class AntigravityProvider implements AgentProvider {
           );
           if (activePromptScope) turnPromptScopes.push(activePromptScope);
           activePromptCallIds = new Set<string>();
+          const seq = live.seq;
           publish({
             type: "user",
             uuid: inputId,
@@ -1180,7 +1181,12 @@ export class AntigravityProvider implements AgentProvider {
             timestamp: new Date().toISOString(),
             message: { role: "user", content: promptText },
           });
-          advancer?.prompt(inputId, promptText, !steer);
+          // A turn's first prompt is sent only while idle: a split candidate.
+          const candidate =
+            !steer && live.boundary
+              ? antigravitySplitCandidate(namespace.storageScope, id, seq)
+              : undefined;
+          if (candidate) live.addCandidate(candidate);
           pending++;
           void runtime
             .call<{ usage?: unknown; stopReason?: string }>(
@@ -1282,7 +1288,6 @@ export class AntigravityProvider implements AgentProvider {
         }
         if (failure) throw failure;
         runtime.endingTurn();
-        advancer?.ended();
         yield { type: "result", session_id: id, usage };
       }
     } catch (error) {
@@ -1293,6 +1298,7 @@ export class AntigravityProvider implements AgentProvider {
           error: error instanceof Error ? error.message : String(error),
         };
     } finally {
+      liveWindow?.close();
       failReady(new Error("Antigravity session closed before initialization"));
       controls.steer = undefined;
       controls.compact = undefined;
@@ -1308,7 +1314,6 @@ export class AntigravityProvider implements AgentProvider {
       signal.removeEventListener("abort", stop);
       await input.return?.();
       await runtime.close();
-      advancer?.close();
       owner?.release();
       releaseStart?.();
     }

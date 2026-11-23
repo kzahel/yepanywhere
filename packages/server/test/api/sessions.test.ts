@@ -764,72 +764,92 @@ describe("Sessions API", () => {
       }
     }, 10_000);
 
-    it("rejects partial history returned to the frozen-share adapter", async () => {
-      const shareProjectPath = join(testDir, "partial-share-project");
-      const shareProjectId = encodeProjectId(shareProjectPath);
-      await mkdir(shareProjectPath);
-      await writeCompactedSession(
-        "sess-public-share-partial",
-        shareProjectPath,
-      );
-      const publicShareService = new PublicShareService({
-        dataDir: join(testDir, "partial-share-data"),
-      });
-      await publicShareService.initialize();
-      const { app } = createApp({
-        provider: mockSdk,
-        projectsDir: testDir,
-        publicShareService,
-        serverSettingsService: createSettingsServiceForPublicShares(),
-        remoteAccessService: {
-          getRelayConfig: () => ({
-            url: "wss://relay.example/ws",
-            username: "host-one",
-          }),
-          isEnabled: () => true,
-        } as never,
-      });
-      const originalFetch = app.fetch.bind(app);
-      vi.spyOn(app, "fetch").mockImplementation(async (...args) => {
-        const requestUrl = new URL(args[0].url);
-        const response = await originalFetch(...args);
-        if (
-          requestUrl.pathname !==
-          `/api/projects/${shareProjectId}/sessions/sess-public-share-partial`
-        ) {
-          return response;
-        }
-        const body = (await response.json()) as Record<string, unknown>;
-        return Response.json({
-          ...body,
-          pagination: { hasOlderMessages: true },
-        });
-      });
-
-      const response = await app.fetch(
-        new Request("http://127.0.0.1/api/public-shares", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Yep-Anywhere": "true",
-          },
-          body: JSON.stringify({
-            projectId: shareProjectId,
-            sessionId: "sess-public-share-partial",
-            mode: "frozen",
-          }),
-        }),
-      );
-
-      expect(response.status).toBe(409);
-      await expect(response.json()).resolves.toMatchObject({ retryable: true });
-      expect(
-        publicShareService.getSessionShareStatus(
-          shareProjectId,
+    it.each(["paginated", "marked incomplete"])(
+      "rejects partial history returned to the frozen-share adapter (%s)",
+      async (shape) => {
+        const shareProjectPath = join(testDir, "partial-share-project");
+        const shareProjectId = encodeProjectId(shareProjectPath);
+        await mkdir(shareProjectPath);
+        await writeCompactedSession(
           "sess-public-share-partial",
-        ).activeCount,
-      ).toBe(0);
-    });
+          shareProjectPath,
+        );
+        const publicShareService = new PublicShareService({
+          dataDir: join(testDir, "partial-share-data"),
+        });
+        await publicShareService.initialize();
+        const { app } = createApp({
+          provider: mockSdk,
+          projectsDir: testDir,
+          publicShareService,
+          serverSettingsService: createSettingsServiceForPublicShares(),
+          remoteAccessService: {
+            getRelayConfig: () => ({
+              url: "wss://relay.example/ws",
+              username: "host-one",
+            }),
+            isEnabled: () => true,
+          } as never,
+        });
+        const originalFetch = app.fetch.bind(app);
+        vi.spyOn(app, "fetch").mockImplementation(async (...args) => {
+          const requestUrl = new URL(args[0].url);
+          const response = await originalFetch(...args);
+          if (
+            requestUrl.pathname !==
+            `/api/projects/${shareProjectId}/sessions/sess-public-share-partial`
+          ) {
+            return response;
+          }
+          const body = (await response.json()) as {
+            messages: unknown[];
+            session: { messageCount: number };
+            publicShareCapture: { completedMessageCount: number };
+          };
+          if (shape === "paginated")
+            return Response.json({
+              ...body,
+              pagination: { hasOlderMessages: true },
+            });
+          // A live owner's cap evicted rows: the counts agree with what is
+          // left, and only the flag says the history is not all there.
+          const messages = body.messages.slice(-1);
+          return Response.json({
+            ...body,
+            transcriptComplete: false,
+            messages,
+            session: { ...body.session, messageCount: messages.length },
+            publicShareCapture: { completedMessageCount: messages.length },
+          });
+        });
+
+        const response = await app.fetch(
+          new Request("http://127.0.0.1/api/public-shares", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Yep-Anywhere": "true",
+            },
+            body: JSON.stringify({
+              projectId: shareProjectId,
+              sessionId: "sess-public-share-partial",
+              mode: "frozen",
+            }),
+          }),
+        );
+
+        expect(response.status).toBe(409);
+        await expect(response.json()).resolves.toMatchObject({
+          retryable: true,
+        });
+        expect(
+          publicShareService.getSessionShareStatus(
+            shareProjectId,
+            "sess-public-share-partial",
+          ).activeCount,
+        ).toBe(0);
+      },
+    );
 
     it("preserves explicit compact-tail bounds", async () => {
       await writeCompactedSession("sess-compact-explicit");

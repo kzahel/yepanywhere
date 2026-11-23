@@ -736,7 +736,6 @@ export class AntigravitySessionReader implements ISessionReader {
     id: string,
     request: AntigravityLogWindowRequest,
   ): Promise<AntigravitySessionRead | null> {
-    let override: AntigravityJoinPlan | undefined;
     for (let attempt = 1; !this.closed; attempt++) {
       // Reads an owner keeps changing under end with the last one, marked
       // incomplete: never a missing conversation or a dropped prefix.
@@ -751,10 +750,9 @@ export class AntigravitySessionReader implements ISessionReader {
         };
       const boundary = ownerBoundary(before);
       const plan: AntigravityJoinPlan =
-        override ??
-        (before?.state === "open" && boundary
+        before?.state === "open" && boundary
           ? planAntigravityJoin(id, request, before)
-          : { kind: "log", request });
+          : { kind: "log", request };
       const through = antigravityPlanWindow(plan, before);
       const window = await this.readLog(
         scope,
@@ -773,8 +771,8 @@ export class AntigravitySessionReader implements ISessionReader {
           incomplete: after.incomplete || !settled,
           firstPrompt: after.firstPrompt,
         };
-      if (after?.state === "open") {
-        const read = joinAntigravityOwnerRead(
+      if (after?.state === "open")
+        return joinAntigravityOwnerRead(
           id,
           request,
           plan,
@@ -782,19 +780,6 @@ export class AntigravitySessionReader implements ISessionReader {
           after,
           settled,
         );
-        if (read !== "miss") return read;
-        // A client may hold rows of that log part under live IDs: answer
-        // with the latest page as a replacement.
-        override = {
-          kind: "join",
-          request: {
-            kind: "latest",
-            compactions: "compactions" in request ? request.compactions : 2,
-          },
-          anchor: "missed",
-        };
-        continue;
-      }
       if (window.status === "known")
         return {
           kind: "log",

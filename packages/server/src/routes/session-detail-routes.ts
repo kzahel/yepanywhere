@@ -201,6 +201,16 @@ function completedPublicShareMessageCount(options: {
   hasDurableHistory: boolean;
 }): number {
   const { messages, process } = options;
+  // A row still streaming leaves its turn incomplete, even if the process
+  // went idle after the read that returned it.
+  const streaming = messages.findIndex(
+    (message) => (message as { _isStreaming?: unknown })._isStreaming === true,
+  );
+  if (streaming >= 0) {
+    for (let index = streaming; index >= 0; index -= 1)
+      if (isRealUserTurn(messages[index]!)) return index;
+    return 0;
+  }
   const sourceIsBusy =
     options.sourceIsExternal ||
     process?.state.type === "in-turn" ||

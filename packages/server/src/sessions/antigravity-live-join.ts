@@ -15,9 +15,11 @@ import type { LoadedSession } from "./types.js";
  * How a read divides between `agy`'s brain log and an owner's memory (plan
  * 195 steps 5 and 6). An owner holds what it produced since its boundary;
  * the log holds everything through the boundary. Log rows and live rows
- * have different IDs, and each row has one: the log's rows end at the
- * boundary and the owner's start after it, so no step is served twice or
- * left out. Message IDs say which side a cursor names
+ * have different IDs: the log's rows end at the boundary and the owner's
+ * start after it, so no step is served twice, except output that arrives
+ * after a split it belongs before (`antigravity-live-advance.ts`); rows
+ * the cap evicted are left out until a move covers them (the read is
+ * incomplete). Message IDs say which side a cursor names
  * (`antigravityMessageStep` recognizes the log's). Once the owner has moved
  * its boundary, a client may hold rows before it under live IDs, so a
  * cursor that would cross them is a miss: a replacement window.
@@ -28,16 +30,12 @@ export type AntigravityJoinPlan =
   /** The live rows alone: a catch-up from a message the owner holds. */
   | { kind: "live" }
   /**
-   * The log through the boundary, then every live row. `crossing`: a
-   * catch-up from a log row while the owner has moved its boundary; the
-   * answer is a miss if the log after that row holds rows that were once
-   * live. `anchor: missed`: a deliberate miss, a replacement window even
-   * though it holds the cursor's row.
+   * The log through the boundary, then every live row. `anchor: missed`: a
+   * deliberate miss, a replacement window.
    */
   | {
       kind: "join";
       request: AntigravityLogWindowRequest;
-      crossing?: true;
       anchor?: "missed";
     };
 
@@ -68,20 +66,24 @@ export function planAntigravityJoin(
         undefined
         ? latest(request.compactions)
         : { kind: "log", request };
-    case "after":
-      if (
-        antigravityMessageStep(conversationId, request.messageId) !== undefined
-      )
+    case "after": {
+      const step = antigravityMessageStep(conversationId, request.messageId);
+      // A log row before a moved boundary: the log after it holds rows that
+      // were live once (past where the owner opened), which this client may
+      // hold under live IDs. Decided from the steps alone, conservatively.
+      if (step !== undefined)
         return owner.boundary &&
           owner.opened &&
-          owner.boundary.end > owner.opened.end
-          ? { kind: "join", request, crossing: true }
+          owner.boundary.step > owner.opened.step &&
+          step < owner.boundary.step
+          ? { ...latest(request.compactions), anchor: "missed" }
           : { kind: "join", request };
       // The owner's (its rows follow the anchor), or one that left memory
       // or never existed, which the latest page answers as a miss.
       return owner.has(request.messageId)
         ? { kind: "live" }
         : latest(request.compactions);
+    }
     case "head":
       return { kind: "log", request };
   }
@@ -105,7 +107,6 @@ type OpenView = Extract<AntigravityOwnerView, { state: "open" }>;
 /**
  * An open owner's answer from a window read under `plan` (taken while the
  * view was `settled`, or, at the end of retries, under another split).
- * "miss": the read must be answered as a deliberate miss instead.
  */
 export function joinAntigravityOwnerRead(
   conversationId: string,
@@ -114,35 +115,16 @@ export function joinAntigravityOwnerRead(
   window: AntigravityLogWindow,
   view: OpenView,
   settled: boolean,
-): Extract<AntigravitySessionRead, { kind: "log" }> | "miss" {
-  if (
-    plan.kind === "join" &&
-    plan.crossing &&
-    request.kind === "after" &&
-    window.status === "known"
-  ) {
-    // Log rows after the cursor that were live once (after the boundary the
-    // owner opened at) may be held under live IDs by this client.
-    const at = window.messages.findIndex(
-      (message) => message.uuid === request.messageId,
-    );
-    const opened = view.opened?.step ?? -1;
-    if (
-      at >= 0 &&
-      window.messages
-        .slice(at + 1)
-        .some(
-          (message) =>
-            (antigravityMessageStep(conversationId, String(message.uuid)) ??
-              -1) > opened,
-        )
-    )
-      return "miss";
-  }
-  // Whether this request's answer holds live rows, by the owner now.
-  const joined =
-    settled ||
-    planAntigravityJoin(conversationId, request, view).kind !== "log";
+): Extract<AntigravitySessionRead, { kind: "log" }> {
+  // This request's plan by the owner now: whether it holds live rows, and
+  // whether a move since makes it a miss.
+  const now = settled
+    ? plan
+    : planAntigravityJoin(conversationId, request, view);
+  const joined = settled || now.kind !== "log";
+  const anchor =
+    (plan.kind === "join" && plan.anchor) ||
+    (now.kind === "join" && now.anchor);
   return {
     kind: "log",
     window: settled
@@ -152,7 +134,7 @@ export function joinAntigravityOwnerRead(
       ? { live: view.history() as Message[] }
       : {}),
     paged: plan.kind !== "live",
-    ...(plan.kind === "join" && plan.anchor ? { anchor: plan.anchor } : {}),
+    ...(anchor ? { anchor } : {}),
     ...(view.firstPrompt !== undefined
       ? { firstPrompt: view.firstPrompt }
       : {}),

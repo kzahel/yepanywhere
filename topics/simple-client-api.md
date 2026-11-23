@@ -338,12 +338,14 @@ no alternate authentication or provider transcript store is introduced.
   ([live memory](antigravity.md#live-memory)), so a durable snapshot and
   the owner's live rows never hold the same step under two IDs, whichever
   owner (or none) it was read under. When the owner moves rows past its
-  soft budget into the log, the source drops the live rows the owner says
-  have left (those it no longer holds that arrived no later than the move's
-  split prompt), at every message and at every durable read, including
-  rows that arrived while that read was pending; and at a read taken after
-  a row's process went, a row the read lacks. A queued prompt the owner
-  has not recorded yet stays. An owner attaching or departing forces the
+  soft budget into the log (or its cap evicts them), the source drops a
+  live row only on the owner's evidence that it recorded the row and let
+  it go (its ID is among the owner's last 10,000 retired IDs), never by
+  time, at every message and at every durable read, including rows that
+  arrived while that read was pending; and at a read taken after a row's
+  process went, a row the read lacks. Each row carries a small token for
+  its process, not the process. A queued echo the owner has not recorded
+  stays. An owner attaching or departing forces the
   next durable read even while one is working, so a fallback owner's
   replay (whose `isReplay` rows the source never keeps) and a departed
   owner's turns take the reader's IDs at once. A read that a departure

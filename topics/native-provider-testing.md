@@ -1019,20 +1019,26 @@ through a test option so moves happen within a test. On real `agy`:
   stops: the same prose in the same order each time apart from the
   [stated differences](antigravity.md#live-memory), and the conversation
   through the boundary equal to the log's own projection;
-- review round 1's two wake schedules (the result's log read held until a
-  detached wake is logged, and a prompt sent after the wake's first
-  chunk): the wake shows once before and after moves, live and stopped.
+- two wake schedules (a prompt sent once a detached wake is logged and
+  streamed, and one sent after the wake's first chunk, observed as the
+  ACP `session/prompt` call rather than Process's echo): the wake shows
+  once before and after moves, live and stopped;
+- Stop while a queued input is still starting (held in its subagent
+  position read): that input is never sent, and the next prompt is
+  answered.
 
 Controlled-peer cases in `antigravity.test.ts` replace the flipped "today"
 live-cap case: a session past 8 MiB keeps running with its window
-bounded; a log that stops growing or is unlinked evicts at the cap; many
-turns under the budget keep every ID; crossing it gives one replacement
-per client whose last row left memory, in three record orders, with a v0
-observer; and the two wake schedules with deterministic gates. The
-retention harness lowers the budget, asserts the window after every turn
-and samples the heap at each move. The selection passed with 63 cases and 3 skipped
-on 2026-11-23, with the 1.5.13 pin and with the 1.5.14 candidate, on Node
-24.22.1.
+bounded, its prompts queued back to back; a log that stops growing or is
+unlinked evicts at the cap; many turns under the budget keep every ID;
+crossing it gives one replacement per client whose last row left memory,
+in three record orders, with a v0 observer; the two wake schedules; and a
+truncated log moves nothing. The retention harness lowers the budget in
+bytes and rows, asserts both after every turn and samples the heap at each
+move. Review round 2 replaced the scanned proof (its held-read schedule
+went with it) and added the Stop case; the selection then passed with 65
+cases and 3 skipped on 2026-11-23, with the 1.5.13 pin and with the 1.5.14
+candidate, on Node 24.22.1.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup

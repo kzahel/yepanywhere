@@ -504,7 +504,9 @@ first, as a viewer's first read would.
   before. Plan 195 step 8 decides this fallback's future.
 
 While a resumed owner lives, every reader joins two sources, each row from
-exactly one, with no row twice and none missing at the resume point:
+exactly one, with no row twice and none missing at the resume point
+(apart from the residual and the cap described under
+[live memory](#live-memory)):
 
 - the log **through the resume point**, a page at a time with
   [step IDs](#cold-history-from-the-log); a window reads the file as if it
@@ -520,7 +522,7 @@ exactly one, with no row twice and none missing at the resume point:
 | Latest page, overlay catch-up, v0 window | The log's latest page through the resume point, then every live row; the route cuts compaction scope across both. |
 | Older page before a log row | The log's page before it, as when stopped. |
 | Older page before a live row | The latest log page and the live rows; the route cuts before the row. |
-| Catch-up after a log row | The log from that row's page to the resume point, then every live row; a miss (replacement) if the log after that row holds rows this owner moved ([live memory](#live-memory)). |
+| Catch-up after a log row | The log from that row's page to the resume point, then every live row; a miss (replacement) if the row is before the boundary's step and the owner has moved past where it opened ([live memory](#live-memory)). |
 | Catch-up after a live row the owner holds | The live rows. |
 | Catch-up after any other ID (one that left memory, or never existed) | A miss: the latest page as a replacement. |
 | Older page before a live row that left memory | Empty, as for any unknown ID; the browser takes its tail again. |
@@ -583,64 +585,96 @@ log serves everything through its boundary, as above.
 
 - **Under the soft budget** (2 MiB of JSON or 2,000 rows) nothing moves:
   the view is the log through the boundary plus every live row, so a row a
-  client streamed keeps its ID for as long as the owner lives, and every
-  catch-up appends. An idle owner holds at most this budget.
+  client streamed keeps its ID, and every catch-up appends. The window can
+  pass the budget by what arrives before a split is usable (below), and
+  indefinitely when no split is usable; then only the cap bounds it.
 - **Over it,** the boundary moves to a proven split point and every row
-  before it leaves memory. A split point is a turn's first prompt whose
-  `USER_INPUT` is proven to follow the log's last record E when it was
-  sent: a read of the log reached E while the owner was idle, no ACP update
-  of any kind arrived between that read's start and the prompt, and a later
-  read finds the prompt's input (matched by text) as the first record after
-  E. Every row received before the prompt then belongs to a record at or
-  before E, or to a step the log never records, and every later row to the
-  prompt's turn or after it, except in one window the log cannot rule out:
-  a reply's last chunk can arrive a few milliseconds after its record, so
-  if the idle read and the prompt both fall inside those milliseconds, that
-  chunk would show twice after the move. A wake or a child's report that
-  overlaps the prompt is not split from its own rows.
-- **Not too early.** A split point is used only once every row before it
-  has left Process's replay buffer (about 30 seconds after its prompt was
-  sent, plus margin), so a viewer that joins late never receives a moved
-  row under its old ID. Until then the window can exceed the soft budget
-  by what arrived in that time.
+  before it leaves memory. Each turn's first prompt P (sent only while the
+  owner is idle: no turn, no compaction) is a candidate: right before
+  sending it, the owner takes one synchronous stat of the log, its size Z
+  and identity, adding no await to the send. When the window is over the
+  budget and the candidate is old enough, two bounded reads at fixed
+  offsets prove it: the file still has that identity, is longer than Z and
+  has a newline before Z (or Z is 0); the record ending at Z parses
+  completely and ends a turn (a planner with no calls, or an
+  `ERROR_MESSAGE`; an oversized or placeholder record does not count); and
+  the record starting at Z is a `USER_INPUT`. The new boundary is the
+  record ending at Z. A failed check discards the candidate and caches
+  nothing, so a truncated, replaced or unreadable log moves nothing; a log
+  with nothing past Z yet leaves it pending until the next new row. Eight
+  candidates are kept, thinned by time (the oldest always stays), so a
+  burst of prompts never forgets every usable one. A proven candidate
+  moves the boundary even if the cap already evicted every row before it,
+  which clears the incomplete mark.
+- **Why that splits correctly.** P follows the previous turn's result on
+  the ordered ACP stream, so that turn's output has all arrived. On `agy`
+  1.5.13 and 1.5.14 every wake (a background command's, a detached
+  subagent's report, one interrupted by a prompt) logs a non-terminal
+  record (its task-end or inbox `SYSTEM_MESSAGE`, once a tool result)
+  before its first ACP output, so a wake in flight when P is sent fails the
+  terminal check, and one that lands between Z and P's input fails the
+  `USER_INPUT` check ([measured](antigravity-native-storage.md#live-memory--plan-195-step-6)).
+- **The residual.** Output for a record at or before Z that arrives on the
+  ACP pipe after P was sent is not seen by the proof: `agy` sends no echo or
+  other update tied to a prompt to order it by (none on either binary). The
+  adapter already shows such a chunk as part of P's turn
+  ([gap](../gaps/antigravity-late-wake-chunk-joins-next-turn.md)); once a
+  move covers that record, the chunk is shown twice in the live view, once
+  from the log and once as a live row, until the owner stops, when the log
+  alone serves it. It needs a record written whole before P was sent while
+  its last frame was still in transit; it was reproduced only by holding a
+  frame at the transport.
+- **Not too early.** A candidate is used only once every row before it has
+  left Process's replay buffer: 30 seconds after P was sent plus a 5-second
+  margin, measured on the monotonic clock. The buffer's buckets rotate on a
+  timer, so an event-loop stall longer than the margin can leave a moved row
+  in the buffer for a viewer that joins late, which then receives it under
+  its old ID beside the log's copy until its next replacement.
 
-The owner reads the log after its boundary at each turn's or command's
-result, once detached activity has been quiet for a second, and, while it
-is over the budget, right before a turn's first prompt (so a prompt queued
-behind a turn can be a split point). Each read starts where the last ended
-and reads at most 8 MiB, resuming next time; a log that is replaced,
-truncated, malformed or holds a user input YA did not send stops the owner's
-moves for good, and the cap below bounds it. Real `agy` 1.5.13 and 1.5.14
-log one `USER_INPUT` for each prompt, steer and `/compact`, in the order
-sent ([measured](antigravity-native-storage.md#live-memory--plan-195-step-6)).
+Nothing is read in the background: candidates are checked only when a row
+arrives over the budget, one check at a time, and nothing is checked or
+moved after the owner closes, by natural exit or abort.
 
 **What a move changes.** A page read after it shows the rows before the
 split from the log, as a cold view would: `agy`'s tool names and rendered
 results, the records' times and models, checkpoints, a reply a steer
 interrupted as one reply before the steer, and no rows for steps the log
-never recorded (a reply cut off when the owner was killed, say). A read is
-never in between: a read a move happened under is read again.
+never recorded (a reply cut off when the owner was killed, say). A read
+that a move happened under is read again, up to three times; the last is
+served cut to the owner's boundary and marked incomplete.
 
 **Clients at a move.** A connected client whose last fetched row left
 memory gets one replacement window on its next catch-up: the existing
 answer to a missed anchor, which drops the older pages it had loaded and
 its scroll position ([gap](../gaps/client-tail-replacement-drops-loaded-history.md)).
-So does one whose catch-up starts at a log row before rows this owner moved
-(it may hold those under live IDs), even though the page holds that row.
-A client whose last row is still live keeps appending and loses nothing.
-"Load older" from a row that left memory gets an empty page, the stale
-cursor the browser recovers from by taking its tail again; then older
-pages load from the log as usual. A client never sees a row twice.
+So does one whose catch-up starts at a log row before the moved boundary's
+step while the owner has moved (it may hold the rows after it under live
+IDs), decided from the steps without reading a page. A client whose last
+row is still live keeps appending and loses nothing. "Load older" from a
+row that left memory gets an empty page, the stale cursor the browser
+recovers from by taking its tail again; then older pages load from the log
+as usual. Apart from the residual and the late joiner above, a client
+never sees a row twice.
 
 **The cap.** What remains is capped at 8 MiB of JSON and 10,000 rows: past
 either, the oldest row other than the one being recorded leaves without the
 log serving it, and every answer carries `transcriptComplete: false` (v0:
-incomplete coverage) until a move covers it. One row larger than the cap
-is kept. Nothing throws, and the session keeps running. An update for a row
-that left memory does not bring it back. An owner resumed through the
-fallback has no boundary and only the cap bounds it; a conversation with no
-log keeps its first prompt as its title even after the cap evicts it. The
-fallback replay itself keeps its own 8 MiB / 10,000-message limit below.
+incomplete coverage; frozen sharing refuses it) until a move covers it.
+One row larger than the cap is stored cut to the cap, ending in a notice
+that the rest is in the log, which replaces it at the next move or once the
+owner stops. The stream and the block being assembled are not cut: they
+carry each snapshot whole, which is what clients render, so one streaming
+text or thinking block is the exception to the bound until it commits.
+Nothing throws, and the session keeps running. An update for a row that
+left memory (moved or evicted) does not bring it back while it is among the
+last 10,000 rows to leave. An owner resumed through the fallback has no
+boundary and only the cap bounds it; a conversation with no log keeps its
+first prompt as its title even after the cap evicts it. The fallback replay
+itself keeps its own 8 MiB / 10,000-message limit below.
+
+**Stop before a send.** A Stop that arrives while a dequeued input is
+still starting (its subagent position read) cancels it: it is never sent,
+and the turn ends with a result.
 
 ### Fallback replay
 
@@ -677,7 +711,8 @@ fallback resume. If a replay exceeds its limit, YA reports the
 history-limit error. A resume from the log retains nothing replayed, so a
 history of any size resumes. A live session has no history limit: its
 rows are bounded as [live memory](#live-memory) describes, retained only
-for an owned provider session, with no timers or background history reads.
+for an owned provider session, with no timers; its only log reads are the
+bounded split checks.
 
 Text and generic tool records are normalized from actual native notifications.
 Live text and thinking blocks publish `_isStreaming` snapshots of one message
@@ -686,10 +721,10 @@ end closes it, so viewers with response streaming off see only the commit.
 Live messages carry arrival timestamps. A detail read of a live owner
 serves a block still streaming marked `_isStreaming`, as the stream does,
 so a client keeps following it rather than freezing that snapshot; its
-commit replaces it. `agy` echoes each submitted prompt as
-`user_message_chunk` during the turn; YA already published that turn's user
-message, so the live projection ignores the echo, while `session/load` replay
-keeps native user chunks as history. Detail reads of an owner's whole projection
+commit replaces it. `agy` 1.5.13 and 1.5.14 send no `user_message_chunk`
+for a live prompt; should one arrive, YA ignores it (it already published
+that turn's user message), while `session/load` replay keeps native user
+chunks as history. Detail reads of an owner's whole projection
 or a replay return the complete history for anchored (`afterMessageId`)
 requests, and log and joined reads return the anchor's page onward, leaving
 the anchor for the detail route to find; a pre-sliced list would read as an anchor miss and the client

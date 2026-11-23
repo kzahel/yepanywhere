@@ -64,9 +64,10 @@ flipped the open half: a history over 8 MiB opens and pages from the log
 with no `session/load`. Step 5 flipped the resume half: it resumes with no
 replayed message retained. Step 6 flipped the live half: a session keeps
 running past 8 MiB with its window bounded, and its history stays readable
-while the log can be followed (a log that is replaced, malformed or
-written by another program stops the owner's moves, and past the cap the
-oldest rows are then missing from the view, marked incomplete). Step 2 also
+while its split points can be proven from the log (a log that is replaced,
+truncated or malformed at a split proves none, and past the cap the oldest
+rows are then missing from the view, marked incomplete, until a later
+split is proven). Step 2 also
 measured real `agy` 1.5.13 and 1.5.14 on a 7,261-step compacted
 conversation: `session/resume` answered in 37 ms with no replayed history
 and kept the compacted context. Step 5 also tests the ownership races it

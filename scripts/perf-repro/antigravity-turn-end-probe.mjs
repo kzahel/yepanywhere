@@ -57,8 +57,11 @@ async function probe() {
       t0,
     );
     const lastUpdate = () => agent.updates.at(-1)?.t ?? 0;
+    const sends = [];
+    report.sends = sends;
     const send = (text) => {
       const sentAt = now() - t0;
+      sends.push({ text, sentAt: Math.round(sentAt) });
       const turn = agent.runtime
         .call(
           "session/prompt",
@@ -230,6 +233,42 @@ async function probe() {
       endIs: "last ACP update",
     });
 
+    // MIDWAKE: a prompt sent after a wake's first chunk, before its end.
+    start = log.seen.length;
+    sent = send("MIDWAKE_TURN");
+    exchange = await next("midwake-1");
+    sendParts(
+      exchange,
+      [
+        call("run_command", {
+          CommandLine: "sleep 1; echo MIDWAKE_BG_DONE",
+          WaitMsBeforeAsync: 100,
+          toolSummary: "probe background",
+        }),
+      ],
+      true,
+    );
+    endExchange(exchange);
+    (await next("midwake-2")).finish("MIDWAKE_TURN_DONE");
+    done = await bounded(sent.turn, "MIDWAKE", 60_000);
+    await record("midwake-turn", start, done.returnedAt);
+    start = log.seen.length;
+    const midWake = await bounded(
+      next("midwake-reply"),
+      "wake request",
+      10_000,
+    );
+    midWake.partial("MW_HEAD ");
+    await sleep(200);
+    const during = send("MIDWAKE_PROMPT");
+    await sleep(300);
+    midWake.finish("MW_TAIL");
+    (await bounded(next("midwake-prompt"), "midwake prompt", 10_000)).finish(
+      "MIDWAKE_DONE",
+    );
+    done = await bounded(during.turn, "MIDWAKE_PROMPT", 60_000);
+    await record("midwake-prompt", start, done.returnedAt);
+
     // CHILD: a detached subagent, then the parent's wake on its report.
     start = log.seen.length;
     sent = send("CHILD_PARENT_PROMPT");
@@ -279,6 +318,20 @@ async function probe() {
     log.stop();
     await agent.runtime.close();
     report.modelFailures = model.failures;
+    report.updates = agent.updates.map((update) => ({
+      t: Math.round(update.t),
+      kind: update.kind,
+      text: update.text.slice(0, 24),
+    }));
+    report.log = log.seen.map((entry) => ({
+      t: Math.round(entry.t),
+      step: entry.step,
+      type: entry.type,
+      status: entry.status,
+      calls: Array.isArray(entry.record.tool_calls)
+        ? entry.record.tool_calls.length
+        : 0,
+    }));
     return report;
   })();
   work.catch(() => {});

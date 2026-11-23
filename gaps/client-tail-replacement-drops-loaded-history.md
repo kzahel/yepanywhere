@@ -20,10 +20,17 @@ replacement ([live memory](../topics/antigravity.md#live-memory)). Fixing it
 in the server per provider would need a per-client record of what each
 client holds, which the step 6 review showed to be the expensive part.
 
-A client-side fix: when replacing the tail, keep the loaded rows older than
-the replacement's first row whose IDs the replacement does not contain
-(they are history the server still serves under those IDs), and keep the
-scroll anchor on a row present in both; fall back to today's replacement
-only when no row overlaps.
+A client-side fix has a narrower premise than "keep the rows the
+replacement lacks": an older loaded row whose ID is absent from the
+replacement may itself be a pre-move live ID (an Antigravity row that has
+left memory), which would show twice once an older page returns the log's
+ID for the same step. So a loaded prefix may be kept only where verified
+overlap (rows present in both windows, continuing without a gap) or
+durable coordinates (log step IDs, which do not change) prove its
+continuity with the replacement; otherwise fall back to today's
+replacement. Keeping the scroll anchor on a row present in both is part of
+that fix; recovering the exact scroll position after a miss with no such
+row stays open.
 
 Found 2026-11-23 while reworking plan 195 step 6 (review round 1).
+Corrected 2026-11-23 from plan 195 step 6's review round 2.

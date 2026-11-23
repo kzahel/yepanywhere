@@ -346,7 +346,11 @@ describe("Antigravity reader over the log", () => {
     const scope = await realpath(conversations);
     const target = reader(conversations);
     const owner = ownAntigravitySession(scope, ID);
-    const live = owner.open(resumedAt);
+    let proven: ((boundary: typeof resumedAt) => void) | undefined;
+    const live = owner.open(
+      resumedAt,
+      () => new Promise((resolve) => (proven = resolve)),
+    );
     const turn = [
       {
         type: "user" as const,
@@ -381,7 +385,8 @@ describe("Antigravity reader over the log", () => {
       ),
       turnLog,
     );
-    // The next turn's prompt, proven to follow the turn's last record.
+    // The next turn's prompt, a candidate the log proves.
+    const seq = live.seq;
     owner.record({
       type: "user",
       uuid: "live-next",
@@ -391,12 +396,10 @@ describe("Antigravity reader over the log", () => {
     try {
       // The read takes the log through the old boundary; then the turn
       // leaves memory for the log before it takes the owner's rows.
-      duringNextLogRead(target, () => {
-        live.addSplit({
-          seq: live.seqOf("live-next")!,
-          boundary: { step: 3, end: Buffer.byteLength(logged + turnLog) },
-          dispatchedAt: 0,
-        });
+      duringNextLogRead(target, async () => {
+        live.addCandidate({ seq, size: 0, at: 0 });
+        proven!({ step: 3, end: Buffer.byteLength(logged + turnLog) });
+        await new Promise((resolve) => setImmediate(resolve));
         expect(live.history().map((m) => m.uuid)).toEqual(["live-next"]);
       });
       const loaded = await target.getSession(

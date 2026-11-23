@@ -471,18 +471,23 @@ test("keeps a long live Antigravity session whole across a move of its live rows
     viewport,
   });
   const page = await context.newPage();
-  // Every catch-up the client makes, and whether it was answered as a
-  // replacement window (with pagination) instead of incrementally.
-  const catchUps: Array<{ replaced: boolean; count: number }> = [];
+  // Every catch-up the client makes: its cursor, whether the move had
+  // been seen yet, and whether it was answered as a replacement window
+  // (with pagination) instead of incrementally.
+  let movedSeen = false;
+  const catchUps: Array<{
+    cursor: string;
+    afterMove: boolean;
+    replaced: boolean;
+  }> = [];
   page.on("response", async (response) => {
     const url = new URL(response.url());
     if (!url.pathname.endsWith(`/sessions/${liveId}`)) return;
-    if (url.searchParams.get("afterMessageId")) {
+    const cursor = url.searchParams.get("afterMessageId");
+    if (cursor) {
+      const afterMove = movedSeen;
       const data = await response.json();
-      catchUps.push({
-        replaced: Boolean(data.pagination),
-        count: data.messages.length,
-      });
+      catchUps.push({ cursor, afterMove, replaced: Boolean(data.pagination) });
     }
   });
   await page.goto(`${server.baseUrl}/projects/${projectId}/sessions/${liveId}`);
@@ -525,6 +530,9 @@ test("keeps a long live Antigravity session whole across a move of its live rows
   await composer.press("Enter");
   await finished("BIG_TURN_1_DONE");
   const firstReply = (await rowsOf("BIG_TURN_1_DONE"))[0]!.uuid;
+  const firstPrompt = (await detail()).messages.find(
+    (message) => message.message?.content === "BIG_TURN_1",
+  )!.uuid;
   expect(firstReply).not.toContain(":step-");
   // An older page loaded before the move.
   const loadOlder = page.locator("[data-load-older-messages]");
@@ -564,7 +572,9 @@ test("keeps a long live Antigravity session whole across a move of its live rows
     );
   });
   const moved = async () =>
-    !(await detail()).messages.some((message) => message.uuid === firstReply);
+    (movedSeen ||= !(await detail()).messages.some(
+      (message) => message.uuid === firstReply,
+    ));
   const prefixes: string[] = [];
   let draft = "";
   const sentence = "Typing while live rows move to the log. ";
@@ -604,13 +614,39 @@ test("keeps a long live Antigravity session whole across a move of its live rows
   await finished("SLOW_TURN_3_DONE");
   await expect(composer).toHaveValue(draft);
 
-  // The move evicted only rows before the split at BIG_TURN_2, so this
-  // client's last row stayed live: its catch-ups appended, at most one was
-  // a replacement (contract: a client whose last row left memory gets one),
-  // and none appended rows it already held (each turn shows once, below).
-  expect(catchUps.filter((entry) => entry.replaced).length).toBeLessThanOrEqual(
-    1,
-  );
+  // The move evicted only BIG_TURN_1's rows (before the split at
+  // BIG_TURN_2), and this client's cursor was always its last row: a live
+  // row the owner still held, so every catch-up appended, including those
+  // after the move; none appended rows it already held (each turn shows
+  // once, below).
+  const cursorClass = (cursor: string) =>
+    cursor.includes(":step-")
+      ? "log"
+      : cursor === firstReply || cursor === firstPrompt
+        ? "evicted"
+        : "held";
+  // Before the move a cursor may be a log row (the history the owner
+  // resumed after) or BIG_TURN_1's rows; after it, only a held live row.
+  expect(
+    catchUps
+      .filter(
+        (entry) => entry.afterMove && cursorClass(entry.cursor) !== "held",
+      )
+      .map((entry) => entry.cursor),
+  ).toEqual([]);
+  expect(catchUps.filter((entry) => entry.replaced)).toEqual([]);
+  expect(catchUps.some((entry) => entry.afterMove)).toBe(true);
+  // Each cursor class's answer after the move, through the real route: a
+  // held live row appends; a live row that left memory, or a log row before
+  // the moved range, is a replacement window.
+  const lastHeld = catchUps.at(-1)!.cursor;
+  expect(cursorClass(lastHeld)).toBe("held");
+  expect((await detail(`?afterMessageId=${lastHeld}`)).pagination).toBeFalsy();
+  for (const cursor of [firstReply, `${liveId}:step-0`])
+    expect(
+      (await detail(`?afterMessageId=${encodeURIComponent(cursor)}`))
+        .pagination,
+    ).toBeTruthy();
   // "Load older" from a cursor that left memory answers an empty page, the
   // miss the browser recovers from by taking its tail again.
   const evicted = await detail(

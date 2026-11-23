@@ -66,6 +66,7 @@ export function mountPublicShareRoutes(
       pagination?: unknown;
       publicShareCapture?: { completedMessageCount?: unknown };
       session?: AppSession;
+      transcriptComplete?: unknown;
     };
 
     const parsePublicShareSessionDetail = (
@@ -77,6 +78,9 @@ export function mountPublicShareRoutes(
         const completedMessageCount =
           body.publicShareCapture?.completedMessageCount;
         if (
+          // The reader could not supply all of it (a live owner's cap
+          // evicted rows, or its log is unreadable now).
+          body.transcriptComplete === false ||
           !Array.isArray(body.messages) ||
           body.pagination !== undefined ||
           body.session.messages !== undefined ||

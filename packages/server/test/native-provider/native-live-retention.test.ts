@@ -37,8 +37,10 @@ import { providers } from "./selection.js";
  */
 const turns = Number(process.env.YEP_NATIVE_RETENTION_TURNS ?? 200);
 const reply = "R".repeat(4096);
-/** The lowered soft budget: a move about every 28 turns. */
+/** The lowered soft budget: a move about every 28 turns by bytes... */
 const SOFT_BYTES = 128 * 1024;
+/** ...or about every 20 by rows, whichever comes first. */
+const SOFT_ROWS = 40;
 
 setFlagsFromString("--expose-gc");
 const gc = runInNewContext("gc") as () => void;
@@ -59,6 +61,7 @@ describe
     if (provider === "antigravity")
       setAntigravityLiveLimitsForTests({
         softBytes: SOFT_BYTES,
+        softRows: SOFT_ROWS,
         splitAgeMs: 0,
       });
     const f = await nativeFixture(provider);
@@ -103,6 +106,7 @@ describe
     const samples = [];
     const moves: Array<{ turn: number; heapUsed: number }> = [];
     let largestTurn = 0;
+    let longestTurn = 0;
     let boundary: number | undefined;
     let peak = { messages: 0, bytes: 0 };
     const started = performance.now();
@@ -118,18 +122,25 @@ describe
         scope ??= await realpath(
           join(f.environment.GEMINI_HOME!, "antigravity-cli", "conversations"),
         );
-        // Let the result's log pass run (it may move the boundary).
+        // Let the prompt's candidate check finish (it may move the boundary).
         await new Promise((resolve) => setTimeout(resolve, 20));
         const history = antigravityLiveHistory(scope, f.nativeId())!;
         const bytes = Buffer.byteLength(JSON.stringify(history));
-        const turnBytes = Buffer.byteLength(JSON.stringify(history.slice(-2)));
+        // This turn: its prompt's row and what followed.
+        let start = history.length - 1;
+        while (start > 0 && history[start]!.type !== "user") start--;
+        const turnRows = history.slice(Math.max(0, start));
+        const turnBytes = Buffer.byteLength(JSON.stringify(turnRows));
         largestTurn = Math.max(largestTurn, turnBytes);
+        longestTurn = Math.max(longestTurn, turnRows.length);
         peak = {
           messages: Math.max(peak.messages, history.length),
           bytes: Math.max(peak.bytes, bytes),
         };
-        // The bound, whatever the turn count: the budget and two turns.
+        // The bound, whatever the turn count: the budget and two turns, in
+        // bytes and in rows.
         expect(bytes).toBeLessThanOrEqual(SOFT_BYTES + 2 * largestTurn);
+        expect(history.length).toBeLessThanOrEqual(SOFT_ROWS + 2 * longestTurn);
         const end = projection()?.boundary?.end;
         if (boundary !== undefined && end !== boundary)
           moves.push({ turn, heapUsed: heap() });

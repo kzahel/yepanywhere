@@ -43,13 +43,13 @@ export interface ConversationSourceDependencies {
     signal: AbortSignal,
   ): Promise<ConversationInput>;
   /**
-   * Whether the conversation's live owner has moved this row out of its
-   * memory (an Antigravity owner past its soft budget): the durable read
-   * serves it under another ID now.
+   * Whether the conversation's live owner recorded this row and then let
+   * it leave its memory (an Antigravity owner's move or cap): the durable
+   * read serves it, or will, under another ID.
    */
   retired?(
     row: Readonly<SessionCatalogRow> & { nativeSessionId?: string },
-    message: { uuid?: unknown; timestamp?: unknown },
+    message: { uuid?: unknown },
   ): boolean;
   resolveRolloutPath?: (
     row: Readonly<SessionCatalogRow>,
@@ -84,15 +84,18 @@ export function createConversationSource(
     let liveOmittedPrefix = false;
     const live = new Map<
       string,
-      { message: Message; bytes: number; process: object | undefined }
+      { message: Message; bytes: number; owner: number }
     >();
     // An Antigravity owner's rows use live IDs, and the log serves the same
     // steps under step IDs once they leave the owner's memory (plan 195 step
-    // 6) or once the owner exits. The source drops a row the owner retired,
-    // and, at a read taken after the row's process went, a row the read
-    // lacks: the view is what the reader shows. An owner change forces that
-    // read even in turn (a fallback owner's replay, a departed owner's turns).
+    // 6) or once the owner exits. The source drops a row the owner recorded
+    // and then retired, and, at a read taken after the row's process went,
+    // a row the read lacks: the view is what the reader shows. Each row
+    // carries its process's token, never the process. An owner change forces
+    // that read even in turn (a fallback owner's replay, a departed owner's
+    // turns).
     let ownerChanged = false;
+    let ownerToken = 0;
     const drop = () => {
       failed = true;
       dirty = true;
@@ -163,7 +166,11 @@ export function createConversationSource(
         return;
       }
       liveBytes = nextBytes;
-      live.set(id, { message: structuredClone(message), bytes, process });
+      live.set(id, {
+        message: structuredClone(message),
+        bytes,
+        owner: ownerToken,
+      });
       invalidate();
     };
     const attachProcess = () => {
@@ -177,6 +184,7 @@ export function createConversationSource(
       releaseProcess?.();
       releaseProcess = undefined;
       process = next;
+      ownerToken++;
       dirty = true;
       durableRevision++;
       if (!next) return;
@@ -329,7 +337,7 @@ export function createConversationSource(
                 deps.retired?.(row, entry.message) ||
                 (entry === liveAtReadStart.get(id) &&
                   !read.has(id) &&
-                  entry.process !== process)
+                  entry.owner !== ownerToken)
               ) {
                 liveBytes -= entry.bytes;
                 live.delete(id);

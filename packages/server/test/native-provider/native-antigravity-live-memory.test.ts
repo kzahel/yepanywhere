@@ -5,12 +5,13 @@ import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setAntigravityLiveLimitsForTests } from "../../src/sdk/providers/antigravity-live-projection.js";
 import { antigravityOwnerView } from "../../src/sdk/providers/antigravity-owners.js";
+import { AntigravityRuntime } from "../../src/sdk/providers/antigravity-runtime.js";
+import { AntigravitySubagentTracker } from "../../src/sdk/providers/antigravity-subagent-tracker.js";
 import { prepareQueuedCompaction } from "../../src/routes/session-input-admission.js";
 import {
   antigravityLogLines,
   projectAntigravityLog,
 } from "../../src/sessions/antigravity-log-projection.js";
-import { AntigravityLogTail } from "../../src/sessions/antigravity-log-tail.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import type { Message } from "../../src/supervisor/types.js";
 import { nativeFixture } from "./fixture.js";
@@ -45,6 +46,24 @@ function prose(messages: readonly Message[]): string[] {
       return text ? [text] : [];
     });
   });
+}
+
+/** The prompt texts the adapter sends on the ACP pipe, as it sends them. */
+function promptsSent(): string[] {
+  const sent: string[] = [];
+  const original = AntigravityRuntime.prototype.call;
+  vi.spyOn(AntigravityRuntime.prototype, "call").mockImplementation(function (
+    this: AntigravityRuntime,
+    ...args: Parameters<typeof original>
+  ) {
+    const [method, params] = args;
+    if (method === "session/prompt")
+      sent.push(
+        (params as { prompt: Array<{ text: string }> }).prompt[0]!.text,
+      );
+    return original.apply(this, args);
+  } as typeof original);
+  return sent;
 }
 
 /** A real `agy` session read through the production reader. */
@@ -249,10 +268,12 @@ describe.skipIf(!providers.includes("antigravity"))(
       expect(f.model.failures).toEqual([]);
     }, 90_000);
 
-    // Review finding 1 on real agy: a detached wake overlapping the turn's
-    // end or the next prompt is never split from its own rows.
+    // Review round 1 finding 1 on real agy: a detached wake overlapping
+    // the turn's end or the next prompt is never split from its own rows.
+    // Sent once the wake is logged and streamed, the prompt is a split; sent
+    // while it streams, its candidate ends at the wake's task-end message.
     it.each([
-      "the result's log pass held until the wake is logged",
+      "a prompt sent once the wake is logged and streamed",
       "a prompt sent after the wake's first chunk",
     ])(
       "shows a detached wake once across moves, with %s",
@@ -260,31 +281,12 @@ describe.skipIf(!providers.includes("antigravity"))(
         setAntigravityLiveLimitsForTests({ softRows: 4, splitAgeMs: 0 });
         const s = await session();
         const { f } = s;
-        let release = () => {};
-        const hold = {
-          promise: new Promise<void>((resolve) => {
-            release = resolve;
-          }),
-          resolve: () => release(),
-        };
+        const sent = promptsSent();
         try {
           (await f.model.next()).finish("FIRST_DONE");
           await f.output("FIRST_DONE");
           await f.idle();
           await s.listed();
-          if (shape === "the result's log pass held until the wake is logged") {
-            const original = AntigravityLogTail.prototype.pass;
-            vi.spyOn(
-              AntigravityLogTail.prototype,
-              "pass",
-            ).mockImplementationOnce(async function (
-              this: AntigravityLogTail,
-              ...args
-            ) {
-              await hold.promise;
-              return original.apply(this, args);
-            });
-          }
           expect(f.proc.queueMessage({ text: "WAKE_TURN" }).success).toBe(true);
           (await f.model.next()).tool("run_command", {
             CommandLine: "sleep 1; echo WAKE_BG_DONE",
@@ -301,11 +303,9 @@ describe.skipIf(!providers.includes("antigravity"))(
             expect(f.proc.queueMessage({ text: "DURING_WAKE" }).success).toBe(
               true,
             );
-            await vi.waitFor(() =>
-              expect(JSON.stringify(f.proc.getMessageHistory())).toContain(
-                '"DURING_WAKE"',
-              ),
-            );
+            // Process echoes the input before it is sent: wait for the
+            // ACP call itself.
+            await vi.waitFor(() => expect(sent).toContain("DURING_WAKE"));
             wake.finish("WAKE_TAIL");
             (await f.model.next()).finish("DURING_WAKE_DONE");
             await f.output("DURING_WAKE_DONE");
@@ -315,7 +315,7 @@ describe.skipIf(!providers.includes("antigravity"))(
             await vi.waitFor(async () =>
               expect(JSON.stringify(await s.logged())).toContain("WAKE_TAIL"),
             );
-            hold.resolve();
+            await f.output("WAKE_TAIL");
             await s.turn("DURING_WAKE", "DURING_WAKE_DONE");
           }
           const once = async () => {
@@ -338,7 +338,6 @@ describe.skipIf(!providers.includes("antigravity"))(
           await f.stop();
           await once();
         } finally {
-          hold.resolve();
           await s.viewer.close();
         }
         expect(f.errors).toEqual([]);
@@ -346,5 +345,50 @@ describe.skipIf(!providers.includes("antigravity"))(
       },
       90_000,
     );
+
+    // Review round 2 finding 1: Stop accepted while a staged input was
+    // still starting (here, held in its subagent position read) let that
+    // input be sent afterwards. It is cancelled unsent now.
+    it("never sends an input stopped before it was sent, and answers the next one", async () => {
+      const s = await session();
+      const { f } = s;
+      const sent = promptsSent();
+      try {
+        (await f.model.next()).finish("FIRST_DONE");
+        await f.output("FIRST_DONE");
+        await f.idle();
+        await s.listed();
+        let enter = () => {};
+        let open = () => {};
+        const entered = new Promise<void>((resolve) => (enter = resolve));
+        const gate = new Promise<void>((resolve) => (open = resolve));
+        const read = AntigravitySubagentTracker.prototype.readStartPosition;
+        vi.spyOn(
+          AntigravitySubagentTracker.prototype,
+          "readStartPosition",
+        ).mockImplementationOnce(async function (
+          this: AntigravitySubagentTracker,
+        ) {
+          enter();
+          await gate;
+          return read.call(this);
+        });
+        expect(f.proc.queueMessage({ text: "STOPPED_UNSENT" }).success).toBe(
+          true,
+        );
+        await entered;
+        expect(await f.proc.interrupt()).toBe(true);
+        open();
+        await f.idle();
+        await s.turn("AFTER_STOP", "AFTER_STOP_DONE");
+        expect(sent).not.toContain("STOPPED_UNSENT");
+        expect(sent.at(-1)).toBe("AFTER_STOP");
+        expect(prose(await s.whole())).not.toContain("STOPPED_UNSENT_DONE");
+      } finally {
+        await s.viewer.close();
+      }
+      expect(f.errors).toEqual([]);
+      expect(f.model.failures).toEqual([]);
+    }, 60_000);
   },
 );

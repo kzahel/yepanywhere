@@ -1,5 +1,8 @@
 import type { SDKMessage } from "../types.js";
-import { AntigravityLiveProjection } from "./antigravity-live-projection.js";
+import {
+  AntigravityLiveProjection,
+  type AntigravitySplitCheck,
+} from "./antigravity-live-projection.js";
 
 /**
  * Where a live session's history divides between `agy`'s brain log and its
@@ -76,11 +79,8 @@ export type AntigravityOwnerView =
       boundary?: AntigravityLogBoundary;
       /** Whether the live projection holds this message ID. */
       has(messageId: string): boolean;
-      /**
-       * Whether a row left memory: one the last move or the cap evicted, or
-       * one not held that arrived no later than an earlier move's split.
-       */
-      retired(messageId: string, timestamp?: string): boolean;
+      /** Whether a row this owner recorded left memory (moved or evicted). */
+      retired(messageId: string): boolean;
       /** Rows the cap evicted that the log does not serve yet. */
       incomplete: boolean;
       /** The boundary the owner opened at: log rows after it were once live. */
@@ -110,12 +110,7 @@ export function antigravityOwnerView(
       generation: live.generation,
       boundary: live.boundary,
       has: (messageId) => live.has(messageId),
-      retired: (messageId, timestamp) =>
-        live.retired(messageId) ||
-        (!live.has(messageId) &&
-          live.movedThrough !== undefined &&
-          timestamp !== undefined &&
-          Date.parse(timestamp) <= live.movedThrough),
+      retired: (messageId) => live.retired(messageId),
       incomplete: live.incomplete,
       opened: live.opened,
       firstPrompt: live.firstPrompt,
@@ -232,6 +227,7 @@ export function ownAntigravitySession(
   return {
     release: () => {
       if (ownedNativeSessions.get(key) !== owner) return;
+      owner.open?.close();
       ownedNativeSessions.delete(key);
       release();
       settle(key);
@@ -241,15 +237,15 @@ export function ownAntigravitySession(
      * and then this projection, or, without a boundary (a fallback resume),
      * this projection as the whole history.
      */
-    open(boundary?: AntigravityLogBoundary): AntigravityLiveProjection {
+    open(
+      boundary?: AntigravityLogBoundary,
+      check?: AntigravitySplitCheck,
+    ): AntigravityLiveProjection {
       owner.open = new AntigravityLiveProjection(
         boundary ? { ...boundary } : undefined,
+        check,
       );
       settle(key);
-      return owner.open;
-    },
-    /** The open owner's projection. */
-    get live(): AntigravityLiveProjection | undefined {
       return owner.open;
     },
     /** Records a row in the open owner's projection. */

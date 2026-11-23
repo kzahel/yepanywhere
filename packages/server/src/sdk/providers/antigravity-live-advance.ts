@@ -1,253 +1,139 @@
-import { createHash } from "node:crypto";
 import {
-  AntigravityLogTail,
-  type AntigravityLogTailRecord,
-} from "../../sessions/antigravity-log-tail.js";
-import type { AntigravityLiveProjection } from "./antigravity-live-projection.js";
-import type { AntigravityLogBoundary } from "./antigravity-owners.js";
+  ANTIGRAVITY_LOG_HEAD_BYTES,
+  ANTIGRAVITY_LOG_RECORD_BYTES,
+  parseAntigravityLogHead,
+} from "../../sessions/antigravity-log-projection.js";
+import { LogSource } from "../../sessions/antigravity-log-source.js";
+import {
+  openPhysicalBrainTranscript,
+  readAntigravityTranscriptPositionSync,
+} from "../../sessions/antigravity-subagent-links.js";
+import type {
+  AntigravitySplitCandidate,
+  AntigravitySplitCheck,
+} from "./antigravity-live-projection.js";
 
 /**
- * Finds the split points a live owner's projection may move its boundary
- * to (plan 195 step 6). A split point is a turn's first prompt P whose
- * `USER_INPUT` U is proven to separate the two sides:
+ * Where a live owner's window may move its boundary (plan 195 step 6),
+ * proven with no scan of the log.
  *
- * (a) a pass over the log reached its end E while the owner was idle (no
- *     turn or command in progress);
- * (b) no ACP update of any kind arrived between that pass's start and P's
- *     dispatch;
- * (c) a later pass finds U (P's text) as the first record after E.
+ * A turn's first prompt P is sent only while the owner is idle (no turn
+ * and no compaction in progress). Right before sending it, the owner takes
+ * one synchronous stat of the log: its size Z and identity
+ * ({@link antigravitySplitCandidate}). When the window is over its soft
+ * budget and P is old enough, two bounded reads at fixed offsets decide
+ * whether Z divides the conversation ({@link checkAntigravitySplit}):
  *
- * Then every row received before P's dispatch belongs to a record at or
- * before E, or to a step the log never records (its record would have to
- * land between E and U, which (c) rules out, since steps only increase).
- * Every later row belongs to U or after it, with one narrow exception the
- * log cannot rule out: a reply's last chunk can arrive a few milliseconds
- * after its record (step 2 saw 2 ms), so a chunk arriving after P whose
- * record E already held would stay live beside it; that needs the record,
- * the idle read reaching it and P's dispatch all inside those
- * milliseconds. A wake or detached task whose output overlaps a prompt
- * fails (c) (its records land between E and U), and (b) refuses any
- * prompt after activity at all, so that prompt is not a split point. Every `USER_INPUT` must match what YA sent, in order (each
- * prompt, steer and `/compact` leaves one, observed on 1.5.13 and 1.5.14,
- * topics/antigravity-native-storage.md#live-memory--plan-195-step-6);
- * one that does not (another writer), or a log that cannot be followed,
- * stops this owner's moves for good, and the cap alone bounds it.
+ * 1. the file still has that identity and is longer than Z, and the byte
+ *    before Z is a newline (or Z is 0);
+ * 2. the record ending at Z parses completely, as the window reads it, and
+ *    ends a turn: a planner with no calls, or an `ERROR_MESSAGE` (an
+ *    oversized or placeholder record is no boundary);
+ * 3. the record starting at Z is a `USER_INPUT`.
  *
- * Passes run at each turn's and command's result, once passive activity
- * (a detached wake) has been quiet for {@link QUIET_MS} (on one owned timer
- * that teardown clears), and, while the projection is over its soft budget,
- * right before a turn's first prompt is sent, so a prompt queued behind a
- * turn can still be a split point.
+ * Then every row received before P was sent belongs to a record at or
+ * before Z, or to a step the log never records, and every later row to a
+ * record after Z. P follows the previous turn's result on the ordered ACP
+ * stream, so that turn's output has all arrived. On `agy` 1.5.13 and
+ * 1.5.14 every wake (a background command's, a detached subagent's report)
+ * logs a non-terminal record (a task-end or inbox `SYSTEM_MESSAGE`, or a
+ * tool result) before its first ACP output, so a wake in flight at
+ * dispatch fails (2), and a wake or late record that lands between Z and
+ * P's input fails (3). What this cannot see is output for a record at or
+ * before Z that arrives after P was sent: `agy` sends no echo or other
+ * marker for a prompt to order it by (topics/antigravity.md, "Live
+ * memory").
+ *
+ * A failed check caches nothing: a truncated, replaced or unreadable log
+ * proves no split, and a later candidate is checked afresh. A log not yet
+ * past Z (P's input not written yet) leaves the candidate pending.
  */
 
-const QUIET_MS = 1_000;
-/** Prompts awaiting their records; more means the log is not following. */
-const EXPECTATIONS = 256;
-
-const normalized = (text: string) => text.trim().replace(/\s+/g, " ");
-const digest = (text: string) =>
-  createHash("sha256").update(normalized(text)).digest("hex");
-
-interface Expectation {
-  kind: "prompt" | "compact";
-  /** Bounded evidence of the text sent: its normalized form's hash and length. */
-  hash: string;
-  length: number;
-  seq: number;
-  dispatchedAt: number;
-  /** For a turn's first prompt sent right after an idle pass: that pass's end. */
-  candidate?: AntigravityLogBoundary;
+/** The candidate for a turn's first prompt, taken right before it is sent. */
+export function antigravitySplitCandidate(
+  scope: string,
+  conversationId: string,
+  seq: number,
+): AntigravitySplitCandidate | undefined {
+  const at = performance.now();
+  const position = readAntigravityTranscriptPositionSync(
+    scope,
+    conversationId,
+    "transcript_full.jsonl",
+  );
+  return (
+    position && {
+      seq,
+      size: position.byte,
+      dev: position.dev,
+      ino: position.ino,
+      at,
+    }
+  );
 }
 
-export class AntigravityLiveAdvancer {
-  private readonly tail: AntigravityLogTail;
-  private readonly expectations: Expectation[] = [];
-  /** The last idle pass that reached the end: its end and the updates seen at its start. */
-  private settled?: { end: AntigravityLogBoundary; updates: number };
-  private running?: Promise<void>;
-  private again = false;
-  private stopped?: string;
-  private quiet?: ReturnType<typeof setTimeout>;
-
-  constructor(
-    private readonly options: {
-      scope: string;
-      conversationId: string;
-      projection: AntigravityLiveProjection;
-      signal: AbortSignal;
-      /** No turn or command in progress. */
-      idle: () => boolean;
-      /** ACP updates received so far. */
-      updates: () => number;
-      now?: () => number;
-      quietMs?: number;
-      /** Tests: after each pass. */
-      onPass?: () => void;
-    },
-  ) {
-    this.tail = new AntigravityLogTail(
-      options.scope,
-      options.conversationId,
-      options.projection.boundary!,
+/** Checks candidates against one conversation's log. */
+export function antigravitySplitCheck(
+  scope: string,
+  conversationId: string,
+): AntigravitySplitCheck {
+  return async (candidate, boundary) => {
+    const opened = await openPhysicalBrainTranscript(
+      scope,
+      conversationId,
+      "transcript_full.jsonl",
     );
-    options.signal.addEventListener("abort", () => this.close(), {
-      once: true,
-    });
-  }
-
-  /** Why this owner stopped looking for split points, if it did. */
-  get stoppedReason(): string | undefined {
-    return this.stopped;
-  }
-
-  private expect(expectation: Expectation): void {
-    if (this.stopped) return;
-    this.expectations.push(expectation);
-    if (this.expectations.length > EXPECTATIONS)
-      this.stop("the log is not recording what was sent");
-  }
-
-  /** A prompt or steer is being sent, after its row was recorded. */
-  prompt(rowId: string, text: string, turnStart: boolean): void {
-    const seq = this.options.projection.seqOf(rowId);
-    if (seq === undefined) return;
-    const settled = this.settled;
-    this.expect({
-      kind: "prompt",
-      hash: digest(text),
-      length: normalized(text).length,
-      seq,
-      dispatchedAt: (this.options.now ?? Date.now)(),
-      // (a) and (b): an idle pass reached the end, nothing arrived since it
-      // started, and nothing has been read past that end.
-      ...(turnStart &&
-      settled &&
-      settled.updates === this.options.updates() &&
-      this.tail.position.end === settled.end.end
-        ? { candidate: settled.end }
-        : {}),
-    });
-  }
-
-  /** `/compact` is about to be sent. */
-  compact(text: string): void {
-    this.expect({
-      kind: "compact",
-      hash: digest(text),
-      length: normalized(text).length,
-      seq: this.options.projection.seq,
-      dispatchedAt: (this.options.now ?? Date.now)(),
-    });
-  }
-
-  /** A turn or command has ended: look now. */
-  ended(): void {
-    this.request();
-  }
-
-  /**
-   * Before a turn's first prompt is sent: when a move is wanted, finish one
-   * pass first (bounded by the pass budget), so the prompt can be a split
-   * point even right behind the previous turn.
-   */
-  async beforePrompt(): Promise<void> {
-    if (!this.options.projection.overSoftBudget()) return;
-    this.request();
-    await this.running;
-  }
-
-  /** Passive output arrived: look once it has been quiet. */
-  passive(): void {
-    if (this.stopped || this.options.signal.aborted) return;
-    if (this.quiet) clearTimeout(this.quiet);
-    this.quiet = setTimeout(() => {
-      this.quiet = undefined;
-      if (this.options.idle()) this.request();
-    }, this.options.quietMs ?? QUIET_MS);
-  }
-
-  close(): void {
-    if (this.quiet) clearTimeout(this.quiet);
-    this.quiet = undefined;
-  }
-
-  private stop(reason: string): void {
-    this.stopped ??= reason;
-    this.expectations.length = 0;
-    this.close();
-  }
-
-  private request(): void {
-    if (this.stopped || this.options.signal.aborted) return;
-    this.again = true;
-    this.running ??= this.drain();
-  }
-
-  private async drain(): Promise<void> {
+    if (opened.status === "missing" && candidate.size === 0) return "pending";
+    if (opened.status !== "ok") return undefined;
     try {
-      while (this.again && !this.stopped && !this.options.signal.aborted) {
-        this.again = false;
-        await this.pass().catch((error: unknown) =>
-          this.stop(error instanceof Error ? error.message : String(error)),
-        );
-        this.options.onPass?.();
-      }
+      const z = candidate.size;
+      const same = (pin: { dev?: number; ino?: number }) =>
+        pin.ino === undefined ||
+        (pin.dev === opened.dev && pin.ino === opened.ino);
+      if (!same(candidate) || !same(boundary)) return undefined;
+      if (z < boundary.end || opened.size < z) return undefined;
+      // The prompt's input is not logged yet: checked again later.
+      if (opened.size === z) return "pending";
+      const source = new LogSource(opened.handle, opened.size);
+      const next = parseAntigravityLogHead(
+        (
+          await source.read(
+            z,
+            Math.min(ANTIGRAVITY_LOG_HEAD_BYTES, opened.size - z),
+          )
+        ).toString("latin1"),
+      );
+      if (next?.type !== "USER_INPUT") return undefined;
+      if (z === 0) return { step: -1, end: 0 };
+      if ((await source.read(z - 1, 1))[0] !== 10) return undefined;
+      const line = await source.lineBefore(z, ANTIGRAVITY_LOG_RECORD_BYTES);
+      if (!line) return undefined;
+      const record = await source.record(line);
+      const terminal =
+        (record.type === "PLANNER_RESPONSE" &&
+          !record.opaque &&
+          !record.calls.length) ||
+        record.type === "ERROR_MESSAGE";
+      if (
+        !terminal ||
+        record.oversized ||
+        record.step < boundary.step ||
+        next.step <= record.step
+      )
+        return undefined;
+      return {
+        step: record.step,
+        start: line.start,
+        end: z,
+        witness: await source.witness(line),
+        dev: opened.dev,
+        ino: opened.ino,
+      };
+    } catch {
+      // A changed, malformed or unreadable log proves nothing.
+      return undefined;
     } finally {
-      this.running = undefined;
+      await opened.handle.close().catch(() => {});
     }
-  }
-
-  private async pass(): Promise<void> {
-    const idle = this.options.idle();
-    const updates = this.options.updates();
-    const result = await this.tail.pass(this.options.signal);
-    if (result.status === "stopped") return this.stop(result.reason);
-    if (result.status === "again") return;
-    for (const record of result.records) {
-      if (record.type === "USER_INPUT" && !this.match(record)) return;
-    }
-    if (result.reachedEnd) {
-      // (a): only a pass that started idle and saw nothing arrive meanwhile.
-      this.settled =
-        idle && this.options.idle() && updates === this.options.updates()
-          ? { end: result.cursor, updates }
-          : undefined;
-    } else {
-      // Paused by its budget: carry on once nothing else is happening.
-      this.settled = undefined;
-      this.passive();
-    }
-    this.options.projection.revisit();
-  }
-
-  /** Accounts one user input; false (and stopped) if YA did not send it. */
-  private match(record: AntigravityLogTailRecord): boolean {
-    if (record.text === undefined) {
-      this.stop("a user input without readable text");
-      return false;
-    }
-    const hash = digest(record.text);
-    const length = normalized(record.text).length;
-    const same = (expectation: Expectation | undefined) =>
-      expectation?.hash === hash && expectation.length === length;
-    // A command agy refused may leave no record; a prompt always does.
-    while (
-      this.expectations[0]?.kind === "compact" &&
-      !same(this.expectations[0])
-    )
-      this.expectations.shift();
-    const expectation = this.expectations.shift();
-    if (!expectation || !same(expectation)) {
-      this.stop("a user input YA did not send");
-      return false;
-    }
-    // (c): the prompt's input is the first record after the idle pass's end.
-    if (expectation.candidate && record.start === expectation.candidate.end)
-      this.options.projection.addSplit({
-        seq: expectation.seq,
-        boundary: expectation.candidate,
-        dispatchedAt: expectation.dispatchedAt,
-      });
-    return true;
-  }
+  };
 }

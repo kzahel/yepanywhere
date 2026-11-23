@@ -338,6 +338,19 @@ describe("an Antigravity conversation source", () => {
     );
   const coldIds = [`${nativeId}:step-0`, `${nativeId}:step-1:text`];
 
+  /** An owner whose candidates the log proves at whatever `move` names. */
+  function provingOwner(scope: string) {
+    const native = ownAntigravitySession(scope, nativeId);
+    let proven: typeof resumedAt | undefined;
+    const live = native.open(resumedAt, async () => proven);
+    const move = async (seq: number, boundary: typeof resumedAt) => {
+      proven = boundary;
+      live.addCandidate({ seq, size: 0, at: 0 });
+      await new Promise((resolve) => setImmediate(resolve));
+    };
+    return { native, live, move };
+  }
+
   // Review finding 4: a live message that arrives while a read is pending,
   // and leaves the owner's memory before the read returns, is the read's log
   // row by then. On the step 6 design this commit replaces, the source kept
@@ -345,8 +358,7 @@ describe("an Antigravity conversation source", () => {
   it("never keeps a turn under both a live ID and a log ID when it leaves memory during a pending read", async () => {
     setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
     const { reader, row: source, scope } = await setup(logged);
-    const native = ownAntigravitySession(scope, nativeId);
-    const live = native.open(resumedAt);
+    const { native, live, move } = provingOwner(scope);
     const prompt2 = row("next-uuid", "user", "Next");
     native.record(prompt2 as never);
     const current = owner([prompt2]);
@@ -374,13 +386,10 @@ describe("an Antigravity conversation source", () => {
       current.emit("message", reply);
       await appendFile(logPath(), nextTurn);
       const prompt3 = row("third-uuid", "user", "Third");
+      const seq = live.seq;
       native.record(prompt3 as never);
       current.emit("message", prompt3);
-      live.addSplit({
-        seq: live.seqOf("third-uuid")!,
-        boundary: { step: 3, end: Buffer.byteLength(logged + nextTurn) },
-        dispatchedAt: 0,
-      });
+      await move(seq, { step: 3, end: Buffer.byteLength(logged + nextTurn) });
       expect(live.history().map((m) => m.uuid)).toEqual(["third-uuid"]);
       held.release();
       await reading;
@@ -394,6 +403,53 @@ describe("an Antigravity conversation source", () => {
           "third-uuid",
         ]);
       }
+      view.close();
+    } finally {
+      setAntigravityLiveLimitsForTests();
+      native.release();
+      abort.abort();
+      await reader.close();
+    }
+  });
+
+  // Review round 2 finding 7: Process echoes a direct input when it accepts
+  // it, before the provider sees it. Retiring rows by timestamp dropped
+  // such an echo when a move came while it was still queued.
+  it("keeps a queued Process echo the owner never recorded across a move", async () => {
+    setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
+    const { reader, row: source, scope } = await setup(logged);
+    const { native, live, move } = provingOwner(scope);
+    const prompt = row("p", "user", "Next");
+    const reply = row("r", "assistant", "Reply 2");
+    native.record(prompt as never);
+    native.record(reply as never);
+    const queued = row("queued", "user", "QUEUED_BUT_NOT_DISPATCHED");
+    const current = owner([prompt, reply, queued]);
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => source,
+      getProcess: () => current.process as never,
+    });
+    const abort = new AbortController();
+    try {
+      const view = await open(nativeId, () => {}, abort.signal);
+      expect(uuids(await view.read(abort.signal))).toContain("queued");
+      await appendFile(logPath(), nextTurn);
+      const split = row("split", "user", "FIRST_QUEUED_PROMPT");
+      const seq = live.seq;
+      native.record(split as never);
+      current.emit("message", split);
+      await move(seq, { step: 3, end: Buffer.byteLength(logged + nextTurn) });
+      current.process.state = { type: "idle" };
+      current.emit("complete");
+      expect(uuids(await view.read(abort.signal))).toEqual([
+        ...coldIds,
+        `${nativeId}:step-2`,
+        `${nativeId}:step-3:text`,
+        "split",
+        // Not yet sent: it follows what the reader serves.
+        "queued",
+      ]);
       view.close();
     } finally {
       setAntigravityLiveLimitsForTests();

@@ -924,30 +924,53 @@ So, on both versions:
   progress ([step 2](#how-far-a-record-trails-its-acp-event)), but then the
   owner is gone.
 
-These are why a turn's result is a good moment to look, not the proof the
-owner relies on. The proof of a split point (a turn's first prompt P) is
-read from the log: a read reached the log's last record E while the owner
-was idle, no ACP update arrived between that read's start and P, and a
-later read finds P's `USER_INPUT` as the first record after E. A row
-received before P whose record was not at or before E would have to land
-between E and P's input, because steps only increase; the last condition
-rules that out. The design of plan 195 step 6's first version moved at
-every result without the first two conditions, and a detached wake that
-overlapped the result's read or the next prompt was shown twice (review
-round 1, reproduced on both versions).
+Every foreground turn here ended with a planner with no calls, or, when
+stopped, an `ERROR_MESSAGE`: the records the split proof accepts as ending
+a turn.
 
-The owner's reader (`AntigravityLogTail`) keeps a verified cursor (the last
-record it read: offset, step, raw first bytes) and how far it has searched
-a long or unterminated line, and each pass reads only new bytes: record
-heads, a user input's body, and the newline search, at most 8 MiB, then
-resumes on the next pass. A pass with nothing appended reads nothing. In
-the unit test a log with a 96 MiB record and 2,000 records of 4 KiB after
-the boundary took 13 passes and read the file's bytes about once; step 6's
-first version read 100,666,311 bytes and then reported that log
-permanently unreadable (review round 1). The file's identity, the cursor's
-line at its offsets, increasing steps and the append-only fence are checked
-as a window checks them; a failure, or a user input YA did not send, stops
-the owner's moves for good.
+**Wakes and prompt order (review round 2).** The probe also records each
+ACP update and each record with its time. Run twice on each version on
+2026-11-23, it added a wake interrupted by a prompt (`MIDWAKE`: a prompt
+sent after the background command's wake streamed its first chunk). In all
+four runs:
+
+| Wake | Last record before its first ACP output |
+| --- | --- |
+| A background command's | the task-end `SYSTEM_MESSAGE`, about 1.5 s earlier |
+| The same, interrupted by a prompt | the task-end `SYSTEM_MESSAGE`, about 1.5 s earlier; the wake's planner was logged before the prompt's `USER_INPUT` |
+| A detached subagent's report | an inbox `SYSTEM_MESSAGE` (three runs) or a tool result (one 1.5.13 run), 4 to 10 ms earlier |
+
+None of them is a record that ends a turn, so a prompt sent while a wake
+is in flight is never a split: the record ending at the size taken when
+it was sent is the wake's non-terminal record, or the wake's own records
+land between that size and the prompt's input. No probe produced a
+scheduled wake of another kind.
+
+No run saw a `user_message_chunk`, or any other update tied to a prompt,
+after a live `session/prompt`: the first updates after a prompt were
+command or usage updates, the prompt's own output, or (for the
+interrupted wake) the wake's remaining chunk `MW_TAIL`, which arrived
+after the prompt was sent. So the owner cannot tell from ACP where a
+prompt's output starts, and the split proof's residual (output for a
+record at or before the split that arrives after the prompt) stands as
+the [provider contract](antigravity.md#live-memory) states.
+
+**The proof.** At each turn's first prompt P, sent only while the owner is
+idle, the owner takes one synchronous stat of `transcript_full.jsonl` (its
+size Z, device and inode) right before sending it. When the window is over
+its soft budget and P is old enough, `antigravitySplitCheck`
+([`antigravity-live-advance.ts`](../packages/server/src/sdk/providers/antigravity-live-advance.ts))
+opens the log and reads at fixed offsets: the head at Z (a `USER_INPUT`),
+the byte before Z (a newline), and the line ending at Z (at most the 16
+MiB record limit), which must parse as the window parses it and end a
+turn. Its result is the new boundary, with the record's offsets and first
+bytes. Nothing is cached between checks. The design of step 6's first
+version moved at every result, and its second proved splits with an
+incremental scan of the log, expectations matched by prompt text, a read
+awaited before a prompt and a timer; review round 2 showed that scan
+could move rows on stale or unreadable evidence, delay a send, rearm after
+teardown and still miss the ACP side of a wake, and the stat proof
+replaced it.
 
 ### Retention after step 6
 
@@ -999,7 +1022,7 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
 | [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
 | `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | Whether a resume can use `session/resume`, and its resume point: the latest page must read as known, and its last record is the boundary ([step 5](#resuming-from-the-log--plan-195-step-5)). |
-| [`AntigravityLogTail`](../packages/server/src/sessions/antigravity-log-tail.ts) | `transcript_full.jsonl` | A live owner's incremental read of the records after its boundary, to prove split points ([step 6](#live-memory--plan-195-step-6)). |
+| [Split check](../packages/server/src/sdk/providers/antigravity-live-advance.ts) | `transcript_full.jsonl` | A live owner's stat at a prompt and, when it needs a move, bounded reads at that offset that prove a split point ([step 6](#live-memory--plan-195-step-6)). |
 | `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay, or a fallback resume, must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |

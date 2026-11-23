@@ -613,6 +613,7 @@ export async function readAntigravityTranscriptPosition(
 export function readAntigravityTranscriptPositionSync(
   physicalScope: string,
   conversationId: string,
+  filename: "transcript.jsonl" | "transcript_full.jsonl" = "transcript.jsonl",
 ): AntigravityTranscriptPosition | undefined {
   if (!ANTIGRAVITY_SESSION_ID.test(conversationId)) return undefined;
   try {
@@ -623,7 +624,7 @@ export function readAntigravityTranscriptPositionSync(
       brainDir,
       ".system_generated",
       "logs",
-      "transcript.jsonl",
+      filename,
     );
     let physicalBrainRoot: string;
     try {

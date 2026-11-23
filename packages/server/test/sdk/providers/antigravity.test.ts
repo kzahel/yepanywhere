@@ -5,6 +5,7 @@ import {
   readFile,
   realpath,
   rm,
+  truncate,
   writeFile,
   mkdir,
 } from "node:fs/promises";
@@ -41,7 +42,6 @@ import {
 } from "../../../src/sessions/antigravity-log-projection.js";
 import { EventBus } from "../../../src/watcher/EventBus.js";
 import { createProviderConversationSource } from "../../../src/experimental/provider-conversation-source.js";
-import { AntigravityLogTail } from "../../../src/sessions/antigravity-log-tail.js";
 import {
   createTestSessionMetadataService,
   closeTestDiscoveryDatabases,
@@ -153,7 +153,7 @@ const onLine = line => {
  if(m.method === 'session/prompt') {
   prompt=m.id;
   logStep('USER_INPUT','USER_EXPLICIT',{content:'<USER_REQUEST>\\n'+m.params.prompt[0].text+'\\n</USER_REQUEST>'});
-  // agy 1.5+ echoes the submitted prompt during the live turn.
+  // An echo of the prompt, which YA ignores (agy 1.5.13 and 1.5.14 send none).
   update({sessionUpdate:'user_message_chunk',content:{type:'text',text:m.params.prompt[0].text}});
   update({sessionUpdate:'usage_update',used:123,size:1048576});
   // agy sends permission requests with string IDs; numeric ones are valid too.
@@ -1472,8 +1472,9 @@ describe("Antigravity native process boundary", () => {
       try {
         const { errors, results } = await runBigTurns(session, 5, async (n) => {
           expect(session.isProcessAlive?.()).toBe(true);
-          // From the second turn, the turn before its prompt leaves memory
-          // once the result's pass proves the split.
+          // Each prompt is queued behind the last turn and sent right after
+          // its result: from the second turn, the turn before it leaves
+          // memory once agy logs the prompt's input after that result.
           if (n >= 2)
             await vi.waitFor(() =>
               expect(
@@ -1863,7 +1864,8 @@ describe("Antigravity native process boundary", () => {
           const replaced = route.client.replacements;
           await send(`turn ${turn}`);
           await waitForIdle(active, signal);
-          // The result's pass proves the split and moves before the catch-up.
+          // The prompt's candidate is checked once agy logged its input; a
+          // short turn can end before that check does.
           await new Promise((resolve) => setTimeout(resolve, 50));
           if (boundary() !== before) moves++;
           // Once the row it last fetched has left memory, the client gets one
@@ -1915,12 +1917,15 @@ describe("Antigravity native process boundary", () => {
     30_000,
   );
 
-  // Review finding 1: a detached wake overlapping a turn's end or the next
-  // prompt must never be split from its own rows.
+  // Review round 1 finding 1: a detached wake overlapping a turn's end or
+  // the next prompt must never be split from its own rows. The stat proof
+  // splits before a prompt sent once the wake is logged and streamed (its
+  // reply is the last record), and refuses one sent while it streams (its
+  // task-end message is).
   it
     .skipIf(process.platform === "win32")
     .each([
-      "the result's log pass held until the wake is logged",
+      "a prompt sent once the wake is logged and streamed",
       "a prompt sent after the wake's first chunk",
     ])(
     "never shows a detached wake twice before or after a move, with %s",
@@ -1928,7 +1933,6 @@ describe("Antigravity native process boundary", () => {
       setAntigravityLiveLimitsForTests({ softRows: 6, splitAgeMs: 0 });
       const route = await liveRoute();
       const signal = AbortSignal.timeout(15_000);
-      const hold = Promise.withResolvers<void>();
       const logPath = join(
         store,
         "brain",
@@ -1978,16 +1982,6 @@ describe("Antigravity native process boundary", () => {
         };
         await send("turn 2");
         await waitForIdle(active, signal);
-        if (shape === "the result's log pass held until the wake is logged") {
-          // The pass the wake turn's result starts waits for the wake.
-          const original = AntigravityLogTail.prototype.pass;
-          vi.spyOn(AntigravityLogTail.prototype, "pass").mockImplementationOnce(
-            async function (this: AntigravityLogTail, ...args) {
-              await hold.promise;
-              return original.apply(this, args);
-            },
-          );
-        }
         await send("wake");
         await waitForIdle(active, signal);
         await writeFile(`${log}.wake1`, "");
@@ -2005,7 +1999,11 @@ describe("Antigravity native process boundary", () => {
           await vi.waitFor(async () =>
             expect(await readFile(logPath, "utf8")).toContain("WAKE_TAIL"),
           );
-          hold.resolve();
+          await vi.waitFor(() =>
+            expect(JSON.stringify(active.getMessageHistory())).toContain(
+              "WAKE_TAIL",
+            ),
+          );
           await send("turn 3");
         }
         await waitForIdle(active, signal);
@@ -2033,11 +2031,81 @@ describe("Antigravity native process boundary", () => {
         await active.abort();
         expect((await shown()).slice(0, 2)).toEqual(["1+1", "1+1"]);
       } finally {
-        hold.resolve();
         await route.close();
       }
     },
     30_000,
+  );
+
+  // Review round 2 finding 3: a split proven before the log was truncated
+  // moved rows the log could no longer serve. Nothing is proven ahead of
+  // need now, so a truncated log moves nothing.
+  it.skipIf(process.platform === "win32")(
+    "moves nothing once the log is truncated, keeping the rows it can no longer serve",
+    async () => {
+      const route = await liveRoute();
+      const signal = AbortSignal.timeout(15_000);
+      try {
+        expect(
+          (
+            await route.post(
+              `/api/projects/${toUrlProjectId(directory)}/sessions/${nativeId}/resume`,
+              { message: "turn 1", provider: "antigravity", mode: "default" },
+            )
+          ).status,
+        ).toBe(200);
+        const active = route.app.supervisor.getProcessForSession(nativeId)!;
+        await waitForIdle(active, signal);
+        for (const message of ["turn 2", "turn 3"]) {
+          await route.post(`/api/sessions/${nativeId}/messages`, { message });
+          await vi.waitFor(() =>
+            expect(JSON.stringify(active.getMessageHistory())).toContain(
+              `"${message}"`,
+            ),
+          );
+          await waitForIdle(active, signal);
+        }
+        const view = () => {
+          const owner = antigravityOwnerView(route.scope, nativeId);
+          if (owner?.state !== "open") throw new Error("not open");
+          return owner;
+        };
+        const opened = view().boundary;
+        // Every candidate so far was taken under budget; then the log
+        // loses all but its first record, and the rows pass the budget.
+        const logPath = join(
+          store,
+          "brain",
+          nativeId,
+          ".system_generated",
+          "logs",
+          "transcript_full.jsonl",
+        );
+        const first = (await readFile(logPath, "utf8")).split("\n")[0]!;
+        await truncate(logPath, Buffer.byteLength(`${first}\n`));
+        setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
+        await route.post(`/api/sessions/${nativeId}/messages`, {
+          message: "turn 4",
+        });
+        await vi.waitFor(() =>
+          expect(JSON.stringify(active.getMessageHistory())).toContain(
+            '"turn 4"',
+          ),
+        );
+        await waitForIdle(active, signal);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(view().boundary).toEqual(opened);
+        expect(
+          view()
+            .history()
+            .filter((row) => row.type === "user")
+            .map((row) => row.message?.content),
+        ).toEqual(["turn 1", "turn 2", "turn 3", "turn 4"]);
+      } finally {
+        await route.close();
+      }
+    },
+    20_000,
   );
 
   it.skipIf(process.platform === "win32")(

@@ -4,18 +4,23 @@ import {
   mkdtemp,
   realpath,
   rm,
+  truncate,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AntigravityLiveAdvancer } from "../../../src/sdk/providers/antigravity-live-advance.js";
+import {
+  antigravitySplitCandidate,
+  antigravitySplitCheck,
+} from "../../../src/sdk/providers/antigravity-live-advance.js";
 import {
   AntigravityLiveProjection,
+  type AntigravitySplitCandidate,
   EMPTY_ANTIGRAVITY_LOG,
   setAntigravityLiveLimitsForTests,
 } from "../../../src/sdk/providers/antigravity-live-projection.js";
-import { AntigravityLogTail } from "../../../src/sessions/antigravity-log-tail.js";
+import type { AntigravityLogBoundary } from "../../../src/sdk/providers/antigravity-owners.js";
 import type { SDKMessage } from "../../../src/sdk/types.js";
 
 const ID = "c0ffee00-0000-4000-8000-000000000206";
@@ -26,7 +31,7 @@ const record = (step: number, type: string, fields: object = {}) =>
     source:
       type === "USER_INPUT"
         ? "USER_EXPLICIT"
-        : type === "SYSTEM_MESSAGE"
+        : type === "SYSTEM_MESSAGE" || type === "ERROR_MESSAGE"
           ? "SYSTEM"
           : "MODEL",
     type,
@@ -37,6 +42,10 @@ const record = (step: number, type: string, fields: object = {}) =>
 const input = (step: number, text: string) =>
   record(step, "USER_INPUT", {
     content: `<USER_REQUEST>\n${text}\n</USER_REQUEST>`,
+  });
+const system = (step: number, text: string) =>
+  record(step, "SYSTEM_MESSAGE", {
+    content: `The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.\n\n<SYSTEM_MESSAGE>\n${text}\n</SYSTEM_MESSAGE>`,
   });
 const reply = (step: number, text: string) =>
   record(step, "PLANNER_RESPONSE", { content: text });
@@ -62,139 +71,287 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-/** A new session's owner with its advancer and an update counter. */
-function owner() {
-  setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
-  const live = new AntigravityLiveProjection(EMPTY_ANTIGRAVITY_LOG);
-  const state = { idle: true, updates: 0, passes: 0 };
-  const advancer = new AntigravityLiveAdvancer({
-    scope,
-    conversationId: ID,
-    projection: live,
-    signal: new AbortController().signal,
-    idle: () => state.idle,
-    updates: () => state.updates,
-    onPass: () => state.passes++,
+const candidate = () => antigravitySplitCandidate(scope, ID, 1)!;
+const check = (
+  taken: AntigravitySplitCandidate,
+  boundary: AntigravityLogBoundary = EMPTY_ANTIGRAVITY_LOG,
+) => antigravitySplitCheck(scope, ID)(taken, boundary);
+
+describe("proving an Antigravity split candidate", () => {
+  it("proves the record ending at the size taken at dispatch when a user input starts there", async () => {
+    const first = input(0, "First") + reply(1, "Reply one");
+    await writeFile(log, first);
+    const taken = candidate();
+    expect(taken).toMatchObject({ size: first.length, seq: 1 });
+    await appendFile(log, input(2, "Second") + reply(3, "Two"));
+    expect(await check(taken)).toMatchObject({
+      step: 1,
+      end: first.length,
+      start: input(0, "First").length,
+    });
+    // An error ends a turn too.
+    await writeFile(
+      log,
+      input(0, "First") + record(1, "ERROR_MESSAGE", { error: "quota" }),
+    );
+    const afterError = candidate();
+    await appendFile(log, input(2, "Again"));
+    expect(await check(afterError)).toMatchObject({ step: 1 });
   });
-  /** Ends a turn and waits for its pass. */
-  const ended = async () => {
-    const before = state.passes;
-    advancer.ended();
-    while (state.passes === before)
-      await new Promise((resolve) => setImmediate(resolve));
-  };
-  return { live, state, advancer, ended };
+
+  it("proves an empty log when the conversation's first input starts the file", async () => {
+    await rm(log, { force: true });
+    const taken = candidate();
+    expect(taken).toMatchObject({ size: 0 });
+    await writeFile(log, input(0, "First"));
+    expect(await check(taken)).toEqual(EMPTY_ANTIGRAVITY_LOG);
+  });
+
+  // Each of these moved rows on the scanner, or is new with the stat proof.
+  it.each([
+    [
+      "the last record is a wake's task-end message",
+      async () => {
+        await writeFile(
+          log,
+          input(0, "First") + reply(1, "Reply") + system(2, "task done"),
+        );
+        const taken = candidate();
+        await appendFile(log, input(3, "Second"));
+        return taken;
+      },
+    ],
+    [
+      "the last record is a planner with calls",
+      async () => {
+        await writeFile(
+          log,
+          input(0, "First") +
+            record(1, "PLANNER_RESPONSE", {
+              content: "",
+              tool_calls: [{ name: "run_command", args: {} }],
+            }),
+        );
+        const taken = candidate();
+        await appendFile(log, input(2, "Second"));
+        return taken;
+      },
+    ],
+    [
+      "a wake record lands between the size and the prompt's input",
+      async () => {
+        await writeFile(log, input(0, "First") + reply(1, "Reply"));
+        const taken = candidate();
+        await appendFile(log, system(2, "task done") + input(3, "Second"));
+        return taken;
+      },
+    ],
+    [
+      "the file was replaced",
+      async () => {
+        const text = input(0, "First") + reply(1, "Reply");
+        await writeFile(log, text);
+        const taken = candidate();
+        await rm(log);
+        await writeFile(log, text + input(2, "Second"));
+        return taken;
+      },
+    ],
+    [
+      "the file was truncated",
+      async () => {
+        await writeFile(log, input(0, "First") + reply(1, "Reply"));
+        const taken = candidate();
+        await truncate(log, 10);
+        return taken;
+      },
+    ],
+    [
+      "the record ending there is malformed",
+      async () => {
+        await writeFile(
+          log,
+          `${input(0, "First")}{"step_index":1,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"${at}","content":!}\n`,
+        );
+        const taken = candidate();
+        await appendFile(log, input(2, "Second"));
+        return taken;
+      },
+    ],
+    [
+      "the record ending there is too large to read",
+      async () => {
+        await writeFile(log, input(0, "First"));
+        await appendFile(log, reply(1, "y".repeat(17 * 1024 * 1024)));
+        const taken = candidate();
+        await appendFile(log, input(2, "Second"));
+        return taken;
+      },
+    ],
+    [
+      "no newline precedes the size (a record being written)",
+      async () => {
+        const partial = reply(1, "Reply");
+        await writeFile(log, input(0, "First") + partial.slice(0, 20));
+        const taken = candidate();
+        await appendFile(log, partial.slice(20));
+        await appendFile(log, input(2, "Second"));
+        return taken;
+      },
+    ],
+  ])("proves nothing when %s", async (_shape, arrange) => {
+    expect(await check(await arrange())).toBeUndefined();
+  });
+
+  it("leaves a candidate pending until the prompt's input is logged", async () => {
+    await writeFile(log, input(0, "First") + reply(1, "Reply"));
+    const taken = candidate();
+    expect(await check(taken)).toBe("pending");
+    await rm(log);
+    const none = candidate();
+    expect(await check(none)).toBe("pending");
+  });
+
+  it("proves nothing before the current boundary or in a file it does not pin", async () => {
+    const first = input(0, "First") + reply(1, "Reply");
+    await writeFile(log, first + input(2, "Second") + reply(3, "Two"));
+    const taken = { ...candidate(), size: first.length };
+    await appendFile(log, input(4, "Third"));
+    const later = { step: 3, end: (await check(taken))!.end + 100 };
+    expect(await check(taken, later)).toBeUndefined();
+    expect(
+      await check(taken, { step: 1, end: first.length, dev: 1, ino: 1 }),
+    ).toBeUndefined();
+  });
+});
+
+/** A projection over the soft budget with a scripted check and clock. */
+function projection(options: { softRows?: number; capRows?: number } = {}) {
+  setAntigravityLiveLimitsForTests({
+    softRows: options.softRows ?? 2,
+    capRows: options.capRows ?? 10_000,
+    splitAgeMs: 35_000,
+  });
+  const clock = { now: 0 };
+  const checked: AntigravitySplitCandidate[] = [];
+  const results: Array<
+    (boundary?: AntigravityLogBoundary | "pending") => void
+  > = [];
+  const live = new AntigravityLiveProjection(
+    EMPTY_ANTIGRAVITY_LOG,
+    (taken) => {
+      checked.push(taken);
+      return new Promise((resolve) => results.push(resolve));
+    },
+    () => clock.now,
+  );
+  const add = (seq: number, at: number) =>
+    live.addCandidate({ seq, size: 100 + seq, at });
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  return { live, clock, checked, results, add, settle };
 }
 
-describe("where a live Antigravity owner may move its boundary", () => {
-  it("splits at a prompt sent after an idle pass reached the log's end, once its input follows that end", async () => {
-    const { live, advancer, ended } = owner();
-    live.record(row("p1", "First", "user"));
-    advancer.prompt("p1", "First", true);
-    live.record(row("r1", "Reply one"));
-    await writeFile(log, input(0, "First") + reply(1, "Reply one"));
-    await ended();
-    // Nothing arrived since that pass started: the next prompt is a split.
-    live.record(row("p2", "Second", "user"));
-    advancer.prompt("p2", "Second", true);
-    await appendFile(log, input(2, "Second"));
-    live.record(row("r2", "Reply two"));
-    await appendFile(log, reply(3, "Reply two"));
-    await ended();
-    // Over the soft budget of two rows: the turn before the split left.
-    expect(live.history().map((m) => m.uuid)).toEqual(["p2", "r2"]);
-    expect(live.boundary).toMatchObject({ step: 1 });
-    expect(live.retired("r1")).toBe(true);
-    expect(advancer.stoppedReason).toBeUndefined();
-  });
-
-  it("is no split when any update arrived after that pass started, or a record lies between it and the prompt", async () => {
-    for (const shape of ["a wake chunk before the prompt", "a record first"]) {
-      const { live, state, advancer, ended } = owner();
-      live.record(row("p1", "First", "user"));
-      advancer.prompt("p1", "First", true);
-      live.record(row("r1", "Reply one"));
-      await writeFile(log, input(0, "First") + reply(1, "Reply one"));
-      await ended();
-      let next = 2;
-      if (shape === "a wake chunk before the prompt") {
-        // A detached wake streams, then the prompt goes out.
-        state.updates++;
-        live.record(row("w", "Wake reply"));
-      } else {
-        // A wake's task-end message lands before the prompt's input.
-        await appendFile(
-          log,
-          record(next++, "SYSTEM_MESSAGE", { content: "task done" }),
-        );
-      }
-      live.record(row("p2", "Second", "user"));
-      advancer.prompt("p2", "Second", true);
-      if (shape === "a wake chunk before the prompt")
-        await appendFile(log, reply(next++, "Wake reply"));
-      await appendFile(log, input(next, "Second") + reply(next + 1, "Two"));
-      live.record(row("r2", "Two"));
-      await ended();
-      expect(live.history().length, shape).toBeGreaterThan(2);
-      expect(live.boundary, shape).toEqual(EMPTY_ANTIGRAVITY_LOG);
-      expect(advancer.stoppedReason, shape).toBeUndefined();
-      await rm(log);
+describe("a live Antigravity window", () => {
+  it("keeps a candidate old enough to use through a burst of two prompts a second", async () => {
+    const { live, clock, checked, add } = projection({ softRows: 1_000_000 });
+    // A 64-entry FIFO held only the last 32 s of these.
+    for (let i = 0; i < 200; i++) {
+      live.record(row(`p${i}`, "prompt", "user"));
+      add(live.seq - 1, i * 500);
     }
+    clock.now = 100_000;
+    setAntigravityLiveLimitsForTests({ softRows: 1, splitAgeMs: 35_000 });
+    live.record(row("next", "more"));
+    expect(checked).toHaveLength(1);
+    expect(checked[0]!.at).toBeLessThanOrEqual(65_000);
   });
 
-  it("stops for good at a user input YA did not send, holding only bounded evidence of what it sent", async () => {
-    const { live, advancer, ended } = owner();
-    live.record(row("p1", "Mine", "user"));
-    advancer.prompt("p1", "x".repeat(1024 * 1024), true);
-    await writeFile(log, input(0, "Someone else"));
-    await ended();
-    expect(advancer.stoppedReason).toBe("a user input YA did not send");
-    // A blank foreign input with nothing expected stops the same way.
-    const second = owner();
-    await writeFile(log, input(0, " "));
-    await second.ended();
-    expect(second.advancer.stoppedReason).toBe("a user input YA did not send");
-  });
-});
-
-describe("an Antigravity log tail", () => {
-  it("crosses a 96 MiB record and many small records a pass at a time, reading each byte about once", async () => {
-    const first = input(0, "Ask");
-    const big = record(1, "PLANNER_RESPONSE", {
-      content: "y".repeat(96 * 1024 * 1024),
+  it("moves at a proven candidate even after the cap evicted every row before it, clearing the incomplete mark", async () => {
+    const { live, clock, results, add, settle } = projection({
+      softRows: 1,
+      capRows: 2,
     });
-    const small = Array.from({ length: 2000 }, (_, i) =>
-      reply(2 + i, "z".repeat(4096)),
-    ).join("");
-    await writeFile(log, first);
-    await appendFile(log, big);
-    await appendFile(log, small + input(2002, "Next"));
-    const total = first.length + big.length + small.length;
-    const tail = new AntigravityLogTail(scope, ID, EMPTY_ANTIGRAVITY_LOG);
-    const signal = new AbortController().signal;
-    const records: string[] = [];
-    let passes = 0;
-    for (;;) {
-      const pass = await tail.pass(signal, 8 * 1024 * 1024);
-      if (pass.status !== "read") throw Error(pass.status);
-      passes++;
-      for (const entry of pass.records)
-        records.push(`${entry.step}:${entry.type}`);
-      if (pass.reachedEnd) break;
-    }
-    expect(records.at(-1)).toBe("2002:USER_INPUT");
-    expect(records).toHaveLength(2003);
-    expect(passes).toBeGreaterThanOrEqual(13);
-    expect(tail.bytesRead).toBeLessThan(total * 1.05);
-    // A pass with nothing new reads nothing.
-    const before = tail.bytesRead;
-    expect(await tail.pass(signal)).toMatchObject({ reachedEnd: true });
-    expect(tail.bytesRead).toBe(before);
-  }, 30_000);
-});
+    live.record(row("p1", "First", "user"));
+    live.record(row("r1", "One"));
+    live.record(row("p2", "Second", "user"));
+    add(2, 0);
+    live.record(row("r2", "Two"));
+    // The cap took p1 and r1 before the candidate was old enough; the
+    // scanner's window ignored a split with no older row left to evict.
+    expect(live.history().map((m) => m.uuid)).toEqual(["p2", "r2"]);
+    expect(live.incomplete).toBe(true);
+    clock.now = 40_000;
+    live.record(row("r2", "Two, grown"));
+    expect(results).toHaveLength(1);
+    results[0]!({ step: 1, end: 500 });
+    await settle();
+    expect(live.boundary).toEqual({ step: 1, end: 500 });
+    expect(live.incomplete).toBe(false);
+    expect(live.retired("p1")).toBe(true);
+  });
 
-describe("a live Antigravity projection", () => {
-  it("caps the rows, evicting another row when an update grows the oldest, never recreating an evicted row, keeping the title", () => {
+  it("discards a candidate the log does not prove and tries the next older one", async () => {
+    const { live, clock, checked, results, add, settle } = projection();
+    for (const id of ["p1", "r1", "p2", "r2", "p3", "r3"])
+      live.record(row(id, id));
+    add(0, 0);
+    add(2, 1_000);
+    add(4, 2_000);
+    clock.now = 40_000;
+    live.record(row("r4", "Four"));
+    expect(checked.map((c) => c.seq)).toEqual([4]);
+    results[0]!(undefined);
+    await settle();
+    expect(checked.map((c) => c.seq)).toEqual([4, 2]);
+    results[1]!({ step: 3, end: 300 });
+    await settle();
+    expect(live.history().map((m) => m.uuid)).toEqual([
+      "p2",
+      "r2",
+      "p3",
+      "r3",
+      "r4",
+    ]);
+    // A row that moved is never recreated by a late update.
+    live.record(row("r1", "late"));
+    expect(live.has("r1")).toBe(false);
+  });
+
+  it("checks a pending candidate again only once a new row arrives", async () => {
+    const { live, clock, checked, results, add, settle } = projection();
+    for (const id of ["p1", "r1", "p2"]) live.record(row(id, id));
+    add(2, 0);
+    clock.now = 40_000;
+    live.record(row("r2", "Two"));
+    results[0]!("pending");
+    await settle();
+    // Updates to a row already held check nothing.
+    live.record(row("r2", "Two, grown"));
+    expect(checked).toHaveLength(1);
+    live.record(row("r3", "Three"));
+    expect(checked).toHaveLength(2);
+    results[1]!({ step: 1, end: 100 });
+    await settle();
+    expect(live.history().map((m) => m.uuid)).toEqual(["p2", "r2", "r3"]);
+  });
+
+  it("checks and moves nothing once closed, even when a check was in flight", async () => {
+    const { live, clock, checked, results, add, settle } = projection();
+    for (const id of ["p1", "r1", "p2", "r2"]) live.record(row(id, id));
+    add(2, 0);
+    clock.now = 40_000;
+    live.record(row("r3", "Three"));
+    live.close();
+    results[0]!({ step: 1, end: 100 });
+    await settle();
+    expect(live.boundary).toEqual(EMPTY_ANTIGRAVITY_LOG);
+    expect(live.has("p1")).toBe(true);
+    add(4, 1_000);
+    live.record(row("r4", "Four"));
+    expect(checked).toHaveLength(1);
+  });
+
+  it("caps the rows, stores one huge row cut to the cap with a notice, never recreates an evicted row, and keeps the title", () => {
     const live = new AntigravityLiveProjection(EMPTY_ANTIGRAVITY_LOG);
     const mib = (n: number) => "x".repeat(n * 1024 * 1024);
     live.record(row("first", "Hello", "user"));
@@ -202,7 +359,6 @@ describe("a live Antigravity projection", () => {
     live.record(row("b", mib(4)));
     // The oldest row grows past the cap: another row goes.
     live.record(row("a", mib(5)));
-    expect(live.retainedBytes).toBeLessThanOrEqual(8 * 1024 * 1024 + 1024);
     expect(live.has("a")).toBe(true);
     expect(live.incomplete).toBe(true);
     // An update for an evicted row adds nothing back.
@@ -210,5 +366,13 @@ describe("a live Antigravity projection", () => {
     expect(live.has("first")).toBe(false);
     // The title survives its row's eviction.
     expect(live.firstPrompt).toBe("Hello");
+    // One row of 20 MiB is kept at the cap, ending in a notice.
+    live.record(row("huge", mib(20)));
+    const [kept] = live.history();
+    const stored = JSON.stringify(kept);
+    expect(Buffer.byteLength(stored)).toBeLessThanOrEqual(8 * 1024 * 1024);
+    expect(String(kept!.message!.content)).toMatch(
+      /more bytes are in the log; this live view keeps the first part\]$/,
+    );
   });
 });
