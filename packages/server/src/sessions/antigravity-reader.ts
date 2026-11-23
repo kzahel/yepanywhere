@@ -433,7 +433,8 @@ export class AntigravitySessionReader implements ISessionReader {
    * Host worker, when hosted), so they go with the boundary of the same
    * generation; a catch-up after a live row takes only the rows from it on.
    * A hosted owner this backend cannot read now (no controller attached
-   * yet) leaves the log alone, never marked complete.
+   * yet, or a worker that did not answer within its read timeout) leaves
+   * the log alone, never marked complete, at once.
    */
   private async readConversation(
     scope: string,
@@ -464,20 +465,19 @@ export class AntigravitySessionReader implements ISessionReader {
           : plan.kind === "live"
             ? "from-anchor"
             : undefined;
-      const takenAfter = await takeAntigravityOwnerView(scope, id, {
-        anchor,
-        ...(rows ? { rows } : {}),
-      });
+      // An owner this backend cannot read (none attached, or a worker that
+      // did not answer in time) is not asked again: the log, incomplete.
+      const takenAfter =
+        taken === "unavailable"
+          ? taken
+          : await takeAntigravityOwnerView(scope, id, {
+              anchor,
+              ...(rows ? { rows } : {}),
+            });
       const after = takenAfter === "unavailable" ? undefined : takenAfter;
-      const unavailable =
-        taken === "unavailable" || takenAfter === "unavailable";
+      const unavailable = takenAfter === "unavailable";
       const settled = !unavailable && sameAntigravitySplit(before, after);
-      if (
-        !settled &&
-        !last &&
-        !(taken === "unavailable" && takenAfter === "unavailable")
-      )
-        continue;
+      if (!settled && !last && !unavailable) continue;
       if (after)
         return joinAntigravityOwnerRead(
           id,

@@ -1073,11 +1073,12 @@ became three resume cases. The selection passed with 73 cases and 3
 skipped on 2026-11-23, with the 1.5.13 pin and with the 1.5.14 candidate,
 on Node 24.22.1.
 
-Plan 195 step 9 (the owner in the Provider Host) replaced the three app
-cases that asserted a backend-local owner (a scheduled reload waiting for
+Plan 195 step 9 (the owner in the Provider Host) runs the three app cases
+that assert a backend-local owner (a scheduled reload waiting for
 retained work, the wrapper handoff backing out for late foreground input,
-an immediate restart interrupting the turn) with
-`app-antigravity-hosted-reload.test.ts`. Its first case keeps a turn with a
+an immediate restart interrupting the turn) with the host disabled
+(`providerHost: false` in the app fixture), and adds
+`app-antigravity-hosted-reload.test.ts` for the hosted owner. Its first case keeps a turn with a
 pending `write_file` permission and a queued patient message through a
 wrapper reload, answers the request once on the replacement, then changes
 model and effort, Stops a turn, runs a queued `/compact` with a message

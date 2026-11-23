@@ -76,6 +76,8 @@ export async function nativeAppFixture(
     providerMemoryLimitMiB?: number;
     /** A controlled `agy` replacing the pinned one; its version is not checked. */
     antigravityExecutable?: string;
+    /** False: providers stay in the backend, as with no host available. */
+    providerHost?: boolean;
     signal?: AbortSignal;
   } = {},
 ) {
@@ -221,7 +223,7 @@ export async function nativeAppFixture(
     const env = standaloneYaEnvironment(
       paths,
       host,
-      true,
+      options.providerHost ?? true,
       {
         ENABLED_PROVIDERS: enabledProviders.join(","),
         ANTHROPIC_API_KEY: syntheticKey,

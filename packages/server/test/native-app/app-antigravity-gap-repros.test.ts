@@ -1,4 +1,7 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { captureLeaderStartTime } from "../../../client/e2e/support/process-lifecycle.js";
 import { appBarrier } from "../native-provider/app-fixture.js";
 import type { Exchange } from "../native-provider/model-server.js";
 import { nativeAppTestFixture } from "./fixture.js";
@@ -21,7 +24,51 @@ async function armWake(app: App, turn: Exchange) {
   return app.model.next();
 }
 
+async function holdWake(app: App, sessionId: string, waiting: Exchange) {
+  waiting.finish("AGY_GAP_WAITING");
+  await expect
+    .poll(async () => (await ownedSession(app, sessionId)).state)
+    .toBe("background");
+  const wake = await app.model.next();
+  expect(JSON.stringify(wake.body)).toContain("AGY_GAP_WAKE");
+  return wake;
+}
+
+async function waitForReplacement(
+  app: App,
+  before: Awaited<ReturnType<App["processes"]>>,
+) {
+  const after = await appBarrier(async () => {
+    const processes = await app.processes();
+    return processes.backend !== before.backend && processes;
+  }, "Antigravity backend replacement");
+  expect(after.wrapper).toBe(before.wrapper);
+  await app.ready();
+}
+
+async function expectReloadInterruption(
+  app: App,
+  before: Awaited<ReturnType<App["processes"]>>,
+  sessionId: string,
+  held: Exchange,
+) {
+  await waitForReplacement(app, before);
+  await appBarrier(async () => {
+    const session = await ownedSession(app, sessionId);
+    return session.state === "not-running";
+  }, "interrupted Antigravity owner after reload");
+  await held.cancelled;
+  expect(app.output()).toContain("after API request");
+  const log = await readFile(join(app.root, "logs", "server.log"), "utf8");
+  expect(log).toContain(
+    `SIGHUP is interrupting antigravity session ${sessionId}`,
+  );
+  expect(app.model.failures).toEqual([]);
+}
+
 // Run the native adapter with an owned app and a scripted loopback model.
+// The reload cases run without the Provider Host, where the owner stays in
+// the backend; with the host, app-antigravity-hosted-reload.test.ts.
 describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
   "Antigravity reliability",
   () => {
@@ -188,6 +235,180 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
           ),
         ).toHaveLength(1);
         expect(app.model.failures).toEqual([]);
+      },
+    );
+
+    it(
+      "without the Provider Host, waits for a detached wake and the patient turn before safe reload and cold history",
+      caseBudget,
+      async (context) => {
+        const app = await nativeAppTestFixture("antigravity", context, {
+          agentApiManagement: true,
+          providerHost: false,
+        });
+        await app.ready();
+        const { sessionId, projectId } = await app.create("AGY_GAP_RELOAD");
+        const turn = await app.model.next();
+        const before = await app.processes();
+        expect(await app.api("/dev/safe-restart", {})).toMatchObject({
+          status: "scheduled",
+          blockers: [{ type: "active-sessions", count: 1 }],
+        });
+        expect(
+          await app.api("/dev/safe-restart", undefined, "DELETE"),
+        ).toMatchObject({
+          status: "idle",
+        });
+
+        const wake = await holdWake(app, sessionId, await armWake(app, turn));
+        const live = await app.connect(sessionId);
+        wake.partial("AGY_GAP_BEFORE_RELOAD");
+        await live.wait("AGY_GAP_BEFORE_RELOAD");
+        expect(await app.api("/dev/safe-restart")).toMatchObject({
+          canRestartNow: false,
+          blockers: [{ type: "active-sessions", count: 1 }],
+        });
+        expect(await app.api("/dev/safe-restart", {})).toMatchObject({
+          status: "scheduled",
+          blockers: [{ type: "active-sessions", count: 1 }],
+        });
+        expect((await app.processes()).backend).toBe(before.backend);
+        await app.api("/dev/safe-restart", undefined, "DELETE");
+        await app.api(`/sessions/${sessionId}/messages`, {
+          message: "AGY_PATIENT_BEFORE_SAFE_RELOAD",
+          deferred: true,
+          messageMetadata: { deliveryIntent: "patient", patienceSeconds: 1 },
+        });
+        wake.finish("AGY_WAKE_FINISHED_BEFORE_SAFE_RELOAD");
+        const patient = await app.model.next();
+        expect(JSON.stringify(patient.body)).toContain(
+          "AGY_PATIENT_BEFORE_SAFE_RELOAD",
+        );
+        expect(await app.api("/dev/safe-restart", {})).toMatchObject({
+          status: "scheduled",
+          blockers: [{ type: "active-sessions", count: 1 }],
+        });
+        patient.finish("AGY_PATIENT_FINISHED_BEFORE_SAFE_RELOAD");
+        await waitForReplacement(app, before);
+        expect((await ownedSession(app, sessionId)).state).toBe("not-running");
+        const reopened = await app.api(
+          `/projects/${projectId}/sessions/${sessionId}`,
+        );
+        const replay = JSON.stringify(reopened.messages);
+        expect(replay).toContain("AGY_WAKE_FINISHED_BEFORE_SAFE_RELOAD");
+        expect(replay).toContain("AGY_PATIENT_FINISHED_BEFORE_SAFE_RELOAD");
+        expect(reopened.transcriptComplete).toBeUndefined();
+
+        // Resume on the replacement backend (plan 195 step 5: from the log,
+        // with no replay), then reload again with the resumed owner idle.
+        await app.api(`/projects/${projectId}/sessions/${sessionId}/resume`, {
+          message: "AGY_RESUMED_AFTER_RELOAD",
+          provider: "antigravity",
+          mode: "bypassPermissions",
+        });
+        const resumed = await app.model.next();
+        expect(JSON.stringify(resumed.body)).toContain(
+          "AGY_PATIENT_BEFORE_SAFE_RELOAD",
+        );
+        resumed.finish("AGY_RESUMED_TURN_DONE");
+        await expect
+          .poll(async () => (await ownedSession(app, sessionId)).state)
+          .toBe("idle");
+        const once = (messages: Array<{ message?: { content?: unknown } }>) =>
+          [
+            "AGY_PATIENT_FINISHED_BEFORE_SAFE_RELOAD",
+            "AGY_RESUMED_AFTER_RELOAD",
+            "AGY_RESUMED_TURN_DONE",
+          ].map(
+            (marker) =>
+              messages.filter((message) =>
+                JSON.stringify(message.message?.content ?? "").includes(marker),
+              ).length,
+          );
+        const resumedView = await app.api(
+          `/projects/${projectId}/sessions/${sessionId}`,
+        );
+        expect(once(resumedView.messages)).toEqual([1, 1, 1]);
+        const resumedBackend = await app.processes();
+        await app.api("/dev/safe-restart", {});
+        await waitForReplacement(app, resumedBackend);
+        expect((await ownedSession(app, sessionId)).state).toBe("not-running");
+        const final = await app.api(
+          `/projects/${projectId}/sessions/${sessionId}`,
+        );
+        expect(once(final.messages)).toEqual([1, 1, 1]);
+        expect(app.model.failures).toEqual([]);
+      },
+    );
+
+    it(
+      "without the Provider Host, backs out of the wrapper handoff when new foreground work was admitted",
+      caseBudget,
+      async (context) => {
+        const app = await nativeAppTestFixture("antigravity", context, {
+          agentApiManagement: true,
+          providerHost: false,
+        });
+        await app.ready();
+        const { sessionId } = await app.create("AGY_GAP_WARM_OWNER");
+        (await app.model.next()).finish("AGY_GAP_WARM_DONE");
+        await expect
+          .poll(async () => (await ownedSession(app, sessionId)).state)
+          .toBe("idle");
+        const before = await app.processes();
+        const wrapperStart = await captureLeaderStartTime(before.wrapper);
+        expect(wrapperStart).toBeTruthy();
+
+        // Hold the test-owned wrapper before it can acknowledge the reload.
+        process.kill(before.wrapper, "SIGSTOP");
+        const reload = app.api("/dev/safe-restart", {});
+        void reload.catch(() => undefined);
+        let lateTurn: Exchange;
+        try {
+          await expect
+            .poll(async () => (await app.api("/dev/safe-restart")).status)
+            .toBe("restarting");
+          await app.api(`/sessions/${sessionId}/messages`, {
+            message: "AGY_GAP_LATE_INPUT",
+          });
+          lateTurn = await app.model.next();
+          expect(JSON.stringify(lateTurn.body)).toContain("AGY_GAP_LATE_INPUT");
+          expect(await app.api("/dev/safe-restart")).toMatchObject({
+            status: "restarting",
+            blockers: [{ type: "active-sessions", count: 1 }],
+          });
+        } finally {
+          if ((await captureLeaderStartTime(before.wrapper)) === wrapperStart) {
+            process.kill(before.wrapper, "SIGCONT");
+          }
+        }
+        await expect(reload).resolves.toMatchObject({
+          status: "scheduled",
+          blockers: [{ type: "active-sessions", count: 1 }],
+        });
+        expect((await app.processes()).backend).toBe(before.backend);
+        lateTurn.finish("AGY_GAP_LATE_INPUT_DONE");
+        await waitForReplacement(app, before);
+        expect(app.model.failures).toEqual([]);
+      },
+    );
+
+    it(
+      "without the Provider Host, reports interrupted Antigravity work on an explicit immediate restart",
+      caseBudget,
+      async (context) => {
+        const app = await nativeAppTestFixture("antigravity", context, {
+          agentApiManagement: true,
+          providerHost: false,
+        });
+        await app.ready();
+        const { sessionId } = await app.create("AGY_FORCED_RESTART");
+        const held = await app.model.next();
+        const before = await app.processes();
+        expect(await app.api("/server/restart", {})).toMatchObject({
+          ok: true,
+        });
+        await expectReloadInterruption(app, before, sessionId, held);
       },
     );
   },

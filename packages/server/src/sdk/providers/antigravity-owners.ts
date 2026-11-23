@@ -96,6 +96,12 @@ interface HostedOwner {
    * nothing past the log yet.
    */
   unread: boolean;
+  /**
+   * A worker no backend could attach to: still held, unread, until this
+   * `Date.now()` time (the host reaps it by then), then released. Checked
+   * when the entry is looked up; no timer.
+   */
+  heldUntil?: number;
   retired: Set<string>;
   /** Identity per worker-side owner, for a read's split check. */
   identity?: { token: string; object: object };
@@ -123,6 +129,16 @@ function recordRelease(key: string, at: number): void {
 }
 
 const keyOf = (scope: string, id: string) => `${scope}\0${id}`;
+
+/** The live owner of a conversation, releasing one held past its time. */
+function heldOwner(key: string, now = Date.now()) {
+  const owner = ownedNativeSessions.get(key);
+  const until = owner?.hosted?.heldUntil;
+  if (until === undefined || now < until) return owner;
+  ownedNativeSessions.delete(key);
+  recordRelease(key, until);
+  return undefined;
+}
 
 /** What a reader may serve for a conversation an open owner holds. */
 export interface AntigravityOwnerView {
@@ -270,16 +286,18 @@ export function antigravityOwnerView(
  * owner (none, or one still starting, which has written nothing past the
  * log); `"unavailable"` for a hosted owner this backend cannot read now (no
  * controller attached yet, or the worker did not answer), whose rows are
- * then not shown and whose log is not the complete conversation. A hosted
- * owner's view comes from its worker in one answer, so its boundary and
- * rows are of one generation.
+ * then not shown and whose log is not the complete conversation. The view
+ * is taken at one moment, its rows with it: a hosted owner's in one answer
+ * from its worker, a local owner's copied when the view is built, so the
+ * boundary, generation, flags and rows are of one generation whenever the
+ * caller reads them.
  */
 export async function takeAntigravityOwnerView(
   scope: string,
   id: string,
   query: AntigravityOwnerQuery = {},
 ): Promise<AntigravityOwnerView | "unavailable" | undefined> {
-  const owner = ownedNativeSessions.get(keyOf(scope, id));
+  const owner = heldOwner(keyOf(scope, id));
   if (!owner) return undefined;
   const hosted = owner.hosted;
   if (!hosted) {
@@ -287,11 +305,15 @@ export async function takeAntigravityOwnerView(
     if (!live) return undefined;
     const view = localView(owner, live);
     if (!query.rows && !query.excerpt) return view;
+    // Taken now, with the generation and flags above: the caller reads them
+    // after an await.
+    const rows = query.rows
+      ? live.history(query.rows === "from-anchor" ? query.anchor : undefined)
+      : [];
     const held = live.peek();
     return {
       ...view,
-      history: () =>
-        live.history(query.rows === "from-anchor" ? query.anchor : undefined),
+      history: () => rows,
       model: lastModel(held),
       ...(query.excerpt
         ? { excerpt: scanAgentExcerpt(held as Message[]).prose }
@@ -343,7 +365,7 @@ export function antigravityLiveHistory(
 
 /** Whether a live owner, local or hosted, holds the conversation. */
 export function antigravitySessionOwned(scope: string, id: string): boolean {
-  return ownedNativeSessions.has(keyOf(scope, id));
+  return heldOwner(keyOf(scope, id)) !== undefined;
 }
 
 /**
@@ -357,7 +379,7 @@ export function antigravityRowRetired(
   id: string,
   messageId: string,
 ): boolean {
-  const owner = ownedNativeSessions.get(keyOf(scope, id));
+  const owner = heldOwner(keyOf(scope, id));
   if (owner?.hosted) return owner.hosted.retired.has(messageId);
   return owner?.open?.retired(messageId) ?? false;
 }
@@ -383,7 +405,7 @@ export function antigravityWriteIsOwn(
   now = Date.now(),
 ): boolean {
   const key = keyOf(scope, id);
-  if (ownedNativeSessions.has(key)) return true;
+  if (heldOwner(key, now)) return true;
   forgetOldReleases(now);
   const released = releasedAt.get(key);
   return released !== undefined && mtimeMs <= released;
@@ -499,6 +521,7 @@ export function hostedAntigravityOwnerLink(): HostedNativeOwnerLink {
       ownedNativeSessions.delete(key);
     key = next;
     entry = current ?? { hosted: { retired: new Set(), unread: false } };
+    delete entry.hosted?.heldUntil;
     ownedNativeSessions.set(next, entry);
     releasedAt.delete(next);
     return entry;
@@ -553,10 +576,12 @@ export function hostedAntigravityOwnerLink(): HostedNativeOwnerLink {
     end(reason) {
       if (!entry?.hosted) return;
       entry.hosted.read = undefined;
-      entry.hosted.unread = true;
       if (reason === "exited") release(Date.now());
+      // Held, unread if it ran under another backend, until the host reaps
+      // it; a worker never attached to anywhere wrote nothing past the log.
       else if (reason === "unattached")
-        release(Date.now() + UNATTACHED_HOLD_MS);
+        entry.hosted.heldUntil = Date.now() + UNATTACHED_HOLD_MS;
+      else entry.hosted.unread = true;
     },
   };
 }

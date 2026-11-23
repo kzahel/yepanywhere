@@ -21,12 +21,14 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing but [SQLite's sidecars for the summaries index](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md); see [cold history from the log](#cold-history-from-the-log). Resume uses ACP `session/resume`, which replays nothing: the resumed session's view is the log through its resume point plus the owner's own rows ([resume](#resume-and-the-live-view)). A live session keeps a bounded recent window in memory and the log serves the rest, so it runs however long it lasts ([live memory](#live-memory)). YA never replays history through ACP `session/load` (removed in plan 195 step 8): a missing or unreadable log is shown as one row saying the earlier history cannot be shown, and the conversation still resumes with `session/resume`, keeping the context `agy` holds in its database ([history YA cannot show](#history-ya-cannot-show)). |
-| Backend reload | Where the Provider Host is available, the owner runs in a Provider Host worker (plan 195 step 9), so a reload, scheduled or immediate, or a crashed backend leaves the session running: the replacement reattaches and rebuilds its view of the owner from the worker. A turn, a pending permission request, a patient message and a detached wake survive it, each shown and delivered once, and control after it is single-writer; idle reap leaves no `agy`. Real `agy` 1.5.13 and 1.5.14 on macOS arm64 ([app cases](../packages/server/test/native-app/app-antigravity-hosted-reload.test.ts)); Linux and hosted CI not run. Without the host the owner stays in the backend: a scheduled reload waits for its work and an immediate one interrupts it. [In the Provider Host](#in-the-provider-host) · [Reload contract](reload-safe-provider-runtimes.md#shared-worker-providers) |
+| Backend reload | Where the Provider Host is available, the owner runs in a Provider Host worker (plan 195 step 9), so a reload, scheduled or immediate, or a crashed backend leaves the session running: the replacement reattaches and rebuilds its view of the owner from the worker. A turn, a pending permission request, a patient message and a detached wake survive it, each shown and delivered once, and control after it is single-writer; idle reap leaves no `agy`. Real `agy` 1.5.13 and 1.5.14 on macOS arm64 ([app cases](../packages/server/test/native-app/app-antigravity-hosted-reload.test.ts)); Linux and hosted CI not run. Without the host the owner stays in the backend: a scheduled reload waits for its work and an immediate one interrupts it ([cases without the host](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)). [In the Provider Host](#in-the-provider-host) · [Reload contract](reload-safe-provider-runtimes.md#shared-worker-providers) |
 | Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions. Real `agy` cases cover Allow, Deny and Stop for the tested `write_file` and `run_command` calls, and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
 The [native lifecycle tests](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
 use real `agy` with a scripted model. They cover idle reap during detached replies and patient delivery after
-settlement; the [hosted reload cases](../packages/server/test/native-app/app-antigravity-hosted-reload.test.ts)
+settlement and, with the Provider Host disabled, scheduled reload waiting
+for a detached wake and a patient turn, late foreground admission at the
+wrapper handoff and an immediate restart interrupting the turn; the [hosted reload cases](../packages/server/test/native-app/app-antigravity-hosted-reload.test.ts)
 follow a turn, a permission request, a patient message and a detached wake
 through a reload and with no backend at all. The
 [upgrade checks](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
@@ -906,7 +908,16 @@ where readers find the owner differs.
   through its end, marked `transcriptComplete: false` (v0: incomplete
   coverage), and never marks the conversation external. A worker this
   backend is still launching has written nothing past the log, so a read
-  then is the log, as for a stopped conversation.
+  then is the log, as for a stopped conversation. A read of the owner's
+  view waits at most 3 seconds for the worker (it answers from memory,
+  well under a second); a worker that has not answered is not asked again
+  within that read, which is then the log, marked incomplete, at once.
+- **Known limits.** A steer accepted before a reload and consumed after it
+  leaves its v0 receipt `unknown` (the replacement backend never saw the
+  steer); the input itself is delivered once. A claim of a retained
+  worker outside a backend's start (a resume after a reattach that failed)
+  reads the log as for a stopped conversation until the worker's attach
+  answers.
 - **Split age.** A split candidate is used once Process's replay buffer
   can no longer hold a row before it. For an owner in the backend that is
   30 seconds plus a 5-second margin after the prompt was sent. For a hosted

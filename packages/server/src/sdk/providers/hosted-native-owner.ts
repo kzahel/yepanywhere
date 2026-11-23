@@ -1,6 +1,15 @@
 import type { StartSessionOptions } from "./types.js";
 
 /**
+ * How long a read of the worker's owner view waits. The worker answers it
+ * synchronously from memory (a copy of a window of at most 8 MiB), well
+ * under a second even while a turn streams, so a worker that has not
+ * answered in 3 s is stuck; the read then shows the log, marked
+ * incomplete, instead of waiting the general 30 s RPC timeout.
+ */
+export const NATIVE_OWNER_READ_TIMEOUT_MS = 3_000;
+
+/**
  * Hono's side of a Provider Host worker's native session owner (plan 195
  * step 9; Antigravity). This backend's copy of the owner (that it holds its
  * conversation, the IDs it retired, its release) is rebuilt from the
@@ -24,15 +33,14 @@ export class HostedNativeOwnerSync {
     private readonly send: (message: unknown) => void,
     /** The connection is done or being handed to a replacement. */
     private readonly closed: () => boolean,
+    private readonly readTimeoutMs = NATIVE_OWNER_READ_TIMEOUT_MS,
   ) {}
 
   /** A snapshot or change the worker published (undefined: none yet). */
   observe(publication: unknown): void {
     const link = this.options.hostedNativeOwner;
     if (!link || publication === undefined) return;
-    const native = link.update(publication, (query) =>
-      this.rpc("readNativeOwner", [query]),
-    );
+    const native = link.update(publication, (query) => this.readOwner(query));
     if (!native || this.unobserveStore) return;
     const notify = () => {
       if (this.closed()) return;
@@ -46,6 +54,23 @@ export class HostedNativeOwnerSync {
       this.options.observeAntigravitySummaries?.(native.scope, notify) ??
       (() => {});
     notify();
+  }
+
+  private async readOwner(query: unknown): Promise<unknown> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        this.rpc("readNativeOwner", [query]),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("Provider worker owner read timed out")),
+            this.readTimeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**

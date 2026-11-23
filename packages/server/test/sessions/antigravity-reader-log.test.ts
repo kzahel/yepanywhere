@@ -20,6 +20,7 @@ import {
   hostedAntigravityOwnerLink,
   ownAntigravitySession,
 } from "../../src/sdk/providers/antigravity-owners.js";
+import { HostedNativeOwnerSync } from "../../src/sdk/providers/hosted-native-owner.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { ownHostedAntigravitySession } from "../utils/antigravity-hosted-owner.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
@@ -281,6 +282,41 @@ describe("Antigravity reader over the log", () => {
     expect((await read())?.transcriptComplete).toBeUndefined();
     expect(antigravityWriteIsOwn(scope, ID, Date.now() - 1_000)).toBe(true);
     expect(antigravityWriteIsOwn(scope, ID, Date.now() + 60_000)).toBe(false);
+  });
+
+  it("falls back at once to the log, marked incomplete, when the worker does not answer its read", async () => {
+    const conversations = await store("a", logged);
+    const scope = await realpath(conversations);
+    const target = reader(conversations);
+    const link = hostedAntigravityOwnerLink();
+    let reads = 0;
+    // A worker stand-in that is connected but never answers.
+    const sync = new HostedNativeOwnerSync(
+      { cwd: project, hostedNativeOwner: link },
+      () => {
+        reads++;
+        return new Promise(() => {});
+      },
+      () => {},
+      () => false,
+      50,
+    );
+    sync.observe({ kind: "snapshot", scope, id: ID, retired: [] });
+    try {
+      const started = performance.now();
+      const loaded = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        { tailCompactions: 2 },
+      );
+      expect(performance.now() - started).toBeLessThan(1_000);
+      expect(reads).toBe(1);
+      expect(uuids(loaded)).toEqual([`${ID}:step-0`, `${ID}:step-1:text`]);
+      expect(loaded?.transcriptComplete).toBe(false);
+    } finally {
+      sync.end("exited");
+    }
   });
 
   // The same reads with the owner in this process and in a Provider Host

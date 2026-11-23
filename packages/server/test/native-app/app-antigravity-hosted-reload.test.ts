@@ -333,7 +333,9 @@ describe.runIf(process.env.YEP_NATIVE_ANTIGRAVITY_GAP_REPROS === "1")(
       expect(app.model.failures).toEqual([]);
     });
 
-    it("streams a turn and ends a detached wake with the backend gone, then tears down idle and resumes", { // schedule, idle reap and a resume, all on real agy. // Two abrupt backend losses with the wrapper held, a 3 s native
+    it("streams a turn and ends a detached wake with the backend gone, then tears down idle and resumes", {
+      // Two abrupt backend losses with the wrapper held, a 3 s native
+      // schedule, idle reap and a resume, all on real agy.
       timeout: 150_000,
     }, async (context) => {
       const app = await open(context);
