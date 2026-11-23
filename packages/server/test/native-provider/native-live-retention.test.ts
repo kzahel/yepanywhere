@@ -3,13 +3,16 @@ import { join } from "node:path";
 import { setFlagsFromString } from "node:v8";
 import { runInNewContext } from "node:vm";
 import { afterEach, describe, expect, it } from "vitest";
-import { antigravityLiveHistory } from "../../src/sdk/providers/antigravity-owners.js";
+import {
+  antigravityLiveHistory,
+  antigravityOwnerView,
+} from "../../src/sdk/providers/antigravity-owners.js";
 import { nativeFixture } from "./fixture.js";
 import { providers } from "./selection.js";
 
 /**
  * Plan 195 step 2: what a live owner retains in YA's memory over a long run,
- * for Codex (the bar step 6 must meet) and for Antigravity today. Opt-in
+ * for Codex (the bar step 6 had to meet) and for Antigravity. Opt-in
  * measurement with real executables and a scripted model:
  *
  *   YEP_NATIVE_RETENTION_MEASURE=1 YEP_NATIVE_TEST_PROVIDERS=codex,antigravity \
@@ -23,6 +26,11 @@ import { providers } from "./selection.js";
  * projection is copied for counting, so the copy is not charged. Growth is
  * taken from the first sample after warm-up (one interval) to the final
  * turn, which is always sampled. Heap samples on one host are diagnostic.
+ * Since plan 195 step 6 an Antigravity owner moves an ended turn to the log
+ * just after its result, keeping a copy of the turn it moved last for
+ * clients that streamed it: each sample also records the projection at
+ * idle, then waits (at most two seconds) for that move before sampling,
+ * and counts that copy separately.
  */
 const turns = Number(process.env.YEP_NATIVE_RETENTION_TURNS ?? 200);
 const reply = "R".repeat(4096);
@@ -51,6 +59,16 @@ describe
         scope ??= await realpath(
           join(f.environment.GEMINI_HOME!, "antigravity-cli", "conversations"),
         );
+      const atIdle = scope
+        ? antigravityLiveHistory(scope, f.nativeId())?.length
+        : undefined;
+      for (
+        const deadline = Date.now() + 2_000;
+        scope &&
+        Date.now() < deadline &&
+        antigravityLiveHistory(scope, f.nativeId())?.length;
+      )
+        await new Promise((resolve) => setTimeout(resolve, 10));
       const proc = f.proc as unknown as {
         currentBucket: unknown[];
         previousBucket: unknown[];
@@ -66,12 +84,21 @@ describe
       const history = scope
         ? antigravityLiveHistory(scope, f.nativeId())
         : undefined;
+      const view = scope
+        ? antigravityOwnerView(scope, f.nativeId())
+        : undefined;
+      const moved = view?.state === "open" ? view.movedRows() : undefined;
       return {
         turn,
         heapUsed,
+        projectionMessagesAtIdle: atIdle,
         projectionMessages: history?.length,
         projectionJsonBytes: history
           ? Buffer.byteLength(JSON.stringify(history))
+          : undefined,
+        movedMessages: moved?.length,
+        movedJsonBytes: moved
+          ? Buffer.byteLength(JSON.stringify(moved))
           : undefined,
       };
     };

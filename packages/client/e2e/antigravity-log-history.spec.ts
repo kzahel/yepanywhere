@@ -69,14 +69,19 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   if (m.method === 'session/prompt') {
     const text = m.params.prompt[0].text;
     logStep('USER_INPUT', 'USER_EXPLICIT', { content: '<USER_REQUEST>\\n' + text + '\\n</USER_REQUEST>' });
+    // A QUICK_ prompt gets a shorter reply named after it.
+    const quick = text.startsWith('QUICK_');
+    const first = quick ? text + '_REPLY' : 'RESUMED_REPLY';
+    const last = quick ? ' ' + text + '_DONE' : ' RESUMED_REPLY_DONE';
+    const chunks = quick ? 20 : 60;
     let sent = 0;
     const chunk = () => {
-      if (sent++ < 60) {
-        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: sent === 1 ? 'RESUMED_REPLY' : ' streamed' } });
+      if (sent++ < chunks) {
+        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: sent === 1 ? first : ' streamed' } });
         return setTimeout(chunk, 100);
       }
-      update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: ' RESUMED_REPLY_DONE' } });
-      logStep('PLANNER_RESPONSE', 'MODEL', { content: 'RESUMED_REPLY' + ' streamed'.repeat(59) + ' RESUMED_REPLY_DONE' });
+      update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: last } });
+      logStep('PLANNER_RESPONSE', 'MODEL', { content: first + ' streamed'.repeat(chunks - 1) + last });
       reply(m.id, { stopReason: 'end_turn' });
     };
     return chunk();
@@ -444,5 +449,216 @@ test("resumes a long Antigravity conversation from the browser without replaying
   expect(holding("RESUMED_REPLY_DONE")).toBe(1);
   // Resume and every read served history without a replay.
   expect(await methods()).not.toContain("session/load");
+  await context.close();
+});
+
+test("keeps a long live Antigravity session whole while its turns move to the log", async ({
+  browser,
+}) => {
+  // Plan 195 step 6: each ended turn leaves the owner's memory for the log.
+  const viewport = { name: "desktop" as const, width: 1000, height: 600 };
+  const liveId = "a9a90000-0000-4000-8000-000000000197";
+  const { server, projectId } = await serve(liveId, { resumable: true });
+  const context = await browser.newContext({
+    serviceWorkers: "block",
+    viewport,
+  });
+  const page = await context.newPage();
+  // Every catch-up the client makes, and whether it was answered as a
+  // replacement window (with pagination) instead of incrementally.
+  const catchUps: Array<{ after: string; replaced: boolean }> = [];
+  const olderPages: Array<{ messages: Array<{ uuid: string }> }> = [];
+  page.on("response", async (response) => {
+    const url = new URL(response.url());
+    if (!url.pathname.endsWith(`/sessions/${liveId}`)) return;
+    if (url.searchParams.has("beforeMessageId"))
+      olderPages.push(await response.json());
+    const after = url.searchParams.get("afterMessageId");
+    if (after)
+      catchUps.push({
+        after,
+        replaced: Boolean((await response.json()).pagination),
+      });
+  });
+  await page.goto(`${server.baseUrl}/projects/${projectId}/sessions/${liveId}`);
+  const main = page.getByRole("main");
+  await expect(main.getByText(/TURN_\d+_REPLY/).first()).toBeAttached({
+    timeout: 20_000,
+  });
+  const detail = async () => {
+    const response = await page.request.get(
+      `${server.baseUrl}/api/projects/${projectId}/sessions/${liveId}`,
+      { headers: { "X-Yep-Anywhere": "true" } },
+    );
+    return (await response.json()) as {
+      messages: Array<{ uuid: string; message?: { content?: unknown } }>;
+    };
+  };
+  const finished = (turn: number) =>
+    expect
+      .poll(
+        async () =>
+          JSON.stringify((await detail()).messages).includes(
+            `QUICK_TURN_${turn}_DONE`,
+          ),
+        { timeout: 20_000 },
+      )
+      .toBe(true);
+
+  // The first turn resumes the conversation from the composer.
+  const composer = page.locator("[data-composer-input]");
+  await composer.fill("QUICK_TURN_1");
+  await composer.press("Enter");
+  await finished(1);
+  await expect(main.getByText(/QUICK_TURN_1_DONE/)).toHaveCount(1, {
+    timeout: 20_000,
+  });
+
+  // Load one older page, then scroll up to a history row and remember
+  // where it sits.
+  const loadOlder = page.locator("[data-load-older-messages]");
+  await loadOlder.getByRole("button").scrollIntoViewIfNeeded();
+  await loadOlder.getByRole("button").click();
+  await expect(loadOlder.locator('[aria-busy="true"]')).toHaveCount(0, {
+    timeout: 20_000,
+  });
+  expect(olderPages.length).toBeGreaterThanOrEqual(1);
+  // The earliest prompt row on screen, which the older page brought in.
+  const list = page.locator("[data-message-list]");
+  const anchor = list.getByText(/^TURN_\d+_PROMPT\b/).first();
+  const olderMarker = (await anchor.textContent())!.match(
+    /^TURN_\d+_PROMPT/,
+  )![0];
+  expect(JSON.stringify(olderPages)).toContain(olderMarker);
+  await anchor.scrollIntoViewIfNeeded();
+  // Where the row sits once rendering above it has settled.
+  const settledY = async () => {
+    let previous = Number.NaN;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const y = (await anchor.boundingBox())!.y;
+      if (Math.abs(y - previous) < 1) return y;
+      previous = y;
+      await page.waitForTimeout(300);
+    }
+    return previous;
+  };
+  const before = await settledY();
+
+  // More turns, sent without the composer so the view stays scrolled up,
+  // with sequential typing while the second streams and the first moves.
+  const send = async (message: string) =>
+    expect(
+      (
+        await page.request.post(
+          `${server.baseUrl}/api/sessions/${liveId}/messages`,
+          {
+            headers: { "X-Yep-Anywhere": "true" },
+            data: { message },
+          },
+        )
+      ).status(),
+    ).toBe(200);
+  await send("QUICK_TURN_2");
+  await composer.focus();
+  await composer.evaluate((element) => {
+    const field = element as HTMLTextAreaElement & {
+      acks: { value: string; latency: number }[];
+    };
+    field.acks = [];
+    field.addEventListener("keydown", (event) =>
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          field.acks.push({
+            value: field.value,
+            latency: performance.now() - event.timeStamp,
+          }),
+        ),
+      ),
+    );
+  });
+  const prefixes: string[] = [];
+  let draft = "";
+  for (const character of "Typing while turns move to the log") {
+    draft += character;
+    await page.keyboard.type(character);
+    await expect(composer).toHaveValue(draft);
+    prefixes.push(draft);
+    await expect
+      .poll(() =>
+        composer.evaluate(
+          (element) =>
+            (
+              element as HTMLTextAreaElement & { acks: { value: string }[] }
+            ).acks.at(-1)?.value,
+        ),
+      )
+      .toBe(draft);
+  }
+  const acks = await composer.evaluate(
+    (element) =>
+      (
+        element as HTMLTextAreaElement & {
+          acks: { value: string; latency: number }[];
+        }
+      ).acks,
+  );
+  expect(acks.map((ack) => ack.value)).toEqual(prefixes);
+  const slowest = Math.max(...acks.map((ack) => ack.latency));
+  console.log(
+    `Antigravity live-memory typing (${viewport.name}): ${acks.length} keys while a turn streamed and moved, browser maximum ${slowest.toFixed(1)} ms`,
+  );
+  expect(slowest).toBeLessThan(100);
+  await finished(2);
+  await send("QUICK_TURN_3");
+  await finished(3);
+  // The owner moved each ended turn to the log.
+  await expect
+    .poll(
+      async () =>
+        (await detail()).messages
+          .filter((message) =>
+            JSON.stringify(message.message?.content ?? "").includes("QUICK_"),
+          )
+          .every((message) => message.uuid.includes(":step-")),
+      { timeout: 20_000 },
+    )
+    .toBe(true);
+  await expect(composer).toHaveValue(draft);
+
+  // Scrolled up, the history row did not move and the older page stayed.
+  expect(Math.abs((await settledY()) - before)).toBeLessThan(2);
+  await expect(
+    list.getByText(new RegExp(`^${olderMarker}\\b`)).first(),
+  ).toBeAttached();
+  // Every catch-up after the first turn was answered incrementally.
+  expect(catchUps.length).toBeGreaterThan(0);
+  expect(catchUps.filter((entry) => entry.replaced)).toEqual([]);
+
+  // At the bottom: every turn once.
+  await page
+    .getByRole("button", { name: "Follow latest session output" })
+    .click();
+  await expect(main.getByText(/QUICK_TURN_3_DONE/)).toBeVisible({
+    timeout: 10_000,
+  });
+  for (const turn of [1, 2, 3]) {
+    await expect(
+      main.getByText(`QUICK_TURN_${turn}`, { exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      main.getByText(new RegExp(`QUICK_TURN_${turn}_DONE`)),
+    ).toHaveCount(1);
+  }
+  await recordUiCapture(page, "antigravity-live-memory-desktop", viewport);
+
+  // A reload inside the late-join replay window shows each turn once too.
+  await page.reload();
+  await expect(main.getByText(/QUICK_TURN_3_DONE/)).toHaveCount(1, {
+    timeout: 20_000,
+  });
+  for (const turn of [1, 2, 3])
+    await expect(
+      main.getByText(`QUICK_TURN_${turn}`, { exact: true }),
+    ).toHaveCount(1);
   await context.close();
 });

@@ -935,6 +935,28 @@ earlier step final because steps only increase. The measurements make the
 first case the ordinary one; the second needs no timing. It keeps a copy of
 the turn it moved last, for catch-ups from clients that streamed it.
 
+### Retention after step 6
+
+The [step 2 harness](#live-session-retention), rerun 2026-11-23 on `agy`
+1.5.13 and Node 24.22.1, 600 turns, twice. It now waits (at most two
+seconds) for each turn to move before sampling, and also counts the copy
+of the turn moved last that the owner keeps for clients that streamed it:
+
+| Turns 150 → 600 | Heap samples after GC | Sampled growth | Projection at idle → after the move | Moved copy |
+| --- | --- | ---: | --- | --- |
+| Run 1 | 74.09 → 74.91 MB | +0.823 MB | 2 → 0 messages, every sample | 2 messages, 4,623 bytes, every sample |
+| Run 2 | 74.10 → 74.92 MB | +0.814 MB | 2 → 0 messages, every sample | 2 messages, 4,623 bytes, every sample |
+
+Both bars hold. The projection's count and bytes do not depend on the
+turn count (none once a turn moves; the copy is one turn), against the
+linear 4,622 bytes a turn of step 2. Heap grew under 1 MB in both runs
+(+2.8 to +3.1 MB before). Two earlier runs of this step's first version,
+whose side tables were larger (1,024 aliases, 4,096 retired IDs, a
+120-second replay-retirement window), grew +1.005 and +1.008 MB while
+those tables filled; they are now 128, 256 and 60 seconds. The samples
+still rise a little between turn 150 and 600 (0.4 MB in the first
+interval); Codex's step 2 samples moved within 3 MB with no trend.
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
