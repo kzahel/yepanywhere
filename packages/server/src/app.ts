@@ -20,7 +20,6 @@ import {
   isUrlProjectId,
   parseNativeSessionId,
   nativeSessionFamily,
-  nativeSessionRef,
   parseYaSessionId,
   type NativeSessionRef,
 } from "@yep-anywhere/shared";
@@ -108,7 +107,6 @@ import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type {
   ProviderName,
   SafeRestartPreservedWork,
-  UrlProjectId,
 } from "@yep-anywhere/shared";
 import {
   DEFAULT_CLEARLOOP_INACTIVITY_SECONDS,
@@ -129,7 +127,7 @@ import {
 } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import { compress } from "hono/compress";
-import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { realpath } from "node:fs/promises";
 import { hashProjectPath } from "./projects/gemini-project-map.js";
 import type { AuthService } from "./auth/AuthService.js";
@@ -212,7 +210,6 @@ import {
   GROK_SESSIONS_DIR,
   PI_SESSIONS_DIR,
   decodeProjectId,
-  readCwdFromSessionFile,
   getProjectName,
   getProjectIdentityKey,
   type ProjectDisplayNameResolver,
@@ -278,8 +275,6 @@ import {
   RetainedSessionCollections,
 } from "./services/RetainedSessionCollections.js";
 import { createCollectionCatalogAdapters } from "./sessions/catalog-adapters/collection-catalog-adapters.js";
-import { readClaudeCatalogHead } from "./sessions/claude-summary.js";
-import { readCodexRolloutMetadata } from "./sessions/codex-discovery.js";
 import {
   metadataForNativeCatalogRow,
   projectCatalogIdentities,
@@ -444,6 +439,7 @@ import type {
   ISessionReader,
 } from "./sessions/types.js";
 import { ExternalSessionTracker } from "./supervisor/ExternalSessionTracker.js";
+import { createObservedSessionResolver } from "./supervisor/observed-native-session.js";
 import { Supervisor } from "./supervisor/Supervisor.js";
 import type { Project } from "./supervisor/types.js";
 import {
@@ -2781,110 +2777,13 @@ export function createApp(options: AppOptions): AppResult {
           supervisor,
           scanner,
           projectDisplayName,
-          resolveObservedSession: async (event, signal) => {
-            if (event.provider !== "claude" && event.provider !== "codex")
-              return undefined;
-            if (event.fileType !== "session" || event.changeType === "delete")
-              return null;
-            const file = await realpath(event.path).catch(() => null);
-            if (!file || signal.aborted) return null;
-            const scope =
-              event.provider === "claude"
-                ? dirname(file)
-                : await realpath(
-                    event.nativeStorageScope ?? codexSessionsDir,
-                  ).catch(() => null);
-            if (!scope || signal.aborted) return null;
-            if (event.provider === "codex") {
-              const suffix = relative(scope, file);
-              if (
-                !suffix ||
-                suffix === ".." ||
-                suffix.startsWith(`..${sep}`) ||
-                isAbsolute(suffix)
-              )
-                return null;
-            }
-            const meta =
-              event.provider === "codex"
-                ? await readCodexRolloutMetadata({
-                    sessionsDir: scope,
-                    filePath: file,
-                    discoveryIndex: getCodexDiscoveryIndex(scope),
-                  })
-                : undefined;
-            if (event.provider === "codex" && (!meta || meta.isSubagent))
-              return null;
-            const filename = basename(file);
-            const nativeId =
-              meta?.id ??
-              (filename.endsWith(".jsonl") && !filename.startsWith("agent-")
-                ? filename.slice(0, -6)
-                : undefined);
-            if (!nativeId || !isYaSessionId(nativeId) || signal.aborted)
-              return null;
-            const native = nativeSessionRef(
-              event.provider,
-              scope,
-              parseNativeSessionId(nativeId),
-            );
-            const identities = options.sessionMetadataService?.identities;
-            if (!identities) return undefined;
-            let identity = identities.lookupNative(native);
-            if (!identity && !identities.canDiscoverNative(native)) return null;
-            let discoveredProjectId: UrlProjectId | undefined;
-            if (!identity) {
-              if (identities.resolveYa(parseYaSessionId(nativeId))) return null;
-              // Explicit native discovery, using bounded physical source
-              // evidence before a legacy public id can enter ownership joins.
-              const cwd = meta?.cwd ?? (await readCwdFromSessionFile(file));
-              if (!cwd || !isAbsolute(cwd) || signal.aborted) return null;
-              discoveredProjectId = toUrlProjectId(cwd);
-            }
-            const project = await scanner.getOrCreateProject(
-              identity?.projectId ?? discoveredProjectId!,
-            );
-            if (!project || signal.aborted) return null;
-            const reader = readerFactory(
-              { ...project, provider: identity?.provider ?? event.provider },
-              native,
-            );
-            if (
-              reader.observeNativeSessionFile &&
-              !(await reader.observeNativeSessionFile(native, file, signal))
-            )
-              return null;
-            if (signal.aborted) return null;
-            const selectedFile = await reader.getSessionFilePath?.(native.id);
-            if (signal.aborted || !selectedFile) return null;
-            const selectedPath = await realpath(selectedFile).catch(() => null);
-            if (signal.aborted || selectedPath !== file) return null;
-            if (!identity) {
-              const createdAt =
-                meta?.timestamp ??
-                (await readClaudeCatalogHead(file)).createdAt ??
-                event.timestamp;
-              if (signal.aborted) return null;
-              identity = identities.adoptDiscoveredBatch([
-                {
-                  native,
-                  provider: event.provider,
-                  legacyProvider:
-                    options.sessionMetadataService?.getProvider(nativeId),
-                  projectId: project.id,
-                  createdAt,
-                },
-              ])[0];
-              if (!identity) return null;
-            }
-            return {
-              sessionId: identity.sessionId,
-              provider: identity.provider,
-              projectId:
-                options.sessionMetadataService?.getMetadata(identity.sessionId)
-                  ?.workingProjectId ?? identity.projectId,
-            };
-          },
+          resolveObservedSession: createObservedSessionResolver({
+            sessionMetadataService: options.sessionMetadataService,
+            scanner,
+            readerFactory,
+            codexSessionsDir,
+            getCodexDiscoveryIndex,
+          }),
           decayMs: 30000, // 30 seconds
           // Callback to get session summary for new external sessions
           // projectId is now UrlProjectId (base64url) - ExternalSessionTracker converts it
