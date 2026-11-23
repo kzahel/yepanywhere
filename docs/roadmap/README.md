@@ -1415,7 +1415,9 @@ API-created-session defaults remain deferred. Since 2026-11-08
 ([plan 183](../tactical/183-launch-paths-respect-router-selection.md)),
 Project Queue, templates, the composer's New session, Agent API children of
 routed sessions and Source Review sessions carry the pool or account, or
-refuse; none falls back to the direct login. Since 2026-11-08
+refuse; none falls back to the direct login. Since 2026-11-23,
+[v0 creation](../../topics/http-api-v0.md#launch-selection-and-effective-configuration--2026-11-12)
+also supports an explicit Direct choice. Since 2026-11-08
 ([plan 185](../tactical/185-switch-session-router-account.md)) the session
 header's account chip moves an existing session to another pool account or
 to Direct (no automatic failover). YA respects router-owned pool grants and exposes read-only

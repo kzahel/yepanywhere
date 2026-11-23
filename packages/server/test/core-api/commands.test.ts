@@ -216,9 +216,10 @@ it.skipIf(process.platform === "win32")(
         read.environment.AGENT_YA_V0_AUTHORIZATION!,
       );
       expect(access.body.operations).not.toContain("createSession");
+      const direct = { ...body, routing: "direct" };
       const [first, retry] = await Promise.all([
-        http(runtime, path, token, body),
-        http(runtime, path, token, body),
+        http(runtime, path, token, direct),
+        http(runtime, path, token, direct),
       ]);
       expect(first.status).toBe(202);
       expect(retry.status).toBe(202);
@@ -231,9 +232,24 @@ it.skipIf(process.platform === "win32")(
         principal: { kind: "superuser" },
       });
       expect(
-        (await http(runtime, path, token, { ...body, prompt: "different" }))
+        (await http(runtime, path, token, { ...direct, prompt: "different" }))
           .status,
       ).toBe(409);
+      expect(await http(runtime, path, token, body)).toMatchObject({
+        status: 409,
+        body: { error: { code: "request_id_conflict" } },
+      });
+      expect(
+        await http(runtime, path, token, {
+          ...direct,
+          requestId: "direct-with-pool",
+          routerPoolId: "pool",
+          model: "routed-model",
+        }),
+      ).toMatchObject({
+        status: 400,
+        body: { error: { code: "invalid_request" } },
+      });
       expect(
         (
           await http(runtime, path, token, {

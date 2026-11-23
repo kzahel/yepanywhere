@@ -414,10 +414,12 @@ an isolation boundary against that user's own local files.
   session) gets a fresh policy pick from the source binding's pool with its
   policy (a Manual pool pin names its account), or the source's explicit
   account through a new pin; it never shares the source's allocation or
-  token. Such a derived session on another provider is refused for the
-  Agent API and Source Review; the composer starts it Direct only when the
-  user explicitly picks another provider. Older servers that would drop the
-  selection are refused client-side.
+  token. When switching providers, the Agent API requires an explicit pool,
+  account, or `routing: "direct"` (see [v0 launch selection](http-api-v0.md#launch-selection-and-effective-configuration--2026-11-12)).
+  Direct is also available explicitly for same-provider Agent API launches.
+  Source Review refuses a provider switch. The composer starts it Direct when
+  the user explicitly picks another provider. Older servers that would drop
+  the selection are refused client-side.
 - Restart/handoff, fork with summary and YA recap/title helper sessions
   are refused for routed sessions in this slice,
   because they start a fresh session, or call the provider directly as the

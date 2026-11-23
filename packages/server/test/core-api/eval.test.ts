@@ -366,6 +366,7 @@ it("discovers, creates and verifies a routed worker through the private HTTP ada
     expect(help.status).toBe(200);
     expect(help.body).toContain("/v0/schema?operation=createSession");
     expect(help.body).toContain("| `selection` | GET |");
+    expect(help.body).toContain('"routing":"direct"');
     // The prior shipped help was 15,884 UTF-8 bytes (same bootstrap).
     // Keep discovery below that observed baseline, including the new index.
     expect(Buffer.byteLength(help.body)).toBeLessThan(15884);
@@ -384,6 +385,7 @@ it("discovers, creates and verifies a routed worker through the private HTTP ada
         "application/json"
       ].schema.properties;
     expect(properties.routerPoolId).toBeDefined();
+    expect(properties.routing).toMatchObject({ const: "direct" });
     const root = "/v0/servers/self";
     const choices = JSON.parse(
       (await read(fixture.environment, `${root}/selection?provider=codex`))

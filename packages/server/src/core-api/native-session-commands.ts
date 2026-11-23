@@ -37,10 +37,6 @@ export function nativeSessionCommandOwner(
     approvalAuditEnabled?: () => boolean;
     globalInstructions: () => string | undefined;
     creations?: SessionCreationStore;
-    /**
-     * The calling session's router pin and model, so a child of a routed
-     * session runs on the router rather than the owner's direct login.
-     */
     callerLaunch?: (
       sessionId: string,
     ) => { routerBinding?: RouterBindingRef; model?: string } | undefined;
@@ -242,19 +238,28 @@ export function nativeSessionCommandOwner(
           ? undefined
           : (receipt.creator.sessionId ?? undefined);
       const caller = callerId ? deps.callerLaunch?.(callerId) : undefined;
-      // A routed caller's child gets a fresh pick from the caller's pool, or
-      // its explicit account through a new pin (plan 183); never Direct.
       const explicitRouter = Boolean(
         request.routerPoolId || request.routerAccountId,
       );
-      const routed = explicitRouter ? undefined : caller?.routerBinding;
+      const routed =
+        explicitRouter || request.routing === "direct"
+          ? undefined
+          : caller?.routerBinding;
       let model = request.model === "default" ? undefined : request.model;
       if (routed) {
-        if (routed.provider !== request.provider)
+        if (routed.provider !== request.provider) {
+          const binding = routed.poolName
+            ? `The caller uses the "${routed.poolName}" pool for ${routed.provider}.`
+            : `The caller has a ${routed.provider} router binding.`;
+          const routerOption =
+            request.provider === "antigravity"
+              ? ""
+              : ` To use the router, specify a ${request.provider} pool (routerPoolId) or account (routerAccountId) and a model.`;
           return {
             rejected: true,
-            message: `This session runs on an Agent Auth Router ${routed.provider} account, so it can start only ${routed.provider} sessions, which use the same router pool or account.`,
+            message: `${binding} To start ${request.provider}, set routing to "direct".${routerOption}`,
           };
+        }
         model ??= caller?.model;
         if (!model)
           return {

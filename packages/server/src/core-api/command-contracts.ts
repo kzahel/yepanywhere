@@ -37,7 +37,7 @@ export const createSessionRequest = z
       .max(256)
       .optional()
       .describe(
-        "Native/YA model selector; omitted or default uses the harness default. Required with routerPoolId or routerAccountId: name a model id from that selection's catalog. No installation or protocol upgrade is performed.",
+        "Omit to use the direct provider default or the inherited router binding's model. With routerPoolId or routerAccountId, supply a model id from that selection's catalog.",
       ),
     thinking: z
       .enum([
@@ -63,6 +63,12 @@ export const createSessionRequest = z
       .default("default")
       .describe("Native permission mode, explicit bypass only when requested."),
     serviceTier: z.string().min(1).max(128).optional(),
+    routing: z
+      .literal("direct")
+      .optional()
+      .describe(
+        "Use the requested provider's direct login on the target server and skip caller routing inheritance. Cannot be combined with routerPoolId, routerAccountId, routerPolicy or routerClaudeAiConnectors.",
+      ),
     routerPoolId: z
       .string()
       .min(1)
@@ -88,6 +94,15 @@ export const createSessionRequest = z
     routerClaudeAiConnectors: z.boolean().optional(),
   })
   .strict()
+  .refine(
+    (body) =>
+      body.routing !== "direct" ||
+      (body.routerPoolId === undefined &&
+        body.routerAccountId === undefined &&
+        body.routerPolicy === undefined &&
+        body.routerClaudeAiConnectors === undefined),
+    "Direct routing cannot be combined with router fields",
+  )
   .refine(
     (body) => !body.routerPolicy || !!body.routerPoolId,
     "routerPolicy requires routerPoolId",

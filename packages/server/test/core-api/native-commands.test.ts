@@ -524,7 +524,7 @@ it("preserves batched input identities, rejects false push evidence, and tears d
   }
 });
 
-it("starts a routed caller's child on the caller's pool or account, never Direct", async () => {
+it("inherits routing by default and honors explicit pool and Direct choices", async () => {
   const database = openSqliteOrThrow(":memory:");
   migrateDiscoveryDatabase(database);
   const store = new ApiReceiptStore(database);
@@ -549,6 +549,7 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
               accountId: "acct",
               provider: "claude",
               poolId: "pool",
+              poolName: "Work-claude",
               policy: "weekly-pace",
             },
           }
@@ -599,7 +600,9 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
       state: "failed",
       failure: {
         code: "admission_rejected",
-        message: expect.stringContaining("can start only claude sessions"),
+        message: expect.stringContaining(
+          'The caller uses the "Work-claude" pool for claude. To start codex, set routing to "direct".',
+        ),
       },
     });
     expect(startSession).toHaveBeenCalledTimes(1);
@@ -659,6 +662,20 @@ it("starts a routed caller's child on the caller's pool or account, never Direct
       },
     });
     expect(startSession).toHaveBeenCalledTimes(2);
+    for (const provider of ["claude", "codex"] as const) {
+      expect(
+        await create(`direct-${provider}`, provider, { routing: "direct" }),
+      ).toMatchObject({ state: "accepted" });
+      const settings = startSession.mock.lastCall![3];
+      expect(settings).toMatchObject({
+        providerName: provider,
+        model: undefined,
+      });
+      expect(settings).not.toHaveProperty("routerPoolId");
+      expect(settings).not.toHaveProperty("routerAccountId");
+      expect(settings).not.toHaveProperty("routerPolicy");
+    }
+    expect(startSession).toHaveBeenCalledTimes(4);
   } finally {
     store.close();
     database.close();

@@ -43,7 +43,7 @@ direction/type filters; no stable release contains that intermediate contract.
 Callers needing those filters against arbitrary source builds must validate
 returned predicates/directions or consult the generated query schema.
 
-- `/v0` returns public server id, current revision `2026-11-13.1`, unstable status and
+- `/v0` returns the public server id, API revision, unstable status and
   discovery links. The documentation slice adds Markdown
   help at `/v0/help`, links help/me/schema from discovery, and generates field
   descriptions, operation semantics and example requests alongside OpenAPI.
@@ -160,8 +160,8 @@ A session created by a session routed through the
 [Agent Auth Router](agent-auth-router.md) runs on the caller's pool (a fresh
 pick with the caller's policy) or explicit account (a new pin), with the
 caller's model when the request names none; another provider is refused with
-`admission_rejected` and the reason. It never falls back to the owner's
-direct login (plan 183).
+`admission_rejected` unless the request explicitly chooses that provider's pool,
+account, or Direct login. See [launch selection](#launch-selection-and-effective-configuration--2026-11-12).
 Scheduling remains valuable separate work under [Yacron](yacron.md), using the
 same supported session operations when implemented.
 
@@ -1171,11 +1171,20 @@ to discovery implicitly.
   target is refused the same way, naming the path, since the catalog keeps a
   project while its transcripts remain. Explicit selection takes precedence
   over caller inheritance and may deliberately select another provider's
-  routed pool. Without explicit selection, a local routed caller retains its
-  pool/policy or explicit account, with its model when omitted; a provider
-  mismatch is refused. Thinking, tier and permission mode remain explicit
-  request controls, not implicitly inherited. Retry hashing includes all
-  selection fields, and no receipt or API-input semantics change.
+  routed pool or account. Without explicit selection, a local routed caller
+  retains its pool/policy or explicit account on the same provider, with its
+  model when omitted. A provider mismatch fails with `admission_rejected` and
+  tells the caller how to choose routing for the requested provider. Launches
+  without a local router binding use Direct when no routing is specified. V0
+  creation ignores the UI's last-used pool. Thinking, tier and permission mode
+  remain explicit request controls. Retry hashing includes all selection fields.
+- Since revision `2026-11-23.1`, the create body accepts `routing: "direct"`.
+  It starts the requested provider using the target server's direct login for
+  either the same or a different provider. If `model` is omitted or `"default"`,
+  the provider chooses its default model. Combining Direct with any router
+  field returns `400 invalid_request`. A failed pool launch remains a failed
+  receipt. Callers can discover Direct creation in the target's `createSession`
+  schema and verify `routing.mode: "direct"` in established session detail.
 - Single-session detail additionally reports `settings` and `routing`; paged
   session summaries retain their compact shape. Settings `source` is `live`,
   `saved` or `unavailable`. Live values use the incumbent owner's last applied
