@@ -43,6 +43,11 @@ export class AntigravityBackground {
     return wasPending;
   }
 
+  /** Any task, schedule or child known running, or a wake not yet settled. */
+  get working(): boolean {
+    return this.active.size > 0 || this.hasUnsettledRoot();
+  }
+
   hasUnsettledRoot(): boolean {
     const reply = this.root?.snapshot;
     return !!reply && reply.status !== "settled";

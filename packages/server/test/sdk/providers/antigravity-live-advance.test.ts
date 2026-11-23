@@ -81,7 +81,7 @@ async function candidate(): Promise<AntigravitySplitCandidate> {
   const sampler = new AntigravitySplitSampler(scope, ID);
   sampler.prepare();
   await vi.waitFor(() => expect(sampler.sample(1)).toBeDefined());
-  return sampler.sample(1)!;
+  return sampler.sample(1) as AntigravitySplitCandidate;
 }
 const check = (
   taken: AntigravitySplitCandidate,
@@ -119,6 +119,44 @@ describe("proving an Antigravity split candidate", () => {
     const taken = { seq: 1, size: 0, at: 0 };
     await writeFile(log, input(0, "First"));
     expect(await check(taken)).toEqual(EMPTY_ANTIGRAVITY_LOG);
+  });
+
+  // Plan 195 step 7: the proof assumes one writer.
+  it("reports another writer when the log grew after the owner's idle point, later than the settle after its last frame and with nothing of its own running", async () => {
+    await writeFile(log, input(0, "First") + reply(1, "One"));
+    const sampler = new AntigravitySplitSampler(scope, ID);
+    sampler.prepare();
+    await vi.waitFor(() => expect(sampler.sample(1)).toBeDefined());
+    let step = 2;
+    const append = () =>
+      appendFile(log, input(step, "Outside") + reply(step + 1, "Done")).then(
+        () => {
+          step += 2;
+        },
+      );
+    const idle = async () => {
+      sampler.settle();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    };
+    const quietLongAgo = () => Date.now() - 10_000;
+    await idle();
+    expect(sampler.sample(2, quietLongAgo())).toMatchObject({ seq: 2 });
+    await idle();
+    await append();
+    expect(sampler.sample(3, quietLongAgo())).toBe("foreign");
+    // Not another writer: a record its agy wrote just after its last frame,
+    await idle();
+    await append();
+    expect(sampler.sample(4, Date.now())).toMatchObject({ seq: 4 });
+    // its own work running (no quiet time),
+    await idle();
+    await append();
+    expect(sampler.sample(5)).toMatchObject({ seq: 5 });
+    // or a wake since the idle point.
+    await idle();
+    sampler.unsettle();
+    await append();
+    expect(sampler.sample(6, quietLongAgo())).toMatchObject({ seq: 6 });
   });
 
   // Each of these moved rows on the scanner, or is new with the stat proof.
@@ -490,6 +528,32 @@ describe("a live Antigravity window", () => {
     add(4, 1_000);
     live.record(row("r4", "Four"));
     expect(checked).toHaveLength(1);
+  });
+
+  // Plan 195 step 7: the proof assumes one writer.
+  it("drops every candidate when another writer is seen, discards a check under way, and moves at a later prompt", async () => {
+    const { live, clock, checked, results, add, settle } = projection();
+    for (const id of ["p1", "r1", "p2", "r2"]) live.record(row(id, id));
+    add(0, 0);
+    add(2, 1_000);
+    clock.now = 40_000;
+    live.record(row("r3", "Three"));
+    expect(checked.map((c) => c.seq)).toEqual([2]);
+    live.foreignWrite();
+    results[0]!({ step: 1, end: 100 });
+    await settle();
+    expect(live.boundary).toEqual(EMPTY_ANTIGRAVITY_LOG);
+    live.record(row("r4", "Four"));
+    expect(checked).toHaveLength(1);
+    add(live.seq, 40_000);
+    live.record(row("p5", "Five", "user"));
+    clock.now = 80_000;
+    live.record(row("r5", "Five done"));
+    expect(checked.map((c) => c.seq)).toEqual([2, 6]);
+    results[1]!({ step: 9, end: 900 });
+    await settle();
+    expect(live.boundary).toEqual({ step: 9, end: 900 });
+    expect(live.history().map((m) => m.uuid)).toEqual(["p5", "r5"]);
   });
 
   it("caps the rows, never recreates an evicted row, and keeps the title", () => {

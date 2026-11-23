@@ -214,6 +214,17 @@ while original transcript projects and physical paths continue to address native
 history. This changes identity joins, not the evidence threshold for external
 ownership or the read-only nature of foreign processes.
 
+Antigravity conversations live in SQLite databases beside a text log, so
+their evidence is the conversation's own database and non-empty WAL from the
+provider-root watcher, plus its log from an open page's focused watch, which
+the tracker observes once per change whatever the number of subscribers. The
+store-wide summaries index, empty sidecars any SQLite open creates, and
+writes YA's own `agy` made (judged by file modification time against when its
+owner last exchanged a frame or let go) are not evidence. A write by another
+program to a conversation YA's process owns leaves it `self` and only stops
+that owner's history moves; see
+[Antigravity's contract](antigravity.md#another-writer).
+
 Native source work is coalesced and bounded before acquisition. Overflow does
 not manufacture an ownership transition. Observer disposal cancels resolution,
 queued work and publication; a delayed native head cannot adopt a session after

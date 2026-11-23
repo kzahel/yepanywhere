@@ -866,9 +866,10 @@ after a nearby WAL event. On stop, `agy` wrote the database (393,216 →
 425,984 bytes), emptied and removed the WAL, and wrote the summaries index.
 The samples do not show that a browser received the refresh, and an
 earlier observation of a stale page on a shared server is still
-unexplained. A log append with no later database write would not be
-observed
-([gap](../gaps/antigravity-log-only-append-not-observed.md)).
+unexplained. Since plan 195 step 7 an open page's focused watch follows the
+log itself, so a log append with no database write refreshes it too; on
+macOS the root watcher sees another process's WAL writes only when it
+closes the file ([writers](#writers--plan-195-step-7)).
 
 ## Resuming from the log — plan 195 step 5
 
@@ -1072,6 +1073,68 @@ so the window can exceed the 2 MiB budget by what arrives in that time,
 or indefinitely when no candidate proves; the 8 MiB cap bounds the stored
 rows, apart from the one block still streaming.
 
+## Writers — plan 195 step 7
+
+What each writer changes, and when, measured 2026-11-23 with
+[`antigravity-writer-probe.mjs`](../scripts/perf-repro/antigravity-writer-probe.mjs)
+(run from `packages/server`, same profile and scripted model as the step 2
+probe; one run each on `agy` 1.5.13 and 1.5.14, Node 24.22.1, macOS arm64,
+polling each file's size, modification time and inode every millisecond):
+
+```bash
+pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-writer-probe.mjs [--agy <path>] [--out <report.json>]
+```
+
+The two versions changed the same files at the same points:
+
+| Phase | The conversation's files | Elsewhere |
+| --- | --- | --- |
+| A turn (plain, tools, steer, Stop, `/compact`, a wake) | Each log append is followed within about 2 ms by its WAL growing (to hundreds of KB to MB) | The summaries index's WAL about 0.4 to 1 s after the turn |
+| Idle, 3 to 6 s after a turn or a wake | Nothing | The summaries index's WAL once, as above |
+| A background task's wake, after the turn | The task-end record and its WAL write about 0.5 s after the turn's result, before any ACP output | — |
+| Close (`agy` exiting, as Stop of the owner, idle teardown and reload do) | The database checkpointed (modified), the WAL and shared memory deleted, all within 3 ms of the close starting and before the process exited | The summaries index modified, its sidecars deleted |
+| After exit, 5 s | Nothing | Nothing |
+| `session/resume` or `session/load`, no prompt, then close | A 0-byte WAL and the shared memory created (1.5.14 creates and deletes them twice), deleted at close; the database unchanged | The summaries index's WAL created and written, then the index modified at close |
+| A turn in another conversation | Nothing | That conversation's files and the summaries index |
+| Another `agy` resumes a conversation one owner holds and takes turns | The same WAL grows for both; both turns succeed | — |
+
+So a write to one conversation shows in its own database (written at a
+checkpoint, which every writer's close makes) and its WAL growing past
+empty. A 0-byte WAL and the shared memory come from any SQLite open,
+`agy`'s resume and load included, and the summaries index changes for
+every conversation's writer, so neither identifies one conversation's
+writer. Every turn's log append came with a WAL write, so for `agy` the
+database and WAL are enough evidence of a writer; another program that
+appends to the log alone is seen only by the log's own observation.
+
+**Two processes on one conversation.** Both `agy` processes accept turns,
+and each numbers steps from its own counter: the log held steps 21 to 23
+from the second process, then 21 to 23 again from the first (both
+versions). A log whose `step_index` does not increase is unknown to YA's
+reader from that record on, so its pages there fall back to ACP replay once
+no owner holds the conversation, and a live owner's split check cannot
+read a span across it.
+
+**What the watcher sees, by platform.** On macOS, Node's `fs.watch` (the
+provider-root watcher, recursive or not) reported writes into a file
+another process holds open only when that process closed it: a test writer
+appending to a held file every 500 ms for 4 s produced one event, at close.
+In the native cases an outside `agy`'s WAL growth during a turn produced its
+event 5.7 s later in one run and none within 20 s in others, while its
+exit's checkpoint produced one at once.
+Linux's inotify reports each write. So YA observes another writer of a
+conversation that is not open in a client when it writes (Linux) or when
+it closes or checkpoints (macOS); an open conversation's log is polled by
+its focused watch on every platform. The delays are measurements on one
+host, not a guarantee.
+
+**How long YA's own writes last.** Every write of a closing owner finished
+before its process exited, and a wake's last record came within about
+20 ms of its last ACP update (step 6). YA's attribution keys on each
+file's modification time against when its owner last exchanged a frame
+or let go, not on when the watcher reported it
+([provider contract](antigravity.md#another-writer)).
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
@@ -1095,6 +1158,8 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
 | `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | Whether a resume can use `session/resume`, and its resume point: the latest page must read as known, and its last record is the boundary ([step 5](#resuming-from-the-log--plan-195-step-5)). |
 | [Split check](../packages/server/src/sdk/providers/antigravity-live-advance.ts) | `transcript_full.jsonl` | A live owner's stat at a prompt and, when it needs a move, bounded reads at that offset and the retired span's pages that prove a split point ([step 6](#live-memory--plan-195-step-6)). |
+| [Writer evidence](../packages/server/src/sessions/antigravity-writer-evidence.ts) | `conversations/<id>.db` and `-wal` file facts from the watcher; `transcript_full.jsonl` size and time from an open page's focused watch | Whether another program wrote a conversation ([step 7](#writers--plan-195-step-7)). Never opens the database or reads the log's content. |
+| Split check, at idle points | `transcript_full.jsonl` | One asynchronous stat at each turn's result or command's end, compared with the stat at the next turn's first prompt: growth with nothing of the owner's own running is another writer ([step 7](#writers--plan-195-step-7)). |
 | `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay, or a fallback resume, must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
@@ -1169,7 +1234,9 @@ The existing readers follow these constraints, and a new reader should too:
 - What `agy` writes between the snapshot moments of a load or resume.
 - Why two `ERROR_MESSAGE` steps on this host were not logged, when a cancel's
   is.
-- Whether a load beside a live owner writes the conversation's files.
+- Whether a load beside a live owner writes the conversation's files. A
+  second `agy` resuming and prompting beside one does write them, with
+  colliding step indexes ([writers](#writers--plan-195-step-7)).
 - What `presence/<id>.lock` means. The one file observed was empty and
   dated 2026-11-03, although conversations had run since.
 - What the full-text index's step byte offsets address.

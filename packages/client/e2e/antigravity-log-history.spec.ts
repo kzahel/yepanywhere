@@ -310,6 +310,77 @@ for (const viewport of [
   });
 }
 
+// Plan 195 step 7: another program appends a turn to a stopped
+// conversation open in the browser. Only the log changes, which the open
+// page's focused watch observes: the page shows the new rows and the
+// external-session banner.
+test("shows another program's append to an open stopped conversation, with the external-session banner", async ({
+  browser,
+}) => {
+  const appendedId = "a9a90000-0000-4000-8000-000000000197";
+  const { server, projectId, store, nextStep } = await serve(appendedId);
+  for (const viewport of [
+    { name: "desktop" as const, width: 1000, height: 600 },
+    { name: "phone" as const, width: 375, height: 812 },
+  ]) {
+    const context = await browser.newContext({
+      serviceWorkers: "block",
+      viewport,
+    });
+    const page = await context.newPage();
+    await page.goto(
+      `${server.baseUrl}/projects/${projectId}/sessions/${appendedId}`,
+    );
+    const main = page.getByRole("main");
+    await expect(main.getByText(/TURN_\d+_REPLY/).first()).toBeAttached({
+      timeout: 20_000,
+    });
+    if (viewport.name === "desktop") {
+      await expect(page.getByText(/External session active/)).toHaveCount(0);
+      const step = nextStep;
+      await appendFile(
+        join(
+          store,
+          "brain",
+          appendedId,
+          ".system_generated",
+          "logs",
+          "transcript_full.jsonl",
+        ),
+        [
+          {
+            type: "USER_INPUT",
+            source: "USER_EXPLICIT",
+            content: "<USER_REQUEST>\nOUTSIDE_PROMPT\n</USER_REQUEST>",
+          },
+          {
+            type: "PLANNER_RESPONSE",
+            source: "MODEL",
+            content: "OUTSIDE_REPLY",
+          },
+        ]
+          .map(
+            (record, index) =>
+              `${JSON.stringify({ step_index: step + index, source: record.source, type: record.type, status: "DONE", created_at: new Date().toISOString().replace(/\.\d+Z$/, "Z"), content: record.content })}\n`,
+          )
+          .join(""),
+      );
+    }
+    await expect(main.getByText("OUTSIDE_REPLY")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText(/External session active/)).toBeVisible({
+      timeout: 20_000,
+    });
+    await recordUiCapture(
+      page,
+      `antigravity-external-append-${viewport.name}`,
+      viewport,
+    );
+    await context.close();
+  }
+});
+
 test("resumes a long Antigravity conversation from the browser without replaying it", async ({
   browser,
 }) => {

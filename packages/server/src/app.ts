@@ -2758,6 +2758,7 @@ export function createApp(options: AppOptions): AppResult {
           supervisor,
           scanner,
           projectDisplayName,
+          focusedChanges: focusedSessionWatchManager,
           resolveObservedSession: createObservedSessionResolver({
             sessionMetadataService: options.sessionMetadataService,
             scanner,

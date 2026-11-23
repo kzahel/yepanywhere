@@ -11,6 +11,7 @@ import {
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import { readCwdFromSessionFile } from "../projects/paths.js";
 import type { ProjectScanner } from "../projects/scanner.js";
+import { resolveAntigravityObservedWrite } from "../sessions/antigravity-writer-evidence.js";
 import { readClaudeCatalogHead } from "../sessions/claude-summary.js";
 import { readCodexRolloutMetadata } from "../sessions/codex-discovery.js";
 import type { SessionReaderFactory } from "../sessions/types.js";
@@ -20,6 +21,7 @@ import type { ExternalSessionTrackerOptions } from "./ExternalSessionTracker.js"
  * Translates a native file event into the public session it belongs to,
  * before Supervisor ownership and external-decay joins
  * (topics/session-ownership.md#native-file-ingress-and-ya-ownership).
+ * Antigravity first tells YA's own `agy` writes from another program's.
  * `undefined` keeps the tracker's legacy path; `null` is not evidence.
  */
 export function createObservedSessionResolver(deps: {
@@ -35,6 +37,11 @@ export function createObservedSessionResolver(deps: {
     deps;
   const options = { sessionMetadataService: deps.sessionMetadataService };
   return async (event, signal) => {
+    if (event.provider === "antigravity")
+      return resolveAntigravityObservedWrite(event, signal, {
+        sessionMetadataService: deps.sessionMetadataService,
+        scanner,
+      });
     if (event.provider !== "claude" && event.provider !== "codex")
       return undefined;
     if (event.fileType !== "session" || event.changeType === "delete")

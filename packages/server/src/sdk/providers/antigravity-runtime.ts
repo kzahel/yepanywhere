@@ -242,6 +242,16 @@ export class AntigravityRuntime {
     signal: AbortSignal,
   ) => Promise<unknown>;
 
+  /** When a frame last crossed the pipe either way (`Date.now()`). */
+  lastActivityMs = 0;
+  /**
+   * Mid-exchange: a request awaits its answer, or the runtime is shutting
+   * down. What `agy` writes meanwhile is this owner's own work.
+   */
+  get busy(): boolean {
+    return this.stopped || this.pending.size > 0;
+  }
+
   get pid(): number | undefined {
     return this.child?.pid;
   }
@@ -360,10 +370,12 @@ export class AntigravityRuntime {
   private send(value: unknown): void {
     if (!this.alive || this.stopped)
       throw new Error("Antigravity runtime is unavailable");
+    this.lastActivityMs = Date.now();
     this.child!.stdin!.write(`${JSON.stringify(value)}\n`);
   }
 
   private receive(message: Record<string, unknown>): void {
+    this.lastActivityMs = Date.now();
     if (message.jsonrpc !== "2.0") {
       if (typeof message.method === "string" && isJsonRpcId(message.id))
         this.reject(message.id, -32600, "Invalid Request");

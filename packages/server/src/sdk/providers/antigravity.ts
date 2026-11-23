@@ -26,6 +26,7 @@ import type {
 import { agentApiEnvironmentFor } from "./types.js";
 import { startAgentSelfSession } from "./agent-self.js";
 import { nativeStorageScope } from "./native-storage-scope.js";
+import { getLogger } from "../../logging/logger.js";
 import {
   fallbackModelCatalog,
   liveModelCatalog,
@@ -100,6 +101,18 @@ interface AntigravityControls {
   onInterrupt?: () => void;
   onConsumerIdle?: () => void;
 }
+
+/**
+ * Session updates about state, not work: `agy` writes no log record for
+ * them (a title arrives as `session_info_update` after a turn).
+ */
+const PASSIVE_STATE_UPDATES = new Set([
+  "usage_update",
+  "available_commands_update",
+  "current_mode_update",
+  "config_option_update",
+  "session_info_update",
+]);
 
 export class AntigravityProvider implements AgentProvider {
   readonly name = "antigravity" as const;
@@ -670,6 +683,11 @@ export class AntigravityProvider implements AgentProvider {
         options.resumeSessionId || setup.sessionId,
       );
       owner ??= ownAntigravitySession(namespace.storageScope, id);
+      owner.attributeWrites({
+        // A turn or `/compact` is a prompt awaiting its answer.
+        busy: () => runtime.busy || background.working,
+        lastActivityMs: () => runtime.lastActivityMs,
+      });
       controls.id = id;
       controls.models = buildAntigravityModels(setup);
       let configOptions: AntigravityConfigOption[] = setup.configOptions ?? [];
@@ -848,7 +866,11 @@ export class AntigravityProvider implements AgentProvider {
       liveWindow = live;
       for (const message of replay ?? []) live.record(message);
       const sampler = new AntigravitySplitSampler(namespace.storageScope, id);
-      if (live.boundary) sampler.prepare();
+      if (live.boundary) {
+        sampler.prepare();
+        // The log as the resume left it, for telling another writer's appends.
+        sampler.settle();
+      }
       releaseStart?.();
       markReady();
       yield {
@@ -943,6 +965,7 @@ export class AntigravityProvider implements AgentProvider {
             error: "This Antigravity session does not advertise compaction",
           };
         compacting = true;
+        sampler.unsettle();
         try {
           const result = await compactAntigravity(
             runtime,
@@ -962,6 +985,7 @@ export class AntigravityProvider implements AgentProvider {
           return result;
         } finally {
           compacting = false;
+          sampler.settle();
           runtime.endingTurn();
           reconcileRoot();
           changed();
@@ -1012,6 +1036,9 @@ export class AntigravityProvider implements AgentProvider {
         } else if (!compacting) {
           // A detached wake has no prompt result in ACP. Publish each received
           // snapshot without inventing a foreground turn or completion.
+          // Detached work (a wake) writes the log: not another writer.
+          if (!PASSIVE_STATE_UPDATES.has(update.sessionUpdate))
+            sampler.unsettle();
           passiveTranscript ??= new AntigravityTranscript(
             id,
             `${id}:${randomUUID()}`,
@@ -1210,8 +1237,19 @@ export class AntigravityProvider implements AgentProvider {
           });
           // A turn's first prompt is sent only while idle: a split candidate.
           const candidate =
-            !steer && live.boundary ? sampler.sample(seq) : undefined;
-          if (candidate) live.addCandidate(candidate);
+            !steer && live.boundary
+              ? sampler.sample(
+                  seq,
+                  background.working ? undefined : runtime.lastActivityMs,
+                )
+              : undefined;
+          if (candidate === "foreign") {
+            live.foreignWrite();
+            getLogger().warn(
+              { event: "antigravity_foreign_write_while_owned", sessionId: id },
+              "Another program wrote an Antigravity conversation YA owns; its split candidates were dropped",
+            );
+          } else if (candidate) live.addCandidate(candidate);
           pending++;
           void runtime
             .call<{ usage?: unknown; stopReason?: string }>(
@@ -1313,6 +1351,7 @@ export class AntigravityProvider implements AgentProvider {
         }
         if (failure) throw failure;
         runtime.endingTurn();
+        sampler.settle();
         yield { type: "result", session_id: id, usage };
       }
     } catch (error) {

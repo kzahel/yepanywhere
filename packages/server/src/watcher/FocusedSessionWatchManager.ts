@@ -121,6 +121,10 @@ export class FocusedSessionWatchManager {
   private readonly directoryWatches = new Map<string, FocusedDirectoryWatch>();
   private nextSubscriberId = 1;
   private nextChangeVersion = 1;
+  /** Server-side observers of every target's changes (one per consumer). */
+  private readonly changeObservers = new Set<
+    (event: FocusedSessionWatchEvent) => void
+  >();
 
   constructor(options: FocusedSessionWatchManagerOptions) {
     this.scanner = options.scanner;
@@ -160,7 +164,19 @@ export class FocusedSessionWatchManager {
     };
   }
 
+  /**
+   * Observe each change once, whoever subscribed to the target. A target
+   * exists only while a client has its session open.
+   */
+  observeChanges(
+    observer: (event: FocusedSessionWatchEvent) => void,
+  ): () => void {
+    this.changeObservers.add(observer);
+    return () => this.changeObservers.delete(observer);
+  }
+
   dispose(): void {
+    this.changeObservers.clear();
     for (const target of this.targets.values()) {
       this.teardownTarget(target);
     }
@@ -480,7 +496,10 @@ export class FocusedSessionWatchManager {
         );
       }
 
-      for (const callback of target.subscribers.values()) {
+      for (const callback of [
+        ...this.changeObservers,
+        ...target.subscribers.values(),
+      ]) {
         try {
           callback(event);
         } catch (error) {

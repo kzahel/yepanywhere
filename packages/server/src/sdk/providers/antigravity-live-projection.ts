@@ -212,6 +212,8 @@ export class AntigravityLiveProjection {
    */
   private readonly pending = new WeakMap<AntigravitySplitCandidate, number>();
   private closed = false;
+  /** Bumped when another writer touched the conversation. */
+  private foreignWrites = 0;
   /** The conversation's first prompt, when this owner recorded it (bounded). */
   firstPrompt?: string;
   /** Bumped by every move and every eviction: readers compare it across a read. */
@@ -309,6 +311,17 @@ export class AntigravityLiveProjection {
     this.moveIfOver();
   }
 
+  /**
+   * Another writer changed the conversation while this owner was quiet
+   * (plan 195 step 7). The split proof assumes one writer, so every
+   * candidate taken so far is dropped and a check under way moves nothing;
+   * a later prompt gives a new one. The cap still bounds the rows.
+   */
+  foreignWrite(): void {
+    this.foreignWrites++;
+    this.candidates = [];
+  }
+
   /** No check or move from now on. */
   close(): void {
     this.closed = true;
@@ -333,13 +346,16 @@ export class AntigravityLiveProjection {
         candidate = entry;
     if (!candidate) return;
     const started = this.nextSeq;
+    const foreignWrites = this.foreignWrites;
     this.checking = true;
     void this.check(candidate, this.boundary, () => !this.closed)
       .catch(() => undefined)
       .then((boundary) => {
         this.checking = false;
         if (this.closed) return;
-        if (boundary === "pending") this.pending.set(candidate, started);
+        if (foreignWrites !== this.foreignWrites) {
+          // Dropped with the rest when the other writer was seen.
+        } else if (boundary === "pending") this.pending.set(candidate, started);
         else if (boundary) this.move(candidate, boundary);
         else this.candidates = this.candidates.filter((c) => c !== candidate);
         this.moveIfOver();

@@ -20,6 +20,7 @@ import {
   BatchProcessor,
   type BatchProcessorDiagnostics,
 } from "../watcher/BatchProcessor.js";
+import type { FocusedSessionWatchEvent } from "../watcher/FocusedSessionWatchManager.js";
 import type {
   BusEvent,
   EventBus,
@@ -99,6 +100,16 @@ export interface ExternalSessionTrackerOptions {
     sessionId: string,
     projectId: UrlProjectId,
   ) => Promise<SessionListSummary | null>;
+  /**
+   * Open sessions' focused watches. The provider-root watcher does not see
+   * an Antigravity conversation's log, which a focused watch follows while
+   * a client has it open; its changes are native file evidence too.
+   */
+  focusedChanges?: {
+    observeChanges(
+      observer: (event: FocusedSessionWatchEvent) => void,
+    ): () => void;
+  };
 }
 
 export interface ExternalSessionTrackerDiagnostics {
@@ -131,6 +142,7 @@ export class ExternalSessionTracker {
   private abortGraceMs: number;
   private forkGraceMs: number;
   private unsubscribe: (() => void) | null = null;
+  private unobserveFocused?: () => void;
   private getSessionSummary?: (
     sessionId: string,
     projectId: UrlProjectId,
@@ -332,6 +344,21 @@ export class ExternalSessionTracker {
       });
     }
 
+    this.unobserveFocused = options.focusedChanges?.observeChanges((event) => {
+      if (event.provider !== "antigravity" || !this.nativeSourceBatch) return;
+      this.enqueueNativeSource({
+        type: "file-change",
+        provider: "antigravity",
+        path: event.path,
+        relativePath: event.path,
+        changeType: "modify",
+        timestamp: event.timestamp,
+        mtimeMs: event.mtimeMs,
+        size: event.size,
+        fileType: "session",
+      });
+    });
+
     // Subscribe to bus events
     this.unsubscribe = options.eventBus.subscribe((event: BusEvent) => {
       if (event.type === "file-change") {
@@ -341,17 +368,7 @@ export class ExternalSessionTracker {
             event.fileType !== "agent-session"
           )
             return;
-          // At most one bounded batch and one bounded trailing batch. Dropped
-          // observations remain unproven; the catalogue and later writes still
-          // supply history without inventing an ownership transition.
-          if (this.nativeSourceBatch.pendingCount >= 1024) {
-            this.droppedSourceEvents++;
-            return;
-          }
-          this.nativeSourceBatch.enqueue(
-            JSON.stringify([event.provider, event.path]),
-            () => this.handleFileChange(event),
-          );
+          this.enqueueNativeSource(event);
         } else void this.handleFileChange(event);
       } else if (event.type === "session-aborted") {
         this.markOwnWrite(event.sessionId, "abort");
@@ -359,6 +376,21 @@ export class ExternalSessionTracker {
         this.markOwnWrite(event.sessionId, "fork");
       }
     });
+  }
+
+  private enqueueNativeSource(event: FileChangeEvent): void {
+    if (!this.nativeSourceBatch) return;
+    // At most one bounded batch and one bounded trailing batch. Dropped
+    // observations remain unproven; the catalogue and later writes still
+    // supply history without inventing an ownership transition.
+    if (this.nativeSourceBatch.pendingCount >= 1024) {
+      this.droppedSourceEvents++;
+      return;
+    }
+    this.nativeSourceBatch.enqueue(
+      JSON.stringify([event.provider, event.path]),
+      () => this.handleFileChange(event),
+    );
   }
 
   private emit(event: BusEvent): void {
@@ -496,6 +528,7 @@ export class ExternalSessionTracker {
    */
   dispose(): void {
     this.controller.abort();
+    this.unobserveFocused?.();
     this.nativeSourceBatch?.dispose();
     if (this.unsubscribe) {
       this.unsubscribe();

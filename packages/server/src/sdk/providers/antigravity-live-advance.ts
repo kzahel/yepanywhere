@@ -1,4 +1,5 @@
 import { statSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import {
   ANTIGRAVITY_LOG_HEAD_BYTES,
   ANTIGRAVITY_LOG_RECORD_BYTES,
@@ -17,7 +18,10 @@ import type {
   AntigravitySplitCandidate,
   AntigravitySplitCheck,
 } from "./antigravity-live-projection.js";
-import type { AntigravityLogBoundary } from "./antigravity-owners.js";
+import {
+  type AntigravityLogBoundary,
+  OWN_WRITE_SETTLE_MS,
+} from "./antigravity-owners.js";
 
 /**
  * Where a live owner's window may move its boundary (plan 195 step 6),
@@ -72,6 +76,14 @@ const ALL_COMPACTIONS = Number.MAX_SAFE_INTEGER;
 export class AntigravitySplitSampler {
   private path?: string;
   private resolving = false;
+  /**
+   * The log as this owner's `agy` left it at its last idle point, if
+   * nothing of its own may have written since (plan 195 step 7).
+   */
+  private settled?: { size: number; dev: number; ino: number };
+  private settling = 0;
+  /** A settle asked for before the path was resolved. */
+  private settleOnResolve?: number;
 
   constructor(
     private readonly scope: string,
@@ -91,14 +103,54 @@ export class AntigravitySplitSampler {
         if (opened.status !== "ok") return;
         this.path = opened.path;
         await opened.handle.close().catch(() => {});
+        if (this.settleOnResolve === this.settling) this.settle();
       })
       .finally(() => {
         this.resolving = false;
       });
   }
 
-  /** The candidate for the prompt whose row has sequence `seq`. */
-  sample(seq: number): AntigravitySplitCandidate | undefined {
+  /**
+   * At an idle point (a turn's result, a command's end): one asynchronous
+   * stat records the log as this owner's `agy` left it. Every record of a
+   * turn is in the log by its result (measured on 1.5.13 and 1.5.14).
+   */
+  settle(): void {
+    const token = ++this.settling;
+    this.settled = undefined;
+    if (!this.path) {
+      this.settleOnResolve = token;
+      return;
+    }
+    void stat(this.path).then(
+      (info) => {
+        if (token === this.settling && info.isFile())
+          this.settled = { size: info.size, dev: info.dev, ino: info.ino };
+      },
+      () => {},
+    );
+  }
+
+  /** This owner's own `agy` may write the log now (a wake, a command). */
+  unsettle(): void {
+    this.settling++;
+    this.settled = undefined;
+  }
+
+  /**
+   * The candidate for the prompt whose row has sequence `seq`, or
+   * "foreign" when the log changed since the owner's last idle point, with
+   * nothing of its own running and later than the settle after its last
+   * ACP frame (`quietSince`, `Date.now()` time; omitted when not quiet):
+   * another writer appended, and the split proof assumes one (plan 195
+   * step 7).
+   */
+  sample(
+    seq: number,
+    quietSince?: number,
+  ): AntigravitySplitCandidate | "foreign" | undefined {
+    const settled = this.settled;
+    this.unsettle();
     if (!this.path) {
       this.prepare();
       return undefined;
@@ -107,6 +159,15 @@ export class AntigravitySplitSampler {
       const info = statSync(this.path);
       // Dated after the stat returns, so a slow stat eats no margin.
       const at = performance.now();
+      if (
+        quietSince !== undefined &&
+        settled &&
+        info.mtimeMs > quietSince + OWN_WRITE_SETTLE_MS &&
+        (info.size !== settled.size ||
+          info.dev !== settled.dev ||
+          info.ino !== settled.ino)
+      )
+        return "foreign";
       return info.isFile()
         ? { seq, size: info.size, dev: info.dev, ino: info.ino, at }
         : undefined;

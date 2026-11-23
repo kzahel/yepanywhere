@@ -38,12 +38,40 @@ export interface AntigravityLogBoundary {
   ino?: number;
 }
 
+/**
+ * What an owner's own `agy` is doing, for telling its writes from another
+ * writer's (plan 195 step 7).
+ */
+export interface AntigravityWriterState {
+  /**
+   * A prompt or command awaits its answer, the runtime is closing, or
+   * detached work (a background task, a child, a wake) is retained: `agy`
+   * may write at any moment.
+   */
+  busy(): boolean;
+  /** When a frame last crossed the owner's ACP pipe (`Date.now()`). */
+  lastActivityMs(): number;
+}
+
+/**
+ * How long after an idle owner's last ACP frame a write is still its own.
+ * `agy` writes a turn's records before its result and a wake's last record
+ * within about 20 ms of its last update (measured on 1.5.13 and 1.5.14).
+ */
+export const OWN_WRITE_SETTLE_MS = 2_000;
+/**
+ * How long a released owner is remembered: writes made before it let go
+ * reach YA's watcher a debounce later. The tracker's abort grace.
+ */
+const RELEASED_MEMORY_MS = 30_000;
+
 // One entry per live preview owner; removed when its iterator closes. The preview
 // stays in-process so readers never replay a database held by another owner.
 interface NativeSessionOwner {
   /** A bounded history read, which a live session may wait out. */
   historyRead: boolean;
   released: Promise<void>;
+  writer?: AntigravityWriterState;
   /**
    * Set once the owner's session is open. Without a boundary its live
    * projection is the whole history (a session resumed through the ACP
@@ -56,6 +84,19 @@ const ownedNativeSessions = new Map<string, NativeSessionOwner>();
 const startingSessions = new Map<string, number>();
 /** Readers waiting for a starting owner to open or go. */
 const settleWaiters = new Map<string, Set<() => void>>();
+/**
+ * When each recently released owner (live or a fallback history read) let
+ * go, `Date.now()`; entries older than RELEASED_MEMORY_MS are dropped on the
+ * next release or attribution, so it holds only owners released that recently.
+ */
+const releasedAt = new Map<string, number>();
+
+function forgetOldReleases(now: number): void {
+  for (const [key, at] of releasedAt) {
+    if (now - at < RELEASED_MEMORY_MS) break;
+    releasedAt.delete(key);
+  }
+}
 
 const keyOf = (scope: string, id: string) => `${scope}\0${id}`;
 
@@ -164,6 +205,47 @@ export function antigravityStartPending(scope: string, id: string): boolean {
   );
 }
 
+/** Whose write a change to a conversation's own files was (plan 195 step 7). */
+export type AntigravityWriteSource =
+  /** YA's own `agy`: starting, open and busy or just active, or a history
+   * read's fallback load, or written before its owner let go. */
+  | "own"
+  /** Another writer, while YA's owner was quiet: its split candidates are
+   * dropped. Ownership stays YA's while its process lives. */
+  | "foreign-owned"
+  /** No YA owner made it: another program wrote the conversation. */
+  | "unowned";
+
+/**
+ * Attributes a write to a conversation's database, WAL or log, made at
+ * `mtimeMs` (the file's modification time). Only YA's own owners are known
+ * here, so a write is YA's while one of them could have made it.
+ */
+export function attributeAntigravityWrite(
+  scope: string,
+  id: string,
+  mtimeMs: number,
+  now = Date.now(),
+): AntigravityWriteSource {
+  const key = keyOf(scope, id);
+  if (startingSessions.has(key)) return "own";
+  const owner = ownedNativeSessions.get(key);
+  if (owner) {
+    const writer = owner.writer;
+    if (owner.historyRead || !owner.open || !writer) return "own";
+    if (
+      writer.busy() ||
+      mtimeMs <= writer.lastActivityMs() + OWN_WRITE_SETTLE_MS
+    )
+      return "own";
+    owner.open.foreignWrite();
+    return "foreign-owned";
+  }
+  forgetOldReleases(now);
+  const released = releasedAt.get(key);
+  return released !== undefined && mtimeMs <= released ? "own" : "unowned";
+}
+
 /**
  * Marks an owner as starting from the moment its provider iterator runs,
  * before it is registered or holds its lease, so no history read starts a
@@ -229,8 +311,16 @@ export function ownAntigravitySession(
       if (ownedNativeSessions.get(key) !== owner) return;
       owner.open?.close();
       ownedNativeSessions.delete(key);
+      const now = Date.now();
+      forgetOldReleases(now);
+      releasedAt.delete(key);
+      releasedAt.set(key, now);
       release();
       settle(key);
+    },
+    /** How to tell this owner's writes from another writer's. */
+    attributeWrites(writer: AntigravityWriterState): void {
+      owner.writer = writer;
     },
     /**
      * The session is open: readers now serve the log through `boundary`

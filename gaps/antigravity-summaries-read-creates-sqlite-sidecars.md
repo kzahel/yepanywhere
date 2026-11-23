@@ -10,6 +10,12 @@ discovery, project binding in `readAntigravityMetadata`, lineage checks)
 leaves the two files in the native store, where they stay. The index itself
 is not changed.
 
+They are not taken for another writer: since plan 195 step 7 the
+external-session detection ignores the summaries index and its sidecars,
+which every conversation's writer touches, and an empty WAL or shared memory
+beside any database
+([another writer](../topics/antigravity.md#another-writer)).
+
 Plan 195 step 4's native case found this: viewing a stopped conversation
 starts no `agy` and changes no file in its store except these two sidecars,
 which appeared. The test records the exception. It predates step 4, which
@@ -24,4 +30,5 @@ choose by whether a `-wal` exists, which races `agy` starting. Whether a
 leftover empty WAL ever affects `agy` is not known; none was observed.
 
 Found 2026-11-22 while serving Antigravity cold history from the log (plan 195
-step 4).
+step 4). Rechecked in step 7: making the read leave no sidecar still needs
+the `immutable` or URI open above, so it stays open.

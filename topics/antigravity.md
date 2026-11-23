@@ -303,8 +303,8 @@ injection remain outside the current provider scope.
 Native skills, hooks, MCP configuration and provider-created workspace files
 remain Google's behavior; YA creates no project-local cache or Git exclusions.
 Native-only projects now join the shared retained catalog and project list;
-Claude history is not required. External-process detection and focused native
-history observation remain unqualified.
+Claude history is not required. Another program writing a conversation shows
+the external-session banner ([another writer](#another-writer)).
 
 ## Identity and history
 
@@ -489,13 +489,10 @@ from a live ID misses and takes the log's latest page. A v0 observer that
 outlives the owner replaces that owner's rows with what the log holds
 ([simple client API](simple-client-api.md)).
 
-A stopped page refreshes when YA's watcher sees the conversation's database
-or WAL change, not the brain log. With 1.5.13 and 1.5.14, each log append
-was followed within about 3 ms by a write to the conversation's WAL, and
-stopping wrote the database again, so a refresh after the last database
-event read every record. A log append with no later database write (an
-external program, or a future `agy`) would leave a stopped page stale until
-its next refresh ([gap](../gaps/antigravity-log-only-append-not-observed.md)).
+A stopped page open in a client refreshes when its log changes: the page's
+focused watch follows `transcript_full.jsonl` (its database and WAL until
+the log exists), as other providers' open pages follow their transcript
+file, so an append by any program reaches it within the watch's poll.
 
 ### Resume and the live view
 
@@ -567,7 +564,7 @@ coverage with `earlierOutsideScope: "unknown"`. The browser does not read
 `transcriptComplete` for any provider today, so it shows such a view
 without a marker; no indicator was added in plan 195 step 5. An in-place
 edit of earlier records that keeps the resume point's step and offset is
-not detected; external writes belong to plan 195 step 7.
+not detected ([another writer](#another-writer)).
 
 A read that an owner opened, closed or moved the resume point of is read
 again, so a page never mixes one owner's split with another's. If the owner
@@ -625,7 +622,7 @@ log serves everything through its boundary, as above.
   with no calls, or an `ERROR_MESSAGE`; a longer record fails, and a later
   candidate will do).
   These show the two records around Z, not that the input at Z is P's
-  (step 7 adds that). Then it reads the span it would retire, from the
+  ([another writer](#another-writer) states what is detected). Then it reads the span it would retire, from the
   current boundary to Z, through the log window reader, a page back at a
   time as "Load older" would serve it, stopping at the first unknown page;
   any unknown page, or an older-page cursor that does not resolve, drops
@@ -730,6 +727,74 @@ still starting (its subagent position read) cancels it: it is never sent,
 and the turn ends with a result. A configuration hold or a compaction that
 arrives during that read is waited out, under the same Stop, and the
 position read again.
+
+### Another writer
+
+Plan 195 step 7. Another program writing a conversation YA shows but does
+not own (the user's `agy` in a terminal, say) marks it external: session
+reads report `owner: "external"`, the existing amber banner shows, and it
+decays 30 seconds after the last such write, as for Claude and Codex
+([session ownership](session-ownership.md)). A Stop's or idle reap's abort
+grace applies as for them.
+
+- **Evidence.** The conversation's own database changing, or its WAL
+  changing while not empty, as the provider-root watcher reports them; and,
+  while a client has the conversation open, its log changing as that
+  page's focused watch polls it. Not evidence: the summaries index and its
+  sidecars (every conversation's writer touches them, and YA's own
+  summaries read creates the sidecars), a 0-byte WAL or the shared memory
+  (any SQLite open creates them, `agy`'s own resume and load included), a
+  deletion (a writer closing), a child conversation, and a conversation the
+  summaries index lists without a workspace
+  ([measured](antigravity-native-storage.md#writers--plan-195-step-7)).
+- **YA's own writes** are not evidence: anything written while YA's owner
+  is starting (a resume under way); while its owner is open and a prompt or
+  command awaits its answer, it is closing, or it retains detached work (a
+  background task, a schedule, a child, a wake not yet settled); up to 2
+  seconds after the owner's last ACP frame; while a fallback history read's
+  `session/load` holds the conversation; and before YA's owner or history
+  read let go of it (remembered 30 seconds). Each write is judged by its
+  file's modification time, not by when the watcher reports it, so a
+  report delayed past the owner's exit is still YA's.
+- **A conversation YA owns.** YA's process owns the session, so it stays
+  `owner: "self"` with its controls and no banner. A write by another
+  program while the owner is quiet (none of the above) drops the owner's
+  split candidates and discards a check under way ([live memory](#live-memory)):
+  no move happens until a later turn's first prompt gives a new candidate,
+  and the cap still bounds the rows. The owner also checks for itself: one
+  asynchronous stat of the log at each turn's result or command's end,
+  compared with the stat its next turn-first prompt takes; growth more than
+  2 seconds after its last frame, with nothing of its own running, has the
+  same effect and gives that prompt no candidate. Both log a warning. Once
+  YA's owner stops, the other program's next write marks the conversation
+  external.
+- **When it shows.** On Linux at the other program's write. On macOS the
+  watcher reports another process's writes into a file it holds open only
+  when it closes it, so a conversation open in a client shows it within its
+  focused watch's poll (1.5 seconds), one not open when the other `agy`
+  exits or checkpoints, and an owned one at the owner's next turn-first
+  prompt.
+- **What is not detected.** A write by another program while YA's owner is
+  busy or within its settle is taken as YA's own. That includes a foreign
+  `USER_INPUT` written at a split candidate's offset, between the owner's
+  stat and `agy` logging the owner's prompt: the candidate's head check
+  takes its type, so a later move can take it for the owner's prompt, and
+  telling them apart would need the record's content. A second `agy`
+  writing the same conversation numbers its steps from its own counter, so
+  the log stops increasing there and is unknown from that record on: no
+  later move reads across it, and the foreign records after the boundary
+  stay out of the owner's view until it stops, when the reader's fallback
+  replays the conversation. An in-place rewrite of earlier log records that
+  keeps the boundary record's offset and first bytes is not detected; a
+  replaced, truncated or shortened log is, at the next read through the
+  boundary ([resume](#resume-and-the-live-view)).
+- **Costs.** Nothing here reads the log's content, opens the conversation
+  database, starts `agy`, or adds a timer. Watcher events go through the
+  tracker's existing bounded batch; an unowned write reads the summaries
+  index (cached per index version) for its project. The focused watch on a
+  log exists once per conversation open in a client, released when its last
+  client leaves, with the poll every open page's watch already has. An
+  owner adds one asynchronous stat per turn.
 
 ### Fallback replay
 
