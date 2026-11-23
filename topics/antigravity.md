@@ -507,10 +507,15 @@ was added.
   Antigravity log does not hold it, and YA reads history only from that
   log." and the same second sentence.
 - **A stopped conversation.**
-  - An unknown log shows the row alone. The records before the first one
-    YA cannot read are not shown: the window reader has no partial result,
-    and the only real `agy` cause, a second `agy` writing the same
-    conversation, puts the unreadable records at the end
+  - An unknown log: each page is validated on its own, so pages that do
+    not read the bad record are served normally. The page that reads it
+    is the row alone, with no older-page cursor, so paging back stops
+    there; the readable records on that page, before and after the bad
+    one, are not shown (the window reader has no partial result). When
+    the bad record is inside the latest page, that is all the
+    conversation shows, including turns an owner resumed over it took
+    once that owner stops. The only real `agy` cause, a second `agy`
+    writing the same conversation, puts the bad records near the end
     ([gap](../gaps/antigravity-unknown-log-hides-readable-prefix.md)).
   - No log, or no complete record: the row, unless the summaries index's
     `step_count` for the conversation is 0. `agy` 1.5.13 and 1.5.14 report
@@ -539,7 +544,10 @@ was added.
   and steps that exist only in the database (see
   [what it no longer shows](#cold-history-from-the-log)). Measured before
   removal, the replay itself refused the unreadable logs real `agy`
-  produced, after a 10-second wait.
+  produced, after a 10-second wait. A later `agy` that changes the record
+  format would show the row for every conversation it writes until YA
+  reads the new shape
+  ([depending on these files](antigravity-native-storage.md#depending-on-these-files)).
 
 ### Resume and the live view
 
@@ -1076,11 +1084,11 @@ Before the first discovery pass, the concrete splits were:
    Use catalog locations and provider-supplied observation facts for file,
    database and protocol-backed sources. Reuse current coalescing, cancellation,
    source-version and disposal owners. Bound native subprocess allocation
-   across readers, not just inside each reader. Antigravity's `session/load`
-   writes store-wide native files, and what it does beside a live owner is
-   unmeasured: consult the incumbent provider owner before replay, keeping
-   that native constraint explicit. Reusing the existing
-   provider-session owner is preferable to expanding the preview's isolated
+   across readers, not just inside each reader. Antigravity history reads
+   start no native process since plan 195 step 8 (they read the brain log),
+   so its reads need no subprocess budget; its live owner still lives in
+   one process's registry, which the backend reader consults. Reusing the
+   existing provider-session owner is preferable to expanding the preview's isolated
    in-process ownership map into a second lifecycle system. Shared-host support
    needs its own qualification; a local memory guard is not a cross-process lock.
 

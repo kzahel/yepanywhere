@@ -1163,9 +1163,9 @@ census's.
 
 **When it fired.**
 
-| Cause | Step 3 census (12 logs) | Native selection, per version | Ordinary use with one writer |
+| Cause | Step 3 census (15 conversations, 12 logs) | Native selection, per version | Ordinary use with one writer |
 | --- | ---: | ---: | --- |
-| Never prompted (no log) | not counted (the census enumerates logs) | 0 | A conversation created and left empty, by another client or a first prompt that never reached `agy`; YA's own creation always prompts |
+| Never prompted (no log) | 3 of the 15 conversations it read (their `step_count` not read; it was measured only on generated stores) | 0 | A conversation created and left empty, by another client or a first prompt that never reached `agy`; YA's own creation always prompts |
 | Log deleted or unreadable | 0 | 0 | Never seen; YA deletes nothing and every prompted conversation in every run had a log |
 | A record shape the projection does not know | 0 (on both binaries) | 0 | Never seen on 1.5.13 or 1.5.14; a later `agy` that changes the format would make every conversation it writes unknown |
 | Duplicate step indexes (two `agy` processes) | 0 | 0 | Not designed for (plan 195 decisions); measured in step 7 |

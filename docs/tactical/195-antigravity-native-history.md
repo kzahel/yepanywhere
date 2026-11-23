@@ -395,8 +395,9 @@ resume can still be resumed without it, and what the user sees without it
 is clear. The counts, in
 [native storage](../../topics/antigravity-native-storage.md#the-replay-fallback--plan-195-step-8):
 
-- Causes: a never-prompted conversation (YA's own creation always
-  prompts), a deleted or unreadable log (0 of 12 census logs), an unknown
+- Causes: a never-prompted conversation (3 of the 15 conversations the
+  census read; YA's own creation always prompts; its `step_count` of 0
+  was measured only on generated stores), a deleted or unreadable log (0 of 12 census logs), an unknown
   record shape (0 of 12, on both binaries), duplicate step indexes from two
   `agy` processes (not designed for), a clipped prompt (no longer a cause).
   During the whole upgrade selection, instrumented, the fallback fired on
