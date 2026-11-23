@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toUrlProjectId } from "@yep-anywhere/shared";
+import { createProvidersRoutes } from "../../../src/routes/providers.js";
 import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
 import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
 import { AntigravitySubagentTracker } from "../../../src/sdk/providers/antigravity-subagent-tracker.js";
@@ -2585,6 +2586,27 @@ if (process.argv.includes('--version')) {
       ]);
       expect(status.installed).toBe(true);
       expect(status.unavailableReason).toBeUndefined();
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "stops serving a cached refusal once agy is replaced",
+    async () => {
+      await controlledAgy({ acp: { version: "1.4.12" } });
+      const routes = createProvidersRoutes({
+        providers: [new AntigravityProvider()],
+      });
+      const installed = async () =>
+        (
+          (await (await routes.request("/antigravity")).json()) as {
+            provider: { installed: boolean };
+          }
+        ).provider.installed;
+      expect(await installed()).toBe(false);
+      // `agy update` replaces the file; the page reload after it, or a
+      // rescan, reads providers without forcing a refresh.
+      await controlledAgy({ acp: { version: "1.5.13" } });
+      expect(await installed()).toBe(true);
     },
   );
 

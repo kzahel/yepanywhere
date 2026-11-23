@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { statSync } from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -120,6 +121,7 @@ export class AntigravityProvider implements AgentProvider {
   readonly supportsSteering = true;
   private catalog?: {
     at: number;
+    cacheKey: string;
     models: ModelInfo[];
     error?: string;
     unsupportedVersion?: boolean;
@@ -155,6 +157,22 @@ export class AntigravityProvider implements AgentProvider {
   }
   getModelCatalogStatus(): ModelCatalogStatus | undefined {
     return this.catalogStatus;
+  }
+
+  /**
+   * Identifies the `agy` that status and models describe. `agy update`
+   * replaces that file, which changes the key, so neither this provider nor
+   * the providers route keeps serving a refusal for the version it replaced.
+   */
+  getModelCatalogCacheKey(): string {
+    const command = resolveAntigravityRuntime()?.command;
+    if (!command) return "none";
+    try {
+      const { ino, size, mtimeMs, ctimeMs } = statSync(command);
+      return JSON.stringify([command, ino, size, mtimeMs, ctimeMs]);
+    } catch {
+      return JSON.stringify([command]);
+    }
   }
 
   async getSubscriptionUsage(
@@ -194,7 +212,8 @@ export class AntigravityProvider implements AgentProvider {
     if (
       !options?.forceRefresh &&
       this.catalog &&
-      Date.now() - this.catalog.at < 60_000
+      Date.now() - this.catalog.at < 60_000 &&
+      this.catalog.cacheKey === this.getModelCatalogCacheKey()
     )
       return this.catalog.models;
     this.catalogRead = this.readModels();
@@ -206,6 +225,8 @@ export class AntigravityProvider implements AgentProvider {
   }
 
   private async readModels(): Promise<ModelInfo[]> {
+    // Taken before the probe, so a replacement during it is read again.
+    const cacheKey = this.getModelCatalogCacheKey();
     const runtime = new AntigravityRuntime();
     const cwd = await mkdtemp(join(tmpdir(), "ya-antigravity-models-"));
     let sessionId: string | undefined;
@@ -258,7 +279,13 @@ export class AntigravityProvider implements AgentProvider {
       }
       await rm(cwd, { recursive: true, force: true });
     }
-    this.catalog = { at: Date.now(), models, error, unsupportedVersion };
+    this.catalog = {
+      at: Date.now(),
+      cacheKey,
+      models,
+      error,
+      unsupportedVersion,
+    };
     return models;
   }
 
