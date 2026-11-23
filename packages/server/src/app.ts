@@ -440,6 +440,10 @@ import type {
 } from "./sessions/types.js";
 import { ExternalSessionTracker } from "./supervisor/ExternalSessionTracker.js";
 import { createObservedSessionResolver } from "./supervisor/observed-native-session.js";
+import {
+  FOCUSED_NATIVE_FAMILIES,
+  focusedNativeFile,
+} from "./watcher/focused-native-file.js";
 import { Supervisor } from "./supervisor/Supervisor.js";
 import type { Project } from "./supervisor/types.js";
 import {
@@ -1679,24 +1683,6 @@ export function createApp(options: AppOptions): AppResult {
       console.warn(`[App] Failed to close session reader ${key}:`, error);
     }
   };
-  const focusedNativeFile = (
-    filePath: string,
-    native: Pick<NativeSessionRef, "family">,
-  ) => ({
-    filePath,
-    provider: native.family,
-    ...(native.family === "opencode" && filePath.endsWith("opencode.db")
-      ? { additionalFilePaths: [`${filePath}-wal`] }
-      : native.family === "grok"
-        ? {
-            additionalFilePaths: [
-              "chat_history.jsonl",
-              "events.jsonl",
-              "updates.jsonl",
-            ].map((name) => join(dirname(filePath), name)),
-          }
-        : {}),
-  });
   const focusedSessionWatchManager = new FocusedSessionWatchManager({
     scanner,
     codexScanner,
@@ -1734,12 +1720,7 @@ export function createApp(options: AppOptions): AppResult {
         return null;
       }
       const native = identity.native;
-      if (
-        !native ||
-        !["claude", "codex", "opencode", "pi", "grok", "gemini"].includes(
-          native.family,
-        )
-      )
+      if (!native || !FOCUSED_NATIVE_FAMILIES.includes(native.family))
         return null;
       const project = await scanner.getOrCreateProject(identity.projectId);
       if (!project || signal.aborted) return null;
