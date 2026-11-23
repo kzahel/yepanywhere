@@ -12,6 +12,11 @@ export interface AntigravityLogBoundary {
   step: number;
   end: number;
   /**
+   * Where that record's line starts, so a read checks the resume point from
+   * a bounded witness at fixed offsets, whatever the record's size.
+   */
+  start?: number;
+  /**
    * The log file's identity when the boundary was taken: a replaced file is
    * not the history it bounds. An in-place edit of earlier records that
    * keeps the boundary record's step and offset is not detected (plan 195

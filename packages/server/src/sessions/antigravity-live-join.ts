@@ -93,7 +93,9 @@ export function sameAntigravitySplit(
 
 /**
  * A window cut to an owner's boundary: a read taken under another split
- * keeps no log row past the history the owner's rows begin after.
+ * keeps no log row past the history the owner's rows begin after. A window
+ * read from a file other than the one the boundary pins is no part of that
+ * owner's history, so none of it is kept.
  */
 export function throughAntigravityBoundary(
   conversationId: string,
@@ -101,6 +103,15 @@ export function throughAntigravityBoundary(
   boundary: AntigravityLogBoundary,
 ): AntigravityLogWindow {
   if (window.status !== "known") return window;
+  if (
+    boundary.ino !== undefined &&
+    (window.source.dev !== boundary.dev || window.source.ino !== boundary.ino)
+  )
+    return {
+      status: "unknown",
+      reason: "the read came from a log the owner's resume point does not pin",
+      bytesRead: window.bytesRead,
+    };
   return {
     ...window,
     messages: window.messages.filter((message) => {

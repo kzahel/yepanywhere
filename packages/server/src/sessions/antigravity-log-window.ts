@@ -66,6 +66,8 @@ export type AntigravityLogWindow =
       firstPrompt?: string;
       /** For a latest page: the last record it read to. */
       last?: AntigravityLogBoundary;
+      /** The file the window was read from. */
+      source: { dev: number; ino: number };
       bytesRead: number;
       /** The most line bytes the read held at once. */
       heldPeak: number;
@@ -119,7 +121,7 @@ interface Page {
 
 type Known = Extract<AntigravityLogWindow, { status: "known" }>;
 type Read =
-  | Omit<Known, "bytesRead" | "heldPeak">
+  | Omit<Known, "bytesRead" | "heldPeak" | "source">
   | { status: "missing" }
   | { status: "unknown"; reason: string; error?: unknown };
 
@@ -171,15 +173,22 @@ class WindowRead {
     // With a boundary, nothing after it is read: not even the physical end,
     // which an unterminated record being written may be far past.
     if (this.boundary) {
-      const { step, end } = this.boundary;
+      const { step, start, end } = this.boundary;
       if (end > this.source.size)
         throw new UnknownLog("the log is shorter than its resume point");
-      const newline = end > 0 ? await this.source.read(end - 1, 1) : undefined;
-      const line =
-        newline?.[0] === 10 ? await this.source.lineBefore(end) : undefined;
-      if (!line || (await this.source.head(line)).step !== step)
-        throw new UnknownLog("the log changed before its resume point");
-      this.source.release(line);
+      if (start !== undefined) {
+        // The recorded line: a fixed-size witness, never the record's body.
+        if (!(await this.source.lineAt(start, end, step)))
+          throw new UnknownLog("the log changed before its resume point");
+      } else {
+        const newline =
+          end > 0 ? await this.source.read(end - 1, 1) : undefined;
+        const line =
+          newline?.[0] === 10 ? await this.source.lineBefore(end) : undefined;
+        if (!line || (await this.source.head(line)).step !== step)
+          throw new UnknownLog("the log changed before its resume point");
+        this.source.release(line);
+      }
       this.end = end;
     } else this.end = await this.source.completeEnd();
     if (this.end === 0) return { status: "missing" };
@@ -206,7 +215,11 @@ class WindowRead {
     const line = await this.source.lineBefore(this.end);
     if (!line) return undefined;
     this.source.release(line);
-    return { step: (await this.source.head(line)).step, end: this.end };
+    return {
+      step: (await this.source.head(line)).step,
+      start: line.start,
+      end: this.end,
+    };
   }
 
   /**
@@ -261,7 +274,10 @@ class WindowRead {
 
   private finish(
     projection: AntigravityLogProjection,
-    shape: Omit<Known, "status" | "messages" | "bytesRead" | "heldPeak">,
+    shape: Omit<
+      Known,
+      "status" | "messages" | "bytesRead" | "heldPeak" | "source"
+    >,
     cut?: (messages: Message[]) => Message[] | undefined,
   ): Read {
     const result = projection.finish({ ownerLive: this.ownerLive });
@@ -523,10 +539,12 @@ export async function readAntigravityLogWindow(
           bytesRead,
         };
       source = new LogSource(opened.handle, opened.size);
+      // With a resume point, only the prefix through it is fenced: a change
+      // after it is outside the window.
       const fence = await captureTranscriptFence(source.probe, opened.path, {
         dev: opened.dev,
         ino: opened.ino,
-        size: opened.size,
+        size: pinned && pinned.end <= opened.size ? pinned.end : opened.size,
       });
       const window = new WindowRead(
         source,
@@ -558,7 +576,12 @@ export async function readAntigravityLogWindow(
         source = undefined;
         bytesRead = total;
         return read.status === "known"
-          ? { ...read, bytesRead: total, heldPeak }
+          ? {
+              ...read,
+              bytesRead: total,
+              heldPeak,
+              source: { dev: opened.dev, ino: opened.ino },
+            }
           : { ...read, bytesRead: total };
       }
     } catch (error) {

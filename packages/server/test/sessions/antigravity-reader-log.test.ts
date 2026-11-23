@@ -1,6 +1,8 @@
 import {
   appendFile,
   mkdir,
+  rename,
+  stat,
   mkdtemp,
   realpath,
   rm,
@@ -497,6 +499,64 @@ describe("Antigravity reader over the log", () => {
           else expect(uuids(loaded), label).toContain("live-prompt");
         }
       }
+    } finally {
+      owner.release();
+    }
+  });
+
+  it("serves only the final owner's rows when the log was replaced on the last handoff", async () => {
+    const conversations = await store("a", logged);
+    const scope = await realpath(conversations);
+    const target = reader(conversations);
+    const logFile = join(
+      root,
+      "a",
+      "brain",
+      ID,
+      ".system_generated",
+      "logs",
+      "transcript_full.jsonl",
+    );
+    let owner = ownAntigravitySession(scope, ID);
+    owner.open(resumedAt);
+    const internals = target as unknown as {
+      readLog(...args: unknown[]): Promise<unknown>;
+    };
+    const original = internals.readLog.bind(target);
+    let reads = 0;
+    vi.spyOn(internals, "readLog").mockImplementation(async (...args) => {
+      const result = await original(...args);
+      reads++;
+      owner.release();
+      owner = ownAntigravitySession(scope, ID);
+      let boundary: object = resumedAt;
+      if (reads >= 4) {
+        // A different file of the same shape, pinned by the final owner.
+        const replacement = `${logFile}.next`;
+        await writeFile(replacement, prompt("Asked") + reply(1, "Other"));
+        await rename(replacement, logFile);
+        const { dev, ino } = await stat(logFile);
+        boundary = { ...resumedAt, dev, ino };
+      }
+      owner.open(boundary as typeof resumedAt);
+      owner.record({
+        type: "user",
+        uuid: `live-${reads}`,
+        message: { role: "user", content: `Live ${reads}` },
+      });
+      return result;
+    });
+    try {
+      const loaded = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        { tailCompactions: 2 },
+      );
+      expect(reads).toBe(4);
+      expect(loaded?.transcriptComplete).toBe(false);
+      // The old file's rows are not the final owner's history.
+      expect(uuids(loaded)).toEqual(["live-4"]);
     } finally {
       owner.release();
     }

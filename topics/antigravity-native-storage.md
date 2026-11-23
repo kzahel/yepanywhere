@@ -846,16 +846,23 @@ step 2 measurements of `session/resume` (no history streamed, the log and
 database unchanged, the summaries index's time changed) still apply; a
 resume therefore still produces a summaries-index change notification.
 
-A window with a resume point opens the file, checks that its device and
-inode are the ones recorded, that the file is at least as long as the
-offset, that the byte before the offset is a newline and that the record
-ending there has the recorded step. It reads nothing after the offset. In
-review, a generated log with an unchanged resume point and a 96 MiB
-unterminated record appended after it read 7,528 bytes for the latest page
-before the record was appended and 100,670,824 after; the window no longer
-looks for the file's physical end when it has a resume point, and the unit
-test bounds the read to the page's cost. A same-width in-place edit of an
-earlier record is not detected.
+The resume point records the boundary record's step, the offsets where
+its line starts and ends, and the file's device and inode. A window with a
+resume point checks, at those fixed offsets: the device and inode, that the
+file is at least as long as the end, that the byte before the end and the
+byte before the start are newlines, and that the line begins
+`{"step_index":<step>,` (at most 40 bytes). That costs the same whatever
+the record's size: in review, a live-row catch-up behind a 3.2 MB final
+record read 3,435,560 bytes before this check was bounded; the unit test
+now bounds it to the title's fixed 256 KiB read of the file's start plus a
+few KiB. The append fence for that read probes the file's first KiB and the
+KiB ending at the resume point, so the window reads no byte after the
+offset (it only stats the file's size) and a change after the offset never
+makes it unknown. In review, a 96 MiB unterminated record appended after
+the resume point raised a latest page from 7,528 to 100,670,824 bytes read
+before the window stopped looking for the file's physical end; it now
+costs the same with or without it. A same-width in-place edit of an earlier
+record is not detected.
 
 **Never-prompted conversations.** The step 5 review measured an empty
 conversation (created, never prompted, no log) on 1.5.13 and 1.5.14, two

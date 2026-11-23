@@ -398,6 +398,28 @@ export class LogSource {
     return { start, step: Number(step) };
   }
 
+  /**
+   * The line `[start, end)` (ending in the newline at `end - 1`), if a line
+   * starts at `start` and its record begins with `step`: a fixed-size
+   * witness, whatever the line's length. The line is remembered.
+   */
+  async lineAt(
+    start: number,
+    end: number,
+    step: number,
+  ): Promise<LogLine | undefined> {
+    if (start < 0 || start >= end || end > this.size) return undefined;
+    if ((await this.read(end - 1, 1))[0] !== 10) return undefined;
+    if (start > 0 && (await this.read(start - 1, 1))[0] !== 10)
+      return undefined;
+    const prefix = await this.read(start, Math.min(40, end - 1 - start));
+    const found = STEP_PREFIX.exec(prefix.toString("latin1"))?.[1];
+    if (found === undefined || Number(found) !== step) return undefined;
+    const line: LogLine = { start, end: end - 1 };
+    this.remember(line);
+    return line;
+  }
+
   /** The first line whose step is at least `step`, searching by halves. */
   async findStep(step: number, limit: number): Promise<LogLine | undefined> {
     let low = 0;

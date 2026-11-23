@@ -751,6 +751,47 @@ describe("Antigravity log windows", () => {
     expect(bounded.bytesRead).toBeLessThan(unbounded.bytesRead + 8 * 1024);
   });
 
+  it("checks a resume point ending in a large record without reading that record", async () => {
+    await put([prompt(0), reply(1, "x".repeat(3 * MiB))]);
+    const { last: boundary } = await known({ kind: "latest", compactions: 2 });
+    // A live-only catch-up: the resume point and the title, no records.
+    const head = await known({ kind: "head" }, { boundary });
+    expect(head.firstPrompt).toBe("PROMPT_0");
+    // At most the title's fixed 256 KiB read of the file's start and the
+    // source checks: nothing that grows with the 3 MiB record.
+    expect(head.bytesRead).toBeLessThan(256 * 1024 + 32 * 1024);
+    expect(boundary).toMatchObject({ step: 1, start: expect.any(Number) });
+    // A record start that is not a line start, or a step that differs, is
+    // not that resume point.
+    for (const wrong of [
+      { ...boundary!, start: boundary!.start! + 1 },
+      { ...boundary!, step: 2 },
+    ])
+      expect((await read({ kind: "head" }, { boundary: wrong })).status).toBe(
+        "unknown",
+      );
+  });
+
+  it("ignores edits after a resume point", async () => {
+    await put([prompt(0), reply(1, "BEFORE_RESUME")]);
+    const { last: boundary } = await known({ kind: "latest", compactions: 2 });
+    await appendFile(logPath, `${JSON.stringify(reply(2, "AFTER"))}\n`);
+    const size = fs.statSync(logPath).size;
+    // A byte past the resume point changes during every attempt.
+    const window = await read(
+      { kind: "latest", compactions: 2 },
+      {
+        boundary,
+        afterRead: async (attempt) => {
+          const handle = await fs.promises.open(logPath, "r+");
+          await handle.write(String(attempt % 10), size - 4);
+          await handle.close();
+        },
+      },
+    );
+    expect(window.status).toBe("known");
+  });
+
   it("reads a log replaced since its resume point as unknown, even with the same bytes", async () => {
     await put([prompt(0), reply(1, "BEFORE_RESUME")]);
     const { last: boundary } = await known({ kind: "latest", compactions: 2 });

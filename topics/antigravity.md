@@ -527,7 +527,9 @@ exactly one, with no row twice and none missing at the resume point:
 Every answer's title is the conversation's first prompt from the log (a
 bounded read of the file's start when the log page itself was not read),
 never the resumed owner's own prompt. A live-row catch-up reads no records
-but still checks the log through the resume point.
+but still checks the log through the resume point, at fixed offsets
+whatever the size of the record there, and reads the title from at most
+the file's first 256 KiB.
 
 **Unavailable earlier history.** The resume point also pins the log file's
 device and inode. If, while the owner lives, the log is missing, has been
@@ -546,9 +548,10 @@ not detected; external writes belong to plan 195 step 7.
 A read that an owner opened, closed or moved the resume point of is read
 again, so a page never mixes one owner's split with another's. If the owner
 changes during four reads in a row, the last read is the answer: its log
-rows are cut to the current owner's resume point, the current owner's rows
-follow it where the request includes them, and it is marked
-`transcriptComplete: false`, rather than a missing conversation. A new
+rows are cut to the current owner's resume point (none, if the read came
+from a file other than the one that owner's resume point pins), the
+current owner's rows follow it where the request includes them, and it is
+marked `transcriptComplete: false`, rather than a missing conversation. A new
 session's owner, and one resumed through the fallback, have no resume
 point: their projection is the whole history, as before step 5. A v0
 observer that held the log's rows when such a fallback owner attached
