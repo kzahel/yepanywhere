@@ -1011,19 +1011,28 @@ passed with 52 cases and 3 skipped on 2026-11-23, with the 1.5.13 pin and
 with the 1.5.14 candidate, on Node 24.22.1.
 
 Plan 195 step 6 (bounded live memory) added
-`native-antigravity-live-memory.test.ts`: on real `agy`, a tool-heavy, a
-steered, a compacting and a stopped turn, read during a turn, right after
-it ends, after it moves to the log, and once the owner stops; the same
-prose in the same order each time apart from the
-[stated differences](antigravity.md#live-memory), the log's projection
-exactly once a turn has moved, and the same IDs cold as live. Five
-controlled-peer cases in `antigravity.test.ts` replace the flipped
-"today" live-cap case (a session past 8 MiB keeps running, a log that stops
-growing or is unlinked evicts at the cap, and three record orders with a
-streaming client and a v0 observer). The retention harness also records
-the projection at idle and the copy of the turn moved last. The selection
-passed with 58 cases and 3 skipped on 2026-11-23, with the 1.5.13 pin and
-with the 1.5.14 candidate, on Node 24.22.1.
+`native-antigravity-live-memory.test.ts`, which lowers the window's limits
+through a test option so moves happen within a test. On real `agy`:
+
+- a tool-heavy, a steered, a compacting and a stopped turn, read during a
+  turn, right after it ends, after moves to the log and once the owner
+  stops: the same prose in the same order each time apart from the
+  [stated differences](antigravity.md#live-memory), and the conversation
+  through the boundary equal to the log's own projection;
+- review round 1's two wake schedules (the result's log read held until a
+  detached wake is logged, and a prompt sent after the wake's first
+  chunk): the wake shows once before and after moves, live and stopped.
+
+Controlled-peer cases in `antigravity.test.ts` replace the flipped "today"
+live-cap case: a session past 8 MiB keeps running with its window
+bounded; a log that stops growing or is unlinked evicts at the cap; many
+turns under the budget keep every ID; crossing it gives one replacement
+per client whose last row left memory, in three record orders, with a v0
+observer; and the two wake schedules with deterministic gates. The
+retention harness lowers the budget, asserts the window after every turn
+and samples the heap at each move. The selection passed with 63 cases and 3 skipped
+on 2026-11-23, with the 1.5.13 pin and with the 1.5.14 candidate, on Node
+24.22.1.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup

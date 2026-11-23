@@ -69,19 +69,23 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   if (m.method === 'session/prompt') {
     const text = m.params.prompt[0].text;
     logStep('USER_INPUT', 'USER_EXPLICIT', { content: '<USER_REQUEST>\\n' + text + '\\n</USER_REQUEST>' });
-    // A QUICK_ prompt gets a shorter reply named after it.
-    const quick = text.startsWith('QUICK_');
-    const first = quick ? text + '_REPLY' : 'RESUMED_REPLY';
-    const last = quick ? ' ' + text + '_DONE' : ' RESUMED_REPLY_DONE';
-    const chunks = quick ? 20 : 60;
+    // A BIG_ prompt gets a reply of about 1.2 MB named after it; a SLOW_
+    // prompt streams a short reply for about 50 s.
+    const big = text.startsWith('BIG_');
+    const slow = text.startsWith('SLOW_');
+    const first = big || slow ? text + '_REPLY' : 'RESUMED_REPLY';
+    const last = big || slow ? ' ' + text + '_DONE' : ' RESUMED_REPLY_DONE';
+    const body = big ? ' ' + 'x'.repeat(40000) : ' streamed';
+    const chunks = big ? 30 : slow ? 50 : 60;
+    const pause = slow ? 1000 : 100;
     let sent = 0;
     const chunk = () => {
       if (sent++ < chunks) {
-        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: sent === 1 ? first : ' streamed' } });
-        return setTimeout(chunk, 100);
+        update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: sent === 1 ? first : body } });
+        return setTimeout(chunk, pause);
       }
       update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: last } });
-      logStep('PLANNER_RESPONSE', 'MODEL', { content: first + ' streamed'.repeat(chunks - 1) + last });
+      logStep('PLANNER_RESPONSE', 'MODEL', { content: first + body.repeat(chunks - 1) + last });
       reply(m.id, { stopReason: 'end_turn' });
     };
     return chunk();
@@ -452,10 +456,13 @@ test("resumes a long Antigravity conversation from the browser without replaying
   await context.close();
 });
 
-test("keeps a long live Antigravity session whole while its turns move to the log", async ({
+test("keeps a long live Antigravity session whole across a move of its live rows to the log", async ({
   browser,
 }) => {
-  // Plan 195 step 6: each ended turn leaves the owner's memory for the log.
+  // Plan 195 step 6: past its 2 MiB soft budget, once a split point is
+  // older than Process's replay window, the owner moves the rows before it
+  // to the log. A move is one replacement window for a connected client.
+  test.setTimeout(180_000);
   const viewport = { name: "desktop" as const, width: 1000, height: 600 };
   const liveId = "a9a90000-0000-4000-8000-000000000197";
   const { server, projectId } = await serve(liveId, { resumable: true });
@@ -466,99 +473,79 @@ test("keeps a long live Antigravity session whole while its turns move to the lo
   const page = await context.newPage();
   // Every catch-up the client makes, and whether it was answered as a
   // replacement window (with pagination) instead of incrementally.
-  const catchUps: Array<{ after: string; replaced: boolean }> = [];
-  const olderPages: Array<{ messages: Array<{ uuid: string }> }> = [];
+  const catchUps: Array<{ replaced: boolean; count: number }> = [];
   page.on("response", async (response) => {
     const url = new URL(response.url());
     if (!url.pathname.endsWith(`/sessions/${liveId}`)) return;
-    if (url.searchParams.has("beforeMessageId"))
-      olderPages.push(await response.json());
-    const after = url.searchParams.get("afterMessageId");
-    if (after)
+    if (url.searchParams.get("afterMessageId")) {
+      const data = await response.json();
       catchUps.push({
-        after,
-        replaced: Boolean((await response.json()).pagination),
+        replaced: Boolean(data.pagination),
+        count: data.messages.length,
       });
+    }
   });
   await page.goto(`${server.baseUrl}/projects/${projectId}/sessions/${liveId}`);
   const main = page.getByRole("main");
   await expect(main.getByText(/TURN_\d+_REPLY/).first()).toBeAttached({
     timeout: 20_000,
   });
-  const detail = async () => {
+  const detail = async (query = "") => {
     const response = await page.request.get(
-      `${server.baseUrl}/api/projects/${projectId}/sessions/${liveId}`,
+      `${server.baseUrl}/api/projects/${projectId}/sessions/${liveId}${query}`,
       { headers: { "X-Yep-Anywhere": "true" } },
     );
     return (await response.json()) as {
       messages: Array<{ uuid: string; message?: { content?: unknown } }>;
+      pagination?: unknown;
     };
   };
-  const finished = (turn: number) =>
+  const rowsOf = async (marker: string) =>
+    (await detail()).messages.filter((message) =>
+      JSON.stringify(message.message?.content ?? "").includes(marker),
+    );
+  const finished = (marker: string) =>
     expect
-      .poll(
-        async () =>
-          JSON.stringify((await detail()).messages).includes(
-            `QUICK_TURN_${turn}_DONE`,
-          ),
-        { timeout: 20_000 },
-      )
-      .toBe(true);
+      .poll(async () => (await rowsOf(marker)).length, { timeout: 30_000 })
+      .toBe(1);
+  const send = async (message: string) =>
+    expect(
+      (
+        await page.request.post(
+          `${server.baseUrl}/api/sessions/${liveId}/messages`,
+          { headers: { "X-Yep-Anywhere": "true" }, data: { message } },
+        )
+      ).status(),
+    ).toBe(200);
 
-  // The first turn resumes the conversation from the composer.
+  // Two large turns pass the soft budget; the first resumes from the
+  // composer. Nothing has moved yet: every catch-up appends.
   const composer = page.locator("[data-composer-input]");
-  await composer.fill("QUICK_TURN_1");
+  await composer.fill("BIG_TURN_1");
   await composer.press("Enter");
-  await finished(1);
-  await expect(main.getByText(/QUICK_TURN_1_DONE/)).toHaveCount(1, {
-    timeout: 20_000,
-  });
-
-  // Load one older page, then scroll up to a history row and remember
-  // where it sits.
+  await finished("BIG_TURN_1_DONE");
+  const firstReply = (await rowsOf("BIG_TURN_1_DONE"))[0]!.uuid;
+  expect(firstReply).not.toContain(":step-");
+  // An older page loaded before the move.
   const loadOlder = page.locator("[data-load-older-messages]");
   await loadOlder.getByRole("button").scrollIntoViewIfNeeded();
   await loadOlder.getByRole("button").click();
   await expect(loadOlder.locator('[aria-busy="true"]')).toHaveCount(0, {
     timeout: 20_000,
   });
-  expect(olderPages.length).toBeGreaterThanOrEqual(1);
-  // The earliest prompt row on screen, which the older page brought in.
-  const list = page.locator("[data-message-list]");
-  const anchor = list.getByText(/^TURN_\d+_PROMPT\b/).first();
-  const olderMarker = (await anchor.textContent())!.match(
-    /^TURN_\d+_PROMPT/,
-  )![0];
-  expect(JSON.stringify(olderPages)).toContain(olderMarker);
-  await anchor.scrollIntoViewIfNeeded();
-  // Where the row sits once rendering above it has settled.
-  const settledY = async () => {
-    let previous = Number.NaN;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const y = (await anchor.boundingBox())!.y;
-      if (Math.abs(y - previous) < 1) return y;
-      previous = y;
-      await page.waitForTimeout(300);
-    }
-    return previous;
-  };
-  const before = await settledY();
+  await send("BIG_TURN_2");
+  await finished("BIG_TURN_2_DONE");
+  expect(catchUps.filter((entry) => entry.replaced)).toEqual([]);
 
-  // More turns, sent without the composer so the view stays scrolled up,
-  // with sequential typing while the second streams and the first moves.
-  const send = async (message: string) =>
-    expect(
-      (
-        await page.request.post(
-          `${server.baseUrl}/api/sessions/${liveId}/messages`,
-          {
-            headers: { "X-Yep-Anywhere": "true" },
-            data: { message },
-          },
-        )
-      ).status(),
-    ).toBe(200);
-  await send("QUICK_TURN_2");
+  // A slow turn streams across the moment the split at BIG_TURN_2 is old
+  // enough; the owner moves BIG_TURN_1 into the log during it. Type all
+  // the while, until that move is visible on the server.
+  await send("SLOW_TURN_3");
+  await expect
+    .poll(async () => (await rowsOf("SLOW_TURN_3_REPLY")).length, {
+      timeout: 20_000,
+    })
+    .toBe(1);
   await composer.focus();
   await composer.evaluate((element) => {
     const field = element as HTMLTextAreaElement & {
@@ -576,9 +563,13 @@ test("keeps a long live Antigravity session whole while its turns move to the lo
       ),
     );
   });
+  const moved = async () =>
+    !(await detail()).messages.some((message) => message.uuid === firstReply);
   const prefixes: string[] = [];
   let draft = "";
-  for (const character of "Typing while turns move to the log") {
+  const sentence = "Typing while live rows move to the log. ";
+  for (let index = 0; index < 400; index++) {
+    const character = sentence[index % sentence.length]!;
     draft += character;
     await page.keyboard.type(character);
     await expect(composer).toHaveValue(draft);
@@ -593,7 +584,9 @@ test("keeps a long live Antigravity session whole while its turns move to the lo
         ),
       )
       .toBe(draft);
+    if (index >= 30 && index % 10 === 0 && (await moved())) break;
   }
+  await expect.poll(moved, { timeout: 60_000 }).toBe(true);
   const acks = await composer.evaluate(
     (element) =>
       (
@@ -605,60 +598,86 @@ test("keeps a long live Antigravity session whole while its turns move to the lo
   expect(acks.map((ack) => ack.value)).toEqual(prefixes);
   const slowest = Math.max(...acks.map((ack) => ack.latency));
   console.log(
-    `Antigravity live-memory typing (${viewport.name}): ${acks.length} keys while a turn streamed and moved, browser maximum ${slowest.toFixed(1)} ms`,
+    `Antigravity live-memory typing (${viewport.name}): ${acks.length} keys while a turn streamed across a move, browser maximum ${slowest.toFixed(1)} ms`,
   );
   expect(slowest).toBeLessThan(100);
-  await finished(2);
-  await send("QUICK_TURN_3");
-  await finished(3);
-  // The owner moved each ended turn to the log.
-  await expect
-    .poll(
-      async () =>
-        (await detail()).messages
-          .filter((message) =>
-            JSON.stringify(message.message?.content ?? "").includes("QUICK_"),
-          )
-          .every((message) => message.uuid.includes(":step-")),
-      { timeout: 20_000 },
-    )
-    .toBe(true);
+  await finished("SLOW_TURN_3_DONE");
   await expect(composer).toHaveValue(draft);
 
-  // Scrolled up, the history row did not move and the older page stayed.
-  expect(Math.abs((await settledY()) - before)).toBeLessThan(2);
-  await expect(
-    list.getByText(new RegExp(`^${olderMarker}\\b`)).first(),
-  ).toBeAttached();
-  // Every catch-up after the first turn was answered incrementally.
-  expect(catchUps.length).toBeGreaterThan(0);
-  expect(catchUps.filter((entry) => entry.replaced)).toEqual([]);
-
-  // At the bottom: every turn once.
-  await page
-    .getByRole("button", { name: "Follow latest session output" })
-    .click();
-  await expect(main.getByText(/QUICK_TURN_3_DONE/)).toBeVisible({
-    timeout: 10_000,
+  // The move evicted only rows before the split at BIG_TURN_2, so this
+  // client's last row stayed live: its catch-ups appended, at most one was
+  // a replacement (contract: a client whose last row left memory gets one),
+  // and none appended rows it already held (each turn shows once, below).
+  expect(catchUps.filter((entry) => entry.replaced).length).toBeLessThanOrEqual(
+    1,
+  );
+  // "Load older" from a cursor that left memory answers an empty page, the
+  // miss the browser recovers from by taking its tail again.
+  const evicted = await detail(
+    `?tailCompactions=2&beforeMessageId=${encodeURIComponent(firstReply)}`,
+  );
+  expect(evicted.messages).toEqual([]);
+  // Every turn once, at the bottom.
+  const follow = page.getByRole("button", {
+    name: "Follow latest session output",
   });
-  for (const turn of [1, 2, 3]) {
-    await expect(
-      main.getByText(`QUICK_TURN_${turn}`, { exact: true }),
-    ).toHaveCount(1);
-    await expect(
-      main.getByText(new RegExp(`QUICK_TURN_${turn}_DONE`)),
-    ).toHaveCount(1);
-  }
-  await recordUiCapture(page, "antigravity-live-memory-desktop", viewport);
-
-  // A reload inside the late-join replay window shows each turn once too.
-  await page.reload();
-  await expect(main.getByText(/QUICK_TURN_3_DONE/)).toHaveCount(1, {
+  if (await follow.isVisible()) await follow.click();
+  await expect(main.getByText(/SLOW_TURN_3_DONE/)).toBeVisible({
     timeout: 20_000,
   });
-  for (const turn of [1, 2, 3])
-    await expect(
-      main.getByText(`QUICK_TURN_${turn}`, { exact: true }),
-    ).toHaveCount(1);
+  // The newest turn once; older turns at most once (the 1.2 MB replies put
+  // them outside the mounted, trimmed window), never twice.
+  await expect(main.getByText("SLOW_TURN_3", { exact: true })).toHaveCount(1);
+  await expect(main.getByText(/SLOW_TURN_3_DONE/)).toHaveCount(1);
+  for (const turn of ["BIG_TURN_1", "BIG_TURN_2"]) {
+    expect(
+      await main.getByText(turn, { exact: true }).count(),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      await main.getByText(new RegExp(`${turn}_DONE`)).count(),
+    ).toBeLessThanOrEqual(1);
+  }
+  await recordUiCapture(page, "antigravity-live-memory-desktop", viewport);
+  // Older pages load after the move, from the replaced window, to step 0.
+  const olderAfter: Array<{ messages: Array<{ uuid: string }> }> = [];
+  page.on("response", async (response) => {
+    const url = new URL(response.url());
+    if (
+      url.pathname.endsWith(`/sessions/${liveId}`) &&
+      url.searchParams.has("beforeMessageId")
+    )
+      olderAfter.push(await response.json());
+  });
+  for (let attempt = 0; attempt < 12; attempt++) {
+    if ((await loadOlder.count()) === 0) break;
+    await loadOlder.getByRole("button").scrollIntoViewIfNeeded();
+    await loadOlder.getByRole("button").click();
+    await expect(loadOlder.locator('[aria-busy="true"]')).toHaveCount(0, {
+      timeout: 20_000,
+    });
+  }
+  await expect(loadOlder).toHaveCount(0);
+  expect(olderAfter.at(-1)?.messages[0]?.uuid).toBe(`${liveId}:step-0`);
+  const loaded = olderAfter.flatMap((older) =>
+    older.messages.map((message) => message.uuid),
+  );
+  expect(new Set(loaded).size).toBe(loaded.length);
+  // A reload shows each turn once too.
+  await page.reload();
+  await expect(main.getByText(/SLOW_TURN_3_DONE/)).toHaveCount(1, {
+    timeout: 20_000,
+  });
+  await expect(main.getByText("SLOW_TURN_3", { exact: true })).toHaveCount(1);
+  for (const turn of ["BIG_TURN_1", "BIG_TURN_2"])
+    expect(
+      await main.getByText(turn, { exact: true }).count(),
+    ).toBeLessThanOrEqual(1);
+  // The server's view holds each turn once.
+  for (const marker of [
+    "BIG_TURN_1_DONE",
+    "BIG_TURN_2_DONE",
+    "SLOW_TURN_3_DONE",
+  ])
+    expect(await rowsOf(marker)).toHaveLength(1);
   await context.close();
 });

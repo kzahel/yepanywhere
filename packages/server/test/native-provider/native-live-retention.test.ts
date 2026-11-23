@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { setFlagsFromString } from "node:v8";
 import { runInNewContext } from "node:vm";
 import { afterEach, describe, expect, it } from "vitest";
+import { setAntigravityLiveLimitsForTests } from "../../src/sdk/providers/antigravity-live-projection.js";
 import {
   antigravityLiveHistory,
   antigravityOwnerView,
@@ -26,20 +27,25 @@ import { providers } from "./selection.js";
  * projection is copied for counting, so the copy is not charged. Growth is
  * taken from the first sample after warm-up (one interval) to the final
  * turn, which is always sampled. Heap samples on one host are diagnostic.
- * Since plan 195 step 6 an Antigravity owner moves an ended turn to the log
- * just after its result, keeping a copy of the turn it moved last for
- * clients that streamed it: each sample also records the projection at
- * idle, then waits (at most two seconds) for that move before sampling,
- * and counts that copy separately.
+ * Since plan 195 step 6 an Antigravity owner keeps a bounded recent window:
+ * past a soft budget it moves its boundary to a proven split point. Here the
+ * budget is lowered to {@link SOFT_BYTES} and split points may be used at
+ * once (Process's replay window is not in play), so many moves happen. The
+ * projection's count and bytes are asserted after every turn against the
+ * budget plus two turns, and the heap is also sampled right after each move,
+ * a comparable point of each sawtooth cycle.
  */
 const turns = Number(process.env.YEP_NATIVE_RETENTION_TURNS ?? 200);
 const reply = "R".repeat(4096);
+/** The lowered soft budget: a move about every 28 turns. */
+const SOFT_BYTES = 128 * 1024;
 
 setFlagsFromString("--expose-gc");
 const gc = runInNewContext("gc") as () => void;
 
 let fixture: Awaited<ReturnType<typeof nativeFixture>> | undefined;
 afterEach(async () => {
+  setAntigravityLiveLimitsForTests();
   await fixture?.close();
   fixture = undefined;
 });
@@ -50,25 +56,22 @@ describe
     providers.filter((provider) => ["codex", "antigravity"].includes(provider)),
   )("native live retention: %s", (provider) => {
   it(`retained memory across ${turns} turns`, async () => {
+    if (provider === "antigravity")
+      setAntigravityLiveLimitsForTests({
+        softBytes: SOFT_BYTES,
+        splitAgeMs: 0,
+      });
     const f = await nativeFixture(provider);
     fixture = f;
     // Known once the first turn has reported the native identity.
     let scope: string | undefined;
-    const sample = async (turn: number) => {
-      if (provider === "antigravity")
-        scope ??= await realpath(
-          join(f.environment.GEMINI_HOME!, "antigravity-cli", "conversations"),
-        );
-      const atIdle = scope
-        ? antigravityLiveHistory(scope, f.nativeId())?.length
+    const projection = () => {
+      const view = scope
+        ? antigravityOwnerView(scope, f.nativeId())
         : undefined;
-      for (
-        const deadline = Date.now() + 2_000;
-        scope &&
-        Date.now() < deadline &&
-        antigravityLiveHistory(scope, f.nativeId())?.length;
-      )
-        await new Promise((resolve) => setTimeout(resolve, 10));
+      return view?.state === "open" ? view : undefined;
+    };
+    const heap = () => {
       const proc = f.proc as unknown as {
         currentBucket: unknown[];
         previousBucket: unknown[];
@@ -79,31 +82,29 @@ describe
       // The scripted model keeps every request body, each the whole history.
       f.model.requests.length = 0;
       for (let pass = 0; pass < 3; pass++) gc();
-      const heapUsed = process.memoryUsage().heapUsed;
+      return process.memoryUsage().heapUsed;
+    };
+    const sample = async (turn: number) => {
+      const heapUsed = heap();
       // Copied only after the heap was read; the copy is then released.
       const history = scope
         ? antigravityLiveHistory(scope, f.nativeId())
         : undefined;
-      const view = scope
-        ? antigravityOwnerView(scope, f.nativeId())
-        : undefined;
-      const moved = view?.state === "open" ? view.movedRows() : undefined;
       return {
         turn,
         heapUsed,
-        projectionMessagesAtIdle: atIdle,
         projectionMessages: history?.length,
         projectionJsonBytes: history
           ? Buffer.byteLength(JSON.stringify(history))
-          : undefined,
-        movedMessages: moved?.length,
-        movedJsonBytes: moved
-          ? Buffer.byteLength(JSON.stringify(moved))
           : undefined,
       };
     };
     const interval = Math.max(1, Math.floor(turns / 4));
     const samples = [];
+    const moves: Array<{ turn: number; heapUsed: number }> = [];
+    let largestTurn = 0;
+    let boundary: number | undefined;
+    let peak = { messages: 0, bytes: 0 };
     const started = performance.now();
     for (let turn = 1; turn <= turns; turn++) {
       if (turn > 1)
@@ -113,11 +114,34 @@ describe
       (await f.model.next()).finish(`${reply} ${turn}`);
       await f.output(`${reply} ${turn}`);
       await f.idle();
+      if (provider === "antigravity") {
+        scope ??= await realpath(
+          join(f.environment.GEMINI_HOME!, "antigravity-cli", "conversations"),
+        );
+        // Let the result's log pass run (it may move the boundary).
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        const history = antigravityLiveHistory(scope, f.nativeId())!;
+        const bytes = Buffer.byteLength(JSON.stringify(history));
+        const turnBytes = Buffer.byteLength(JSON.stringify(history.slice(-2)));
+        largestTurn = Math.max(largestTurn, turnBytes);
+        peak = {
+          messages: Math.max(peak.messages, history.length),
+          bytes: Math.max(peak.bytes, bytes),
+        };
+        // The bound, whatever the turn count: the budget and two turns.
+        expect(bytes).toBeLessThanOrEqual(SOFT_BYTES + 2 * largestTurn);
+        const end = projection()?.boundary?.end;
+        if (boundary !== undefined && end !== boundary)
+          moves.push({ turn, heapUsed: heap() });
+        boundary = end;
+      }
       if (turn === 1 || turn % interval === 0 || turn === turns)
         samples.push(await sample(turn));
     }
     const warm = samples.find((entry) => entry.turn >= interval)!;
     const last = samples.at(-1)!;
+    // Comparable points of the sawtooth: right after each move from turn 150.
+    const cycles = moves.filter((move) => move.turn >= interval);
     console.info(
       JSON.stringify({
         measurement: "native-live-retention",
@@ -133,8 +157,30 @@ describe
         heapGrowthPerTurn: Math.round(
           (last.heapUsed - warm.heapUsed) / Math.max(1, last.turn - warm.turn),
         ),
+        ...(provider === "antigravity"
+          ? {
+              softBytes: SOFT_BYTES,
+              largestTurnBytes: largestTurn,
+              peak,
+              moves: moves.length,
+              cycleHeap: cycles.map((move) => [move.turn, move.heapUsed]),
+              cycleGrowth:
+                cycles.length >= 2
+                  ? cycles.at(-1)!.heapUsed - cycles[0]!.heapUsed
+                  : undefined,
+              maxConsecutiveCycleGrowth: Math.max(
+                ...cycles
+                  .slice(1)
+                  .map(
+                    (move, index) => move.heapUsed - cycles[index]!.heapUsed,
+                  ),
+              ),
+            }
+          : {}),
       }),
     );
+    if (provider === "antigravity")
+      expect(moves.length).toBeGreaterThanOrEqual(2);
     expect(f.model.failures).toEqual([]);
     expect(f.errors).toEqual([]);
   }, 600_000);
