@@ -740,7 +740,10 @@ grace applies as for them.
 - **Evidence.** The conversation's own database changing, or its WAL
   changing while not empty, as the provider-root watcher reports them; and,
   while a client has the conversation open, its log changing as that
-  page's focused watch polls it. Not evidence: the summaries index and its
+  page's focused watch polls it. Before the log exists that watch follows
+  the database and WAL instead, which refreshes the page and adds no
+  evidence of its own (the root watcher reports the same files). Not
+  evidence: the summaries index and its
   sidecars (every conversation's writer touches them, and YA's own
   summaries read creates the sidecars), a 0-byte WAL or the shared memory
   (any SQLite open creates them, `agy`'s own resume and load included), a
@@ -748,34 +751,42 @@ grace applies as for them.
   summaries index lists without a workspace
   ([measured](antigravity-native-storage.md#writers--plan-195-step-7)).
 - **YA's own writes** are not evidence: anything written while YA's owner
-  is starting (a resume under way); while its owner is open and a prompt or
-  command awaits its answer, it is closing, or it retains detached work (a
-  background task, a schedule, a child, a wake not yet settled); up to 2
-  seconds after the owner's last ACP frame; while a fallback history read's
-  `session/load` holds the conversation; and before YA's owner or history
-  read let go of it (remembered 30 seconds). Each write is judged by its
-  file's modification time, not by when the watcher reports it, so a
-  report delayed past the owner's exit is still YA's.
+  is starting (a resume under way) or holds the conversation (live, or a
+  fallback history read's `session/load`), and anything written before it
+  let go (remembered 30 seconds). An owner holds the conversation until its
+  `agy` has exited, so this covers its turns, wakes, compactions, Stop, its
+  close, and the idle close an `agy` makes about 30 seconds after its last
+  write (a checkpoint of the database, no new step). A write after the
+  release is judged by its file's modification time, not by when the
+  watcher reports it, so a report delayed past the owner's exit is still
+  YA's.
 - **A conversation YA owns.** YA's process owns the session, so it stays
-  `owner: "self"` with its controls and no banner. A write by another
-  program while the owner is quiet (none of the above) drops the owner's
-  split candidates and discards a check under way ([live memory](#live-memory)):
-  no move happens until a later turn's first prompt gives a new candidate,
-  and the cap still bounds the rows. The owner also checks for itself: one
-  asynchronous stat of the log at each turn's result or command's end,
-  compared with the stat its next turn-first prompt takes; growth more than
-  2 seconds after its last frame, with nothing of its own running, has the
-  same effect and gives that prompt no candidate. Both log a warning. Once
-  YA's owner stops, the other program's next write marks the conversation
-  external.
+  `owner: "self"` with its controls and no banner, and the watcher's
+  reports for it are taken as the owner's own. The owner checks for
+  another writer itself, from the log alone: one asynchronous stat of the
+  log at each turn's result or command's end, compared with the stat its
+  next turn-first prompt takes. Growth with nothing of its own running
+  (no turn, command or retained detached work, and no work update since)
+  and later than 2 seconds after its last ACP frame drops the owner's split
+  candidates, discards a check under way ([live memory](#live-memory)) and
+  gives that prompt no candidate; a later turn's first prompt gives a new
+  one, and the cap still bounds the rows. It logs a warning. Once YA's owner
+  stops, the other program's next write marks the conversation external.
+  (Review round 1 removed the watcher's part in this: an idle `agy`'s own
+  database close 30 seconds after a turn read as another writer and
+  dropped every candidate after each idle gap.)
 - **When it shows.** On Linux at the other program's write. On macOS the
   watcher reports another process's writes into a file it holds open only
   when it closes it, so a conversation open in a client shows it within its
-  focused watch's poll (1.5 seconds), one not open when the other `agy`
-  exits or checkpoints, and an owned one at the owner's next turn-first
-  prompt.
-- **What is not detected.** A write by another program while YA's owner is
-  busy or within its settle is taken as YA's own. That includes a foreign
+  focused watch's poll (1.5 seconds), and one not open when the other
+  `agy` closes the database: at its idle close about 30 seconds after its
+  last write, or when it exits. An owned one is found at the owner's next
+  turn-first prompt, on every platform.
+- **What is not detected.** A write by another program to a conversation
+  YA's owner holds is not seen until the owner's next turn-first prompt,
+  and not at all when it lands while the owner's own turn or detached work
+  runs, within 2 seconds of its last frame, or before a wake of its own
+  (which also writes the log). That includes a foreign
   `USER_INPUT` written at a split candidate's offset, between the owner's
   stat and `agy` logging the owner's prompt: the candidate's head check
   takes its type, so a later move can take it for the owner's prompt, and

@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { prepareQueuedCompaction } from "../../src/routes/session-input-admission.js";
-import { AntigravityLiveProjection } from "../../src/sdk/providers/antigravity-live-projection.js";
+import {
+  AntigravityLiveProjection,
+  setAntigravityLiveLimitsForTests,
+} from "../../src/sdk/providers/antigravity-live-projection.js";
+import { antigravityOwnerView } from "../../src/sdk/providers/antigravity-owners.js";
 import { AntigravityRuntime } from "../../src/sdk/providers/antigravity-runtime.js";
 import { antigravitySessionWatcherSpec } from "../../src/sessions/antigravity-summaries.js";
 import { antigravityFocusedFile } from "../../src/sessions/antigravity-writer-evidence.js";
@@ -18,6 +22,7 @@ import { providers } from "./selection.js";
 
 const cleanups: Array<() => Promise<unknown> | unknown> = [];
 afterEach(async () => {
+  setAntigravityLiveLimitsForTests();
   vi.restoreAllMocks();
   while (cleanups.length) await cleanups.pop()!();
 });
@@ -113,6 +118,7 @@ async function owned() {
   };
   return {
     f,
+    scope,
     tracker,
     statuses,
     outside,
@@ -266,6 +272,60 @@ describe.skipIf(!providers.includes("antigravity"))(
       await vi.waitFor(() => expect(tracker.isExternal(id)).toBe(true), {
         timeout: 20_000,
       });
+    }, 120_000);
+
+    // Review round 1: an idle agy closes its database about 30 s after its
+    // last write (a checkpoint, no record). That is the owner's own write.
+    it("keeps an idle owner's split candidate through its database close 30 s after a turn, and moves at it", async () => {
+      setAntigravityLiveLimitsForTests({ splitAgeMs: 0 });
+      const foreign = vi.spyOn(
+        AntigravityLiveProjection.prototype,
+        "foreignWrite",
+      );
+      const { f, scope, tracker, statuses } = await owned();
+      const id = f.nativeId();
+      const turn = async (text: string) => {
+        expect(f.proc.queueMessage({ text }).success).toBe(true);
+        (await f.model.next()).finish(`${text}_DONE`);
+        await f.output(`${text}_DONE`);
+        await f.idle();
+      };
+      await turn("BEFORE_IDLE");
+      const view = () => {
+        const owner = antigravityOwnerView(scope, id);
+        return owner?.state === "open" ? owner : undefined;
+      };
+      const opened = view()!.boundary;
+      // The window is full: the next prompt passes it.
+      setAntigravityLiveLimitsForTests({
+        softRows: view()!.history().length,
+        splitAgeMs: 0,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 36_000));
+      await handled();
+      const warned = () =>
+        f.diagnostics.filter(
+          (entry) => entry.event === "antigravity_foreign_write_while_owned",
+        );
+      expect(foreign).not.toHaveBeenCalled();
+      expect(warned()).toEqual([]);
+      expect(view()!.boundary).toEqual(opened);
+      // The candidate BEFORE_IDLE's prompt took before the idle proves the
+      // split once the next prompt passes the budget.
+      await turn("AFTER_IDLE");
+      await vi.waitFor(() => expect(view()!.boundary).not.toEqual(opened));
+      const prose = view()!
+        .history()
+        .flatMap((row) =>
+          row.type === "user" && typeof row.message?.content === "string"
+            ? [row.message.content]
+            : [],
+        );
+      expect(prose[0]).toBe("BEFORE_IDLE");
+      expect(foreign).not.toHaveBeenCalled();
+      expect(warned()).toEqual([]);
+      expect(tracker.isExternal(id)).toBe(false);
+      expect(statuses).toEqual([]);
     }, 120_000);
   },
 );

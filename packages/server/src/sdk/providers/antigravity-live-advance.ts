@@ -18,10 +18,7 @@ import type {
   AntigravitySplitCandidate,
   AntigravitySplitCheck,
 } from "./antigravity-live-projection.js";
-import {
-  type AntigravityLogBoundary,
-  OWN_WRITE_SETTLE_MS,
-} from "./antigravity-owners.js";
+import type { AntigravityLogBoundary } from "./antigravity-owners.js";
 
 /**
  * Where a live owner's window may move its boundary (plan 195 step 6),
@@ -61,6 +58,12 @@ import {
  * past Z (P's input not written yet) leaves the candidate pending.
  */
 
+/**
+ * How long after an owner's last ACP frame a log change is still its own:
+ * `agy` writes a turn's records before its result and a wake's last record
+ * within about 20 ms of its last update (measured on 1.5.13 and 1.5.14).
+ */
+const OWN_WRITE_SETTLE_MS = 2_000;
 /** The first and largest chunks read back from Z for the record ending there. */
 const FIRST_CHUNK = 64 * 1024;
 const MAX_CHUNK = 1024 * 1024;

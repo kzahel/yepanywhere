@@ -1059,6 +1059,12 @@ and leaves it `self`, and after YA stops the second `agy`'s turn and exit
 mark it external. The selection passed with 71 cases and 3 skipped on
 2026-11-23, with the 1.5.13 pin and with the 1.5.14 candidate, on Node
 24.22.1.
+Review round 1 added a case where the owner idles 36 s after a turn (about
+40 s, kept in the selection): `agy`'s own database close about 30 s after
+its last write drops no candidate and logs no warning, and the next prompt
+moves the boundary at the candidate taken before the idle. The selection
+then passed with 72 cases and 3 skipped on 2026-11-23, with the 1.5.13 pin
+and with the 1.5.14 candidate, on Node 24.22.1.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup

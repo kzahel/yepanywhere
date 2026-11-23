@@ -39,27 +39,6 @@ export interface AntigravityLogBoundary {
 }
 
 /**
- * What an owner's own `agy` is doing, for telling its writes from another
- * writer's (plan 195 step 7).
- */
-export interface AntigravityWriterState {
-  /**
-   * A prompt or command awaits its answer, the runtime is closing, or
-   * detached work (a background task, a child, a wake) is retained: `agy`
-   * may write at any moment.
-   */
-  busy(): boolean;
-  /** When a frame last crossed the owner's ACP pipe (`Date.now()`). */
-  lastActivityMs(): number;
-}
-
-/**
- * How long after an idle owner's last ACP frame a write is still its own.
- * `agy` writes a turn's records before its result and a wake's last record
- * within about 20 ms of its last update (measured on 1.5.13 and 1.5.14).
- */
-export const OWN_WRITE_SETTLE_MS = 2_000;
-/**
  * How long a released owner is remembered: writes made before it let go
  * reach YA's watcher a debounce later. The tracker's abort grace.
  */
@@ -71,7 +50,6 @@ interface NativeSessionOwner {
   /** A bounded history read, which a live session may wait out. */
   historyRead: boolean;
   released: Promise<void>;
-  writer?: AntigravityWriterState;
   /**
    * Set once the owner's session is open. Without a boundary its live
    * projection is the whole history (a session resumed through the ACP
@@ -205,45 +183,28 @@ export function antigravityStartPending(scope: string, id: string): boolean {
   );
 }
 
-/** Whose write a change to a conversation's own files was (plan 195 step 7). */
-export type AntigravityWriteSource =
-  /** YA's own `agy`: starting, open and busy or just active, or a history
-   * read's fallback load, or written before its owner let go. */
-  | "own"
-  /** Another writer, while YA's owner was quiet: its split candidates are
-   * dropped. Ownership stays YA's while its process lives. */
-  | "foreign-owned"
-  /** No YA owner made it: another program wrote the conversation. */
-  | "unowned";
-
 /**
- * Attributes a write to a conversation's database, WAL or log, made at
- * `mtimeMs` (the file's modification time). Only YA's own owners are known
- * here, so a write is YA's while one of them could have made it.
+ * Whether YA's own `agy` may have made a write to a conversation's
+ * database, WAL or log at `mtimeMs` (the file's modification time; plan
+ * 195 step 7): an owner is starting, holds the conversation (live, or a
+ * fallback history read's `session/load`), or let go of it after the
+ * write. An owner holds it until its `agy` has exited, and an idle `agy`
+ * checkpoints its database about 30 s after its last write, so every
+ * file change while an owner holds the conversation is taken as its own;
+ * another writer beside a live owner is the owner's own check to find
+ * (`AntigravitySplitSampler`), from the log alone.
  */
-export function attributeAntigravityWrite(
+export function antigravityWriteIsOwn(
   scope: string,
   id: string,
   mtimeMs: number,
   now = Date.now(),
-): AntigravityWriteSource {
+): boolean {
   const key = keyOf(scope, id);
-  if (startingSessions.has(key)) return "own";
-  const owner = ownedNativeSessions.get(key);
-  if (owner) {
-    const writer = owner.writer;
-    if (owner.historyRead || !owner.open || !writer) return "own";
-    if (
-      writer.busy() ||
-      mtimeMs <= writer.lastActivityMs() + OWN_WRITE_SETTLE_MS
-    )
-      return "own";
-    owner.open.foreignWrite();
-    return "foreign-owned";
-  }
+  if (startingSessions.has(key) || ownedNativeSessions.has(key)) return true;
   forgetOldReleases(now);
   const released = releasedAt.get(key);
-  return released !== undefined && mtimeMs <= released ? "own" : "unowned";
+  return released !== undefined && mtimeMs <= released;
 }
 
 /**
@@ -317,10 +278,6 @@ export function ownAntigravitySession(
       releasedAt.set(key, now);
       release();
       settle(key);
-    },
-    /** How to tell this owner's writes from another writer's. */
-    attributeWrites(writer: AntigravityWriterState): void {
-      owner.writer = writer;
     },
     /**
      * The session is open: readers now serve the log through `boundary`

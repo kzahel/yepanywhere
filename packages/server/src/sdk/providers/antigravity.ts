@@ -683,11 +683,6 @@ export class AntigravityProvider implements AgentProvider {
         options.resumeSessionId || setup.sessionId,
       );
       owner ??= ownAntigravitySession(namespace.storageScope, id);
-      owner.attributeWrites({
-        // A turn or `/compact` is a prompt awaiting its answer.
-        busy: () => runtime.busy || background.working,
-        lastActivityMs: () => runtime.lastActivityMs,
-      });
       controls.id = id;
       controls.models = buildAntigravityModels(setup);
       let configOptions: AntigravityConfigOption[] = setup.configOptions ?? [];

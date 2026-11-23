@@ -121,8 +121,12 @@ describe("an Antigravity conversation written by another program", () => {
     expect(h.statuses).toEqual(["external"]);
   });
 
-  it("is not external for YA's own agy: starting, open and working or just active, a history read's load, or before it let go", async () => {
+  it("is not external for YA's own agy: starting or holding the conversation (idle close included), a history read's load, or before it let go", async () => {
     const h = await harness();
+    const foreign = vi.spyOn(
+      AntigravityLiveProjection.prototype,
+      "foreignWrite",
+    );
     const owner = ownAntigravitySession(h.scope, ID);
     let release = () => owner.release();
     cleanups.push(() => release());
@@ -131,20 +135,12 @@ describe("an Antigravity conversation written by another program", () => {
     // Not yet open (a resume under way).
     h.change(`${ID}.db-wal`, { size: 98_408 });
     await h.settle();
-    owner.open(undefined);
-    let busy = true;
-    let lastActivity = 0;
-    owner.attributeWrites({
-      busy: () => busy,
-      lastActivityMs: () => lastActivity,
-    });
-    // A turn, a compaction or retained detached work.
+    owner.open({ step: -1, end: 0 });
     h.change(`${ID}.db-wal`, { size: 196_784 });
     await h.settle();
-    // Idle, but within the settle after its last frame.
-    busy = false;
-    lastActivity = Date.now();
-    h.change(`${ID}.db-wal`, { size: 295_160 });
+    // An idle agy closes its database about 30 s after its last write:
+    // a checkpoint while the owner is open and quiet (review round 1).
+    h.change(`${ID}.db`, { mtimeMs: Date.now() + 30_000 });
     await h.settle();
     // Its close: the checkpoint lands before release, the event after.
     const closedAt = Date.now();
@@ -161,26 +157,12 @@ describe("an Antigravity conversation written by another program", () => {
     await h.settle();
     expect(h.tracker.isExternal(ID)).toBe(false);
     expect(h.statuses).toEqual([]);
+    // Another writer beside a live owner is the owner's own check to find.
+    expect(foreign).not.toHaveBeenCalled();
 
     // A write after YA let go is another program's.
     h.change(`${ID}.db-wal`, { size: 98_408, mtimeMs: Date.now() + 1_000 });
     await vi.waitFor(() => expect(h.tracker.isExternal(ID)).toBe(true));
-  });
-
-  it("drops a quiet owner's split candidates and leaves ownership with YA", async () => {
-    const h = await harness();
-    const foreign = vi.spyOn(
-      AntigravityLiveProjection.prototype,
-      "foreignWrite",
-    );
-    const owner = ownAntigravitySession(h.scope, ID);
-    cleanups.push(() => owner.release());
-    owner.open({ step: -1, end: 0 });
-    owner.attributeWrites({ busy: () => false, lastActivityMs: () => 0 });
-    h.change(`${ID}.db-wal`, { size: 98_408 });
-    await vi.waitFor(() => expect(foreign).toHaveBeenCalledTimes(1));
-    expect(h.tracker.isExternal(ID)).toBe(false);
-    expect(h.statuses).toEqual([]);
   });
 
   it("is external after its log grows while a client has it open", async () => {

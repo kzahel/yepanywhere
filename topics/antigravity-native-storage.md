@@ -1090,7 +1090,7 @@ The two versions changed the same files at the same points:
 | Phase | The conversation's files | Elsewhere |
 | --- | --- | --- |
 | A turn (plain, tools, steer, Stop, `/compact`, a wake) | Each log append is followed within about 2 ms by its WAL growing (to hundreds of KB to MB) | The summaries index's WAL about 0.4 to 1 s after the turn |
-| Idle, 3 to 6 s after a turn or a wake | Nothing | The summaries index's WAL once, as above |
+| Idle, after a turn (still running) | About 30.9 s after the last write, an idle close: the database checkpointed (modified, no new step), the WAL and shared memory deleted, for every conversation the process holds; the next turn creates them again. Nothing else in 200 s of idle (1.5.13) or 50 s (1.5.14): no log change, no non-empty WAL | The summaries index's WAL at about 0.9 s; at the idle close the index modified and its sidecars deleted |
 | A background task's wake, after the turn | The task-end record and its WAL write about 0.5 s after the turn's result, before any ACP output | — |
 | Close (`agy` exiting, as Stop of the owner, idle teardown and reload do) | The database checkpointed (modified), the WAL and shared memory deleted, all within 3 ms of the close starting and before the process exited | The summaries index modified, its sidecars deleted |
 | After exit, 5 s | Nothing | Nothing |
@@ -1115,25 +1115,36 @@ reader from that record on, so its pages there fall back to ACP replay once
 no owner holds the conversation, and a live owner's split check cannot
 read a span across it.
 
+**The idle close (review round 1).** The idle row was first measured over
+3 to 6 s only. Rerun with `--idle 200000` on 1.5.13 and `--idle 50000` on
+1.5.14 (2026-11-23, `/tmp/ya-step7/idle-*.json`), an `agy` that stays up
+after a turn checkpoints each conversation database it holds and deletes
+its sidecars about 30.9 s after its last write (30.03 s after its last ACP
+frame in the round 1 review's probe), then writes nothing more while idle.
+A checkpoint moves WAL pages into the database and adds no record, so
+while YA's owner holds a conversation a database change is not evidence of
+another writer.
+
 **What the watcher sees, by platform.** On macOS, Node's `fs.watch` (the
 provider-root watcher, recursive or not) reported writes into a file
 another process holds open only when that process closed it: a test writer
 appending to a held file every 500 ms for 4 s produced one event, at close.
 In the native cases an outside `agy`'s WAL growth during a turn produced its
 event 5.7 s later in one run and none within 20 s in others, while its
-exit's checkpoint produced one at once.
+checkpoint at its idle close or exit produced one at once.
 Linux's inotify reports each write. So YA observes another writer of a
-conversation that is not open in a client when it writes (Linux) or when
-it closes or checkpoints (macOS); an open conversation's log is polled by
-its focused watch on every platform. The delays are measurements on one
-host, not a guarantee.
+conversation that is not open in a client when it writes (Linux), or at
+its idle close about 30 s after its last write, or its exit (macOS); an
+open conversation's log is polled by its focused watch on every platform.
+The delays are measurements on one host, not a guarantee.
 
 **How long YA's own writes last.** Every write of a closing owner finished
-before its process exited, and a wake's last record came within about
-20 ms of its last ACP update (step 6). YA's attribution keys on each
-file's modification time against when its owner last exchanged a frame
-or let go, not on when the watcher reported it
-([provider contract](antigravity.md#another-writer)).
+before its process exited, a wake's last record came within about 20 ms
+of its last ACP update (step 6), and an idle owner's last write is its
+idle close at about 30 s. YA takes every change while its owner holds the
+conversation as the owner's, and a change after it let go by the file's
+modification time against the release, not by when the watcher reported
+it ([provider contract](antigravity.md#another-writer)).
 
 ## Runtime identity
 

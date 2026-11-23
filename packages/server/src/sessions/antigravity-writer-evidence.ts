@@ -6,10 +6,9 @@ import {
   parseYaSessionId,
   toUrlProjectId,
 } from "@yep-anywhere/shared";
-import { getLogger } from "../logging/logger.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { ProjectScanner } from "../projects/scanner.js";
-import { attributeAntigravityWrite } from "../sdk/providers/antigravity-owners.js";
+import { antigravityWriteIsOwn } from "../sdk/providers/antigravity-owners.js";
 import type { ObservedPublicSession } from "../supervisor/ExternalSessionTracker.js";
 import type { ResolvedSessionFile } from "../watcher/FocusedSessionWatchManager.js";
 import type { FileChangeEvent } from "../watcher/EventBus.js";
@@ -35,7 +34,10 @@ const LOG = new RegExp(
  * log is watched only for a conversation open in a client). Not evidence: a
  * 0-byte WAL or the shared-memory file (any SQLite open creates them, `agy`'s
  * resume and load included), a deletion (a writer closing), and the
- * store-wide summaries index, which every conversation's writer changes.
+ * store-wide summaries index, which every conversation's writer changes. A
+ * focused watch's database and WAL target, before the log exists, refreshes
+ * the page only: its events carry absolute paths and the root watcher
+ * reports the same files.
  */
 export function antigravityWriteEvidence(
   event: FileChangeEvent,
@@ -73,11 +75,11 @@ export function antigravityWriteEvidence(
 /**
  * The public session a write by another program belongs to, or null when
  * the event is not evidence of one: YA's own `agy` made it, the file is
- * not one conversation's, or the conversation is a child or unlisted. A
- * write by another program while YA's owner is quiet drops that owner's
- * split candidates and stays null: ownership is YA's while its process
- * lives. Reads file facts and the summaries index only, never the
- * conversation's database or the log's content.
+ * not one conversation's, or the conversation is a child or unlisted.
+ * While YA's owner holds the conversation every change is taken as its
+ * own (ownership stays YA's while its process lives). Reads file facts and
+ * the summaries index only, never the conversation's database or the log's
+ * content.
  */
 export async function resolveAntigravityObservedWrite(
   event: FileChangeEvent,
@@ -91,17 +93,7 @@ export async function resolveAntigravityObservedWrite(
   if (!evidence) return null;
   const scope = await realpath(evidence.scopeDir).catch(() => null);
   if (!scope || signal.aborted) return null;
-  const source = attributeAntigravityWrite(scope, evidence.id, event.mtimeMs!);
-  if (source === "foreign-owned")
-    getLogger().warn(
-      {
-        event: "antigravity_foreign_write_while_owned",
-        conversationId: evidence.id,
-        file: basename(event.path),
-      },
-      "Another program wrote an Antigravity conversation YA owns; its split candidates were dropped",
-    );
-  if (source !== "unowned") return null;
+  if (antigravityWriteIsOwn(scope, evidence.id, event.mtimeMs!)) return null;
   const metadata = await readAntigravityMetadata(scope, evidence.id).catch(
     () => null,
   );

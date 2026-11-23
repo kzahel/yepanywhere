@@ -244,13 +244,6 @@ export class AntigravityRuntime {
 
   /** When a frame last crossed the pipe either way (`Date.now()`). */
   lastActivityMs = 0;
-  /**
-   * Mid-exchange: a request awaits its answer, or the runtime is shutting
-   * down. What `agy` writes meanwhile is this owner's own work.
-   */
-  get busy(): boolean {
-    return this.stopped || this.pending.size > 0;
-  }
 
   get pid(): number | undefined {
     return this.child?.pid;

@@ -2,13 +2,16 @@
 // on real `agy` with a scripted model. Run by hand from packages/server (no
 // inference, no network, owned profile):
 //   pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-writer-probe.mjs \
-//     [--agy <path>] [--out <report.json>] [--keep] [--verbose]
+//     [--agy <path>] [--out <report.json>] [--idle <ms>] [--keep] [--verbose]
 // It polls the size, modification time and inode of two conversations'
 // databases, sidecars and logs, the summaries index and the presence
 // directory every millisecond, and labels each change with the phase that
 // made it: an owner's turns, Stop, `/compact`, a wake, idle time and close;
 // a resume and a load with no prompt; an outside turn in a stopped
-// conversation; and two `agy` processes on one conversation.
+// conversation; and two `agy` processes on one conversation. `--idle`
+// sets the owner's quiet time after its first turns (default 6000 ms; an
+// idle `agy` closes its database connection about 30 s after its last
+// write, measured in step 7 review round 1).
 import { readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {
@@ -158,7 +161,7 @@ async function probe() {
     await plain(owner, x, "X1");
     await plain(owner, y, "Y1");
     mark("owner-idle-after-turn");
-    await sleep(6000);
+    await sleep(Number(option("idle", "6000")));
 
     mark("owner-tool-turn");
     let turn = prompt(owner, x, "X_TOOL_PROMPT");

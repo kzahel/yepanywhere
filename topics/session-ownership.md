@@ -219,10 +219,11 @@ their evidence is the conversation's own database and non-empty WAL from the
 provider-root watcher, plus its log from an open page's focused watch, which
 the tracker observes once per change whatever the number of subscribers. The
 store-wide summaries index, empty sidecars any SQLite open creates, and
-writes YA's own `agy` made (judged by file modification time against when its
-owner last exchanged a frame or let go) are not evidence. A write by another
-program to a conversation YA's process owns leaves it `self` and only stops
-that owner's history moves; see
+writes YA's own `agy` made (any while its owner holds the conversation, and
+after it let go by file modification time) are not evidence. Another
+program writing a conversation YA's process owns leaves it `self`; the owner
+finds it from its own log at its next prompt, which only stops its history
+moves; see
 [Antigravity's contract](antigravity.md#another-writer).
 
 Native source work is coalesced and bounded before acquisition. Overflow does
