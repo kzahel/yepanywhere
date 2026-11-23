@@ -976,29 +976,33 @@ replaced it.
 
 The [step 2 harness](#live-session-retention), rerun 2026-11-23 on `agy`
 1.5.13 and Node 24.22.1, 600 turns of a 4 KiB reply, twice, with the soft
-budget lowered to 128 KiB and split points usable at once (a test option),
-so the window moves about every 27 turns. The projection's count and bytes
-are asserted after every turn against the budget plus two turns, and the
-heap is sampled right after each move, a comparable point of each sawtooth
+budget lowered to 128 KiB or 40 rows and candidates usable at once (a test
+option), after review round 2's stat proof. The 40 rows bind first, so the
+window moves about every 19 turns. The projection's rows and bytes are
+asserted after every turn against the budget plus two turns, and the heap
+is sampled right after each move, a comparable point of each sawtooth
 cycle:
 
 | | Run 1 | Run 2 |
 | --- | ---: | ---: |
-| Moves | 22 | 22 |
-| Peak projection | 56 messages, 129,417 bytes | 56 messages, 129,417 bytes |
-| Heap right after the move at turn 163 → turn 595 | 74.04 → 74.87 MB | 74.02 → 74.88 MB |
-| Largest growth between consecutive cycles | +0.214 MB | +0.197 MB |
-| Heap samples, turn 150 → 600 | 74.17 → 74.93 MB (+0.750 MB) | 74.17 → 74.94 MB (+0.767 MB) |
+| Moves | 31 | 31 |
+| Peak projection | 40 rows, 92,441 bytes | 40 rows, 92,441 bytes |
+| Heap right after the move at turn 154 → turn 591 | 73.85 → 74.78 MB | 73.83 → 74.73 MB |
+| Largest growth between consecutive cycles | +0.177 MB | +0.174 MB |
+| Heap samples, turn 150 → 600 | 74.02 → 74.88 MB (+0.867 MB) | 74.02 → 74.82 MB (+0.794 MB) |
 
 The projection is bounded by the budget whatever the turn count (step 2
 grew it 4,622 bytes a turn), and no cycle grew the heap by more than
-0.22 MB. Across the 16 cycles from turn 163 the heap still rose about
-0.83 to 0.85 MB, roughly 1.9 KB a turn, outside the projection (which the
-harness asserts); the step's first version showed the same slope, and its
-source is not identified. Codex's step 2 samples moved within 3 MB with no
-trend. With the production limits a split point is used only 35 seconds
-after its prompt, so the window can exceed the 2 MiB budget by what
-arrives in that time, and the 8 MiB cap bounds it absolutely.
+0.18 MB. Across the 23 cycles from turn 154 the heap still rose about 0.89
+to 0.94 MB, roughly 2 KB a turn, outside the projection (which the
+harness asserts); every version of this step showed the same slope. The
+round 2 reviewer's heap snapshots attribute it mainly to V8 code and
+compilation structures and some harness bookkeeping, not session rows.
+Codex's step 2 samples moved within 3 MB with no trend. With the
+production limits a candidate is used only 35 seconds after its prompt,
+so the window can exceed the 2 MiB budget by what arrives in that time,
+or indefinitely when no candidate proves; the 8 MiB cap bounds the stored
+rows, apart from the one block still streaming.
 
 ## Runtime identity
 
