@@ -211,6 +211,15 @@ passed validation and installed-package acceptance before publishing the
 accepted tarball with provenance; the Pages deploy passed. Desktop,
 extension and mobile were not part of this cut.
 
+The November 23 release published [website and remote client 1.17.0](https://github.com/kzahel/yepanywhere/actions/runs/45263797676),
+[npm 0.14.0](https://github.com/kzahel/yepanywhere/releases/tag/v0.14.0),
+and [Desktop Stable 0.14.0](https://github.com/kzahel/yepanywhere/releases/tag/desktop-v0.14.0)
+from `24e86fe36`. The live hosted client opened Direct and Relay login in
+fresh browser sessions. The public npm tarball matched the accepted archive.
+Signed installers and Stable updater feeds are available for both Mac
+architectures and Windows. The [Desktop QA record](../testing/desktop-release-qa-log.md#2026-11-23--signed-stable-0140-publication)
+records the hosted runner retries and verification scope.
+
 ## 1. Publish the desktop and mobile apps with continuous delivery
 
 The npm release workflow now requires clean installed-package acceptance before

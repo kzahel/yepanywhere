@@ -13,6 +13,25 @@ Result meanings:
   action that was not available during the run.
 - **NOT RUN** — the check was outside the completed scope; the reason is noted.
 
+## 2026-11-23 — signed Stable 0.14.0 publication
+
+[Desktop CI](https://github.com/kzahel/yepanywhere/actions/runs/45268391983)
+published [Stable 0.14.0](https://github.com/kzahel/yepanywhere/releases/tag/desktop-v0.14.0)
+from `24e86fe36ea3163dad157828be316b0b64aa5f88` after the website and npm
+releases from the same source. Both Mac installers passed signing and
+notarization. Windows passed the packaged-runtime smoke and signed NSIS build.
+The finalizer verified the complete installer set and updater signatures.
+
+| Check | Result |
+| --- | --- |
+| General CI and desktop source preflight | PASS. [General CI](https://github.com/kzahel/yepanywhere/actions/runs/45263381478) and [desktop preflight](https://github.com/kzahel/yepanywhere/actions/runs/45263381573). |
+| Runtime/SQLite matrix | PASS. The [Windows Node 22 attempt](https://github.com/kzahel/yepanywhere/actions/runs/45263381384/attempts/1) timed out waiting for the installed server's port file. The unchanged [retry](https://github.com/kzahel/yepanywhere/actions/runs/45263381384/attempts/2) passed. |
+| Tagged desktop matrix | PASS. The [first attempt](https://github.com/kzahel/yepanywhere/actions/runs/45268391983/attempts/1) uploaded Windows and GitHub canceled both Mac jobs before runner allocation. The retry retained Windows and completed both Mac builds. |
+| Public Stable updater feeds | PASS. Apple Silicon, Intel Mac and Windows offer 0.14.0 from Stable 0.12.1 and Latest 0.13.8101, and report current at 0.14.0. |
+| Public installer routes | PASS. All three redirect to their matching 0.14.0 installers. |
+
+Fresh native installation, in-place upgrade and relaunch remain open.
+
 ## 2026-11-16 — signed Stable 0.12.1 publication
 
 [Desktop CI 43909798230](https://github.com/kzahel/yepanywhere/actions/runs/43909798230)
