@@ -11,6 +11,7 @@ import {
   type AntigravityLogRecord,
 } from "../../src/sessions/antigravity-log-projection.js";
 import type { Message } from "../../src/supervisor/types.js";
+import { agyClippedContent } from "../utils/antigravity-clipped-prompt.js";
 import { writeAntigravityScaleConversation } from "../utils/antigravity-scale-log.js";
 
 const ID = "c0ffee00-0000-4000-8000-000000000195";
@@ -121,6 +122,67 @@ function shown(messages: Message[]): string[] {
 }
 
 describe("Antigravity log projection", () => {
+  // Review round 3 finding 1: agy clips a long prompt in its log. Each of
+  // these made the whole log unknown before.
+  it.each([
+    ["inside the request", "x".repeat(262_144), true],
+    ["inside a three-byte character's request", "€".repeat(200_000), true],
+    ["inside the closing marker", "x".repeat(191_980), true],
+    ["inside the metadata, the request whole", "x".repeat(191_900), false],
+  ])("shows a prompt agy clipped %s as its beginning", (_where, text, cut) => {
+    const wrapped = user(2, text).content;
+    const content = agyClippedContent(wrapped);
+    expect(content).not.toBe(wrapped);
+    const record = parseAntigravityLogRecord(
+      JSON.stringify({ ...user(2, text), content }),
+    );
+    expect(record).toMatchObject({ type: "USER_INPUT", step: 2 });
+    const kept = (record as { text: string }).text;
+    expect(text.startsWith(kept)).toBe(true);
+    expect(kept.length).toBeGreaterThan(cut ? 60_000 : text.length - 1);
+    expect((record as { clipped?: number }).clipped !== undefined).toBe(cut);
+  });
+
+  it.each([
+    [
+      "a clip at another length",
+      (content: string) => {
+        const mark = content.indexOf("\n<truncated");
+        return content.slice(0, mark - 100_000) + content.slice(mark);
+      },
+    ],
+    ["another notice", (content: string) => content.replace("NOTE:", "Note:")],
+    [
+      "no request opening",
+      (content: string) => content.replace("<USER_REQUEST>\n", "<REQUEST>\n"),
+    ],
+  ])("still calls a clipped prompt in %s unknown", (_shape, alter) => {
+    const content = alter(
+      agyClippedContent(user(2, "x".repeat(262_144)).content),
+    );
+    expect(
+      parseAntigravityLogRecord(
+        JSON.stringify({ ...user(2, "x".repeat(262_144)), content }),
+      ),
+    ).toHaveProperty("unknown");
+  });
+
+  it("shows a clipped prompt's notice in the projection", async () => {
+    const content = agyClippedContent(user(0, "y".repeat(262_144)).content);
+    const projection = new AntigravityLogProjection(ID);
+    projection.add(
+      parseAntigravityLogRecord(
+        JSON.stringify({ ...user(0, "y"), content }),
+      ) as AntigravityLogRecord,
+    );
+    const result = projection.finish({ ownerLive: false });
+    if (result.status !== "known") throw Error("unknown");
+    const [message] = result.messages;
+    expect(String(message!.message!.content)).toMatch(
+      /^y{1000}[\s\S]*\n\n\[agy logged only the beginning of this prompt; it left out the last \d+ bytes\.\]$/,
+    );
+  });
+
   it.each([
     {
       name: "a turn with thinking, text and a complete group, across a skipped step",

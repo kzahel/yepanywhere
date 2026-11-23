@@ -1038,7 +1038,13 @@ bytes and rows, asserts both after every turn and samples the heap at each
 move. Review round 2 replaced the scanned proof (its held-read schedule
 went with it) and added the Stop case; the selection then passed with 65
 cases and 3 skipped on 2026-11-23, with the 1.5.13 pin and with the 1.5.14
-candidate, on Node 24.22.1.
+candidate, on Node 24.22.1. Review round 3 added the clipped-paste case,
+on the controlled peer (which now clips a long prompt as `agy` does) and on
+real `agy`: a short turn, a 256 KiB pasted prompt, one more prompt, and a
+fresh read past the move showing all three turns, complete; and a
+controlled-peer case for a configuration hold that arrives while a staged
+input starts. The selection then had 68 cases and 3 skipped; see the step
+6 report for its runs.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup

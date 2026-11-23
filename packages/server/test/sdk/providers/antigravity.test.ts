@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
 import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
+import { AntigravitySubagentTracker } from "../../../src/sdk/providers/antigravity-subagent-tracker.js";
 import {
   antigravityLiveHistory,
   antigravityOwnerView,
@@ -82,6 +83,14 @@ const logStep = (type, source, fields) => {
  const last = tail.toString('utf8').trimEnd().split('\\n').pop();
  const step = last ? JSON.parse(last).step_index + 1 : 0;
  fs.appendFileSync(brainLog, JSON.stringify({step_index:step,source,type,status:'DONE',created_at:new Date().toISOString(),...fields})+'\\n');
+};
+// agy keeps the first 192,000 UTF-8 bytes of a longer request (measured).
+const agyClip = content => {
+ const bytes = Buffer.from(content, 'utf8');
+ if (bytes.length <= 192000) return content;
+ let end = 192000;
+ while ((bytes[end] & 0xc0) === 0x80) end--;
+ return bytes.subarray(0, end).toString('utf8') + '\\n<truncated ' + (bytes.length - end) + ' bytes>\\n\\nNOTE: The output was truncated because it was too long. Use a more targeted query or a smaller range to get the information you need.';
 };
 // A detached wake after a 'wake' turn: AGY_TEST_LOG.wake1 starts it (its
 // task-end message is logged, its first chunk sent), AGY_TEST_LOG.wake2
@@ -152,7 +161,7 @@ const onLine = line => {
  if(m.method === 'session/list') return reply(m.id,{sessions:[{sessionId:id,title:'Original question'}]});
  if(m.method === 'session/prompt') {
   prompt=m.id;
-  logStep('USER_INPUT','USER_EXPLICIT',{content:'<USER_REQUEST>\\n'+m.params.prompt[0].text+'\\n</USER_REQUEST>'});
+  logStep('USER_INPUT','USER_EXPLICIT',{content:agyClip('<USER_REQUEST>\\n'+m.params.prompt[0].text+'\\n</USER_REQUEST>')});
   // An echo of the prompt, which YA ignores (agy 1.5.13 and 1.5.14 send none).
   update({sessionUpdate:'user_message_chunk',content:{type:'text',text:m.params.prompt[0].text}});
   update({sessionUpdate:'usage_update',used:123,size:1048576});
@@ -1435,6 +1444,57 @@ describe("Antigravity native process boundary", () => {
     30_000,
   );
 
+  // Review round 3 item 4: a configuration hold that arrived while a staged
+  // input read its subagent position was bypassed at dispatch.
+  it.skipIf(process.platform === "win32")(
+    "waits out a configuration hold that arrives while a staged input starts",
+    async () => {
+      const session = await new AntigravityProvider().startSession({
+        cwd: directory,
+        initialMessage: { text: "first", uuid: "turn-1" },
+      });
+      const prompts = async () =>
+        (await methods()).filter((method) => method === "session/prompt")
+          .length;
+      let results = 0;
+      const consuming = (async () => {
+        for await (const message of session.iterator)
+          if (message.type === "result" && ++results === 2) return;
+      })();
+      try {
+        await vi.waitFor(() => expect(results).toBe(1));
+        let entered = () => {};
+        let release = () => {};
+        const reading = new Promise<void>((resolve) => (entered = resolve));
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        const read = AntigravitySubagentTracker.prototype.readStartPosition;
+        vi.spyOn(
+          AntigravitySubagentTracker.prototype,
+          "readStartPosition",
+        ).mockImplementationOnce(async function (
+          this: AntigravitySubagentTracker,
+        ) {
+          entered();
+          await gate;
+          return read.call(this);
+        });
+        session.queue.push({ text: "held", uuid: "turn-2" });
+        await reading;
+        session.queue.setConfigurationInputHeld(true);
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Held: not sent.
+        expect(await prompts()).toBe(1);
+        session.queue.setConfigurationInputHeld(false);
+        await consuming;
+        expect(await prompts()).toBe(2);
+      } finally {
+        await session.abort();
+      }
+    },
+    20_000,
+  );
+
   /** Runs `turns` 3 MiB turns, reporting retained bytes after each result. */
   async function runBigTurns(
     session: Awaited<ReturnType<AntigravityProvider["startSession"]>>,
@@ -2101,6 +2161,78 @@ describe("Antigravity native process boundary", () => {
             .filter((row) => row.type === "user")
             .map((row) => row.message?.content),
         ).toEqual(["turn 1", "turn 2", "turn 3", "turn 4"]);
+      } finally {
+        await route.close();
+      }
+    },
+    20_000,
+  );
+
+  // Review round 3 finding 1: agy logs a long pasted prompt clipped. That
+  // record made the log unknown, so a move left a fresh read with only the
+  // turn after it, incomplete.
+  it.skipIf(process.platform === "win32")(
+    "keeps every turn readable across a move past a prompt agy clipped in its log",
+    async () => {
+      setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
+      const route = await liveRoute();
+      const signal = AbortSignal.timeout(15_000);
+      const paste = `PASTE_START ${"p".repeat(262_144)}`;
+      try {
+        expect(
+          (
+            await route.post(
+              `/api/projects/${toUrlProjectId(directory)}/sessions/${nativeId}/resume`,
+              { message: "turn 1", provider: "antigravity", mode: "default" },
+            )
+          ).status,
+        ).toBe(200);
+        const active = route.app.supervisor.getProcessForSession(nativeId)!;
+        await waitForIdle(active, signal);
+        const opened = antigravityOwnerView(route.scope, nativeId);
+        const boundary = () => {
+          const view = antigravityOwnerView(route.scope, nativeId);
+          return view?.state === "open" ? view.boundary?.step : undefined;
+        };
+        const before = opened?.state === "open" ? opened.boundary?.step : -2;
+        for (const message of [paste, "turn 3"]) {
+          await route.post(`/api/sessions/${nativeId}/messages`, { message });
+          await vi.waitFor(() =>
+            expect(JSON.stringify(active.getMessageHistory())).toContain(
+              message.slice(0, 40),
+            ),
+          );
+          await waitForIdle(active, signal);
+        }
+        // The pasted turn has moved to the log.
+        await vi.waitFor(() => {
+          expect(boundary()).not.toBe(before);
+          expect(
+            JSON.stringify(antigravityLiveHistory(route.scope, nativeId)),
+          ).not.toContain("PASTE_START");
+        });
+        const reader = new AntigravitySessionReader({ projectPath: directory });
+        try {
+          const fresh = await reader.getSession(
+            nativeId,
+            toUrlProjectId(directory),
+          );
+          expect(fresh?.transcriptComplete).not.toBe(false);
+          const users = (fresh?.data.session.messages ?? [])
+            .filter((message) => message.type === "user")
+            .map((message) => String(message.message?.content));
+          expect(users.map((text) => text.slice(0, 12))).toEqual([
+            "Original que",
+            "turn 1",
+            "PASTE_START ",
+            "turn 3",
+          ]);
+          expect(users[2]).toMatch(
+            /agy logged only the beginning of this prompt/,
+          );
+        } finally {
+          await reader.close();
+        }
       } finally {
         await route.close();
       }

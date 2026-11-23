@@ -57,7 +57,7 @@ import {
   resolveAntigravityTargetEffort,
 } from "./antigravity-models.js";
 import {
-  antigravitySplitCandidate,
+  AntigravitySplitSampler,
   antigravitySplitCheck,
 } from "./antigravity-live-advance.js";
 import {
@@ -97,6 +97,7 @@ interface AntigravityControls {
   stopping?: boolean;
   /** Counts Stops: one during a staged input's start cancels it unsent. */
   interrupts?: number;
+  onInterrupt?: () => void;
   onConsumerIdle?: () => void;
 }
 
@@ -382,6 +383,7 @@ export class AntigravityProvider implements AgentProvider {
       interrupt: async () => {
         if (!controls.id || !runtime.alive) return false;
         controls.interrupts = (controls.interrupts ?? 0) + 1;
+        controls.onInterrupt?.();
         // A follow-up sent now falls back to the queue: agy refuses a
         // prompt while it is cancelling the current one.
         if (controls.steer) controls.stopping = true;
@@ -687,6 +689,7 @@ export class AntigravityProvider implements AgentProvider {
       let pendingConfigCount = 0;
       const inputHeld = () => controls.inputHeld || pendingConfigCount > 0;
       controls.onInputHoldChanged = changed;
+      controls.onInterrupt = changed;
       // After the current call stack, so the approval opens once Process
       // has finished its idle transition.
       controls.onConsumerIdle = () => queueMicrotask(() => runtime.turnEnded());
@@ -844,6 +847,8 @@ export class AntigravityProvider implements AgentProvider {
       );
       liveWindow = live;
       for (const message of replay ?? []) live.record(message);
+      const sampler = new AntigravitySplitSampler(namespace.storageScope, id);
+      if (live.boundary) sampler.prepare();
       releaseStart?.();
       markReady();
       yield {
@@ -1073,7 +1078,20 @@ export class AntigravityProvider implements AgentProvider {
                 .join("\n");
         const interrupts = controls.interrupts;
         const promptStartedAt = new Date();
-        const initialStartPosition = await subagents.readStartPosition();
+        let initialStartPosition = await subagents.readStartPosition();
+        // A hold or a command that arrived during the read is waited out,
+        // under the same Stop, and the position read again.
+        while (
+          (inputHeld() || compacting) &&
+          !signal.aborted &&
+          runtime.alive &&
+          controls.interrupts === interrupts
+        ) {
+          if (updates.length) yield updates.shift()!;
+          else await waitForChange();
+          if (!inputHeld() && !compacting)
+            initialStartPosition = await subagents.readStartPosition();
+        }
         if (signal.aborted) break;
         // Stopped before it was sent: the input is cancelled, never sent.
         if (controls.interrupts !== interrupts) {
@@ -1099,6 +1117,8 @@ export class AntigravityProvider implements AgentProvider {
         };
         let activeTurnModel = resolvedModel;
         foregroundUpdate = (update) => {
+          // A new session's log exists once its first turn has output.
+          if (live.boundary) sampler.prepare();
           // A new owner has no earlier turn that could produce this output.
           // Confirm startup on native progress so the first turn can be steered.
           if (
@@ -1183,9 +1203,7 @@ export class AntigravityProvider implements AgentProvider {
           });
           // A turn's first prompt is sent only while idle: a split candidate.
           const candidate =
-            !steer && live.boundary
-              ? antigravitySplitCandidate(namespace.storageScope, id, seq)
-              : undefined;
+            !steer && live.boundary ? sampler.sample(seq) : undefined;
           if (candidate) live.addCandidate(candidate);
           pending++;
           void runtime
@@ -1305,6 +1323,7 @@ export class AntigravityProvider implements AgentProvider {
       controls.setModel = undefined;
       controls.setEffort = undefined;
       controls.onInputHoldChanged = undefined;
+      controls.onInterrupt = undefined;
       controls.onConsumerIdle = undefined;
       controls.reconcileSubagents = undefined;
       unobserveSummaries?.();

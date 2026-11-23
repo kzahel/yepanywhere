@@ -346,6 +346,55 @@ describe.skipIf(!providers.includes("antigravity"))(
       90_000,
     );
 
+    // Review round 3 finding 1 on real agy: a long pasted prompt is logged
+    // clipped; a move past it kept only the turn after it readable.
+    it("keeps every turn readable across a move past a pasted prompt agy clipped", async () => {
+      setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
+      const s = await session();
+      const { f } = s;
+      try {
+        (await f.model.next()).finish("FIRST_DONE");
+        await f.output("FIRST_DONE");
+        await f.idle();
+        await s.listed();
+        await s.turn(`PASTE_START ${"p".repeat(262_144)}`, "PASTE_DONE");
+        await s.turn("AFTER_PASTE", "AFTER_PASTE_DONE");
+        await vi.waitFor(async () =>
+          expect(JSON.stringify((await s.owner())?.history())).not.toContain(
+            "PASTE_START",
+          ),
+        );
+        const fresh = new AntigravitySessionReader({ projectPath: f.project });
+        try {
+          const loaded = await fresh.getSession(
+            f.nativeId(),
+            toUrlProjectId(f.project),
+          );
+          expect(loaded?.transcriptComplete).not.toBe(false);
+          const users = (
+            loaded!.data.session as { messages: Message[] }
+          ).messages
+            .filter((message) => message.type === "user")
+            .map((message) => String(message.message?.content));
+          expect(users.map((text) => text.slice(0, 12))).toEqual([
+            "INITIAL_NATI",
+            "PASTE_START ",
+            "AFTER_PASTE",
+          ]);
+          expect(users[1]).toMatch(
+            /agy logged only the beginning of this prompt/,
+          );
+          expect(prose(await s.whole())).toContain("PASTE_DONE");
+        } finally {
+          await fresh.close();
+        }
+      } finally {
+        await s.viewer.close();
+      }
+      expect(f.errors).toEqual([]);
+      expect(f.model.failures).toEqual([]);
+    }, 60_000);
+
     // Review round 2 finding 1: Stop accepted while a staged input was
     // still starting (here, held in its subagent position read) let that
     // input be sent afterwards. It is cancelled unsent now.

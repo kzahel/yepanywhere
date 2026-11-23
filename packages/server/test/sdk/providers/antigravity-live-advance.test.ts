@@ -9,9 +9,9 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  antigravitySplitCandidate,
+  AntigravitySplitSampler,
   antigravitySplitCheck,
 } from "../../../src/sdk/providers/antigravity-live-advance.js";
 import {
@@ -21,7 +21,10 @@ import {
   setAntigravityLiveLimitsForTests,
 } from "../../../src/sdk/providers/antigravity-live-projection.js";
 import type { AntigravityLogBoundary } from "../../../src/sdk/providers/antigravity-owners.js";
+import { AntigravityTranscript } from "../../../src/sdk/providers/antigravity-transcript.js";
 import type { SDKMessage } from "../../../src/sdk/types.js";
+import { LogSource } from "../../../src/sessions/antigravity-log-source.js";
+import { agyClippedContent } from "../../utils/antigravity-clipped-prompt.js";
 
 const ID = "c0ffee00-0000-4000-8000-000000000206";
 const at = "2026-11-23T08:00:00Z";
@@ -71,7 +74,13 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-const candidate = () => antigravitySplitCandidate(scope, ID, 1)!;
+/** A candidate as the owner takes one: its path resolved, then one stat. */
+async function candidate(): Promise<AntigravitySplitCandidate> {
+  const sampler = new AntigravitySplitSampler(scope, ID);
+  sampler.prepare();
+  await vi.waitFor(() => expect(sampler.sample(1)).toBeDefined());
+  return sampler.sample(1)!;
+}
 const check = (
   taken: AntigravitySplitCandidate,
   boundary: AntigravityLogBoundary = EMPTY_ANTIGRAVITY_LOG,
@@ -81,7 +90,7 @@ describe("proving an Antigravity split candidate", () => {
   it("proves the record ending at the size taken at dispatch when a user input starts there", async () => {
     const first = input(0, "First") + reply(1, "Reply one");
     await writeFile(log, first);
-    const taken = candidate();
+    const taken = await candidate();
     expect(taken).toMatchObject({ size: first.length, seq: 1 });
     await appendFile(log, input(2, "Second") + reply(3, "Two"));
     expect(await check(taken)).toMatchObject({
@@ -94,15 +103,18 @@ describe("proving an Antigravity split candidate", () => {
       log,
       input(0, "First") + record(1, "ERROR_MESSAGE", { error: "quota" }),
     );
-    const afterError = candidate();
+    const afterError = await candidate();
     await appendFile(log, input(2, "Again"));
     expect(await check(afterError)).toMatchObject({ step: 1 });
   });
 
-  it("proves an empty log when the conversation's first input starts the file", async () => {
+  it("takes no candidate before the log exists, and proves an empty log when the first input starts the file", async () => {
     await rm(log, { force: true });
-    const taken = candidate();
-    expect(taken).toMatchObject({ size: 0 });
+    const sampler = new AntigravitySplitSampler(scope, ID);
+    sampler.prepare();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(sampler.sample(1)).toBeUndefined();
+    const taken = { seq: 1, size: 0, at: 0 };
     await writeFile(log, input(0, "First"));
     expect(await check(taken)).toEqual(EMPTY_ANTIGRAVITY_LOG);
   });
@@ -116,7 +128,7 @@ describe("proving an Antigravity split candidate", () => {
           log,
           input(0, "First") + reply(1, "Reply") + system(2, "task done"),
         );
-        const taken = candidate();
+        const taken = await candidate();
         await appendFile(log, input(3, "Second"));
         return taken;
       },
@@ -132,7 +144,7 @@ describe("proving an Antigravity split candidate", () => {
               tool_calls: [{ name: "run_command", args: {} }],
             }),
         );
-        const taken = candidate();
+        const taken = await candidate();
         await appendFile(log, input(2, "Second"));
         return taken;
       },
@@ -141,7 +153,7 @@ describe("proving an Antigravity split candidate", () => {
       "a wake record lands between the size and the prompt's input",
       async () => {
         await writeFile(log, input(0, "First") + reply(1, "Reply"));
-        const taken = candidate();
+        const taken = await candidate();
         await appendFile(log, system(2, "task done") + input(3, "Second"));
         return taken;
       },
@@ -151,7 +163,7 @@ describe("proving an Antigravity split candidate", () => {
       async () => {
         const text = input(0, "First") + reply(1, "Reply");
         await writeFile(log, text);
-        const taken = candidate();
+        const taken = await candidate();
         await rm(log);
         await writeFile(log, text + input(2, "Second"));
         return taken;
@@ -161,7 +173,7 @@ describe("proving an Antigravity split candidate", () => {
       "the file was truncated",
       async () => {
         await writeFile(log, input(0, "First") + reply(1, "Reply"));
-        const taken = candidate();
+        const taken = await candidate();
         await truncate(log, 10);
         return taken;
       },
@@ -173,7 +185,7 @@ describe("proving an Antigravity split candidate", () => {
           log,
           `${input(0, "First")}{"step_index":1,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"${at}","content":!}\n`,
         );
-        const taken = candidate();
+        const taken = await candidate();
         await appendFile(log, input(2, "Second"));
         return taken;
       },
@@ -183,7 +195,7 @@ describe("proving an Antigravity split candidate", () => {
       async () => {
         await writeFile(log, input(0, "First"));
         await appendFile(log, reply(1, "y".repeat(17 * 1024 * 1024)));
-        const taken = candidate();
+        const taken = await candidate();
         await appendFile(log, input(2, "Second"));
         return taken;
       },
@@ -193,7 +205,7 @@ describe("proving an Antigravity split candidate", () => {
       async () => {
         const partial = reply(1, "Reply");
         await writeFile(log, input(0, "First") + partial.slice(0, 20));
-        const taken = candidate();
+        const taken = await candidate();
         await appendFile(log, partial.slice(20));
         await appendFile(log, input(2, "Second"));
         return taken;
@@ -203,19 +215,65 @@ describe("proving an Antigravity split candidate", () => {
     expect(await check(await arrange())).toBeUndefined();
   });
 
+  // Review round 3 finding 1: a valid split retired the only copy of rows
+  // the log could not show.
+  it("proves nothing when the span it would retire holds a record no reader can show, and proves one with a prompt agy clipped", async () => {
+    const unknown = record(2, "USER_INPUT", { content: "no wrapper" });
+    const clipped = record(2, "USER_INPUT", {
+      content: agyClippedContent(
+        `<USER_REQUEST>\n${"x".repeat(262_144)}\n</USER_REQUEST>`,
+      ),
+    });
+    for (const [middle, proven] of [
+      [unknown, false],
+      [clipped, true],
+    ] as const) {
+      await writeFile(
+        log,
+        input(0, "First") + reply(1, "One") + middle + reply(3, "Two"),
+      );
+      const taken = await candidate();
+      await appendFile(log, input(4, "Third"));
+      expect(Boolean(await check(taken)), String(proven)).toBe(proven);
+    }
+  });
+
+  // Review round 3 item 6: the record ending at Z was found, then read again.
+  it("reads the record ending at the size once", async () => {
+    await writeFile(log, input(0, "First"));
+    await appendFile(log, reply(1, "y".repeat(3 * 1024 * 1024)));
+    const taken = await candidate();
+    await appendFile(log, input(2, "Second"));
+    let own: LogSource | undefined;
+    let bytes = 0;
+    const read = LogSource.prototype.read;
+    const spy = vi
+      .spyOn(LogSource.prototype, "read")
+      .mockImplementation(function (this: LogSource, start, length) {
+        own ??= this;
+        if (this === own) bytes += length;
+        return read.call(this, start, length);
+      });
+    try {
+      expect(await check(taken)).toMatchObject({ step: 1 });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(bytes).toBeLessThanOrEqual(taken.size + 512);
+  });
+
   it("leaves a candidate pending until the prompt's input is logged", async () => {
     await writeFile(log, input(0, "First") + reply(1, "Reply"));
-    const taken = candidate();
+    const taken = await candidate();
     expect(await check(taken)).toBe("pending");
     await rm(log);
-    const none = candidate();
-    expect(await check(none)).toBe("pending");
+    expect(await check({ seq: 1, size: 0, at: 0 })).toBe("pending");
   });
 
   it("proves nothing before the current boundary or in a file it does not pin", async () => {
     const first = input(0, "First") + reply(1, "Reply");
     await writeFile(log, first + input(2, "Second") + reply(3, "Two"));
-    const taken = { ...candidate(), size: first.length };
+    const taken = { ...(await candidate()), size: first.length };
     await appendFile(log, input(4, "Third"));
     const later = { step: 3, end: (await check(taken))!.end + 100 };
     expect(await check(taken, later)).toBeUndefined();
@@ -335,6 +393,31 @@ describe("a live Antigravity window", () => {
     expect(live.history().map((m) => m.uuid)).toEqual(["p2", "r2", "r3"]);
   });
 
+  // Review round 3 item 5: a row that arrived during a pending check was
+  // no trigger, and a pending newest candidate held back older ones.
+  it("retries a pending candidate for a row that arrived during its check, and tries an older one meanwhile", async () => {
+    const { live, clock, checked, results, add, settle } = projection();
+    for (const id of ["p1", "r1", "p2", "r2", "p3"]) live.record(row(id, id));
+    add(2, 0);
+    add(4, 1_000);
+    clock.now = 40_000;
+    live.record(row("r3", "Three"));
+    expect(checked.map((c) => c.seq)).toEqual([4]);
+    // A new row while the check runs.
+    live.record(row("r4", "Four"));
+    results[0]!("pending");
+    await settle();
+    // The newest is due again (r4 came after its check started).
+    expect(checked.map((c) => c.seq)).toEqual([4, 4]);
+    results[1]!("pending");
+    await settle();
+    // Still pending with no new row: the older one is tried instead.
+    expect(checked.map((c) => c.seq)).toEqual([4, 4, 2]);
+    results[2]!({ step: 1, end: 100 });
+    await settle();
+    expect(live.history()[0]!.uuid).toBe("p2");
+  });
+
   it("checks and moves nothing once closed, even when a check was in flight", async () => {
     const { live, clock, checked, results, add, settle } = projection();
     for (const id of ["p1", "r1", "p2", "r2"]) live.record(row(id, id));
@@ -351,7 +434,7 @@ describe("a live Antigravity window", () => {
     expect(checked).toHaveLength(1);
   });
 
-  it("caps the rows, stores one huge row cut to the cap with a notice, never recreates an evicted row, and keeps the title", () => {
+  it("caps the rows, never recreates an evicted row, and keeps the title", () => {
     const live = new AntigravityLiveProjection(EMPTY_ANTIGRAVITY_LOG);
     const mib = (n: number) => "x".repeat(n * 1024 * 1024);
     live.record(row("first", "Hello", "user"));
@@ -366,13 +449,98 @@ describe("a live Antigravity window", () => {
     expect(live.has("first")).toBe(false);
     // The title survives its row's eviction.
     expect(live.firstPrompt).toBe("Hello");
-    // One row of 20 MiB is kept at the cap, ending in a notice.
-    live.record(row("huge", mib(20)));
-    const [kept] = live.history();
-    const stored = JSON.stringify(kept);
-    expect(Buffer.byteLength(stored)).toBeLessThanOrEqual(8 * 1024 * 1024);
-    expect(String(kept!.message!.content)).toMatch(
-      /more bytes are in the log; this live view keeps the first part\]$/,
-    );
+  });
+
+  // Review round 3 items 2 and 7: the truncator cut one string at a time,
+  // serializing the row each time (over four seconds for these), and a
+  // cut with no eviction left the view complete.
+  it.each([
+    ["a 20 MiB text row", () => "x".repeat(20 * 1024 * 1024)],
+    [
+      "9 MiB of 1,024-character strings in a tool input",
+      () => ({
+        items: Array.from({ length: 9 * 1024 }, () => "y".repeat(1024)),
+      }),
+    ],
+    [
+      "9 MiB of two-character strings in a tool input",
+      () => Array.from({ length: (9 * 1024 * 1024) / 5 }, () => "ab"),
+    ],
+  ])(
+    "stores %s cut to the cap in a few serializations, keeping its IDs, and is incomplete until it moves",
+    async (_name, make) => {
+      const { live, clock, results, add, settle } = projection();
+      const payload = make();
+      const huge: SDKMessage =
+        typeof payload === "string"
+          ? row("huge", payload)
+          : {
+              type: "assistant",
+              uuid: "huge",
+              message: {
+                role: "assistant",
+                content: [
+                  {
+                    type: "tool_use",
+                    id: "tool-1",
+                    name: "Write",
+                    input: payload as Record<string, unknown>,
+                  },
+                ],
+              },
+            };
+      const stringify = vi.spyOn(JSON, "stringify");
+      const started = performance.now();
+      live.record(huge);
+      const elapsed = performance.now() - started;
+      const serializations = stringify.mock.calls.length;
+      stringify.mockRestore();
+      expect(serializations).toBeLessThanOrEqual(5);
+      expect(elapsed).toBeLessThan(2_000);
+      const [kept] = live.history();
+      expect(Buffer.byteLength(JSON.stringify(kept))).toBeLessThanOrEqual(
+        8 * 1024 * 1024,
+      );
+      expect(kept).toMatchObject({
+        uuid: "huge",
+        message: { role: "assistant" },
+      });
+      const text = JSON.stringify(kept!.message!.content);
+      expect(text).toContain("The live view keeps only the beginning");
+      expect(text).not.toContain("full text is in the log");
+      if (typeof payload !== "string")
+        expect(kept!.message!.content).toMatchObject([
+          { type: "tool_use", id: "tool-1", name: "Write" },
+        ]);
+      // The view is not complete while the cut row is held; a move ends it.
+      expect(live.incomplete).toBe(true);
+      live.record(row("p", "Next", "user"));
+      add(1, 0);
+      clock.now = 40_000;
+      live.record(row("r", "Reply"));
+      results[0]!({ step: 1, end: 100 });
+      await settle();
+      expect(live.has("huge")).toBe(false);
+      expect(live.incomplete).toBe(false);
+    },
+  );
+
+  // Review round 3 item 8: the block being assembled grew without bound.
+  it("stops a live text block at the cap, with the same notice, and marks the view incomplete", () => {
+    const transcript = new AntigravityTranscript(ID, `${ID}:turn`, true);
+    const chunk = "z".repeat(1024 * 1024);
+    let last: SDKMessage | undefined;
+    for (let i = 0; i < 10; i++)
+      for (const out of transcript.accept({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: chunk },
+      }))
+        last = out;
+    const content = String(last!.message!.content);
+    expect(content.length).toBeLessThan(8 * 1024 * 1024 + 1024);
+    expect(content).toMatch(/The live view keeps only the beginning/);
+    const live = new AntigravityLiveProjection(EMPTY_ANTIGRAVITY_LOG);
+    live.record(transcript.close()!);
+    expect(live.incomplete).toBe(true);
   });
 });

@@ -86,7 +86,12 @@ export type AntigravityLogRecord = {
   /** Shown from its first bytes only: too large to hold. */
   oversized?: true;
 } & (
-  | { type: "USER_INPUT"; text: string }
+  | {
+      type: "USER_INPUT";
+      text: string;
+      /** `agy` kept only the start of this prompt: the bytes it dropped. */
+      clipped?: number;
+    }
   | {
       type: "PLANNER_RESPONSE";
       model?: string;
@@ -184,6 +189,70 @@ const USER_CLOSE = "\n</USER_REQUEST>";
 /** The blocks observed after a request, each at most once. */
 const USER_TRAILER =
   /^(?:\n<ADDITIONAL_METADATA>\n(?:(?!<\/?ADDITIONAL_METADATA>)[\s\S])*\n<\/ADDITIONAL_METADATA>)?(?:\n<USER_SETTINGS_CHANGE>\n(?:(?!<\/?USER_SETTINGS_CHANGE>)[\s\S])*\n<\/USER_SETTINGS_CHANGE>)?$/;
+/**
+ * How `agy` 1.5.13 and 1.5.14 end a prompt they clip in the log: they keep
+ * the first 192,000 UTF-8 bytes of the wrapped request (cut at a character
+ * boundary) and append this with the count of bytes dropped
+ * (topics/antigravity-native-storage.md, "Clipped prompts").
+ */
+const CLIP_BYTES = 192_000;
+const CLIP_MARK =
+  /\n<truncated ([1-9]\d{0,15}) bytes>\n\nNOTE: The output was truncated because it was too long\. Use a more targeted query or a smaller range to get the information you need\.$/;
+const TRAILER_BLOCKS = ["ADDITIONAL_METADATA", "USER_SETTINGS_CHANGE"];
+
+/**
+ * Whether `rest`, what follows a closed request, is the start of the
+ * observed trailer: whole blocks, then at most one cut inside a block.
+ */
+function trailerStart(rest: string): boolean {
+  let at = 0;
+  for (const name of TRAILER_BLOCKS) {
+    const open = `\n<${name}>\n`;
+    const close = `\n</${name}>`;
+    const tail = rest.slice(at);
+    if (open.startsWith(tail)) return true;
+    if (!tail.startsWith(open)) continue;
+    const end = tail.indexOf(close, open.length);
+    const body = tail.slice(open.length, end < 0 ? undefined : end);
+    if (body.includes(`<${name}>`) || body.includes(`</${name}>`)) return false;
+    if (end < 0) return true;
+    at += end + close.length;
+  }
+  return at === rest.length;
+}
+
+/** A prompt `agy` clipped, in the measured form, or undefined. */
+function clippedRequest(
+  content: string,
+): { text: string; clipped?: number } | undefined {
+  const mark = CLIP_MARK.exec(content);
+  if (!mark) return undefined;
+  const kept = content.slice(0, mark.index);
+  const bytes = Buffer.byteLength(kept, "utf8");
+  if (
+    !kept.startsWith(USER_OPEN) ||
+    bytes > CLIP_BYTES ||
+    bytes < CLIP_BYTES - 3
+  )
+    return undefined;
+  const close = kept.lastIndexOf(USER_CLOSE);
+  // The request closed before the cut: only its trailer was clipped.
+  if (close >= USER_OPEN.length - 1)
+    return trailerStart(kept.slice(close + USER_CLOSE.length))
+      ? {
+          text: kept.slice(USER_OPEN.length, Math.max(close, USER_OPEN.length)),
+        }
+      : undefined;
+  // Cut inside the request, or inside its closing marker.
+  let text = kept.slice(USER_OPEN.length);
+  for (let length = USER_CLOSE.length - 1; length >= 2; length--)
+    if (text.endsWith(USER_CLOSE.slice(0, length))) {
+      text = text.slice(0, -length);
+      break;
+    }
+  return { text, clipped: Number(mark[1]) };
+}
+
 const SYSTEM_OPEN =
   "The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.\n\n<SYSTEM_MESSAGE>\n";
 const SYSTEM_CLOSE = "\n</SYSTEM_MESSAGE>";
@@ -281,6 +350,8 @@ function parseRecord(line: string): AntigravityLogRecord | { unknown: string } {
   switch (type as RecordType) {
     case "USER_INPUT": {
       const content = text("content")!;
+      const clip = clippedRequest(content);
+      if (clip) return { ...base, type: "USER_INPUT", ...clip };
       const close = content.lastIndexOf(USER_CLOSE);
       if (
         !content.startsWith(USER_OPEN) ||
@@ -730,7 +801,13 @@ export class AntigravityLogProjection {
           type: "user",
           uuid: id(),
           timestamp,
-          message: { role: "user", content: record.text },
+          message: {
+            role: "user",
+            content:
+              record.clipped === undefined
+                ? record.text
+                : `${record.text}\n\n[agy logged only the beginning of this prompt; it left out the last ${record.clipped} bytes.]`,
+          },
         });
         return;
       case "PLANNER_RESPONSE": {

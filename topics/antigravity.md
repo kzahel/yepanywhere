@@ -400,6 +400,14 @@ It never reads the shortened `transcript.jsonl`.
   sizes, the complete read and every page apply them alike, and
   everything before and after stays reachable by paging. Size never makes
   a log unknown or starts a fallback.
+- **Clipped prompts.** `agy` logs a prompt whose wrapped request passes
+  192,000 UTF-8 bytes clipped to that length, followed by its own
+  "truncated" notice ([measured](antigravity-native-storage.md#clipped-prompts)).
+  YA shows such a record as the user prompt's beginning followed by
+  "[agy logged only the beginning of this prompt; it left out the last N
+  bytes.]"; when the clip falls after the request (in its metadata) the
+  prompt is shown whole. Any other shape of clip stays unknown. The live
+  row, while the owner holds it, shows the whole prompt as sent.
 - **Cost.** A page reads its own bytes (about 4 MiB, the first record or
   trailing tool group excepted), the records after an older page's cursor
   that resolve its group or error, a search by halves for a cursor, and
@@ -591,29 +599,51 @@ log serves everything through its boundary, as above.
 - **Over it,** the boundary moves to a proven split point and every row
   before it leaves memory. Each turn's first prompt P (sent only while the
   owner is idle: no turn, no compaction) is a candidate: right before
-  sending it, the owner takes one synchronous stat of the log, its size Z
-  and identity, adding no await to the send. When the window is over the
-  budget and the candidate is old enough, two bounded reads at fixed
-  offsets prove it: the file still has that identity, is longer than Z and
-  has a newline before Z (or Z is 0); the record ending at Z parses
-  completely and ends a turn (a planner with no calls, or an
-  `ERROR_MESSAGE`; an oversized or placeholder record does not count); and
-  the record starting at Z is a `USER_INPUT`. The new boundary is the
-  record ending at Z. A failed check discards the candidate and caches
-  nothing, so a truncated, replaced or unreadable log moves nothing; a log
-  with nothing past Z yet leaves it pending until the next new row. Eight
-  candidates are kept, thinned by time (the oldest always stays), so a
-  burst of prompts never forgets every usable one. A proven candidate
+  sending it, the owner takes one synchronous `statSync` of the log, its
+  size Z and identity, adding no await to the send. The log's path is
+  resolved once per owner, asynchronously, when it opens or, for a new
+  session, on its first turn's output; a prompt sent before that records
+  no candidate. The stat is one call per turn on the server's event loop, so
+  a stalled mount holding the Antigravity store stalls dispatch for every
+  session. The candidate is dated after the stat returns.
+- **The check.** When the window is over the budget and a candidate is old
+  enough, the owner checks it asynchronously, one check at a time. A check
+  can start when a row is recorded or when a candidate is added. It reads
+  the 512-byte head at Z (a `USER_INPUT`), the byte before Z (a newline),
+  and the record ending at Z, read once in chunks back from Z (at most the
+  16 MiB record limit plus one chunk), which must parse completely and end a
+  turn (a planner with no calls, or an `ERROR_MESSAGE`; a longer record
+  fails, and a later candidate will do).
+  These show the two records around Z, not that the input at Z is P's
+  (step 7 adds that). Then it reads the span it would retire, from the
+  current boundary to Z, through the log window reader, a page back at a
+  time as "Load older" would serve it, stopping at the first unknown page;
+  any unknown page drops the candidate and the rows stay in memory (the
+  cap still bounds them). That read costs about the span's log bytes (plus
+  at most one page) once per move. The new boundary is the record ending
+  at Z. A failed check discards the candidate and caches nothing, so a
+  truncated, replaced or unreadable log moves nothing; a log with nothing
+  past Z yet leaves it pending, checked again once a row arrives after
+  its check started, and an older eligible candidate is tried meanwhile.
+  Eight candidates are kept, thinned by time (the oldest always stays), so
+  a burst of prompts never forgets every usable one. A proven candidate
   moves the boundary even if the cap already evicted every row before it,
   which clears the incomplete mark.
+- **No candidate after some turns.** A turn that ends on a model HTTP error
+  leaves its `USER_INPUT` last in the log, and a `/compact` cancelled after
+  its checkpoint leaves the checkpoint last (both versions), so the next
+  prompt's candidate fails; the window is cap-bound until an ordinary turn
+  ends.
 - **Why that splits correctly.** P follows the previous turn's result on
-  the ordered ACP stream, so that turn's output has all arrived. On `agy`
-  1.5.13 and 1.5.14 every wake (a background command's, a detached
-  subagent's report, one interrupted by a prompt) logs a non-terminal
-  record (its task-end or inbox `SYSTEM_MESSAGE`, once a tool result)
-  before its first ACP output, so a wake in flight when P is sent fails the
-  terminal check, and one that lands between Z and P's input fails the
-  `USER_INPUT` check ([measured](antigravity-native-storage.md#live-memory--plan-195-step-6)).
+  the ordered ACP stream, so that turn's output has all arrived, and that
+  turn's `USER_INPUT` is in the log before its result is sent (the
+  [assumption](antigravity-native-storage.md#live-memory--plan-195-step-6)
+  the proof rests on). On `agy` 1.5.13 and 1.5.14 every wake (a background
+  command's, a detached subagent's report, one interrupted by a prompt)
+  logs a non-terminal record (its task-end or inbox `SYSTEM_MESSAGE`, once
+  a tool result) before its first ACP output, so a wake in flight when P is
+  sent fails the terminal check, and one that lands between Z and P's input
+  fails the `USER_INPUT` check ([measured](antigravity-native-storage.md#live-memory--plan-195-step-6)).
 - **The residual.** Output for a record at or before Z that arrives on the
   ACP pipe after P was sent is not seen by the proof: `agy` sends no echo or
   other update tied to a prompt to order it by (none on either binary). The
@@ -623,25 +653,29 @@ log serves everything through its boundary, as above.
   from the log and once as a live row, until the owner stops, when the log
   alone serves it. It needs a record written whole before P was sent while
   its last frame was still in transit; it was reproduced only by holding a
-  frame at the transport.
-- **Not too early.** A candidate is used only once every row before it has
-  left Process's replay buffer: 30 seconds after P was sent plus a 5-second
-  margin, measured on the monotonic clock. The buffer's buckets rotate on a
-  timer, so an event-loop stall longer than the margin can leave a moved row
-  in the buffer for a viewer that joins late, which then receives it under
-  its old ID beside the log's copy until its next replacement.
+  frame at the transport. Likewise a detached tool's result that arrives
+  after its call was retired has no live call to pair with, and is shown
+  orphaned until the owner stops.
+- **Not too early.** A candidate is used only once Process's replay buckets
+  holding every row before it have expired: 30 seconds after P was sent
+  plus a 5-second margin, measured on the monotonic clock. The buckets
+  rotate on a timer, so an event-loop stall longer than the margin can
+  leave a moved row in the buffer for a viewer that joins late, which then
+  receives it under its old ID beside the log's copy until its next
+  replacement.
 
-Nothing is read in the background: candidates are checked only when a row
-arrives over the budget, one check at a time, and nothing is checked or
-moved after the owner closes, by natural exit or abort.
+Nothing is read in the background beyond these checks, no timer drives
+them, and nothing is checked or moved after the owner closes, by natural
+exit or abort.
 
 **What a move changes.** A page read after it shows the rows before the
 split from the log, as a cold view would: `agy`'s tool names and rendered
 results, the records' times and models, checkpoints, a reply a steer
-interrupted as one reply before the steer, and no rows for steps the log
-never recorded (a reply cut off when the owner was killed, say). A read
-that a move happened under is read again, up to three times; the last is
-served cut to the owner's boundary and marked incomplete.
+interrupted as one reply before the steer, a prompt `agy` clipped as its
+beginning with a notice (below), and no rows for steps the log never
+recorded (a reply cut off when the owner was killed, say). A read that a
+move happened under is read again, up to three times; the last is served
+cut to the owner's boundary and marked incomplete.
 
 **Clients at a move.** A connected client whose last fetched row left
 memory gets one replacement window on its next catch-up: the existing
@@ -660,21 +694,27 @@ never sees a row twice.
 either, the oldest row other than the one being recorded leaves without the
 log serving it, and every answer carries `transcriptComplete: false` (v0:
 incomplete coverage; frozen sharing refuses it) until a move covers it.
-One row larger than the cap is stored cut to the cap, ending in a notice
-that the rest is in the log, which replaces it at the next move or once the
-owner stops. The stream and the block being assembled are not cut: they
-carry each snapshot whole, which is what clients render, so one streaming
-text or thinking block is the exception to the bound until it commits.
-Nothing throws, and the session keeps running. An update for a row that
-left memory (moved or evicted) does not bring it back while it is among the
-last 10,000 rows to leave. An owner resumed through the fallback has no
-boundary and only the cap bounds it; a conversation with no log keeps its
-first prompt as its title even after the cap evicts it. The fallback replay
+One row larger than the cap is stored cut, in at most four serializations:
+its longest text field cut once; else every structured tool body replaced
+by a short omission; else only each block's type, IDs and name. It ends in
+a notice that the live view keeps only its beginning and that the log
+shows what `agy` recorded once the row moves there or the session ends
+(which may itself be clipped). While a cut row is held the answer is
+incomplete too, so frozen sharing refuses it. A live text or thinking block
+stops growing at 8 MiB, with the same notice, and is marked the same way;
+the stream then carries that cut text. Nothing throws, and the session
+keeps running. An update for a row that left memory (moved or evicted)
+does not bring it back while its ID is among the last 10,000 to leave (the
+retired-ID ring). An owner resumed through the fallback has no boundary
+and only the cap bounds it; a conversation with no log keeps its first
+prompt as its title even after the cap evicts it. The fallback replay
 itself keeps its own 8 MiB / 10,000-message limit below.
 
 **Stop before a send.** A Stop that arrives while a dequeued input is
 still starting (its subagent position read) cancels it: it is never sent,
-and the turn ends with a result.
+and the turn ends with a result. A configuration hold or a compaction that
+arrives during that read is waited out, under the same Stop, and the
+position read again.
 
 ### Fallback replay
 

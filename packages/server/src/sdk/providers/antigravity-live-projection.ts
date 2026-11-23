@@ -91,36 +91,109 @@ function userText(message: SDKMessage): string | undefined {
 }
 
 /**
- * A copy of a row no larger than `cap` serialized bytes: its longest
- * strings are cut, each ending in a notice. The full text stays in the
- * stream and the log, which replaces it at the next move or once the owner
- * stops.
+ * What a cut live row, or a live block that stopped growing, ends in. The
+ * log holds what `agy` recorded, which may itself be cut.
  */
-function storedCopy(message: SDKMessage, bytes: number, cap: number) {
-  const copy = structuredClone(message);
-  for (let excess = bytes - cap; excess > 0; excess = sizeOf(copy) - cap) {
-    let longest: { holder: Record<string, unknown>; key: string } | undefined;
-    let length = 0;
-    const visit = (value: unknown) => {
-      if (!value || typeof value !== "object") return;
-      const holder = value as Record<string, unknown>;
-      for (const key of Object.keys(holder)) {
-        const field = holder[key];
-        if (typeof field === "string" && field.length > length) {
-          longest = { holder, key };
-          length = field.length;
-        } else visit(field);
-      }
-    };
-    visit(copy);
-    if (!longest || length < 2) break;
-    const notice = `\n\n[${excess} more bytes are in the log; this live view keeps the first part]`;
-    // Each character cut removes at least one serialized byte.
-    const keep = Math.max(0, length - excess - notice.length * 3);
-    longest.holder[longest.key] =
-      `${(longest.holder[longest.key] as string).slice(0, keep)}${notice}`;
+export const ANTIGRAVITY_LIVE_CUT_NOTICE =
+  "\n\n[The live view keeps only the beginning of this message; the session's log shows what agy recorded once the message moves there or the session ends.]";
+
+type Block = Record<string, unknown>;
+
+/**
+ * A copy of a row of `bytes` serialized bytes, no larger than `cap` where
+ * possible, and whether it was cut. In stages, each serialized once: cut
+ * the longest text field once; then put an omission in place of every
+ * structured tool body; then keep only each block's type, IDs and name.
+ * The row's own fields and role stay.
+ */
+function storedCopy(
+  message: SDKMessage,
+  bytes: number,
+  cap: number,
+): { message: SDKMessage; bytes: number; cut: boolean } {
+  if (bytes <= cap)
+    return { message: structuredClone(message), bytes, cut: false };
+  const body: Block = { ...(message.message ?? {}) };
+  const blocks = Array.isArray(body.content)
+    ? (body.content as Block[]).map((block) => ({ ...block }))
+    : undefined;
+  if (blocks) body.content = blocks;
+  const assemble = () => ({ ...message, message: body }) as SDKMessage;
+  const texts: Array<[Block, string]> = [];
+  if (typeof body.content === "string") texts.push([body, "content"]);
+  for (const block of blocks ?? [])
+    for (const key of ["text", "thinking", "content"])
+      if (typeof block[key] === "string") texts.push([block, key]);
+  const fits = () => {
+    const copy = assemble();
+    const size = sizeOf(copy);
+    return size <= cap ? { copy, size } : undefined;
+  };
+  const done = (copy: SDKMessage, size: number) => ({
+    message: structuredClone(copy),
+    bytes: size,
+    cut: true,
+  });
+  // A character cut removes at least one serialized byte.
+  const excess = bytes - cap + ANTIGRAVITY_LIVE_CUT_NOTICE.length * 3;
+  let longest: [Block, string] | undefined;
+  for (const field of texts)
+    if (
+      !longest ||
+      (field[0][field[1]] as string).length >
+        (longest[0][longest[1]] as string).length
+    )
+      longest = field;
+  if (longest && (longest[0][longest[1]] as string).length > excess) {
+    const text = longest[0][longest[1]] as string;
+    longest[0][longest[1]] =
+      `${text.slice(0, text.length - excess)}${ANTIGRAVITY_LIVE_CUT_NOTICE}`;
+    const fit = fits();
+    if (fit) return done(fit.copy, fit.size);
   }
-  return copy;
+  for (const block of blocks ?? []) {
+    if (block.type === "tool_use")
+      block.input = { omitted: ANTIGRAVITY_LIVE_CUT_NOTICE };
+    if (block.type === "tool_result" && typeof block.content !== "string")
+      block.content = ANTIGRAVITY_LIVE_CUT_NOTICE;
+  }
+  const fit = fits();
+  if (fit) return done(fit.copy, fit.size);
+  // The skeleton: every block's identity, and the notice.
+  body.content = blocks
+    ? blocks.map((block) => {
+        const kept: Block = { type: block.type };
+        for (const key of ["id", "tool_use_id", "name"])
+          if (typeof block[key] === "string") kept[key] = block[key];
+        if (block.type === "text") kept.text = ANTIGRAVITY_LIVE_CUT_NOTICE;
+        if (block.type === "thinking")
+          kept.thinking = ANTIGRAVITY_LIVE_CUT_NOTICE;
+        if (block.type === "tool_use") kept.input = {};
+        if (block.type === "tool_result")
+          kept.content = ANTIGRAVITY_LIVE_CUT_NOTICE;
+        return kept;
+      })
+    : ANTIGRAVITY_LIVE_CUT_NOTICE;
+  const skeleton: SDKMessage = {
+    type: message.type,
+    ...(message.uuid ? { uuid: message.uuid } : {}),
+    ...(message.session_id ? { session_id: message.session_id } : {}),
+    ...(message.timestamp ? { timestamp: message.timestamp } : {}),
+    message: body as SDKMessage["message"],
+  };
+  return done(skeleton, sizeOf(skeleton));
+}
+
+/** Whether a live block stopped growing at the cap (the transcript cut it). */
+function stoppedGrowing(message: SDKMessage): boolean {
+  const content = message.message?.content as string | Block[] | undefined;
+  const text =
+    typeof content === "string"
+      ? content
+      : content?.length === 1
+        ? (content[0]!.thinking ?? content[0]!.text)
+        : undefined;
+  return typeof text === "string" && text.endsWith(ANTIGRAVITY_LIVE_CUT_NOTICE);
 }
 
 export class AntigravityLiveProjection {
@@ -129,12 +202,17 @@ export class AntigravityLiveProjection {
   private nextSeq = 0;
   /** The highest sequence the cap evicted without the log serving it. */
   private droppedSeq = -1;
+  /** Held rows stored cut: the view is not complete while one is held. */
+  private readonly cut = new Set<string>();
   /** IDs of rows that left memory (moved or evicted), oldest first. */
   private readonly retiredIds = new Set<string>();
   private candidates: AntigravitySplitCandidate[] = [];
   private checking = false;
-  /** A pending check waits for the next new row before checking again. */
-  private pendingAt = -1;
+  /**
+   * A pending candidate's sequence when its check started: it is checked
+   * again only once a new row has arrived since.
+   */
+  private readonly pending = new WeakMap<AntigravitySplitCandidate, number>();
   private closed = false;
   /** The conversation's first prompt, when this owner recorded it (bounded). */
   firstPrompt?: string;
@@ -151,9 +229,9 @@ export class AntigravityLiveProjection {
     this.opened = boundary ? { ...boundary } : undefined;
   }
 
-  /** Whether the cap evicted rows the log does not serve yet. */
+  /** Whether the cap evicted rows the log does not serve yet, or a held row is cut. */
   get incomplete(): boolean {
-    return this.droppedSeq >= 0;
+    return this.droppedSeq >= 0 || this.cut.size > 0;
   }
   /** The sequence the next new row will get. */
   get seq(): number {
@@ -180,16 +258,17 @@ export class AntigravityLiveProjection {
     if (!id) throw new Error("Antigravity projection requires a message ID");
     // An update for a row that left memory adds nothing back.
     if (this.retired(id)) return;
-    const full = sizeOf(message);
-    const stored = storedCopy(message, full, limits.capBytes);
-    const bytes = full > limits.capBytes ? sizeOf(stored) : full;
+    const stored = storedCopy(message, sizeOf(message), limits.capBytes);
+    const bytes = stored.bytes;
     const previous = this.rows.get(id);
     this.bytes += bytes - (previous?.bytes ?? 0);
     this.rows.set(id, {
-      message: stored,
+      message: stored.message,
       bytes,
       seq: previous?.seq ?? this.nextSeq++,
     });
+    if (stored.cut || stoppedGrowing(message)) this.cut.add(id);
+    else this.cut.delete(id);
     // Without a log to take the title from (a new session's empty log, or a
     // fallback owner's whole history), the first prompt this owner recorded
     // stays the title even after the cap evicts its row.
@@ -244,19 +323,21 @@ export class AntigravityLiveProjection {
     if (this.checking || this.closed || !this.check || !this.boundary) return;
     if (this.bytes <= limits.softBytes && this.rows.size <= limits.softRows)
       return;
-    if (this.pendingAt === this.nextSeq) return;
     const ready = this.now() - limits.splitAgeMs;
+    // The newest old enough, passing over those pending with no new row.
     let candidate: AntigravitySplitCandidate | undefined;
     for (const entry of this.candidates)
-      if (entry.at <= ready) candidate = entry;
+      if (entry.at <= ready && this.pending.get(entry) !== this.nextSeq)
+        candidate = entry;
     if (!candidate) return;
+    const started = this.nextSeq;
     this.checking = true;
     void this.check(candidate, this.boundary)
       .catch(() => undefined)
       .then((boundary) => {
         this.checking = false;
         if (this.closed) return;
-        if (boundary === "pending") this.pendingAt = this.nextSeq;
+        if (boundary === "pending") this.pending.set(candidate, started);
         else if (boundary) this.move(candidate, boundary);
         else this.candidates = this.candidates.filter((c) => c !== candidate);
         this.moveIfOver();
@@ -281,6 +362,7 @@ export class AntigravityLiveProjection {
   }
 
   private retire(id: string): void {
+    this.cut.delete(id);
     this.retiredIds.add(id);
     if (this.retiredIds.size > limits.capRows)
       this.retiredIds.delete(this.retiredIds.values().next().value!);

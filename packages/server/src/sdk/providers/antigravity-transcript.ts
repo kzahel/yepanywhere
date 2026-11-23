@@ -5,11 +5,13 @@ import {
   normalizeInvokeSubagentInput,
 } from "../../sessions/antigravity-subagent-links.js";
 import type { SDKMessage } from "../types.js";
+import { ANTIGRAVITY_LIVE_CUT_NOTICE } from "./antigravity-live-projection.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
 
 /** Calls a live transcript remembers. */
 const LIVE_CALLS = 256;
-
+/** A live text or thinking block keeps at most this much text, then a notice. */
+const LIVE_TEXT_BYTES = 8 * 1024 * 1024;
 function trimOldest<V>(map: Map<string, V>): void {
   while (map.size > LIVE_CALLS) map.delete(map.keys().next().value!);
 }
@@ -25,7 +27,13 @@ export class AntigravityTranscript {
   readonly messages: SDKMessage[] = [];
   private bytes = 0;
   private count = 0;
-  private text?: { kind: string; message: SDKMessage; value: string };
+  private text?: {
+    kind: string;
+    message: SDKMessage;
+    value: string;
+    /** UTF-8 bytes in `value`; a live block stops growing past the cap. */
+    bytes: number;
+  };
   // A replay's are bounded by its limits; a live transcript keeps its most
   // recent calls (a passive one lasts until the next prompt).
   private tools = new Map<string, SDKMessage>();
@@ -165,13 +173,23 @@ export class AntigravityTranscript {
           },
         };
         this.record(message);
-        this.text = { kind, message, value: "" };
+        this.text = { kind, message, value: "", bytes: 0 };
       }
       // Reserve the serialized text delta without rescanning the entire block.
       this.reserveHistory(
         Buffer.byteLength(JSON.stringify(content.text), "utf8") - 2,
       );
-      this.text!.value += content.text;
+      const added = Buffer.byteLength(content.text, "utf8");
+      // A live block past the cap keeps its beginning and one notice.
+      if (this.live && this.text!.bytes + added > LIVE_TEXT_BYTES) {
+        // Already cut: nothing new to show.
+        if (this.text!.bytes > LIVE_TEXT_BYTES) return out;
+        this.text!.value += ANTIGRAVITY_LIVE_CUT_NOTICE;
+        this.text!.bytes = LIVE_TEXT_BYTES + 1;
+      } else {
+        this.text!.value += content.text;
+        this.text!.bytes += added;
+      }
       this.text!.message.message!.content =
         kind === "agent_thought_chunk"
           ? [{ type: "thinking", thinking: this.text!.value }]

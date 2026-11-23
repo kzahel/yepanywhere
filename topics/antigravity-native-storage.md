@@ -516,7 +516,8 @@ The log is **unknown**, and the caller falls back, on:
   actually sent by the user…" preamble, then `<SYSTEM_MESSAGE>\n…\n</SYSTEM_MESSAGE>`
   ending the content. All 39 user inputs and 202 system messages in this
   host's 12 logs, and those of the native case on both versions, have
-  these forms;
+  these forms. A prompt `agy` clipped is accepted only in the
+  [measured clipped form](#clipped-prompts);
 - any tool-group shape the [group rule](#reading-a-tool-group) calls unknown.
 
 No record content can make the projection throw: fields are read as own
@@ -527,6 +528,46 @@ to be absent.
 
 A group the log ends inside is in progress when the caller says the owner is
 live, and its missing results are interrupted otherwise.
+
+### Clipped prompts
+
+`agy` does not log a long prompt whole. Measured 2026-11-23 on 1.5.13 and
+1.5.14 with
+[`antigravity-long-input-probe.mjs`](../scripts/perf-repro/antigravity-long-input-probe.mjs)
+(run from `packages/server` like the turn-end probe; reports in
+`/tmp/ya-step6/r3/long-*.json`), the same on both versions:
+
+- The cut is in **UTF-8 bytes** of the whole wrapped content (request,
+  metadata and settings blocks together), not characters: `agy` keeps the
+  first 192,000 bytes, at a character boundary (191,999 for a request of
+  three-byte characters), and never splits a character or a surrogate
+  pair. 190,000 ASCII characters (190,130 bytes wrapped) were logged whole;
+  192,000 were clipped.
+- It then appends `\n<truncated N bytes>\n\nNOTE: The output was truncated
+  because it was too long. Use a more targeted query or a smaller range to
+  get the information you need.`, where N is the number of bytes dropped:
+  the kept bytes plus N equal the wrapped content's size in every case.
+- No closing `</USER_REQUEST>` and no metadata survive a cut inside the
+  request. A cut inside the closing marker keeps its first bytes
+  (`\n</US`); a cut inside the metadata keeps the whole request and a
+  partial `<ADDITIONAL_METADATA>` block.
+- The record stays one valid JSON line with the usual keys
+  (`step_index`, `source`, `type`, `status`, `created_at`, `content`), so
+  the line is about 192,300 bytes.
+- Pasted lines, two-, three- and four-byte characters and a prompt
+  starting with an `@a.txt` file reference were clipped the same way: the
+  reference is not expanded in the logged content, so it counts as
+  ordinary text. ACP prompts YA sends carry one text block, so there is no
+  other wrapper section to clip.
+
+The projection accepts exactly this: content ending in that notice with
+any N, whose kept part is 191,997 to 192,000 bytes and begins
+`<USER_REQUEST>\n`. A cut inside the request (or its closing marker,
+whose partial bytes are dropped) becomes the user prompt's kept text with
+YA's notice; a cut after the closed request keeps the request whole and
+requires the rest to be whole trailer blocks then one partial block. Any
+other length, notice or opening stays unknown. The step 6 review (round
+3) found that before this, such a record made the whole log unknown.
 
 ### Windows
 
@@ -955,16 +996,32 @@ prompt's output starts, and the split proof's residual (output for a
 record at or before the split that arrives after the prompt) stands as
 the [provider contract](antigravity.md#live-memory) states.
 
+**The assumption.** The proof rests on one ordering: a turn's
+`USER_INPUT` record is written before that turn's ACP result is sent.
+Every turn of the probes on both versions logged its input first (the
+input lands at the prompt's start, its records by the result); none was
+ever observed the other way. If it reversed, P's stat could sample an
+older terminal record with the previous turn's input as the head at Z,
+and a move could retire a reply whose record lands after Z.
+
 **The proof.** At each turn's first prompt P, sent only while the owner is
-idle, the owner takes one synchronous stat of `transcript_full.jsonl` (its
-size Z, device and inode) right before sending it. When the window is over
-its soft budget and P is old enough, `antigravitySplitCheck`
+idle, the owner takes one synchronous `statSync` of `transcript_full.jsonl`
+(its size Z, device and inode) right before sending it, on the path it
+resolved once, asynchronously, when it opened (for a new session, on its
+first turn's output). When the window is over its
+soft budget and P is old enough, `antigravitySplitCheck`
 ([`antigravity-live-advance.ts`](../packages/server/src/sdk/providers/antigravity-live-advance.ts))
-opens the log and reads at fixed offsets: the head at Z (a `USER_INPUT`),
-the byte before Z (a newline), and the line ending at Z (at most the 16
-MiB record limit), which must parse as the window parses it and end a
-turn. Its result is the new boundary, with the record's offsets and first
-bytes. Nothing is cached between checks. The design of step 6's first
+opens the log and reads the head at Z (512 bytes, a `USER_INPUT`) and the
+record ending at Z, each of its bytes once, in chunks back from Z that it
+keeps (at most the 16 MiB record limit; a longer record fails the
+candidate), which must parse as the window parses it and end a turn. The
+round 2 version found the record's start and then read its body again
+(33 MB of reads for a 15.9 MiB record, review round 3). These reads show the two records around Z; they do not show
+that the input at Z is P's. Then it reads the span it would retire through
+the log window reader, a page at a time back from Z to the old boundary,
+and drops the candidate at the first unknown page: about the span's bytes,
+plus at most one page, once per move. Its result is the new boundary, with
+the record's offsets and first bytes. Nothing is cached between checks. The design of step 6's first
 version moved at every result, and its second proved splits with an
 incremental scan of the log, expectations matched by prompt text, a read
 awaited before a prompt and a timer; review round 2 showed that scan
@@ -1026,7 +1083,7 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
 | [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
 | `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | Whether a resume can use `session/resume`, and its resume point: the latest page must read as known, and its last record is the boundary ([step 5](#resuming-from-the-log--plan-195-step-5)). |
-| [Split check](../packages/server/src/sdk/providers/antigravity-live-advance.ts) | `transcript_full.jsonl` | A live owner's stat at a prompt and, when it needs a move, bounded reads at that offset that prove a split point ([step 6](#live-memory--plan-195-step-6)). |
+| [Split check](../packages/server/src/sdk/providers/antigravity-live-advance.ts) | `transcript_full.jsonl` | A live owner's stat at a prompt and, when it needs a move, bounded reads at that offset and the retired span's pages that prove a split point ([step 6](#live-memory--plan-195-step-6)). |
 | `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay, or a fallback resume, must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
