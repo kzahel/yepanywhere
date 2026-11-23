@@ -413,8 +413,10 @@ It never reads the shortened `transcript.jsonl`.
   byte after the opening marker is shown with the notice. A clipped record
   is never unknown for its content; only another length, notice or opening
   is. An unclipped prompt that quotes the close is read correctly already:
-  its real close is the last one. The live row, while the owner holds it,
-  shows the whole prompt as sent.
+  its real close is the last one. Pasted text that imitates a close and a
+  trailer within the last 512 characters before the clip is still taken
+  for the real ones, and the text after it is not shown. The live row,
+  while the owner holds it, shows the whole prompt as sent.
 - **Cost.** A page reads its own bytes (about 4 MiB, the first record or
   trailing tool group excepted), the records after an older page's cursor
   that resolve its group or error, a search by halves for a cursor, and
@@ -632,7 +634,8 @@ log serves everything through its boundary, as above.
   the span's pages through the window reader, which looks up each cursor
   by halving and may read the record ending at Z again; a failed
   candidate's reads are not reused by the next. Once the owner closes, the
-  check opens no further page. The new boundary is the record ending
+  check opens no further page; a page read already started finishes, with
+  its own retry on a changed file. The new boundary is the record ending
   at Z. A failed check discards the candidate and caches nothing, so a
   truncated, replaced or unreadable log moves nothing; a log with nothing
   past Z yet leaves it pending, checked again once a row arrives after
