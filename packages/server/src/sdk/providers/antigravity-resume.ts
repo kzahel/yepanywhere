@@ -32,6 +32,8 @@ export async function resumeAntigravitySession(options: {
   setup: AntigravitySessionSetup;
   boundary?: AntigravityLogBoundary;
   replay?: SDKMessage[];
+  /** The fallback ran because the conversation has no log. */
+  logMissing?: boolean;
 } | null> {
   const { runtime, scope, params } = options;
   const point = await readAntigravityResumePoint(scope, params.sessionId);
@@ -53,7 +55,13 @@ export async function resumeAntigravitySession(options: {
       onUpdate: options.onUpdate,
       authorize: options.authorize,
     });
-    return loaded ? { setup: loaded.setup, replay: transcript.messages } : null;
+    return loaded
+      ? {
+          setup: loaded.setup,
+          replay: transcript.messages,
+          ...(point.status === "missing" ? { logMissing: true } : {}),
+        }
+      : null;
   }
   if (!options.authorize()) return null;
   const setup = await runtime.call<AntigravitySessionSetup>(

@@ -176,6 +176,21 @@ export interface LoadedSession {
     mtime: number;
     ctime?: number;
   };
+  /**
+   * For an `afterMessageId` read, the provider's own anchor result.
+   * `resolved`: the read already holds only what follows the cursor, whose
+   * row is no longer in the provider's history under that ID (an
+   * Antigravity row that moved from its owner's memory to the brain log);
+   * the anchor counts as found. `missed`: the read is a replacement window
+   * even if it holds the cursor's row, because the client may hold rows
+   * after it under other IDs.
+   */
+  afterAnchor?: "resolved" | "missed";
+  /**
+   * The read holds every row of the conversation's open owner (its whole
+   * in-memory projection), so a live row it lacks has left that owner.
+   */
+  liveRowsHeld?: true;
   /** Provider read window used to avoid retaining known-hidden source bytes. */
   readWindow?:
     | {

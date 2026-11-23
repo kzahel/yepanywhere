@@ -424,7 +424,8 @@ of JSON per turn, from the same 301 to the same 1,201 messages, in all three
 Antigravity runs. At that rate it would reach the 8 MiB cap after about
 1,800 such turns, and the session would then be stopped mid-turn. The
 controlled-peer test "today: a live session that passes 8 MiB across turns
-is torn down mid-turn" records that.
+is torn down mid-turn" recorded that until plan 195 step 6 flipped it
+([live memory](#live-memory--plan-195-step-6)).
 
 The bar for
 [step 6](../docs/tactical/195-antigravity-native-history.md#6--bound-live-session-memory)
@@ -850,8 +851,11 @@ The resume point records the boundary record's step, the offsets where
 its line starts and ends, and the file's device and inode. A window with a
 resume point checks, at those fixed offsets: the device and inode, that the
 file is at least as long as the end, that the byte before the end and the
-byte before the start are newlines, and that the line begins
-`{"step_index":<step>,` (at most 40 bytes). That costs the same whatever
+byte before the start are newlines, and that the line begins with the same
+bytes it began with when the point was taken (at most 40; since plan 195
+step 6, so a record in a parseable but noncanonical encoding, accepted when
+the point was taken, is checked by its own bytes rather than refused for
+lacking the canonical `{"step_index":<step>,` prefix). That costs the same whatever
 the record's size: in review, a live-row catch-up behind a 3.2 MB final
 record read 3,435,560 bytes before this check was bounded; the unit test
 now bounds it to the title's fixed 256 KiB read of the file's start plus a
@@ -862,7 +866,10 @@ makes it unknown. In review, a 96 MiB unterminated record appended after
 the resume point raised a latest page from 7,528 to 100,670,824 bytes read
 before the window stopped looking for the file's physical end; it now
 costs the same with or without it. A same-width in-place edit of an earlier
-record is not detected.
+record is not detected, nor is a same-inode rewrite that keeps the
+boundary line's first bytes and offsets (the step 5 review replaced one
+record with two of the same total length): general in-place rewrite
+detection belongs to plan 195 step 7.
 
 **Never-prompted conversations.** The step 5 review measured an empty
 conversation (created, never prompted, no log) on 1.5.13 and 1.5.14, two
@@ -873,6 +880,60 @@ fixture had `step_count = 2`. YA does not read `step_count`. It is a
 possible later way to resume a conversation with no log through
 `session/resume` instead of the fallback, if a zero proves reliable across
 stale rows and crash recovery. Not implemented.
+
+## Live memory — plan 195 step 6
+
+A live owner's in-memory rows hold only what the log does not serve yet;
+the [provider contract](antigravity.md#live-memory) states the rules. They
+rest on when `agy` writes a turn's records, measured 2026-11-23 with
+[`antigravity-turn-end-probe.mjs`](../scripts/perf-repro/antigravity-turn-end-probe.mjs)
+(run from `packages/server`, same profile and scripted model as the step 2
+probe):
+
+```bash
+pnpm exec tsx --conditions source ../../scripts/perf-repro/antigravity-turn-end-probe.mjs [--agy <path>] [--out <report.json>]
+```
+
+Two runs each on `agy` 1.5.13 (the pin) and 1.5.14, Node 24.22.1, one macOS
+arm64 host. The delay is from the turn's end (the prompt's result, or for
+a detached reply its last ACP update) to the first observation of its last
+record, polling every millisecond; negative means before.
+
+| Turn | Records it wrote | Last record |
+| --- | --- | ---: |
+| Plain reply | `USER_INPUT`, `PLANNER_RESPONSE` | −1 to 0 ms |
+| Three calls in two responses, then a reply | `USER_INPUT`, planner, two results, planner, result, planner | −8 to −4 ms |
+| A second prompt sent while the reply streamed (steer) | `USER_INPUT`, planner, `USER_INPUT` (the steer), planner | −2 to −1 ms |
+| Stop (`session/cancel`) while the reply streamed | `USER_INPUT`, reminder, planner, `ERROR_MESSAGE` | −7 to −4 ms |
+| `/compact keep the probe markers` | `USER_INPUT` (`/compact keep the probe markers`), `CHECKPOINT`, planner | −1 ms |
+| A background command, then a reply | `USER_INPUT`, planner, result, planner | −4 to −3 ms |
+| That command's wake | the task-end `SYSTEM_MESSAGE` +515 to +527 ms after the previous result; the wake's planner +6 to +11 ms after its last ACP update | — |
+| A detached `invoke_subagent` | the parent's records by −1 ms; its wake on the child's report (two `SYSTEM_MESSAGE`s, a planner) +12 to +18 ms after the result | — |
+
+So, on both versions:
+
+- Every record of a foreground turn was in the log by its prompt's result,
+  including a steered, stopped, tool-heavy or compacting one. Records after
+  a result belong to new steps (a wake, a child's report), each with its
+  own records.
+- Each prompt, each steer and each `/compact` left exactly one
+  `USER_INPUT`, in the order sent, whose request text is the text sent.
+- A stopped turn here logged its partial reply and an `ERROR_MESSAGE`. A
+  1.5.14 owner stopped by ending its process logs nothing for the reply in
+  progress ([step 2](#how-far-a-record-trails-its-acp-event)), but then the
+  owner is gone.
+
+The owner reads only what follows its boundary
+(`readAntigravityLogTail`): each record's step, type and offsets, a user
+input's text and a planner's call count, with the same file identity,
+fixed-offset boundary check, increasing steps and append-only fence as a
+window, and at most 64 MiB, so its cost is the records it evicts. At a
+turn's or command's result it moves the boundary to the log's last record
+when every expected `USER_INPUT` is present and that record ends a turn;
+otherwise it waits for the next turn's `USER_INPUT`, which proves every
+earlier step final because steps only increase. The measurements make the
+first case the ordinary one; the second needs no timing. It keeps a copy of
+the turn it moved last, for catch-ups from clients that streamed it.
 
 ## Runtime identity
 
@@ -896,6 +957,7 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
 | [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
 | `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | Whether a resume can use `session/resume`, and its resume point: the latest page must read as known, and its last record is the boundary ([step 5](#resuming-from-the-log--plan-195-step-5)). |
+| [`readAntigravityLogTail`](../packages/server/src/sessions/antigravity-log-tail.ts) | `transcript_full.jsonl` | A live owner's records after its boundary, to move the boundary once the log holds a turn ([step 6](#live-memory--plan-195-step-6)). |
 | `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay, or a fallback resume, must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
@@ -905,10 +967,10 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 The other named log readers are in
 [`antigravity-subagent-links.ts`](../packages/server/src/sessions/antigravity-subagent-links.ts)
 and each read is bounded to 4 MiB. The projection reads nothing itself.
-Cold history, root and child, comes from the log. A live session resumed
-from the log is the log through its resume point and its owner's
-in-memory rows after it; a new session's, or one resumed through the
-fallback, is its owner's projection. ACP `session/load` replay runs only
+Cold history, root and child, comes from the log. A live session, new or
+resumed from the log, is the log through its owner's boundary and the
+owner's in-memory rows the log does not serve yet; one resumed through the
+fallback is its owner's projection. ACP `session/load` replay runs only
 when a log is missing or unknown, as [identity and history](antigravity.md#identity-and-history)
 describes. [Provider history facts](provider-history-facts.md#consumers) lists
 these readers among YA's history consumers.

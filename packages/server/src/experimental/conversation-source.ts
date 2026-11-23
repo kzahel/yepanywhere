@@ -8,6 +8,7 @@ import type { Process } from "../supervisor/Process.js";
 import type { ProcessEvent } from "../supervisor/types.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import { normalizeStreamMessage } from "../subscriptions.js";
+import { isReplayMessageRetired } from "../supervisor/retired-replay-messages.js";
 import { readConversationFile } from "./conversation-reader.js";
 import { selectConversationWindow } from "../sessions/conversation-window.js";
 import {
@@ -37,11 +38,15 @@ export interface ConversationSourceDependencies {
   eventBus?: EventBus;
   watch?(row: Readonly<SessionCatalogRow>, invalidate: () => void): () => void;
   readFile?: typeof readConversationFile;
+  /**
+   * `liveRowsHeld`: the read holds every row of the conversation's open
+   * owner (an Antigravity join), so a live row it lacks has left the owner.
+   */
   readWindow?(
     row: Readonly<SessionCatalogRow> & { nativeSessionId?: string },
     compactions: number,
     signal: AbortSignal,
-  ): Promise<ConversationInput>;
+  ): Promise<ConversationInput & { liveRowsHeld?: boolean }>;
   resolveRolloutPath?: (
     row: Readonly<SessionCatalogRow>,
     id: string,
@@ -75,24 +80,17 @@ export function createConversationSource(
     let liveOmittedPrefix = false;
     const live = new Map<
       string,
-      { message: Message; bytes: number; owner: number }
+      { message: Message; bytes: number; process: object | undefined }
     >();
-    // Each owner's rows carry its generation. An Antigravity owner's rows use
-    // its own IDs while the log records the same steps under step IDs (plan
-    // 195 step 5 serves the log only through the owner's resume boundary,
-    // so the two never overlap while it lives). When an owner departs, the
-    // next read replaces all of its rows with what the log holds, as a cold
-    // reader would show the conversation.
-    let ownerGeneration = 0;
-    const departed = new Set<number>();
-    // An Antigravity owner resumed through the ACP replay fallback has no
-    // resume point: it replays the whole history (marked `isReplay`) under
-    // its own IDs, and the reader serves its whole projection. A baseline
-    // read before that holds the same turns under step IDs, so a replayed
-    // row makes the next read replace it even while the owner is in turn. An
-    // owner resumed from the log replays nothing and keeps its cheap attach.
-    let replayRevision = 0;
-    let baselineReplayRevision = 0;
+    // An Antigravity owner's rows use live IDs, and the log serves the same
+    // steps under step IDs once they leave the owner's memory (plan 195 step
+    // 6), or once the owner exits. A read that holds every row of the open
+    // owner, or one taken after the row's process went, replaces a live row
+    // it lacks, as the reader does: the row has moved to the log (or out of
+    // the read's scope).
+    // An owner change forces that read even in turn, so the view takes the
+    // new split at once (a fallback owner's replay, a departed owner's turns).
+    let ownerChanged = false;
     const drop = () => {
       failed = true;
       dirty = true;
@@ -104,8 +102,13 @@ export function createConversationSource(
       // Finalized provider records and YA's identity-preserving user echoes are
       // usable now. Raw token frames need a separate block assembler.
       if (raw.type === "stream_event" || raw._isStreaming === true) return;
-      if (raw.isReplay === true && process?.provider === "antigravity")
-        replayRevision++;
+      // A fallback owner's replay is the history the reader serves from its
+      // projection under the same IDs; a retired row is served from the log.
+      if (
+        process?.provider === "antigravity" &&
+        (raw.isReplay === true || isReplayMessageRetired(raw.uuid))
+      )
+        return;
       if (!["assistant", "user", "error", "system"].includes(String(raw.type)))
         return;
       let message = markSubagent(
@@ -157,21 +160,17 @@ export function createConversationSource(
         return;
       }
       liveBytes = nextBytes;
-      live.set(id, {
-        message: structuredClone(message),
-        bytes,
-        owner: ownerGeneration,
-      });
+      live.set(id, { message: structuredClone(message), bytes, process });
       invalidate();
-    };
-    const depart = () => {
-      if (process?.provider === "antigravity") departed.add(ownerGeneration);
-      ownerGeneration++;
     };
     const attachProcess = () => {
       const next = deps.getProcess(sessionId);
       if (next === process) return;
-      depart();
+      if (
+        process?.provider === "antigravity" ||
+        next?.provider === "antigravity"
+      )
+        ownerChanged = true;
       releaseProcess?.();
       releaseProcess = undefined;
       process = next;
@@ -191,7 +190,8 @@ export function createConversationSource(
         else if (
           ["state-change", "complete", "terminated"].includes(event.type)
         ) {
-          if (event.type === "terminated" && process === next) depart();
+          if (event.type === "terminated" && next.provider === "antigravity")
+            ownerChanged = true;
           dirty = true;
           durableRevision++;
           invalidate();
@@ -283,19 +283,20 @@ export function createConversationSource(
         if (
           row?.location.kind === "file" &&
           (!baseline ||
-            departed.size > 0 ||
-            baselineReplayRevision !== replayRevision ||
+            ownerChanged ||
             (dirty && process?.state.type !== "in-turn"))
         ) {
-          const replayAtReadStart = replayRevision;
+          ownerChanged = false;
           const liveAtReadStart = new Map(live);
-          const departedAtReadStart = new Set(departed);
           const observedRevision = durableRevision;
           const settledAtReadStart =
             !process ||
             process.state.type === "idle" ||
             process.state.type === "terminated";
-          const result = deps.readWindow
+          const {
+            liveRowsHeld,
+            ...result
+          }: ConversationInput & { liveRowsHeld?: boolean } = deps.readWindow
             ? await deps.readWindow(row, compactions, readSignal)
             : await (deps.readFile ?? readConversationFile)({
                 path: row.location.path,
@@ -312,19 +313,22 @@ export function createConversationSource(
           // the read can hold beyond its boundary; its rows join from here.
           if (row.catalogFamily === "antigravity") attachProcess();
           baseline = { ...result, sessionId };
-          baselineReplayRevision = replayAtReadStart;
           if (settledAtReadStart && observedRevision === durableRevision) {
             liveLimits.clear();
             liveOmittedPrefix = false;
           }
           dirty = observedRevision !== durableRevision;
-          if (departedAtReadStart.size) {
+          if (row.catalogFamily === "antigravity") {
+            const read = new Set(result.messages.map(getMessageId));
             for (const [id, entry] of live)
-              if (departedAtReadStart.has(entry.owner)) {
+              if (
+                entry === liveAtReadStart.get(id) &&
+                !read.has(id) &&
+                (liveRowsHeld || entry.process !== process)
+              ) {
                 liveBytes -= entry.bytes;
                 live.delete(id);
               }
-            for (const owner of departedAtReadStart) departed.delete(owner);
           }
           for (const message of result.messages) {
             const id = getMessageId(message);

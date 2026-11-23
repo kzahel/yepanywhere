@@ -668,7 +668,9 @@ export function registerSessionDetailRoute(
       };
     }
     let incrementalAnchorFound = false;
-    if (session && providerAfterMessageId) {
+    if (session && providerAfterMessageId && loadedSession?.afterAnchor) {
+      incrementalAnchorFound = loadedSession.afterAnchor === "resolved";
+    } else if (session && providerAfterMessageId) {
       const sliced = sliceAfterMessageIdWithMatch(
         session.messages,
         providerAfterMessageId,

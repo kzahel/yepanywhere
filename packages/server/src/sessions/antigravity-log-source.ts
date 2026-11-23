@@ -31,6 +31,8 @@ const MAX_CHUNK_BYTES = 1024 * 1024;
 const STEP_PREFIX = /^\{"step_index":(\d+),/;
 /** Bytes read from the file's start for its first prompt. */
 const TITLE_BYTES = 256 * 1024;
+/** A boundary record's raw leading bytes, compared on every bounded read. */
+const WITNESS_BYTES = 40;
 
 export class SourceChanged extends Error {}
 export class UnknownLog extends Error {}
@@ -399,22 +401,46 @@ export class LogSource {
   }
 
   /**
+   * A line's first bytes (at most {@link WITNESS_BYTES}), as taken when a
+   * boundary is set there, so a later check compares the same bytes
+   * whatever encoding the record used.
+   */
+  async witness(line: LogLine): Promise<string> {
+    const length = Math.min(WITNESS_BYTES, lineLength(line));
+    return (
+      line.body?.subarray(0, length) ?? (await this.read(line.start, length))
+    ).toString("latin1");
+  }
+
+  /**
    * The line `[start, end)` (ending in the newline at `end - 1`), if a line
-   * starts at `start` and its record begins with `step`: a fixed-size
-   * witness, whatever the line's length. The line is remembered.
+   * starts at `start` and begins with `witness` (the bytes taken when the
+   * boundary was set) or, without one, with `{"step_index":<step>,`: a
+   * fixed-size check, whatever the line's length. The line is remembered.
    */
   async lineAt(
     start: number,
     end: number,
     step: number,
+    witness?: string,
   ): Promise<LogLine | undefined> {
     if (start < 0 || start >= end || end > this.size) return undefined;
     if ((await this.read(end - 1, 1))[0] !== 10) return undefined;
     if (start > 0 && (await this.read(start - 1, 1))[0] !== 10)
       return undefined;
-    const prefix = await this.read(start, Math.min(40, end - 1 - start));
-    const found = STEP_PREFIX.exec(prefix.toString("latin1"))?.[1];
-    if (found === undefined || Number(found) !== step) return undefined;
+    if (witness !== undefined) {
+      if (witness.length === 0 || witness.length > end - 1 - start)
+        return undefined;
+      // A canonical witness names its step; it must be the boundary's.
+      const named = STEP_PREFIX.exec(witness)?.[1];
+      if (named !== undefined && Number(named) !== step) return undefined;
+      const bytes = await this.read(start, witness.length);
+      if (bytes.toString("latin1") !== witness) return undefined;
+    } else {
+      const prefix = await this.read(start, Math.min(40, end - 1 - start));
+      const found = STEP_PREFIX.exec(prefix.toString("latin1"))?.[1];
+      if (found === undefined || Number(found) !== step) return undefined;
+    }
     const line: LogLine = { start, end: end - 1 };
     this.remember(line);
     return line;

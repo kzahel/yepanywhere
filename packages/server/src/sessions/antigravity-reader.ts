@@ -49,10 +49,12 @@ import {
   type AntigravitySessionRead,
   antigravityJoinedSession,
   antigravityWholeSession,
+  type AntigravityJoinPlan,
+  antigravityPlanWindow,
+  joinAntigravityOwnerRead,
   ownerBoundary,
   planAntigravityJoin,
   sameAntigravitySplit,
-  throughAntigravityBoundary,
 } from "./antigravity-live-join.js";
 import { scanAgentExcerpt, toolExcerpt } from "./agent-excerpt.js";
 import {
@@ -734,48 +736,62 @@ export class AntigravitySessionReader implements ISessionReader {
     id: string,
     request: AntigravityLogWindowRequest,
   ): Promise<AntigravitySessionRead | null> {
+    let override: AntigravityJoinPlan | undefined;
     for (let attempt = 1; !this.closed; attempt++) {
       // Reads an owner keeps changing under end with the last one, marked
       // incomplete: never a missing conversation or a dropped prefix.
       const last = attempt >= 4;
       const before = antigravityOwnerView(scope, id);
       if (before?.state === "open" && !before.boundary)
-        return { kind: "owner", messages: before.history() };
+        return {
+          kind: "owner",
+          messages: before.history(),
+          incomplete: before.incomplete,
+        };
       const boundary = ownerBoundary(before);
-      const plan =
-        before?.state === "open" && boundary
-          ? planAntigravityJoin(id, request, before.has)
-          : ({ kind: "log", request } as const);
-      // A live-only catch-up still checks the log through the boundary and
-      // takes the title from it; it reads no records.
+      const plan: AntigravityJoinPlan =
+        override ??
+        (before?.state === "open" && boundary
+          ? planAntigravityJoin(id, request, before)
+          : { kind: "log", request });
+      const through = antigravityPlanWindow(plan, before);
       const window = await this.readLog(
         scope,
         id,
-        plan.kind === "live" ? { kind: "head" } : plan.request,
+        through.request,
         false,
-        boundary,
+        through.boundary,
       );
       const after = antigravityOwnerView(scope, id);
       const settled = sameAntigravitySplit(before, after);
       if (!settled && !last) continue;
       if (after?.state === "open" && !after.boundary)
-        return { kind: "owner", messages: after.history() };
-      if (after?.state === "open") {
-        // Whether this request's answer holds live rows, by the owner now.
-        const joined =
-          settled || planAntigravityJoin(id, request, after.has).kind !== "log";
         return {
-          kind: "log",
-          window: settled
-            ? window
-            : throughAntigravityBoundary(id, window, after.boundary!),
-          ...(plan.kind !== "log" || (!settled && joined)
-            ? { live: after.history() as Message[] }
-            : {}),
-          paged: plan.kind !== "live",
-          // History before the boundary that the log cannot supply now.
-          incomplete: window.status !== "known" || !settled,
+          kind: "owner",
+          messages: after.history(),
+          incomplete: after.incomplete || !settled,
         };
+      if (after?.state === "open") {
+        const read = joinAntigravityOwnerRead(
+          id,
+          request,
+          plan,
+          window,
+          after,
+          settled,
+        );
+        if (read !== "miss") return read;
+        // A client may hold rows of that log part under live IDs: answer
+        // with the latest page as a replacement.
+        override = {
+          kind: "join",
+          request: {
+            kind: "latest",
+            compactions: "compactions" in request ? request.compactions : 2,
+          },
+          anchor: "missed",
+        };
+        continue;
       }
       if (window.status === "known")
         return {
@@ -822,7 +838,7 @@ export class AntigravitySessionReader implements ISessionReader {
       }
       const loaded =
         read.kind === "owner"
-          ? { entries: read.messages, complete: true }
+          ? { entries: read.messages, complete: !read.incomplete, owner: true }
           : await this.loadTranscriptEntries(
               id,
               metadata.scope,
@@ -859,7 +875,12 @@ export class AntigravitySessionReader implements ISessionReader {
     id: string,
     projectId: UrlProjectId,
     metadata: NonNullable<Awaited<ReturnType<typeof this.metadata>>>,
-    loaded: { entries: SDKMessage[]; model?: string; complete: boolean },
+    loaded: {
+      entries: SDKMessage[];
+      model?: string;
+      complete: boolean;
+      owner?: boolean;
+    },
   ): Promise<LoadedSession | null> {
     const summary = await this.summary(id, projectId);
     return summary
@@ -887,7 +908,10 @@ export class AntigravitySessionReader implements ISessionReader {
       compactions,
     });
     if (read?.kind === "owner")
-      return { messages: read.messages as Message[], omittedPrefix: false };
+      return {
+        messages: read.messages as Message[],
+        omittedPrefix: read.incomplete === true,
+      };
     if (read?.kind !== "log") return undefined;
     const { window, live } = read;
     if (window.status === "known")

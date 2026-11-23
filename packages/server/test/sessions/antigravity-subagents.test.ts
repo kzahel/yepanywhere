@@ -161,9 +161,9 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
     });
     const enriched = live.enrichSubagentResult("tc-1", CHILD_ID);
     expect(enriched?.uuid).toBe("tc-1:result");
-    expect(live.messages.filter((m) => m.uuid === "tc-1:result")).toHaveLength(
-      1,
-    );
+    // A live turn retains nothing itself: its owner's projection keeps one
+    // row per ID (plan 195 step 6).
+    expect(live.messages).toEqual([]);
     const resultBlock = Array.isArray(enriched?.message?.content)
       ? enriched.message.content[0]
       : undefined;
@@ -223,7 +223,7 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       status: "in_progress",
       rawInput: { Role: "Denied", TypeName: "research", Prompt: "Nope" },
     });
-    failedTx.accept({
+    const [failedResult] = failedTx.accept({
       sessionUpdate: "tool_call_update",
       toolCallId: "fail-1",
       name: "invoke_subagent",
@@ -231,10 +231,8 @@ describe("Antigravity subagent transcript, links, reader, and background retenti
       rawOutput: "Permission denied",
     });
     expect(failedTx.enrichSubagentResult("fail-1", CHILD_ID)).toBeUndefined();
-    const failedResultBlock = Array.isArray(
-      failedTx.messages[1]?.message?.content,
-    )
-      ? failedTx.messages[1].message.content[0]
+    const failedResultBlock = Array.isArray(failedResult?.message?.content)
+      ? failedResult.message.content[0]
       : undefined;
     expect(failedResultBlock).toMatchObject({
       type: "tool_result",

@@ -7,12 +7,19 @@ import {
 import type { SDKMessage } from "../types.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
 
-/** One replay or live turn, capped independently of the native conversation. */
+/**
+ * One ACP replay or one live turn, as normalized messages. A replay keeps
+ * its messages, capped at 8 MiB and 10,000 (the fallback's history limit).
+ * A live turn keeps none: its owner's projection holds what readers serve
+ * (bounded there), so only the open text block and the turn's calls stay.
+ */
 export class AntigravityTranscript {
+  /** A replay's history; always empty for a live turn. */
   readonly messages: SDKMessage[] = [];
   private bytes = 0;
+  private count = 0;
   private text?: { kind: string; message: SDKMessage; value: string };
-  // Bounded by the same 8 MiB/10,000-message replay limits; discarded with it.
+  // A replay's are bounded by its limits; a live turn's are discarded with it.
   private tools = new Map<string, SDKMessage>();
   private subagents = new Map<string, AntigravitySubagentCall>();
 
@@ -35,6 +42,7 @@ export class AntigravityTranscript {
   }
 
   private reserveHistory(bytes: number, addingMessage = false): void {
+    if (this.live) return;
     if (
       this.bytes + bytes > 8 * 1024 * 1024 ||
       (addingMessage && this.messages.length >= 10_000)
@@ -47,6 +55,10 @@ export class AntigravityTranscript {
   }
 
   private record(message: SDKMessage, existing = -1): void {
+    if (this.live) {
+      if (existing < 0) this.count++;
+      return;
+    }
     const previous = existing < 0 ? undefined : this.messages[existing];
     const oldBytes = previous
       ? Buffer.byteLength(JSON.stringify(previous), "utf8")
@@ -133,7 +145,7 @@ export class AntigravityTranscript {
         const role = kind === "user_message_chunk" ? "user" : "assistant";
         const message: SDKMessage = {
           type: role,
-          uuid: `${this.prefix}:${this.messages.length}`,
+          uuid: `${this.prefix}:${this.live ? this.count : this.messages.length}`,
           session_id: this.sessionId,
           ...this.stamp(),
           message: {

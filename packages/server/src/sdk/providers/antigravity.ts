@@ -56,6 +56,8 @@ import {
   resolveAntigravityModelSelection,
   resolveAntigravityTargetEffort,
 } from "./antigravity-models.js";
+import { AntigravityLiveAdvancer } from "./antigravity-live-advance.js";
+import { EMPTY_ANTIGRAVITY_LOG } from "./antigravity-live-projection.js";
 import { AntigravityTranscript } from "./antigravity-transcript.js";
 import { AntigravityVersionError } from "./antigravity-version.js";
 import { resumeAntigravitySession } from "./antigravity-resume.js";
@@ -641,7 +643,16 @@ export class AntigravityProvider implements AgentProvider {
             ),
           };
       if (!opened) return;
-      const { setup, boundary, replay } = opened;
+      const { setup, replay } = opened;
+      // A new session's log is empty, and so is that of a conversation the
+      // fallback reopened with no log and nothing to replay.
+      const boundary =
+        "boundary" in opened && opened.boundary
+          ? opened.boundary
+          : !options.resumeSessionId ||
+              ("logMissing" in opened && opened.logMissing && !replay?.length)
+            ? EMPTY_ANTIGRAVITY_LOG
+            : undefined;
       // A failed resume is terminal; never create a fresh native conversation.
       const id = parseNativeSessionId(
         options.resumeSessionId || setup.sessionId,
@@ -814,8 +825,18 @@ export class AntigravityProvider implements AgentProvider {
         );
       if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
         await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
-      for (const message of replay ?? []) owner.record(message);
-      owner.open(boundary);
+      const live = owner.open(boundary);
+      for (const message of replay ?? []) live.record(message);
+      // Rows leave memory once the log holds them; without a boundary (a
+      // fallback replay of a log YA cannot read) only the cap bounds them.
+      const advancer = live.boundary
+        ? new AntigravityLiveAdvancer({
+            scope: namespace.storageScope,
+            conversationId: id,
+            projection: live,
+            signal,
+          })
+        : undefined;
       releaseStart?.();
       markReady();
       yield {
@@ -841,7 +862,7 @@ export class AntigravityProvider implements AgentProvider {
           converted._selectedProviderModel = resolvedModel;
         }
         const { _isStreaming: _partial, ...committed } = converted;
-        owner!.record(committed);
+        live.record(committed);
         if (updates.at(-1)?.uuid === converted.uuid)
           updates[updates.length - 1] = converted;
         else updates.push(converted);
@@ -909,6 +930,7 @@ export class AntigravityProvider implements AgentProvider {
             error: "This Antigravity session does not advertise compaction",
           };
         compacting = true;
+        advancer?.compact(argument ? `/compact ${argument}` : "/compact");
         try {
           const result = await compactAntigravity(
             runtime,
@@ -917,16 +939,19 @@ export class AntigravityProvider implements AgentProvider {
             argument,
           );
           if (result.completion === "completed") {
+            const uuid = randomUUID();
             publish({
               type: "system",
               subtype: "compact_boundary",
-              uuid: randomUUID(),
+              uuid,
               session_id: id,
             });
+            advancer?.compacted(uuid);
             await subagents?.onCompacted();
           }
           return result;
         } finally {
+          advancer?.quiet(live.seq);
           compacting = false;
           runtime.endingTurn();
           reconcileRoot();
@@ -1063,6 +1088,7 @@ export class AntigravityProvider implements AgentProvider {
           options.onNativeInputConsumed?.(id, uuid);
         };
         let activeTurnModel = resolvedModel;
+        let progressed = false;
         foregroundUpdate = (update) => {
           // A new owner has no earlier turn that could produce this output.
           // Confirm startup on native progress so the first turn can be steered.
@@ -1086,6 +1112,17 @@ export class AntigravityProvider implements AgentProvider {
           ) {
             verifiedOnProgress.add(activePromptScope);
             subagents?.schedulePromptAnchorVerification(activePromptScope);
+          }
+          // By its first progress the turn's prompt is in the log, so the
+          // rows before it can leave memory.
+          if (
+            !progressed &&
+            (update.sessionUpdate === "agent_message_chunk" ||
+              update.sessionUpdate === "agent_thought_chunk" ||
+              update.sessionUpdate === "tool_call")
+          ) {
+            progressed = true;
+            advancer?.progress();
           }
           const emitted = transcript.accept(update);
           for (const converted of emitted) publish(converted, activeTurnModel);
@@ -1145,6 +1182,7 @@ export class AntigravityProvider implements AgentProvider {
             timestamp: new Date().toISOString(),
             message: { role: "user", content: promptText },
           });
+          advancer?.prompt(inputId, promptText, !steer);
           pending++;
           void runtime
             .call<{ usage?: unknown; stopReason?: string }>(
@@ -1204,6 +1242,8 @@ export class AntigravityProvider implements AgentProvider {
           await waitForChange();
         }
         foregroundUpdate = undefined;
+        // Later rows are detached output, not this turn's.
+        const quietSeq = live.seq;
         await subagents.drainPending();
         // Retry any completed (non-failed) invoke_subagent call whose
         // transcript.jsonl entry had not flushed yet when tool_call_update arrived.
@@ -1246,6 +1286,8 @@ export class AntigravityProvider implements AgentProvider {
         }
         if (failure) throw failure;
         runtime.endingTurn();
+        // agy has logged the turn by its result; its rows can leave memory.
+        advancer?.quiet(quietSeq);
         yield { type: "result", session_id: id, usage };
       }
     } catch (error) {

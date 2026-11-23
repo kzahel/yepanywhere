@@ -44,6 +44,12 @@ export type AntigravityLogWindowRequest =
   | { kind: "before"; messageId: string; compactions: number }
   /** From a message to the end, when that fits a page; else the latest page. */
   | { kind: "after"; messageId: string; compactions: number }
+  /**
+   * The messages of records after `step` to the end, when that fits a
+   * page; else the latest page with the anchor missed. A cursor an owner
+   * moved into the log names a step, whatever that record shows.
+   */
+  | { kind: "since"; step: number; compactions: number }
   /** The whole log: a deliberate complete read. */
   | { kind: "complete" }
   /** No records: only the boundary check and the first prompt. */
@@ -66,8 +72,8 @@ export type AntigravityLogWindow =
       firstPrompt?: string;
       /** For a latest page: the last record it read to. */
       last?: AntigravityLogBoundary;
-      /** The file the window was read from. */
-      source: { dev: number; ino: number };
+      /** The file the window was read from; none for an empty boundary. */
+      source?: { dev: number; ino: number };
       bytesRead: number;
       /** The most line bytes the read held at once. */
       heldPeak: number;
@@ -173,12 +179,12 @@ class WindowRead {
     // With a boundary, nothing after it is read: not even the physical end,
     // which an unterminated record being written may be far past.
     if (this.boundary) {
-      const { step, start, end } = this.boundary;
+      const { step, start, end, witness } = this.boundary;
       if (end > this.source.size)
         throw new UnknownLog("the log is shorter than its resume point");
       if (start !== undefined) {
         // The recorded line: a fixed-size witness, never the record's body.
-        if (!(await this.source.lineAt(start, end, step)))
+        if (!(await this.source.lineAt(start, end, step, witness)))
           throw new UnknownLog("the log changed before its resume point");
       } else {
         const newline =
@@ -203,6 +209,8 @@ class WindowRead {
         return this.before(request.messageId, request.compactions);
       case "after":
         return this.after(request.messageId, request.compactions);
+      case "since":
+        return this.since(request.step, request.compactions);
     }
   }
 
@@ -219,6 +227,7 @@ class WindowRead {
       step: (await this.source.head(line)).step,
       start: line.start,
       end: this.end,
+      witness: await this.source.witness(line),
     };
   }
 
@@ -444,15 +453,17 @@ class WindowRead {
     return this.pageBefore(anchor.start, compactions, after, messageId);
   }
 
-  /** From the message's record to the end, if that fits one page. */
-  private async after(messageId: string, compactions: number): Promise<Read> {
-    const missed = async (): Promise<Read> => {
-      const read = await this.pageBefore(this.end, compactions, []);
-      return read.status === "known" ? { ...read, anchor: "missed" } : read;
-    };
-    const anchor = await this.locate(messageId);
-    if (!anchor) return missed();
-    // A result starts the page at the record that owns it.
+  /** The latest page, as the answer to an anchor this window cannot serve. */
+  private async missedAfter(compactions: number): Promise<Read> {
+    const read = await this.pageBefore(this.end, compactions, []);
+    return read.status === "known" ? { ...read, anchor: "missed" } : read;
+  }
+
+  /**
+   * From the record that owns `anchor` (itself, or the planner before a
+   * result) to the end, if that fits one page; undefined if it does not.
+   */
+  private async fromOwner(anchor: LogLine): Promise<Read | undefined> {
     let start = anchor.start;
     let total = 0;
     for (
@@ -460,7 +471,7 @@ class WindowRead {
       type === "GENERIC";
     ) {
       const line = await this.source.lineBefore(start, this.pageBytes - total);
-      if (!line) return missed();
+      if (!line) return undefined;
       this.source.release(line);
       total += lineLength(line);
       start = line.start;
@@ -473,22 +484,52 @@ class WindowRead {
       const line = await this.source.lineFrom(at, this.end);
       this.bound(line);
       total += lineLength(line);
-      if (total > this.pageBytes) return missed();
+      if (total > this.pageBytes) return undefined;
       lines.push(line);
       at = line.end + 1;
     }
     const projection = new AntigravityLogProjection(this.conversationId);
     await this.project(projection, lines.map(show));
-    const read = this.finish(projection, {
+    return this.finish(projection, {
       omittedPrefix: start > 0,
       anchor: "found",
     });
+  }
+
+  /** From the message's record to the end, if that fits one page. */
+  private async after(messageId: string, compactions: number): Promise<Read> {
+    const anchor = await this.locate(messageId);
+    const read = anchor ? await this.fromOwner(anchor) : undefined;
     if (
-      read.status === "known" &&
-      !read.messages.some((message) => message.uuid === messageId)
+      !read ||
+      (read.status === "known" &&
+        !read.messages.some((message) => message.uuid === messageId))
     )
-      return missed();
+      return this.missedAfter(compactions);
     return read;
+  }
+
+  /** The messages of records after `step`, if they fit one page. */
+  private async since(step: number, compactions: number): Promise<Read> {
+    const next = await this.source.findStep(step + 1, this.end);
+    if (!next)
+      return {
+        status: "known",
+        messages: [],
+        omittedPrefix: this.end > 0,
+        anchor: "found",
+      };
+    const read = await this.fromOwner(next);
+    if (!read) return this.missedAfter(compactions);
+    if (read.status !== "known") return read;
+    return {
+      ...read,
+      messages: read.messages.filter(
+        (message) =>
+          (antigravityMessageStep(this.conversationId, String(message.uuid)) ??
+            Number.POSITIVE_INFINITY) > step,
+      ),
+    };
   }
 }
 
@@ -509,6 +550,23 @@ function firstUserText(messages: readonly Message[]): string | undefined {
 export async function readAntigravityLogWindow(
   options: AntigravityLogWindowOptions,
 ): Promise<AntigravityLogWindow> {
+  // A boundary at offset 0 is an empty log (a new session before its log
+  // holds anything): nothing to read, whether or not the file exists yet.
+  if (options.boundary?.end === 0) {
+    const { request } = options;
+    return {
+      status: "known",
+      messages: [],
+      omittedPrefix: false,
+      ...(request.kind === "before" || request.kind === "after"
+        ? { anchor: "missed" as const }
+        : request.kind === "since"
+          ? { anchor: "found" as const }
+          : {}),
+      bytesRead: 0,
+      heldPeak: 0,
+    };
+  }
   let bytesRead = 0;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     let source: LogSource | undefined;

@@ -16,6 +16,7 @@ import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
 import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
 import {
   antigravityLiveHistory,
+  antigravityOwnerView,
   claimAntigravityStart,
   ownAntigravitySession,
 } from "../../../src/sdk/providers/antigravity-owners.js";
@@ -38,6 +39,7 @@ import {
   projectAntigravityLog,
 } from "../../../src/sessions/antigravity-log-projection.js";
 import { EventBus } from "../../../src/watcher/EventBus.js";
+import { createProviderConversationSource } from "../../../src/experimental/provider-conversation-source.js";
 import {
   createTestSessionMetadataService,
   closeTestDiscoveryDatabases,
@@ -61,13 +63,22 @@ let replayHeld = false;
 const brainLog = path.join(process.env.GEMINI_HOME, 'antigravity-cli', 'brain', id, '.system_generated', 'logs', 'transcript_full.jsonl');
 const logStep = (type, source, fields) => {
  if (!process.env.AGY_TEST_LOG_TURNS) return;
+ fs.mkdirSync(path.dirname(brainLog),{recursive:true});
+ fs.appendFileSync(brainLog, '');
  const fd = fs.openSync(brainLog, 'r');
  const size = fs.fstatSync(fd).size;
- const tail = Buffer.alloc(Math.min(size, 65536));
- fs.readSync(fd, tail, 0, tail.length, size - tail.length);
+ // The last line's head, however long that line is.
+ let read = Math.min(size, 65536);
+ let tail = Buffer.alloc(0);
+ for (;;) {
+  tail = Buffer.alloc(read);
+  fs.readSync(fd, tail, 0, read, size - read);
+  if (read === size || tail.subarray(0, read - 1).includes(10)) break;
+  read = Math.min(size, read * 2);
+ }
  fs.closeSync(fd);
  const last = tail.toString('utf8').trimEnd().split('\\n').pop();
- const step = JSON.parse(last).step_index + 1;
+ const step = last ? JSON.parse(last).step_index + 1 : 0;
  fs.appendFileSync(brainLog, JSON.stringify({step_index:step,source,type,status:'DONE',created_at:new Date().toISOString(),...fields})+'\\n');
 };
 readline.createInterface({input:process.stdin}).on('line', line => {
@@ -129,16 +140,24 @@ readline.createInterface({input:process.stdin}).on('line', line => {
   if(m.params.prompt[0].text === 'big') {
    for (let chunk = 0; chunk < 3; chunk++)
     update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'y'.repeat(1024*1024)}});
+   logStep('PLANNER_RESPONSE','MODEL',{content:'y'.repeat(3*1024*1024)});
    return reply(m.id,{stopReason:'end_turn'});
   }
   if(m.params.prompt[0].text === 'wait') {
    update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Waiting'}});
    return;
   }
+  // AGY_TEST_RECORD_ORDER: the reply's record before its last chunk, or
+  // after the prompt's result, instead of between them.
+  const order = process.env.AGY_TEST_RECORD_ORDER;
+  const planner = () => logStep('PLANNER_RESPONSE','MODEL',{content:'Hello world'});
   update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'Hello '}});
+  if (order === 'before-chunk') planner();
   update({sessionUpdate:'agent_message_chunk',content:{type:'text',text:'world'}});
-  logStep('PLANNER_RESPONSE','MODEL',{content:'Hello world'});
-  return reply(m.id,{stopReason:'end_turn'});
+  if (!order) planner();
+  reply(m.id,{stopReason:'end_turn'});
+  if (order === 'after-result') setTimeout(planner, 30);
+  return;
  }
  if(!m.method && (m.id==='1' || m.id===100)) {
   const outcome = m.result ? (m.result.outcome.optionId ?? m.result.outcome.outcome) : 'error '+m.error?.code;
@@ -1213,7 +1232,7 @@ describe("Antigravity native process boundary", () => {
   );
 
   it.skipIf(process.platform === "win32")(
-    "serves a resumed session as its log through the resume point and its live rows after it",
+    "serves a resumed session as its log through its boundary, moves each ended turn into the log, and resolves the cursors a client streamed",
     async () => {
       vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
       vi.stubEnv("AGY_TEST_OVERSIZED_REPLAY", "1");
@@ -1292,8 +1311,12 @@ describe("Antigravity native process boundary", () => {
       try {
         const first = await resume("continue");
         await waitForIdle(first, signal);
-        // agy logged the resumed turn after the boundary; the owner's rows
-        // serve it.
+        // agy logged the resumed turn after the boundary, and its result
+        // moved the boundary past it: the owner retains nothing (step 6).
+        const scope = await realpath(join(store, "conversations"));
+        await vi.waitFor(() =>
+          expect(antigravityLiveHistory(scope, nativeId)).toEqual([]),
+        );
         const live = first
           .getMessageHistory()
           .filter(
@@ -1303,37 +1326,62 @@ describe("Antigravity native process boundary", () => {
           )
           .map((message) => message.uuid!);
         expect(live).toHaveLength(2);
+        const after = await projectAntigravityLog(
+          antigravityLogLines(createReadStream(scale.fullPath)),
+          { conversationId: nativeId, ownerLive: false },
+        );
+        if (after.status !== "known") throw Error(after.reason);
+        const turnIds = after.messages
+          .slice(before.messages.length)
+          .map((message) => message.uuid);
+        // The prompt's USER_INPUT and the reply's planner response.
+        expect(turnIds).toHaveLength(2);
+        expect(turnIds[0]).toMatch(/:step-\d+$/);
+        expect(turnIds[1]).toMatch(/:step-\d+:text$/);
         const pages = await pageAll();
         expect(pages.length).toBeGreaterThanOrEqual(3);
         const joined = pages.flat();
-        expect(uuids(joined)).toEqual([...logIds, ...live]);
+        expect(uuids(joined)).toEqual([...logIds, ...turnIds]);
         expect(
           texts(joined).filter((text) => text?.includes("continue")),
         ).toHaveLength(1);
-        // Catch-ups from either side of the boundary.
-        expect(
-          uuids(
-            (await get(`?afterMessageId=${encodeURIComponent(logIds.at(-1)!)}`))
-              .messages,
-          ),
-        ).toEqual(live);
-        const fromLive = await get(
+        // A client that streamed the turn holds its live IDs: its catch-up
+        // from the newest (the reply) and from the prompt get the rows after
+        // them, as an incremental answer, not a replacement.
+        const fromReply = await get(
+          `?afterMessageId=${encodeURIComponent(live[1]!)}`,
+        );
+        expect(uuids(fromReply.messages)).toEqual([]);
+        expect(fromReply.pagination).toBeUndefined();
+        const fromPrompt = await get(
           `?afterMessageId=${encodeURIComponent(live[0]!)}`,
         );
-        expect(uuids(fromLive.messages)).toEqual([live[1]]);
+        expect(uuids(fromPrompt.messages)).toEqual([live[1]]);
+        expect(fromPrompt.pagination).toBeUndefined();
+        // So does one whose last row was the log's before the turn: it gets
+        // the turn under the live IDs it streamed, never its records too.
+        const fromLog = await get(
+          `?afterMessageId=${encodeURIComponent(logIds.at(-1)!)}`,
+        );
+        expect(uuids(fromLog.messages)).toEqual(live);
+        expect(fromLog.pagination).toBeUndefined();
         // The title stays the conversation's first prompt, whichever side
         // served the read.
         const firstPrompt = before.messages.find(
           (message) => message.type === "user",
         )?.message?.content as string;
-        expect(fromLive.session?.title).toBe(firstPrompt.slice(0, 120));
+        expect(fromReply.session?.title).toBe(firstPrompt.slice(0, 120));
         expect((await get()).session?.title).toBe(firstPrompt.slice(0, 120));
-        // An older page from a live row ends at the boundary.
+        // An older page from the prompt it streamed ends at the boundary
+        // the turn started after.
         const older = await get(
           `?beforeMessageId=${encodeURIComponent(live[0]!)}`,
         );
         expect(uuids(older.messages).at(-1)).toBe(logIds.at(-1));
         expect(older.pagination?.hasOlderMessages).toBe(true);
+        // A live ID the owner never held still misses cleanly.
+        const unknown = await get("?afterMessageId=never-held");
+        expect(unknown.pagination).toBeDefined();
         // The hover excerpt and the mappings read the same split.
         const reader = new AntigravitySessionReader({ projectPath: directory });
         try {
@@ -1387,49 +1435,386 @@ describe("Antigravity native process boundary", () => {
     30_000,
   );
 
-  // Plan 195 step 6 flips this: retained history stays bounded and the
-  // session keeps running however much it has written.
+  /** Runs `turns` 3 MiB turns, reporting retained bytes after each result. */
+  async function runBigTurns(
+    session: Awaited<ReturnType<AntigravityProvider["startSession"]>>,
+    turns: number,
+    afterResult: (turn: number) => Promise<void>,
+  ) {
+    const errors: SDKMessage[] = [];
+    let results = 0;
+    for await (const message of session.iterator) {
+      if (message.type === "error") errors.push(message);
+      if (message.type !== "result") continue;
+      await afterResult(++results);
+      if (results === turns) break;
+      session.queue.push({ text: "big", uuid: `turn-${results + 1}` });
+    }
+    return { errors, results };
+  }
+
+  // Flipped by plan 195 step 6 from "today: a live session that passes
+  // 8 MiB across turns is torn down mid-turn": each ended turn leaves memory
+  // for the log, so the session keeps running however much it writes.
   it.skipIf(process.platform === "win32")(
-    "today: a live session that passes 8 MiB across turns is torn down mid-turn",
+    "keeps a live session running past 8 MiB, retaining a fixed amount while its whole history stays readable",
     async () => {
+      vi.stubEnv("AGY_TEST_LOG_TURNS", "1");
+      const scope = await realpath(join(store, "conversations"));
       const session = await new AntigravityProvider().startSession({
         cwd: directory,
         initialMessage: { text: "big", uuid: "turn-1" },
       });
+      const retained: number[] = [];
       try {
-        const results: number[] = [];
-        let error: SDKMessage | undefined;
-        let committed = 0;
-        for await (const message of session.iterator) {
-          if (message.type === "assistant" && !message._isStreaming)
-            committed++;
-          if (message.type === "error") error = message;
-          if (message.type !== "result") continue;
-          results.push(committed);
-          session.queue.push({
-            text: "big",
-            uuid: `turn-${results.length + 1}`,
-          });
-        }
-        // Each turn is 3 MiB of displayed text, so the third crosses the
-        // owner's cumulative 8 MiB cap. Recording throws inside the native
-        // update handler, which fails the pending prompt and stops `agy`.
-        expect(results).toEqual([1, 2]);
-        expect(error).toEqual({
-          type: "error",
-          error:
-            "Antigravity live history exceeds the experimental history limit",
+        const { errors, results } = await runBigTurns(session, 5, async () => {
+          expect(session.isProcessAlive?.()).toBe(true);
+          // The advance runs as the result is yielded.
+          await vi.waitFor(() =>
+            expect(antigravityLiveHistory(scope, nativeId)).toEqual([]),
+          );
+          // What remains is the copy of the turn moved last, for clients
+          // that streamed it.
+          const view = antigravityOwnerView(scope, nativeId);
+          retained.push(
+            Buffer.byteLength(
+              JSON.stringify(view?.state === "open" ? view.movedRows() : null),
+            ),
+          );
         });
-        expect(session.isProcessAlive?.()).toBe(false);
-        const methods = (await readFile(log, "utf8")).trim().split("\n");
-        expect(
-          methods.filter((method) => method === "session/prompt"),
-        ).toHaveLength(3);
-        expect(methods).not.toContain("session/cancel");
+        expect(errors).toEqual([]);
+        expect(results).toBe(5);
+        // 15 MiB written; one turn's 3 MiB retained after each, however many.
+        for (const bytes of retained) {
+          expect(bytes).toBeGreaterThan(3 * 1024 * 1024);
+          expect(bytes).toBeLessThan(3 * 1024 * 1024 + 4096);
+        }
+        const reader = new AntigravitySessionReader({ projectPath: directory });
+        try {
+          const whole = await reader.getSession(
+            nativeId,
+            toUrlProjectId(directory),
+          );
+          const messages = whole?.data.session.messages ?? [];
+          expect(whole?.transcriptComplete).not.toBe(false);
+          expect(
+            messages.filter(
+              (message) =>
+                message.type === "assistant" &&
+                String(message.message?.content).length === 3 * 1024 * 1024,
+            ),
+          ).toHaveLength(5);
+          expect(
+            messages.filter((message) => message.type === "user"),
+          ).toHaveLength(5);
+        } finally {
+          await reader.close();
+        }
       } finally {
         await session.abort();
       }
+      const methods = (await readFile(log, "utf8")).trim().split("\n");
+      expect(
+        methods.filter((method) => method === "session/prompt"),
+      ).toHaveLength(5);
     },
+    20_000,
+  );
+
+  it
+    .skipIf(process.platform === "win32")
+    .each(["stops growing", "is unlinked"])(
+    "evicts the oldest row at the cap, never throwing, when the log %s while the session lives",
+    async (shape) => {
+      const scope = await realpath(join(store, "conversations"));
+      if (shape === "is unlinked") {
+        // A resumed session whose log goes away: nothing can advance.
+        await writeLargeConversation();
+        const session = await new AntigravityProvider().startSession({
+          cwd: directory,
+          resumeSessionId: nativeId,
+          initialMessage: { text: "big", uuid: "turn-1" },
+        });
+        await rm(
+          join(
+            store,
+            "brain",
+            nativeId,
+            ".system_generated",
+            "logs",
+            "transcript_full.jsonl",
+          ),
+        );
+        await exercise(session);
+      } else
+        await exercise(
+          await new AntigravityProvider().startSession({
+            cwd: directory,
+            initialMessage: { text: "big", uuid: "turn-1" },
+          }),
+        );
+
+      async function exercise(
+        session: Awaited<ReturnType<AntigravityProvider["startSession"]>>,
+      ) {
+        try {
+          const retained: number[] = [];
+          let lastHistory: SDKMessage[] = [];
+          let lastRead: Awaited<
+            ReturnType<AntigravitySessionReader["getSession"]>
+          > = null;
+          const { errors, results } = await runBigTurns(
+            session,
+            4,
+            async (turn) => {
+              expect(session.isProcessAlive?.()).toBe(true);
+              retained.push(
+                Buffer.byteLength(
+                  JSON.stringify(antigravityLiveHistory(scope, nativeId)),
+                ),
+              );
+              if (turn < 4) return;
+              lastHistory = antigravityLiveHistory(scope, nativeId)!;
+              const reader = new AntigravitySessionReader({
+                projectPath: directory,
+              });
+              try {
+                lastRead = await reader.getSession(
+                  nativeId,
+                  toUrlProjectId(directory),
+                  undefined,
+                  { tailCompactions: 2 },
+                );
+              } finally {
+                await reader.close();
+              }
+            },
+          );
+          expect(errors).toEqual([]);
+          expect(results).toBe(4);
+          // Two 3 MiB turns fit; from the third, the oldest rows go.
+          for (const bytes of retained)
+            expect(bytes).toBeLessThanOrEqual(8 * 1024 * 1024 + 1024);
+          expect(retained.at(-1)).toBeGreaterThan(6 * 1024 * 1024);
+          const ids = lastHistory.map((message) => message.uuid);
+          expect(ids).not.toContain("turn-1");
+          expect(ids).toContain("turn-4");
+          // The view says history is missing rather than looking whole.
+          expect(lastRead?.transcriptComplete).toBe(false);
+          expect(
+            lastRead?.data.session.messages.map((message) => message.uuid),
+          ).toContain("turn-4");
+        } finally {
+          await session.abort();
+        }
+      }
+    },
+    20_000,
+  );
+
+  it
+    .skipIf(process.platform === "win32")
+    .each([
+      "between the last chunk and the result",
+      "before the last chunk",
+      "after the result",
+    ])(
+    "keeps the live view, a streaming client and a v0 observer whole across advances, with the reply's record %s",
+    async (order) => {
+      vi.stubEnv("ENABLED_PROVIDERS", "antigravity");
+      vi.stubEnv("AGY_TEST_LOG_TURNS", "1");
+      if (order === "before the last chunk")
+        vi.stubEnv("AGY_TEST_RECORD_ORDER", "before-chunk");
+      if (order === "after the result")
+        vi.stubEnv("AGY_TEST_RECORD_ORDER", "after-result");
+      const logs = join(store, "brain", nativeId, ".system_generated", "logs");
+      await mkdir(logs, { recursive: true });
+      await mkdir(join(store, "conversations"), { recursive: true });
+      await writeFile(join(store, "conversations", `${nativeId}.db`), "db");
+      const at = "2026-11-23T08:00:00Z";
+      await writeFile(
+        join(logs, "transcript_full.jsonl"),
+        `${JSON.stringify({ step_index: 0, source: "USER_EXPLICIT", type: "USER_INPUT", status: "DONE", created_at: at, content: "<USER_REQUEST>\nOriginal question\n</USER_REQUEST>" })}\n` +
+          `${JSON.stringify({ step_index: 1, source: "MODEL", type: "PLANNER_RESPONSE", status: "DONE", created_at: at, content: "Saved" })}\n`,
+      );
+      const scope = await realpath(join(store, "conversations"));
+      const metadata = createTestSessionMetadataService(
+        join(directory, "data"),
+      );
+      await metadata.initialize();
+      const app = createApp({
+        provider: new AntigravityProvider(),
+        dataDir: join(directory, "data"),
+        sessionMetadataService: metadata,
+        eventBus: new EventBus(),
+        authDisabled: true,
+        enabledProviders: ["antigravity"],
+      });
+      const projectId = toUrlProjectId(directory);
+      const detailPath = `/api/projects/${projectId}/sessions/${nativeId}`;
+      type Row = { uuid: string; message?: { content?: unknown } };
+      const get = async (query = "?tailCompactions=2") => {
+        const response = await app.app.request(`${detailPath}${query}`, {
+          headers: { "X-Yep-Anywhere": "true" },
+        });
+        expect(response.status).toBe(200);
+        return (await response.json()) as {
+          messages: Row[];
+          pagination?: unknown;
+        };
+      };
+      const post = (path: string, body: unknown) =>
+        app.app.request(path, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Yep-Anywhere": "true",
+          },
+          body: JSON.stringify(body),
+        });
+      const text = (row: Row) =>
+        typeof row.message?.content === "string"
+          ? row.message.content
+          : JSON.stringify(row.message?.content ?? null);
+      const shown = (rows: readonly Row[]) =>
+        rows.map(text).filter((value) => value !== "null");
+      // The exact text sequences below say no row is twice or missing.
+      const expectOnce = (rows: readonly Row[]) =>
+        expect(new Set(rows.map((row) => row.uuid)).size).toBe(rows.length);
+      const signal = AbortSignal.timeout(15_000);
+      const v0 = createProviderConversationSource({
+        readerFactory: () =>
+          new AntigravitySessionReader({ projectPath: directory }),
+        resolve: async () => ({
+          sessionId: nativeId,
+          catalogFamily: "antigravity",
+          storeKey: "test",
+          projectId,
+          projectPath: directory,
+          projectIdentityKey: directory,
+          updatedAt: at,
+          fidelity: "tail",
+          sourceVersion: "1",
+          location: { kind: "file", path: join(scope, `${nativeId}.db`) },
+          nativeStorageScope: scope,
+        }),
+        getProcess: (id) => app.supervisor.getProcessForSession(id) as never,
+      });
+      const observing = new AbortController();
+      const observer = await v0(nativeId, () => {}, observing.signal);
+      const observed = async () =>
+        (await observer.read(observing.signal)).messages as Row[];
+      try {
+        const resumed = await post(`${detailPath}/resume`, {
+          message: "first",
+          provider: "antigravity",
+          mode: "default",
+        });
+        expect(resumed.status).toBe(200);
+        const active = app.supervisor.getProcessForSession(nativeId)!;
+        await waitForIdle(active, signal);
+        // A record agy writes late still precedes the next prompt's.
+        const settle = () =>
+          order === "after the result"
+            ? new Promise((resolve) => setTimeout(resolve, 100))
+            : Promise.resolve();
+        await settle();
+        const send = async (message: string) => {
+          expect(
+            (await post(`/api/sessions/${nativeId}/messages`, { message }))
+              .status,
+          ).toBe(200);
+        };
+        const afterFirst = await get();
+        expect(shown(afterFirst.messages)).toEqual([
+          "Original question",
+          "Saved",
+          "first",
+          "Hello world",
+        ]);
+        expectOnce(afterFirst.messages);
+        expect(shown(await observed())).toEqual(shown(afterFirst.messages));
+
+        // A turn the log never finishes: Stop while the reply streams.
+        await send("wait");
+        await vi.waitFor(() =>
+          expect(JSON.stringify(active.getMessageHistory())).toContain(
+            "Waiting",
+          ),
+        );
+        const during = await get();
+        expect(shown(during.messages).slice(-2)).toEqual(["wait", "Waiting"]);
+        expectOnce(during.messages);
+        const waitingId = active
+          .getMessageHistory()
+          .find(
+            (message) =>
+              message.type === "assistant" &&
+              message.message?.content === "Waiting",
+          )?.uuid;
+        expect(waitingId).toBeDefined();
+        expect(await active.interrupt()).toBe(true);
+        await waitForIdle(active, signal);
+        const stopped = await get();
+        expect(shown(stopped.messages).slice(-2)).toEqual(["wait", "Waiting"]);
+        expectOnce(stopped.messages);
+        expect(shown(await observed())).toEqual(shown(stopped.messages));
+
+        // The next turn's prompt proves everything before it is final: the
+        // reply the log never recorded leaves the view, as a cold one.
+        await send("again");
+        await waitForIdle(active, signal);
+        await settle();
+        await vi.waitFor(() =>
+          expect(
+            (antigravityLiveHistory(scope, nativeId) ?? []).map((m) => m.uuid),
+          ).not.toContain(waitingId),
+        );
+        const settled = await get();
+        expect(shown(settled.messages)).toEqual([
+          "Original question",
+          "Saved",
+          "first",
+          "Hello world",
+          "wait",
+          "again",
+          "Hello world",
+        ]);
+        expectOnce(settled.messages);
+        // A client that streamed the stopped turn catches up from its
+        // newest row without a replacement window or a row twice.
+        const catchUp = await get(
+          `?afterMessageId=${encodeURIComponent(waitingId!)}`,
+        );
+        expect(catchUp.pagination).toBeUndefined();
+        expect(shown(catchUp.messages)).toEqual(["again", "Hello world"]);
+        const v0Rows = await observed();
+        expect(shown(v0Rows)).toEqual(shown(settled.messages));
+        expectOnce(v0Rows);
+        if (order !== "after the result")
+          expect(v0Rows.map((row) => row.uuid)).toEqual(
+            settled.messages.map((row) => row.uuid),
+          );
+
+        // Stopped, the cold view is the same rows in the same order; with
+        // the turn already in the log, under the same IDs.
+        const liveIds = settled.messages.map((row) => row.uuid);
+        await active.abort();
+        const cold = await get();
+        expect(shown(cold.messages)).toEqual(shown(settled.messages));
+        if (order !== "after the result")
+          expect(cold.messages.map((row) => row.uuid)).toEqual(liveIds);
+      } finally {
+        observing.abort();
+        app.stopNotifications();
+        await Promise.allSettled(
+          app.supervisor.getAllProcesses().map((process) => process.abort()),
+        );
+        await app.disposeSessionReaders();
+      }
+      expect(await methods()).not.toContain("session/load");
+    },
+    20_000,
   );
 
   it.skipIf(process.platform === "win32")(

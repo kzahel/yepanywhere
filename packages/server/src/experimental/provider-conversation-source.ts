@@ -126,6 +126,7 @@ export function createProviderConversationSource(
         sessionId: row.sessionId,
         activity: "unknown",
         pendingRequests: [],
+        ...(loaded.liveRowsHeld ? { liveRowsHeld: true } : {}),
         ...window,
         sourceCoverage: {
           ...window.sourceCoverage,

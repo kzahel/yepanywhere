@@ -340,6 +340,106 @@ describe("Antigravity reader over the log", () => {
     ).toEqual(["Ask", "Reply", "Next"]);
   });
 
+  it("reads again when the owner moves a turn into the log during a read, losing and repeating nothing", async () => {
+    const conversations = await store("a", logged);
+    const scope = await realpath(conversations);
+    const target = reader(conversations);
+    const owner = ownAntigravitySession(scope, ID);
+    const live = owner.open(resumedAt);
+    const turn = [
+      {
+        type: "user" as const,
+        uuid: "live-prompt",
+        message: { role: "user", content: "Next" },
+      },
+      {
+        type: "assistant" as const,
+        uuid: "live-reply",
+        message: { role: "assistant", content: "Done" },
+      },
+    ];
+    for (const row of turn) owner.record(row);
+    const turnLog =
+      line({
+        step_index: 2,
+        source: "USER_EXPLICIT",
+        type: "USER_INPUT",
+        status: "DONE",
+        created_at: at,
+        content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
+      }) + reply(3, "Done");
+    await appendFile(
+      join(
+        root,
+        "a",
+        "brain",
+        ID,
+        ".system_generated",
+        "logs",
+        "transcript_full.jsonl",
+      ),
+      turnLog,
+    );
+    try {
+      // The read takes the log through the old boundary; then the turn
+      // leaves memory for the log before it takes the owner's rows.
+      duringNextLogRead(target, () => {
+        expect(
+          live.advance(
+            {
+              boundary: {
+                step: 3,
+                end: Buffer.byteLength(logged + turnLog),
+              },
+              evictBefore: live.seq,
+              consumed: 0,
+              aliases: [["live-prompt", { after: 2, before: 2 }]],
+            },
+            live.boundaryVersion,
+          ),
+        ).toBe(true);
+      });
+      const loaded = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        { tailCompactions: 2 },
+      );
+      expect(uuids(loaded)).toEqual([
+        `${ID}:step-0`,
+        `${ID}:step-1:text`,
+        `${ID}:step-2`,
+        `${ID}:step-3:text`,
+      ]);
+      expect(loaded?.transcriptComplete).not.toBe(false);
+      // A client that streamed the turn: its cursors read the log.
+      const catchUp = (id: string) =>
+        target.getSession(ID, toUrlProjectId(project), id, {
+          tailCompactions: 2,
+        });
+      // A client that streamed the turn holds it under live IDs, so the
+      // turn the owner moved last is served to its catch-ups as it was.
+      expect((await catchUp("live-reply"))?.afterAnchor).toBe("resolved");
+      expect(uuids(await catchUp("live-reply"))).toEqual([]);
+      expect(uuids(await catchUp("live-prompt"))).toEqual(["live-reply"]);
+      // So is one whose last row predates the turn: never its records too.
+      expect(uuids(await catchUp(`${ID}:step-1:text`))).toEqual([
+        `${ID}:step-1:text`,
+        "live-prompt",
+        "live-reply",
+      ]);
+      const older = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        { tailCompactions: 2, beforeMessageId: "live-prompt" },
+      );
+      expect(uuids(older)).toEqual([`${ID}:step-0`, `${ID}:step-1:text`]);
+    } finally {
+      owner.release();
+    }
+  });
+
   it("shows a live tool call and its result once when the result arrives while a page is read", async () => {
     const conversations = await store("a", logged);
     const scope = await realpath(conversations);

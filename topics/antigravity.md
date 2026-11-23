@@ -20,7 +20,7 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Foreground delivery | Direct text, real tools, ordinary deferred queueing, cancellation, and cold continuation of short test sessions have native coverage. Steer sends a second native prompt for the next model boundary. YA waits for all submitted foreground prompts to return. |
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
-| Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing but [SQLite's sidecars for the summaries index](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md); see [cold history from the log](#cold-history-from-the-log). Resume uses ACP `session/resume`, which replays nothing: the resumed session's view is the log through its resume point plus the owner's own rows ([resume](#resume-and-the-live-view)). ACP `session/load` replay is the fallback for a missing or unknown log, for viewing and for resume; it keeps collecting ACP history after an early load response until it observes the persisted text tail, and a missing expected tail fails the operation. |
+| Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing but [SQLite's sidecars for the summaries index](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md); see [cold history from the log](#cold-history-from-the-log). Resume uses ACP `session/resume`, which replays nothing: the resumed session's view is the log through its resume point plus the owner's own rows ([resume](#resume-and-the-live-view)). A live session keeps in memory only what the log does not serve yet, so it runs and retains a bounded amount however long it lasts ([live memory](#live-memory)). ACP `session/load` replay is the fallback for a missing or unknown log, for viewing and for resume; it keeps collecting ACP history after an early load response until it observes the persisted text tail, and a missing expected tail fails the operation. |
 | Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
 | Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions. Real `agy` cases cover Allow, Deny and Stop for the tested `write_file` and `run_command` calls, and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
@@ -465,11 +465,12 @@ It never reads the shortened `transcript.jsonl`.
   read. A v0 window whose page was cut by bytes reports incomplete coverage
   with earlier history in scope and a byte limit, not compaction scope.
 
-A live YA owner's rows keep their own IDs; how a view joins them to the
-log is in [resume and the live view](#resume-and-the-live-view). After the
-owner exits, a client's catch-up from a live ID misses and takes the log's
-latest page. A v0 observer that outlives the owner replaces all of that
-owner's rows with what the log holds ([simple client API](simple-client-api.md)).
+A live YA owner's rows keep their own IDs until they move to the log; how a
+view joins them is in [resume and the live view](#resume-and-the-live-view)
+and [live memory](#live-memory). After the owner exits, a client's catch-up
+from a live ID misses and takes the log's latest page. A v0 observer that
+outlives the owner replaces that owner's rows with what the log holds
+([simple client API](simple-client-api.md)).
 
 A stopped page refreshes when YA's watcher sees the conversation's database
 or WAL change, not the brain log. With 1.5.13 and 1.5.14, each log append
@@ -509,24 +510,28 @@ exactly one, with no row twice and none missing at the resume point:
   [step IDs](#cold-history-from-the-log); a window reads the file as if it
   ended there and reads nothing after it (a record still being written
   past it costs nothing);
-- then **the owner's rows**, under their live IDs: everything it produced
-  since, including steps the log has also recorded since, which are served
-  from the owner until it exits.
+- then **the owner's rows**, under their live IDs: what it produced since
+  that the log does not serve yet. Once the log holds a turn, the resume
+  point moves past it and its rows leave memory
+  ([live memory](#live-memory)).
 
 | Read | Answer |
 | --- | --- |
 | Latest page, overlay catch-up, v0 window | The log's latest page through the resume point, then every live row; the route cuts compaction scope across both. |
 | Older page before a log row | The log's page before it, as when stopped. |
 | Older page before a live row | The latest log page and the live rows; the route cuts before the row. |
-| Catch-up after a log row | The log from that row's page to the resume point, then every live row. |
-| Catch-up after a live row the owner holds | The live rows; any other ID misses and gets the latest page as a replacement. |
+| Catch-up after a log row | The log from that row's page to the resume point, then every live row; from a row before the turn moved last, that turn's rows as streamed instead of its records ([live memory](#live-memory)). |
+| Catch-up after a live row the owner holds | The live rows. |
+| Catch-up after a live row that moved to the log | The rest of the turn moved last as streamed, then every live row, as an incremental answer; for an older row, see [live memory](#live-memory). Any other ID misses and gets the latest page as a replacement. |
+| Older page before a live row that moved to the log | The log's page before the turn moved last and that turn's rows before the row; for an older prompt or compaction boundary, the log's page before its step; otherwise empty, as for any unknown ID. |
 | Complete history | The whole log through the resume point, then every live row. |
 | Hover excerpt | The owner's latest prose, else the joined latest page. |
 | Agent mappings | The joined latest page. |
 
 Every answer's title is the conversation's first prompt from the log (a
 bounded read of the file's start when the log page itself was not read),
-never the resumed owner's own prompt. A live-row catch-up reads no records
+never the resumed owner's own prompt. A new session whose log holds
+nothing yet takes it from its owner's first prompt. A live-row catch-up reads no records
 but still checks the log through the resume point, at fixed offsets
 whatever the size of the record there, and reads the title from at most
 the file's first 256 KiB.
@@ -552,13 +557,15 @@ rows are cut to the current owner's resume point (none, if the read came
 from a file other than the one that owner's resume point pins), the
 current owner's rows follow it where the request includes them, and it is
 marked `transcriptComplete: false`, rather than a missing conversation. A new
-session's owner, and one resumed through the fallback, have no resume
-point: their projection is the whole history, as before step 5. A v0
-observer that held the log's rows when such a fallback owner attached
+session's owner starts at an empty log, a resume point at offset 0 that
+needs no file. Only an owner resumed through the fallback has no resume
+point: its projection is the whole history (its replay, then its own rows).
+So is the owner of a conversation the fallback reopened with no log and an
+empty replay (one never prompted), which starts at an empty log too. A v0
+observer that held the log's rows when a fallback owner attached
 replaces them with the owner's whole projection at its next read, even
 while the owner is in turn, because that owner replays the history under
-its own IDs. Plan 195 step 6 bounds live memory by moving the resume point
-forward as the log catches up.
+its own IDs.
 
 A resumed owner is **starting** from the moment its provider iterator runs,
 before it is registered or holds the native lease, until its session is
@@ -568,6 +575,83 @@ fallback waits for the owner and then serves its view: the fallback refuses
 while an owner is starting or open, checked again right before it would
 send `session/load`. The preview uses a local in-process owner, even when
 the shared provider host is enabled.
+
+### Live memory
+
+Plan 195 step 6. A live owner keeps in memory only the rows the log does
+not serve yet; readers join the log through its boundary with them, as
+above. Real `agy` 1.5.13 and 1.5.14 write every record of a foreground turn
+(including a steered, stopped, tool-heavy or compacting one) before its
+prompt's result, and log one `USER_INPUT` for each prompt, steer and
+`/compact`, in the order sent
+([measured](antigravity-native-storage.md#live-memory--plan-195-step-6)).
+The boundary moves on evidence read from the log after it, never on time:
+
+- **When a turn or `/compact` ends.** If the log holds a `USER_INPUT`
+  for everything YA sent since the boundary (matched in order, by text)
+  and ends, after them, with a record that ends a turn (a planner response
+  without calls, or an error), the boundary moves to that record and every
+  row from before the result leaves memory. An idle owner then holds
+  only the copy of that turn described below.
+- **Otherwise, at the next turn's first progress.** Once that turn's
+  prompt is logged, every earlier step that will ever be logged is (steps
+  only increase), so the boundary moves to the record before it and every
+  earlier row leaves, including rows for steps the log never records (a
+  reply cut off by Stop, say).
+
+Rows that leave stop being served to fresh reads; only the copy of the
+turn moved last stays, for clients that streamed it (below).
+
+Neither rule waits for a record that may never come, and neither drops a
+row the log does not hold yet. A user input YA did not send, a log that is
+missing, replaced or malformed, or one that stops growing, never moves the
+boundary. Rows that arrive after a turn ends (a detached task's wake, a
+child's report) stay until the next turn moves past them.
+
+**What changes when a turn moves.** A page read after the move shows the
+turn from the log, as a cold view would: with `agy`'s tool names and
+rendered results, the records' times and models, checkpoints, and a reply
+a steer interrupted as one reply before the steer; rows for steps the log
+never recorded are gone, and the rows have step IDs. A connected browser
+keeps the rows it streamed (it reads only what follows them), so nothing
+on its screen changes until a reload or a replacement window. The read is
+never in between: a read the boundary moved under is read again.
+
+**Cursors.** A client that streamed a turn holds its rows under live IDs,
+and may not have fetched them since. So the owner keeps a copy of the turn
+it moved last, as streamed, until its next move:
+
+- A catch-up from a row of that turn, or from a log row before it, gets the
+  turn's rows from that copy (under the IDs the client holds), then the
+  live rows, never the turn's log records as well. It counts as finding its
+  anchor, so the client keeps its loaded pages and scroll position and
+  sees no row twice.
+- "Load older" from a row of that turn reads the log's page before the
+  turn and the turn's rows before that row.
+- For older turns the owner remembers the last 128 rows that left memory
+  with a known log position: each prompt and steer (its `USER_INPUT`), each
+  verified compaction boundary (its checkpoint) and the newest row of each
+  move (the boundary it moved to). "Load older" from such a prompt or
+  boundary reads the page before its step; a catch-up from the newest row of
+  the last or next-to-last move continues after it.
+- Anything else misses as before, including a catch-up that would cross a
+  turn moved earlier than the last (the client may hold that one under live
+  IDs too) or one whose copy the cap dropped: a catch-up gets the latest
+  page as a replacement window, and an older page is empty.
+
+Process's late-join replay (about 30 seconds of messages) skips rows that
+moved, so a viewer that loads in that time does not get them twice.
+
+**The cap.** The rows and the moved turn's copy together are capped at
+8 MiB of JSON and 10,000 rows: past either, the copy goes first (catch-ups
+that needed it miss), then the oldest row leaves without the log serving
+it, and every answer
+carries `transcriptComplete: false` (v0: incomplete coverage) until a move
+covers it. One row larger than the cap is kept. Nothing throws, and the
+session keeps running. An owner resumed through the fallback has no
+boundary, so the cap alone bounds its replay and rows; once it drops a
+row, its view is incomplete. The fallback replay itself keeps its own
+8 MiB / 10,000-message limit below.
 
 ### Fallback replay
 
@@ -597,17 +681,14 @@ until the conversation's files differ from their post-load state (at most four p
 reader). Without this, opening a session could reload it repeatedly. Log
 reads cache nothing; a refetch rereads its page.
 At most eight detail reads per cached reader may run concurrently. YA bounds
-the normalized history a fallback replay, a fallback resume or a live
-session retains to 8 MiB and 10,000 messages, and each ACP frame to 16 MiB.
-Tool fields that YA does not display do not consume the history budget or
-prevent a fallback resume. If the retained history exceeds its limit, YA
-reports the history-limit error. A resume from the log retains nothing
-replayed, so a history of any size resumes.
-The live projection has the same 8 MiB/10,000-message limit, counted across
-the whole run, including the replay of a fallback resume. A session that passes it is stopped
-mid-turn: YA ends the native process without `session/cancel` and the session
-ends with the history-limit error. It is retained only for an owned provider
-session and adds no timers or background history reads.
+the normalized history a fallback replay or a fallback resume replays to
+8 MiB and 10,000 messages, and each ACP frame to 16 MiB. Tool fields that
+YA does not display do not consume the history budget or prevent a
+fallback resume. If a replay exceeds its limit, YA reports the
+history-limit error. A resume from the log retains nothing replayed, so a
+history of any size resumes. A live session has no history limit: its
+rows are bounded as [live memory](#live-memory) describes, retained only
+for an owned provider session, with no timers or background history reads.
 
 Text and generic tool records are normalized from actual native notifications.
 Live text and thinking blocks publish `_isStreaming` snapshots of one message

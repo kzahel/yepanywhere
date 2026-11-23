@@ -724,13 +724,15 @@ describe("an Antigravity conversation source", () => {
           JSON.stringify(views.at(-1)?.messages ?? []).includes(":step-2"),
         ).toBe(true),
       );
-      // The held read merged the cold log with the departed owner's rows...
+      // The held read took the cold log after the owner went, so it drops
+      // the departed owner's rows itself (plan 195 step 6): no result, even
+      // one the publisher would have discarded, holds the turn twice.
       const replies = (input: { message?: { content?: unknown } }[]) =>
         input.filter((m) =>
           JSON.stringify(m.message?.content).includes("Reply 2"),
         ).length;
-      expect(reads.some((input) => replies(input) === 2)).toBe(true);
-      // ...and was invalidated by the departure, so it was never published.
+      expect(reads.length).toBeGreaterThan(1);
+      for (const input of reads) expect(replies(input)).toBeLessThan(2);
       for (const view of views)
         expect(mentioning(view.messages ?? [], "Reply 2").length).toBeLessThan(
           2,

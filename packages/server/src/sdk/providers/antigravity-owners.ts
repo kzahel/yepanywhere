@@ -1,26 +1,38 @@
 import type { SDKMessage } from "../types.js";
+import {
+  type AntigravityCursorAlias,
+  AntigravityLiveProjection,
+} from "./antigravity-live-projection.js";
 
 /**
- * Where a resumed session's history divides between `agy`'s brain log and
- * its owner's memory: the log's last complete record when the owner
- * resumed (its step and the byte offset after its newline). Records through
- * it are served from the log; everything the owner produced since, from its
- * live projection, even once the log also records it. A boundary only
- * moves forward (plan 195 step 6 advances it as the log catches up).
+ * Where a live session's history divides between `agy`'s brain log and its
+ * owner's memory: a complete record of the log (its step and the byte
+ * offset after its newline). Records through it are served from the log;
+ * what the owner produced since, from its live projection. It starts at
+ * the log's last record when the owner resumed, or at an empty log
+ * (`step: -1, end: 0`) for a new session, and only moves forward: plan 195
+ * step 6 advances it once the log holds a turn
+ * ({@link AntigravityLiveProjection}).
  */
 export interface AntigravityLogBoundary {
   step: number;
   end: number;
   /**
-   * Where that record's line starts, so a read checks the resume point from
-   * a bounded witness at fixed offsets, whatever the record's size.
+   * Where that record's line starts, so a read checks the boundary from a
+   * bounded witness at fixed offsets, whatever the record's size.
    */
   start?: number;
   /**
+   * The line's first bytes (at most 40) when the boundary was taken,
+   * compared byte for byte by every bounded read, so a record in any
+   * parseable encoding is checked the same way it was accepted.
+   */
+  witness?: string;
+  /**
    * The log file's identity when the boundary was taken: a replaced file is
    * not the history it bounds. An in-place edit of earlier records that
-   * keeps the boundary record's step and offset is not detected (plan 195
-   * step 7 owns external writes).
+   * keeps the boundary record's witness and offset is not detected (plan
+   * 195 step 7 owns external writes).
    */
   dev?: number;
   ino?: number;
@@ -29,17 +41,15 @@ export interface AntigravityLogBoundary {
 // One entry per live preview owner; removed when its iterator closes. The preview
 // stays in-process so readers never replay a database held by another owner.
 interface NativeSessionOwner {
-  history?: Map<string, SDKMessage>;
-  bytes: number;
   /** A bounded history read, which a live session may wait out. */
   historyRead: boolean;
   released: Promise<void>;
   /**
    * Set once the owner's session is open. Without a boundary its live
-   * projection is the whole history (a new session, or one resumed through
-   * the ACP replay fallback).
+   * projection is the whole history (a session resumed through the ACP
+   * replay fallback).
    */
-  open?: { boundary?: AntigravityLogBoundary };
+  open?: AntigravityLiveProjection;
 }
 const ownedNativeSessions = new Map<string, NativeSessionOwner>();
 /** Sessions whose owner has started but not yet taken its lease. */
@@ -64,9 +74,23 @@ export type AntigravityOwnerView =
       state: "open";
       /** Identifies this owner across a read. */
       owner: object;
+      /** Changes whenever the boundary moves or rows leave memory. */
+      generation: number;
       boundary?: AntigravityLogBoundary;
       /** Whether the live projection holds this message ID. */
       has(messageId: string): boolean;
+      /** Where a row that left memory for the log reads from, if known. */
+      alias(messageId: string): AntigravityCursorAlias | undefined;
+      /** Rows the cap dropped that the log does not serve yet. */
+      incomplete: boolean;
+      /** The boundary the owner opened at. */
+      opened?: AntigravityLogBoundary;
+      /** The boundary before the last advance, and whether its turn's rows are held. */
+      moved?: { before: AntigravityLogBoundary; held: boolean };
+      /** The index of a row of the turn the last advance moved, or -1. */
+      movedIndex(messageId: string): number;
+      /** A copy of that turn's rows, as clients streamed them. */
+      movedRows(): SDKMessage[] | undefined;
       /** A copy of the live projection, taken when called. */
       history(): SDKMessage[];
     };
@@ -82,13 +106,23 @@ export function antigravityOwnerView(
 ): AntigravityOwnerView | undefined {
   const key = keyOf(scope, id);
   const owner = ownedNativeSessions.get(key);
-  if (owner && !owner.historyRead && owner.open)
+  const live = owner && !owner.historyRead ? owner.open : undefined;
+  if (owner && live)
     return {
       state: "open",
       owner,
-      boundary: owner.open.boundary,
-      has: (messageId) => owner.history?.has(messageId) ?? false,
-      history: () => structuredClone([...(owner.history?.values() ?? [])]),
+      generation: live.generation,
+      boundary: live.boundary,
+      has: (messageId) => live.has(messageId),
+      alias: (messageId) => live.alias(messageId),
+      incomplete: live.incomplete,
+      opened: live.opened,
+      moved: live.moved
+        ? { before: live.moved.before, held: !!live.moved.rows }
+        : undefined,
+      movedIndex: (messageId) => live.movedIndex(messageId),
+      movedRows: () => live.movedRows(),
+      history: () => live.history(),
     };
   if ((owner && !owner.historyRead) || startingSessions.has(key))
     return { state: "starting" };
@@ -111,8 +145,8 @@ export function antigravityOwnerSettled(
 }
 
 /**
- * The live projection of an open owner. For a resumed session it is only
- * what the owner produced; the history before its boundary is in the log.
+ * The live projection of an open owner: only what the log does not serve
+ * yet; the history through its boundary is in the log.
  */
 export function antigravityLiveHistory(
   scope: string,
@@ -192,7 +226,6 @@ export function ownAntigravitySession(
     throw new Error("Antigravity session already has a local owner");
   let release!: () => void;
   const owner: NativeSessionOwner = {
-    bytes: 0,
     historyRead: options.historyRead === true,
     released: new Promise<void>((resolve) => {
       release = resolve;
@@ -208,34 +241,24 @@ export function ownAntigravitySession(
     },
     /**
      * The session is open: readers now serve the log through `boundary`
-     * (when the session resumed from its log) and then this projection.
+     * and then this projection, or, without a boundary (a fallback resume),
+     * this projection as the whole history.
      */
-    open(boundary?: AntigravityLogBoundary) {
-      owner.open = boundary ? { boundary: { ...boundary } } : {};
+    open(boundary?: AntigravityLogBoundary): AntigravityLiveProjection {
+      owner.open = new AntigravityLiveProjection(
+        boundary ? { ...boundary } : undefined,
+      );
       settle(key);
+      return owner.open;
     },
-    /** Retained bytes of the live projection, as JSON. */
-    get retainedBytes() {
-      return owner.bytes;
+    /** The open owner's projection. */
+    get live(): AntigravityLiveProjection | undefined {
+      return owner.open;
     },
-    record(message: SDKMessage) {
-      if (!message.uuid)
-        throw new Error("Antigravity projection requires a message ID");
-      owner.history ??= new Map();
-      const previous = owner.history.get(message.uuid);
-      const bytes =
-        owner.bytes +
-        Buffer.byteLength(JSON.stringify(message), "utf8") -
-        (previous ? Buffer.byteLength(JSON.stringify(previous), "utf8") : 0);
-      if (
-        bytes > 8 * 1024 * 1024 ||
-        (!previous && owner.history.size >= 10_000)
-      )
-        throw new Error(
-          "Antigravity live history exceeds the experimental history limit",
-        );
-      owner.bytes = bytes;
-      owner.history.set(message.uuid, structuredClone(message));
+    /** Records a row in the open owner's projection. */
+    record(message: SDKMessage): void {
+      if (!owner.open) throw new Error("Antigravity owner is not open");
+      owner.open.record(message);
     },
   };
 }

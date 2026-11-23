@@ -289,6 +289,20 @@ written yet.
   conversation agree, including across the moment a turn ends.
 - If step 2 shows the log trails too far, keep the projection as a bounded
   recent window and serve everything older from the log.
+- Adjusted while implementing: "once the log contains its step" means once
+  the log is seen to hold the message's turn, because no live row maps to a
+  log step (ACP tool call IDs are random) and some steps are never logged.
+  Measured on 1.5.13 and 1.5.14, every record of a foreground turn is in the
+  log before the prompt's result. The boundary therefore moves at a turn's
+  or `/compact`'s result when the log holds a `USER_INPUT` for everything
+  sent since it (in order, by text) and ends with a turn-ending record, and
+  otherwise once the next turn's `USER_INPUT` is logged, which proves every
+  earlier step final; neither waits on time. A new session starts at an
+  empty log; a fallback-resumed owner has no boundary and only the cap
+  bounds it. Clients and v0 observers holding live IDs of rows that moved
+  are served through a bounded alias map, and Process's late-join replay
+  skips moved rows. The Codex comparison is the step 2 harness bar (a fixed
+  projection bound, heap within 1 MB from turn 150 to 600).
 
 ### 7 — warn on an external writer
 
