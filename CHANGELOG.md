@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-23
+
+### Added
+- Choose a Direct login or a supported Agent Auth Router pool for each
+  Antigravity session. YA shows model-specific quota when a pool reports it.
+- Use Antigravity model and thinking controls, see quota from the CLI, and
+  follow links to native subagent conversations.
+- Let v0 session creation explicitly choose Direct, and expose Antigravity
+  background work and session controls to v0 clients.
+
+### Changed
+- Require Antigravity CLI `agy` 1.5.13 or newer. YA reads saved conversations
+  from the native log, keeps a bounded recent window during live sessions,
+  and runs the live session owner in the Provider Host.
+- Retire Gemini CLI execution, including Gemini ACP. Existing Gemini sessions
+  remain readable. Let active Gemini turns finish before upgrading, restart the
+  Provider Host with the server, and use Antigravity for new Google-provider
+  sessions.
+- Refresh compatibility for Codex, Claude Code, Pi, and Grok.
+- Keep routine toasts compact and clear of the sidebar.
+
+### Fixed
+- Preserve Unicode in Codex streams and JSONL history, and preserve provider
+  message order in the session timeline.
+- Offer Direct while a saved router pool is being checked, and explain when
+  the Claude executable is missing at session startup.
+- Retry cleanup when Windows briefly locks files from the Codex startup check.
+- Serve reserved Project App addresses immediately, and allow running app
+  frames to use the microphone and open tabs.
+- Respect compact-first when a resumed session is waiting for a worker, and
+  refuse new provider launches when memory capacity is unavailable.
+
 ## [0.13.0] - 2026-11-18
 
 ### Added

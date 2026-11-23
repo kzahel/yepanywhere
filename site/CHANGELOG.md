@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [site-v1.17.0] - 2026-11-23
+
+### Added
+- Show model-specific Antigravity quota and offer per-session Agent Auth Router
+  pool selection on servers that advertise support.
+
+### Changed
+- Refresh the Google provider guide for Antigravity and mark saved Gemini CLI
+  conversations read-only when the connected server has retired execution.
+- Keep routine toasts compact and clear of the sidebar.
+
+### Fixed
+- Preserve provider message order in the session timeline.
+- Offer Direct while a saved router pool is being checked.
+
 ## [site-v1.16.0] - 2026-11-18
 
 ### Changed
