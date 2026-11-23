@@ -1046,6 +1046,20 @@ controlled-peer case for a configuration hold that arrives while a staged
 input starts. The selection then had 68 cases and 3 skipped; see the step
 6 report for its runs.
 
+Plan 195 step 7 (warn on an external writer) added
+`native-antigravity-external-writer.test.ts`, which runs the production
+provider-root watcher, a client's focused watch and ExternalSessionTracker
+on the owner's store. On real `agy`: the owner's tool turn, a background
+command's wake four seconds after its turn, a queued compaction, a Stop,
+its close and a `session/resume` turn mark nothing external; a second `agy`
+in another conversation of the same store does not mark this one; that
+`agy`'s turn in this stopped, open conversation does. Beside a YA owner, a
+second `agy`'s turn drops the owner's split candidates at its next prompt
+and leaves it `self`, and after YA stops the second `agy`'s turn and exit
+mark it external. The selection passed with 71 cases and 3 skipped on
+2026-11-23, with the 1.5.13 pin and with the 1.5.14 candidate, on Node
+24.22.1.
+
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup
 joins the operation and stops any registered owner before deleting fixture
