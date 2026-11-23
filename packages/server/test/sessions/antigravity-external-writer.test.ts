@@ -169,7 +169,10 @@ describe("an Antigravity conversation written by another program", () => {
 
   it("drops a quiet owner's split candidates and leaves ownership with YA", async () => {
     const h = await harness();
-    const foreign = vi.spyOn(AntigravityLiveProjection.prototype, "foreignWrite");
+    const foreign = vi.spyOn(
+      AntigravityLiveProjection.prototype,
+      "foreignWrite",
+    );
     const owner = ownAntigravitySession(h.scope, ID);
     cleanups.push(() => owner.release());
     owner.open({ step: -1, end: 0 });

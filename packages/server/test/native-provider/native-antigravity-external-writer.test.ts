@@ -38,7 +38,9 @@ async function owned() {
   await f.output("FIRST_DONE");
   await f.idle();
   const gemini = f.environment.GEMINI_HOME!;
-  const scope = await realpath(join(gemini, "antigravity-cli", "conversations"));
+  const scope = await realpath(
+    join(gemini, "antigravity-cli", "conversations"),
+  );
   const eventBus = new EventBus();
   const statuses: Array<[string, string]> = [];
   eventBus.subscribe((event: BusEvent) => {
@@ -162,7 +164,10 @@ describe.skipIf(!providers.includes("antigravity"))(
       const compact = {
         text: "/compact keep markers",
         tempId: "compact",
-        queuedCompact: { command: "compact" as const, argument: "keep markers" },
+        queuedCompact: {
+          command: "compact" as const,
+          argument: "keep markers",
+        },
       };
       expect(
         await prepareQueuedCompaction(f.proc, compact, "keep markers"),

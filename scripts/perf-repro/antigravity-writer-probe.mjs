@@ -304,8 +304,8 @@ async function probe() {
       String(error?.message ?? error),
     );
     mark("two-second-turn-again");
-    report.secondTurnAgain = await plain(second, x, "SECOND_B").catch(
-      (error) => String(error?.message ?? error),
+    report.secondTurnAgain = await plain(second, x, "SECOND_B").catch((error) =>
+      String(error?.message ?? error),
     );
     mark("two-idle");
     await sleep(2000);
@@ -361,13 +361,14 @@ function summarize(report) {
       .replace(report.y, "Y")
       .replace(/^brain\/[^/]+\/\.system_generated\/logs\//, "log:");
     const key = `${entry.phase} ${file}`;
-    const row = (out[key] ??= {
+    out[key] ??= {
       changes: 0,
       kinds: new Set(),
       firstMs: entry.t - phaseStart,
       lastMs: 0,
       sizes: new Set(),
-    });
+    };
+    const row = out[key];
     row.changes++;
     row.kinds.add(entry.change);
     row.lastMs = Math.round(entry.t - phaseStart);
