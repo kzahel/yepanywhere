@@ -16,8 +16,8 @@ import {
 } from "../sdk/providers/antigravity-runtime.js";
 import {
   type AntigravityLogBoundary,
-  antigravityOwnerView,
   antigravitySessionOwned,
+  takeAntigravityOwnerView,
 } from "../sdk/providers/antigravity-owners.js";
 import { getProjectIdentityKey, isAbsolutePath } from "../projects/paths.js";
 import { getLogger } from "../logging/logger.js";
@@ -428,18 +428,25 @@ export class AntigravitySessionReader implements ISessionReader {
    * One read of a conversation as its open owner divides it: with no open
    * owner, the log's window; with one, the log through its boundary plus
    * its rows ({@link planAntigravityJoin}). A read that an owner opened,
-   * closed or moved under is read again.
+   * closed or moved under is read again. The rows are taken with the view
+   * after the log read, in one answer from the owner (from its Provider
+   * Host worker, when hosted), so they go with the boundary of the same
+   * generation; a catch-up after a live row takes only the rows from it on.
+   * A hosted owner this backend cannot read now (no controller attached
+   * yet) leaves the log alone, never marked complete.
    */
   private async readConversation(
     scope: string,
     id: string,
     request: AntigravityLogWindowRequest,
   ): Promise<AntigravitySessionRead | null> {
+    const anchor = request.kind === "after" ? request.messageId : undefined;
     for (let attempt = 1; !this.closed; attempt++) {
       // Reads an owner keeps changing under end with the last one, marked
       // incomplete: never a missing conversation or a dropped prefix.
       const last = attempt >= 4;
-      const before = antigravityOwnerView(scope, id);
+      const taken = await takeAntigravityOwnerView(scope, id, { anchor });
+      const before = taken === "unavailable" ? undefined : taken;
       const plan: AntigravityJoinPlan = before
         ? planAntigravityJoin(id, request, before)
         : { kind: "log", request };
@@ -448,12 +455,29 @@ export class AntigravitySessionReader implements ISessionReader {
         scope,
         id,
         through.request,
-        false,
+        taken === "unavailable",
         through.boundary,
       );
-      const after = antigravityOwnerView(scope, id);
-      const settled = sameAntigravitySplit(before, after);
-      if (!settled && !last) continue;
+      const rows =
+        last || plan.kind === "join"
+          ? "all"
+          : plan.kind === "live"
+            ? "from-anchor"
+            : undefined;
+      const takenAfter = await takeAntigravityOwnerView(scope, id, {
+        anchor,
+        ...(rows ? { rows } : {}),
+      });
+      const after = takenAfter === "unavailable" ? undefined : takenAfter;
+      const unavailable =
+        taken === "unavailable" || takenAfter === "unavailable";
+      const settled = !unavailable && sameAntigravitySplit(before, after);
+      if (
+        !settled &&
+        !last &&
+        !(taken === "unavailable" && takenAfter === "unavailable")
+      )
+        continue;
       if (after)
         return joinAntigravityOwnerRead(
           id,
@@ -534,11 +558,10 @@ export class AntigravitySessionReader implements ISessionReader {
     const metadata = await this.metadata(id);
     if (!metadata || metadata.isChild) return undefined;
     // An owner's own reply needs no log read.
-    const owner = antigravityOwnerView(metadata.scope, id);
-    if (owner) {
-      const { prose } = scanAgentExcerpt(owner.history() as Message[]);
-      if (prose) return prose;
-    }
+    const owner = await takeAntigravityOwnerView(metadata.scope, id, {
+      excerpt: true,
+    });
+    if (owner && owner !== "unavailable" && owner.excerpt) return owner.excerpt;
     const latest = await this.latestMessages(metadata.scope, id, 1);
     if (!latest) return undefined;
     const { prose, trailingTool } = scanAgentExcerpt(latest.messages);

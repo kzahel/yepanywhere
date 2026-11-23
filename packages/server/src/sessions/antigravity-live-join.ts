@@ -135,6 +135,7 @@ export function joinAntigravityOwnerRead(
       ? { firstPrompt: view.firstPrompt }
       : {}),
     ...(view.earlier ? { earlier: view.earlier } : {}),
+    ...(view.model !== undefined ? { model: view.model } : {}),
     // History before the boundary that the log cannot supply now, or rows
     // the owner's cap evicted before the log served them.
     incomplete: window.status !== "known" || !settled || view.incomplete,
@@ -202,6 +203,11 @@ export interface AntigravitySessionRead {
   firstPrompt?: string;
   /** The owner resumed with no readable log: history before it is not shown. */
   earlier?: AntigravityHistoryGap;
+  /**
+   * The model of the owner's newest assistant row, for an answer that
+   * carries only its rows from an anchor on.
+   */
+  model?: string;
   /**
    * Earlier history the answer cannot supply: an open owner's log is
    * missing or unknown through its boundary, or the owner kept changing
@@ -287,7 +293,7 @@ export function antigravityJoinedSession(
     summary.fullTitle = title;
   }
   summary.messageCount = messages.length;
-  summary.model = lastModel(messages);
+  summary.model = lastModel(messages) ?? read.model;
   return {
     summary,
     ...(read.incomplete || gap ? { transcriptComplete: false as const } : {}),

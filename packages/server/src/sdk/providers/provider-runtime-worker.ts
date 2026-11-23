@@ -232,6 +232,13 @@ async function main(): Promise<void> {
             : undefined,
           onToolApproval: hooks.onToolApproval,
           onAgentApiRead: hooks.onAgentApiRead,
+          nativeOwnerHost: hooks.nativeOwnerHost,
+          markOutputDelivery: hooks.markOutputDelivery,
+          // The backend observes the store's summaries index and tells this
+          // worker; on every attach it tells once more, for changes made
+          // while no backend was attached.
+          observeAntigravitySummaries: (_scope, listener) =>
+            hooks.observeNativeStore(listener),
           shouldEmitLiveDeltas: hooks.shouldEmitLiveDeltas,
           onPermissionModeApplied: (mode: PermissionMode) =>
             hooks.onPermissionModeApplied(mode),

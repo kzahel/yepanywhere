@@ -397,7 +397,7 @@ function projection(options: { softRows?: number; capRows?: number } = {}) {
       checked.push(taken);
       return new Promise((resolve) => results.push(resolve));
     },
-    () => clock.now,
+    { now: () => clock.now },
   );
   const add = (seq: number, at: number) =>
     live.addCandidate({ seq, size: 100 + seq, at });
@@ -406,6 +406,37 @@ function projection(options: { softRows?: number; capRows?: number } = {}) {
 }
 
 describe("a live Antigravity window", () => {
+  it("dates a hosted owner's candidate from the backend's acknowledgement, not from its prompt", async () => {
+    setAntigravityLiveLimitsForTests({ softRows: 1, splitAgeMs: 35_000 });
+    const clock = { now: 0 };
+    const checked: AntigravitySplitCandidate[] = [];
+    // The backend acknowledges what came before the prompt only after a
+    // reload's replay: the replacement Process buffered it then.
+    const acknowledged: { at?: number } = {};
+    const live = new AntigravityLiveProjection(
+      EMPTY_ANTIGRAVITY_LOG,
+      (taken) => {
+        checked.push(taken);
+        return new Promise(() => {});
+      },
+      { now: () => clock.now, delivery: () => () => acknowledged.at },
+    );
+    live.record(row("p1", "First", "user"));
+    live.record(row("r1", "One"));
+    live.addCandidate({ seq: 2, size: 100, at: 0 });
+    live.record(row("p2", "Second", "user"));
+    clock.now = 40_000;
+    live.record(row("r2", "Two"));
+    expect(checked).toHaveLength(0);
+    acknowledged.at = 30_000;
+    clock.now = 64_000;
+    live.record(row("r3", "Three"));
+    expect(checked).toHaveLength(0);
+    clock.now = 65_000;
+    live.record(row("r4", "Four"));
+    expect(checked.map((candidate) => candidate.seq)).toEqual([2]);
+  });
+
   it("keeps a candidate old enough to use through a burst of two prompts a second", async () => {
     const { live, clock, checked, add } = projection({ softRows: 1_000_000 });
     // A 64-entry FIFO held only the last 32 s of these.

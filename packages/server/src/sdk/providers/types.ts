@@ -264,6 +264,51 @@ export function inactiveProviderSessionOptionsResult(
 /**
  * Options for starting a new agent session.
  */
+/**
+ * A Provider Host worker's channel to its attached backend for a provider's
+ * native session owner (plan 195 step 9). The backend keeps a copy of what
+ * is published and reads the rest through `read`.
+ */
+export interface NativeOwnerHost {
+  /** A change for the attached backend; lost while none is attached. */
+  publish(change: unknown): void;
+  /**
+   * Registers the owner: `snapshot` is sent on every attach (so a
+   * replacement backend rebuilds its copy), `read` answers its reads.
+   */
+  serve(owner: { snapshot(): unknown; read(query: unknown): unknown }): void;
+}
+
+/**
+ * A backend's side of a hosted session's native owner (plan 195 step 9):
+ * the proxy for the worker reports what the worker publishes and when its
+ * connection ends.
+ */
+export interface HostedNativeOwnerLink {
+  /**
+   * Before launch or claim: the conversation the worker will hold, if known.
+   * `retained`: a worker that already ran under another backend (a reload's
+   * reattach), whose rows reads cannot show until it attaches here.
+   */
+  expect(
+    native: { storageScope: string; id: string } | undefined,
+    retained?: boolean,
+  ): void;
+  /**
+   * A snapshot or change the worker published; `read` asks it for a view.
+   * Returns the conversation when this publication makes it known.
+   */
+  update(
+    publication: unknown,
+    read: (query: unknown) => Promise<unknown>,
+  ): { scope: string; id: string } | undefined;
+  /**
+   * The connection ended: the worker exited, was never attached (the host
+   * reaps it at its deadline), or was handed to a replacement on reload.
+   */
+  end(reason: "exited" | "unattached" | "detached"): void;
+}
+
 export interface StartSessionOptions {
   /** Trusted native RPC acknowledgement; never inferred from a user echo. */
   onNativeInputConsumed?(nativeSessionId: string, inputId: string): void;
@@ -418,11 +463,30 @@ export interface StartSessionOptions {
   shouldEmitLiveDeltas?: () => boolean;
   /** Called when provider-owned retention evidence changes. */
   onProviderRetentionChange?: () => void;
-  /** Shares the backend's native summaries observation with local agy. */
+  /**
+   * Shares the backend's native summaries observation with `agy`'s owner.
+   * In a Provider Host worker the worker supplies it, fed by its backend.
+   */
   observeAntigravitySummaries?: (
     scope: string,
     listener: () => void,
   ) => (() => void) | undefined;
+  /**
+   * Provider Host workers only: the attached backend's view of this
+   * session's native owner (plan 195 step 9; Antigravity). Supplied by the
+   * worker, never across the launch boundary.
+   */
+  nativeOwnerHost?: NativeOwnerHost;
+  /** Backend only, for a hosted launch: see {@link HostedNativeOwnerLink}. */
+  hostedNativeOwner?: HostedNativeOwnerLink;
+  /**
+   * Provider Host workers only: marks what this session has yielded so far
+   * and reports, on this process's monotonic clock, when the attached
+   * backend had applied all of it (undefined until then). An Antigravity
+   * owner dates its split candidates by it, so a row leaves memory only
+   * once no replay buffer of any backend can still hold it.
+   */
+  markOutputDelivery?: () => () => number | undefined;
   /** Prepared YA host sandbox applied to every provider child for this session. */
   sessionSandbox?: SessionSandboxRuntime;
   /** Cloneable sandbox request used when a provider worker owns preparation. */
@@ -479,6 +543,13 @@ export interface AgentSession {
   getProviderActivity?: () => ProviderActivitySnapshot;
   /** Provider-owned work that should retain an otherwise idle process. */
   getProviderRetention?: () => ProviderRetentionSnapshot;
+  /**
+   * Reading retention also checks the provider's native settlement evidence
+   * and reports a change through `onProviderRetentionChange` (Antigravity).
+   * A hosted proxy, which answers reads from its copy, asks its worker to
+   * read too.
+   */
+  retentionReadReconciles?: boolean;
   /** No-viewer period retained by a reload-safe runtime owner. */
   getRuntimeUnviewedSince?: () => Date | undefined;
   /**
@@ -517,6 +588,12 @@ export interface AgentSession {
   steer?: (message: UserMessage) => Promise<boolean>;
   /** Successful steers still await consumption through this session's queue. */
   steerUsesMessageQueue?: boolean;
+  /**
+   * A steer the provider accepted is reported consumed through its queue's
+   * yield once it is (Antigravity: when its prompt returns), without being
+   * queued.
+   */
+  steerConsumptionReported?: boolean;
   /** Append role-preserving history without a new turn; false means unavailable. */
   appendConversationContext?: (
     turns: ConversationContextTurn[],

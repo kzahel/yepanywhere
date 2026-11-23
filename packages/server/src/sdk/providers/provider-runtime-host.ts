@@ -23,6 +23,7 @@ import type {
   ImagePreparationProfile,
 } from "@yep-anywhere/shared";
 import { HostedMessageQueue } from "./hosted-message-queue.js";
+import { HostedNativeOwnerSync } from "./hosted-native-owner.js";
 import {
   reviveActivity,
   reviveRetention,
@@ -73,6 +74,10 @@ interface HostResponse<T> {
 }
 
 interface WorkerCapabilities {
+  retentionReadReconciles?: boolean;
+  queueHold?: boolean;
+  consumerIdle?: boolean;
+  steerConsumptionReported?: boolean;
   agentApi?: boolean;
   peerAgentApi?: boolean;
   publishAgentSelfSelection?: boolean;
@@ -824,6 +829,8 @@ function cloneableOptions(
     onPermissionModeApplied: _onPermissionModeApplied,
     shouldEmitLiveDeltas: _shouldEmitLiveDeltas,
     onProviderRetentionChange: _onProviderRetentionChange,
+    observeAntigravitySummaries: _observeAntigravitySummaries,
+    hostedNativeOwner: _hostedNativeOwner,
     sessionSandbox: _sessionSandbox,
     instructionReadHistory: _instructionReadHistory,
     getSessionChildEnv,
@@ -1085,6 +1092,7 @@ class HostedAgentSession {
     | import("@yep-anywhere/shared").ProviderSteeringState
     | undefined;
   readonly queue: HostedMessageQueue;
+  private readonly nativeOwner: HostedNativeOwnerSync;
 
   private constructor(
     private readonly runtime: HostedProviderRuntimeInfo,
@@ -1099,6 +1107,13 @@ class HostedAgentSession {
       (message) => this.send(message),
       <T>(method: string, args?: unknown[]) => this.rpc<T>(method, args),
       options.assertResumeAdmission,
+      runtime.worker.capabilities,
+    );
+    this.nativeOwner = new HostedNativeOwnerSync(
+      options,
+      (method, args) => this.rpc(method, args),
+      (message) => this.send(message),
+      () => this.done || this.detaching || this.socket.destroyed,
     );
   }
 
@@ -1256,6 +1271,7 @@ class HostedAgentSession {
         } else {
           this.providerAlive = false;
           forgetRuntimeAfterOwnerLoss(this.runtime.runtimeId);
+          if (!this.detaching) this.nativeOwner.end("exited");
           this.fail(
             new Error(
               `Provider worker process exited or connection failed: ${error.message}`,
@@ -1270,6 +1286,7 @@ class HostedAgentSession {
         if (!this.done && !this.detaching) {
           this.providerAlive = false;
           forgetRuntimeAfterOwnerLoss(this.runtime.runtimeId);
+          this.nativeOwner.end("exited");
           this.fail(
             new Error("Provider worker process exited or connection closed"),
           );
@@ -1298,6 +1315,7 @@ class HostedAgentSession {
       this.pendingAppliedPermissionMode =
         message.appliedPermissionMode as PermissionMode;
     }
+    this.nativeOwner.observe(message.nativeOwner);
     // Every provider reports init as its first event, so an owner that has
     // already acknowledged an event will never replay init to this
     // controller. Workers predating the explicit field fall back to the
@@ -1372,6 +1390,9 @@ class HostedAgentSession {
           );
         }
         return;
+      case "nativeOwner":
+        this.nativeOwner.observe(message.value);
+        return;
       case "providerRetention":
         this.providerRetention = reviveRetention(
           message.value as ProviderRetentionSnapshot,
@@ -1399,12 +1420,14 @@ class HostedAgentSession {
       case "complete":
         this.providerAlive = false;
         forgetRuntime(this.runtime.runtimeId);
+        this.nativeOwner.end("exited");
         this.done = true;
         this.finishIterator();
         return;
       case "failed":
         this.providerAlive = false;
         forgetRuntime(this.runtime.runtimeId);
+        this.nativeOwner.end("exited");
         this.fail(
           new Error(
             `Provider worker process exited: ${String(
@@ -1578,6 +1601,7 @@ class HostedAgentSession {
 
   private async detach(): Promise<void> {
     this.detaching = true;
+    this.nativeOwner.end("detached");
     this.cancelApprovals();
     await requestHost("release", {
       runtimeId: this.runtime.runtimeId,
@@ -1707,6 +1731,8 @@ class HostedAgentSession {
   private activateCallbacks(): void {
     if (this.callbacksActive) return;
     this.callbacksActive = true;
+    // A Process that starts idle reports no idle edge the worker waits for.
+    if (!this.activeProviderTurn) this.queue.onConsumerIdle();
     if (this.pendingAppliedPermissionMode) {
       this.options.onPermissionModeApplied?.(this.pendingAppliedPermissionMode);
     }
@@ -1722,6 +1748,7 @@ class HostedAgentSession {
       await requestHost("terminate", { runtimeId: this.runtime.runtimeId });
     } finally {
       forgetRuntime(this.runtime.runtimeId);
+      this.nativeOwner.end("exited");
       this.cancelApprovals();
       this.providerAlive = false;
       this.done = true;
@@ -1795,7 +1822,14 @@ class HostedAgentSession {
         ? { getProviderActivity: () => this.providerActivity }
         : {}),
       ...(capabilities.getProviderRetention
-        ? { getProviderRetention: () => this.providerRetention }
+        ? {
+            getProviderRetention: () => {
+              this.nativeOwner.readRetention(
+                capabilities.retentionReadReconciles,
+              );
+              return this.providerRetention;
+            },
+          }
         : {}),
       ...(this.runtime.lifecycleCapabilities?.viewerPresence
         ? {
@@ -1863,6 +1897,7 @@ class HostedAgentSession {
             steer: async (message) => {
               if (capabilities.steerUsesMessageQueue)
                 this.queue.trackSteer(message);
+              else this.queue.awaitNativeSteer(message);
               try {
                 const steered = await this.rpc<boolean>("steer", [message]);
                 if (!steered && message.uuid)

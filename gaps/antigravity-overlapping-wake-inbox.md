@@ -1,7 +1,7 @@
 # Antigravity overlapping wakes need native inbox evidence
 
-Known detached work and observed root replies keep a backend-local owner
-retained through a fresh, fully idle native summary. That boundary has been
+Known detached work and observed root replies keep the owner retained
+through a fresh, fully idle native summary. That boundary has been
 qualified with a single scheduled wake and a child's asynchronous report
 against the scripted model. It cannot distinguish a settled reply from
 another autonomous wake waiting in the native inbox if both tasks have

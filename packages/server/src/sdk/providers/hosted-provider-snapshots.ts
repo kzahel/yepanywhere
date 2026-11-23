@@ -25,6 +25,14 @@ export function reviveRetention(
   return {
     retained: value?.retained ?? false,
     reasons: value?.reasons ?? [],
+    ...(value?.detachedReply
+      ? {
+          detachedReply: {
+            status: value.detachedReply.status,
+            at: new Date(value.detachedReply.at),
+          },
+        }
+      : {}),
     backgroundTaskCount: value?.backgroundTaskCount,
     sessionCronCount: value?.sessionCronCount,
     liveTaskCount: value?.liveTaskCount,

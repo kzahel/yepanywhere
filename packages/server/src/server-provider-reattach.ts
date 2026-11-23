@@ -1,5 +1,9 @@
 import type { SessionMetadataService } from "./metadata/index.js";
-import { listHostedProviderRuntimes } from "./sdk/providers/provider-runtime-host.js";
+import { hostedAntigravityOwnerLink } from "./sdk/providers/antigravity-owners.js";
+import {
+  listHostedProviderRuntimes,
+  type HostedProviderRuntimeInfo,
+} from "./sdk/providers/provider-runtime-host.js";
 import type { QueueRestartHandoff } from "./services/QueueRestartHandoff.js";
 import type { Supervisor } from "./supervisor/Supervisor.js";
 
@@ -22,8 +26,23 @@ export async function reattachProviderRuntimes(
       return [];
     },
   );
+  // A hosted Antigravity owner's conversation is YA's from this backend's
+  // start, before its turn to reattach: a write its `agy` makes meanwhile
+  // must not read as another program's (plan 195 step 9).
+  const held = new Map(
+    hostedProviderRuntimes.flatMap((runtime) => {
+      const native = hostedAntigravityConversation(runtime);
+      if (!native) return [];
+      const link = hostedAntigravityOwnerLink();
+      link.expect(native, true);
+      return [[runtime, link] as const];
+    }),
+  );
   for (const runtime of hostedProviderRuntimes) {
-    if (!runtime.sessionId) continue;
+    if (!runtime.sessionId) {
+      held.get(runtime)?.end("unattached");
+      continue;
+    }
     try {
       await supervisor.reactivateSession(
         runtime.projectPath,
@@ -52,6 +71,7 @@ export async function reattachProviderRuntimes(
       );
     } catch (error) {
       complete = false;
+      held.get(runtime)?.end("unattached");
       console.error(
         `[ProviderRuntimeHost] Failed to reattach session ${runtime.sessionId}:`,
         error,
@@ -59,4 +79,17 @@ export async function reattachProviderRuntimes(
     }
   }
   return complete;
+}
+
+function hostedAntigravityConversation(
+  runtime: HostedProviderRuntimeInfo,
+): { storageScope: string; id: string } | undefined {
+  if (runtime.providerName !== "antigravity") return undefined;
+  if (runtime.binding?.native.family === "antigravity")
+    return runtime.binding.native;
+  const namespace = runtime.creation?.identity.nativeNamespace;
+  const id = runtime.creation?.nativeSessionId ?? runtime.providerSessionId;
+  return namespace?.family === "antigravity" && namespace.storageScope && id
+    ? { storageScope: namespace.storageScope, id }
+    : undefined;
 }

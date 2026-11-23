@@ -685,7 +685,16 @@ string IDs, so every prompted tool was denied without a prompt. Steps 3 to 8
 have landed: history is read from the log a page at a time, resume uses
 `session/resume`, a live session's memory is bounded, another writer shows
 the external banner, and the ACP replay fallback is removed, so no history
-read starts `agy`. Step 9, the owner in the Provider Host, remains.
+read starts `agy`. Step 9 has landed and the plan is done (2026-11-23): where
+the Provider Host is available, the owner runs in a worker, so a backend
+reload or crash no longer ends an Antigravity session; qualified with real
+`agy` 1.5.13 and 1.5.14 on macOS
+([support status](../../topics/antigravity.md#support-status--2026-11-22)).
+Open as gaps: a move's replacement window drops loaded older pages, a late
+wake chunk joins the next turn, a passive wake snapshot is unmarked, the
+summaries read creates SQLite sidecars, an unknown log hides its readable
+prefix; Linux and hosted CI have not run the plan's native cases
+([after the plan](../tactical/195-antigravity-native-history.md#after-the-plan)).
 
 **Legacy Gemini execution retired, 2026-11-21:** `gemini` and `gemini-acp`
 leave provider discovery and execution. Both IDs remain in readable history.

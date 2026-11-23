@@ -920,6 +920,7 @@ YEP_NATIVE_TEST_PROVIDERS=antigravity YEP_NATIVE_APP_TESTS=1 \
   YEP_NATIVE_ANTIGRAVITY_GAP_REPROS=1 pnpm --filter @yep-anywhere/server test \
   test/native-provider test/native-app/app-antigravity-v0.test.ts \
   test/native-app/app-antigravity-gap-repros.test.ts \
+  test/native-app/app-antigravity-hosted-reload.test.ts \
   test/sdk/providers/antigravity.test.ts --maxWorkers=1
 ```
 
@@ -935,9 +936,11 @@ version. Record the baseline and candidate results separately.
   195 step 8; the projection case still replays its conversation through
   `agy` as the oracle the log projection is compared with.
 - **YA contract faults.** The opt-in app scenarios check retained wakes,
-  patient delivery, idle reap, safe and immediate reload, and history
-  reopened on the next backend generation. A changed outcome is evidence to
-  investigate during an upgrade.
+  patient delivery and idle reap, and, with the owner in the Provider Host,
+  a turn, a pending permission request, a patient message and a detached
+  wake through a reload or with no backend at all, single-writer control
+  after it, idle teardown and a resume afterwards. A changed outcome is
+  evidence to investigate during an upgrade.
 
 On 2026-11-22, the 29 selected cases passed on macOS arm64 with the 1.5.13 pin
 and the 1.5.14 candidate. The focused rerun with an independent ACP load also
@@ -1069,6 +1072,22 @@ shown where it cannot. In `antigravity.test.ts` the three fallback cases
 became three resume cases. The selection passed with 73 cases and 3
 skipped on 2026-11-23, with the 1.5.13 pin and with the 1.5.14 candidate,
 on Node 24.22.1.
+
+Plan 195 step 9 (the owner in the Provider Host) replaced the three app
+cases that asserted a backend-local owner (a scheduled reload waiting for
+retained work, the wrapper handoff backing out for late foreground input,
+an immediate restart interrupting the turn) with
+`app-antigravity-hosted-reload.test.ts`. Its first case keeps a turn with a
+pending `write_file` permission and a queued patient message through a
+wrapper reload, answers the request once on the replacement, then changes
+model and effort, Stops a turn, runs a queued `/compact` with a message
+behind it and schedules a second reload, each acting once on the same
+worker and `agy`. Its second holds the wrapper and kills the backend twice:
+a turn streams with no backend and a steer after reattach reaches it; a
+detached wake starts and ends with no backend, is shown once and settles;
+idle reap leaves no worker or `agy`; the conversation resumes. Both pass on
+the 1.5.13 pin and the 1.5.14 candidate; see the step 9 report for the
+selection's runs.
 
 In the server suite, the Antigravity admission test observes the creation
 operation behind the durable receipt and the owner's idle event. Cleanup

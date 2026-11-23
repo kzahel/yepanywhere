@@ -4,7 +4,15 @@ import { isAbsolute } from "node:path";
 // binding, not authority to create a conversation or consume its first input.
 export const BOUND_RUNTIME_FEATURE = "session-native-binding-v1";
 export const BOUND_RUNTIME_PROTOCOL_VERSION = 3;
-const families = ["claude", "codex", "gemini", "opencode", "pi", "grok"];
+const families = [
+  "claude",
+  "codex",
+  "gemini",
+  "antigravity",
+  "opencode",
+  "pi",
+  "grok",
+];
 
 function controls(value) {
   for (const character of value) {

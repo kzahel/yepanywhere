@@ -109,7 +109,7 @@
       "maxLines": 1520
     },
     "packages/server/src/sdk/providers/provider-runtime-host.ts": {
-      "maxLines": 2066
+      "maxLines": 1985
     },
     "packages/server/src/server-main.ts": {
       "maxLines": 1749

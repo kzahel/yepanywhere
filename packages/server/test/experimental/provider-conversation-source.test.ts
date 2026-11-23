@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
+import { ownHostedAntigravitySession } from "../utils/antigravity-hosted-owner.js";
 import {
   EMPTY_ANTIGRAVITY_LOG,
   setAntigravityLiveLimitsForTests,
@@ -150,7 +151,12 @@ it("opens a Codex conversation from its compact tail when the rollout is too lar
   expect(input.sourceCoverage.earlierOutsideScope).toBe("yes");
 });
 
-describe("an Antigravity conversation source", () => {
+// With the owner in this process and in a Provider Host worker, whose
+// view and retired IDs cross as JSON (plan 195 step 9).
+describe.each([
+  ["in this process", ownAntigravitySession],
+  ["in a Provider Host worker", ownHostedAntigravitySession],
+] as const)("an Antigravity conversation source, owner %s", (_where, own) => {
   const nativeId = "c0ffee00-0000-4000-8000-000000000198";
   const at = "2026-11-22T08:00:00Z";
   const record = (step: number, type: string, fields: object) =>
@@ -256,7 +262,7 @@ describe("an Antigravity conversation source", () => {
       row(`${nativeId}:3`, "user", "QUEUED_PROMPT"),
     ];
     // A new session's owner: its log was empty when it opened.
-    const native = ownAntigravitySession(scope, nativeId);
+    const native = own(scope, nativeId);
     native.open(EMPTY_ANTIGRAVITY_LOG);
     for (const message of live) native.record(message as never);
     let current: ReturnType<typeof owner> | undefined = owner(live);
@@ -337,7 +343,7 @@ describe("an Antigravity conversation source", () => {
 
   /** An owner whose candidates the log proves at whatever `move` names. */
   function provingOwner(scope: string) {
-    const native = ownAntigravitySession(scope, nativeId);
+    const native = own(scope, nativeId);
     let proven: typeof resumedAt | undefined;
     const live = native.open(resumedAt, async () => proven);
     const move = async (seq: number, boundary: typeof resumedAt) => {
@@ -462,7 +468,7 @@ describe("an Antigravity conversation source", () => {
       row(`${nativeId}:0`, "user", "Ask"),
       row(`${nativeId}:1`, "assistant", "Reply"),
     ];
-    const firstOwner = ownAntigravitySession(scope, nativeId);
+    const firstOwner = own(scope, nativeId);
     firstOwner.open(EMPTY_ANTIGRAVITY_LOG);
     for (const message of first) firstOwner.record(message as never);
     let current = owner(first);
@@ -481,7 +487,7 @@ describe("an Antigravity conversation source", () => {
       firstOwner.release();
       current.emit("terminated");
       const second = [row(`${nativeId}:r0`, "user", "Next")];
-      const secondOwner = ownAntigravitySession(scope, nativeId);
+      const secondOwner = own(scope, nativeId);
       secondOwner.open(resumedAt);
       for (const message of second) secondOwner.record(message as never);
       current = owner(second);
@@ -543,7 +549,7 @@ describe("an Antigravity conversation source", () => {
       ]);
       // The owner opens at the log's last record; its prompt and the reply
       // it is still producing are live rows.
-      const native = ownAntigravitySession(scope, nativeId);
+      const native = own(scope, nativeId);
       native.open(resumedAt);
       native.record(prompt as never);
       const reply = row("reply-uuid", "assistant", "Reply 2 (growing)");
@@ -596,7 +602,7 @@ describe("an Antigravity conversation source", () => {
       row(`${nativeId}:0`, "user", "Ask"),
       row(`${nativeId}:1`, "assistant", "Reply"),
     ];
-    const firstOwner = ownAntigravitySession(scope, nativeId);
+    const firstOwner = own(scope, nativeId);
     firstOwner.open(EMPTY_ANTIGRAVITY_LOG);
     for (const message of first) firstOwner.record(message as never);
     const a = owner(first);
@@ -624,7 +630,7 @@ describe("an Antigravity conversation source", () => {
       const reading = views[0]!.read(abort.signal);
       await held.entered;
       const second = [row(`${nativeId}:r0`, "user", "Next")];
-      const secondOwner = ownAntigravitySession(scope, nativeId);
+      const secondOwner = own(scope, nativeId);
       secondOwner.open(resumedAt);
       for (const message of second) secondOwner.record(message as never);
       current = owner(second);
@@ -651,7 +657,7 @@ describe("an Antigravity conversation source", () => {
   // Review round 1, finding 2.
   it("reports the history before a live owner's resume point as unavailable once its log is gone", async () => {
     const { reader, row: source, scope } = await setup(logged);
-    const native = ownAntigravitySession(scope, nativeId);
+    const native = own(scope, nativeId);
     native.open(resumedAt);
     const next = row("next-uuid", "user", "Next");
     native.record(next as never);
@@ -696,7 +702,7 @@ describe("an Antigravity conversation source", () => {
   // invalidates the read, so the publisher discards it and reads again.
   it("never publishes a cold read beside a known-log owner that departed during it", async () => {
     const { reader, row: source, scope } = await setup(logged);
-    const native = ownAntigravitySession(scope, nativeId);
+    const native = own(scope, nativeId);
     native.open(resumedAt);
     const rows = [
       row("next-uuid", "user", "Next"),

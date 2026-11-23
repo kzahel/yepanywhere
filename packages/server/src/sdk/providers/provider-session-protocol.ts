@@ -11,7 +11,7 @@ import type {
 import type { AgentctlSessionEnvBridge } from "./agentctl-session-env.js";
 import type { BoundRuntimeIdentity } from "./bound-runtime-identity.mjs";
 import type { CreationRuntimeEvidence } from "./creation-runtime-identity.js";
-import type { AgentSession } from "./types.js";
+import type { AgentSession, NativeOwnerHost } from "./types.js";
 
 /**
  * What a Provider Host worker's session owner and its Hono controller
@@ -41,10 +41,17 @@ export interface ProviderSessionReadyMetadata {
     probeLiveness: boolean;
     getProviderActivity: boolean;
     getProviderRetention: boolean;
+    retentionReadReconciles?: boolean;
     refreshPromptCache: boolean;
     publishAgentctlSessionId: boolean;
     steer: boolean;
     steerUsesMessageQueue?: boolean;
+    /** The queue pauses native delivery during a configuration change. */
+    queueHold?: boolean;
+    /** The queue's provider waits for Process to report it is idle. */
+    consumerIdle?: boolean;
+    /** An accepted steer is reported consumed through the queue's yield. */
+    steerConsumptionReported?: boolean;
     appendConversationContext?: boolean;
     mcpAppRequest?: boolean;
     instructionRestoration?: boolean;
@@ -66,6 +73,12 @@ export interface ProviderSessionReadyMetadata {
 
 export interface ProviderSessionStartHooks {
   onNativeInputConsumed(nativeSessionId: string, inputId: string): void;
+  /** The attached backend's view of the provider's native owner. */
+  nativeOwnerHost: NativeOwnerHost;
+  /** Native store changes the attached backend observes for this session. */
+  observeNativeStore: (listener: () => void) => () => void;
+  /** See `StartSessionOptions.markOutputDelivery`. */
+  markOutputDelivery: () => () => number | undefined;
   onAgentApiRead: ApiReadPort;
   onToolApproval: CanUseTool;
   onPermissionModeApplied: (mode: PermissionMode) => void;
@@ -108,6 +121,8 @@ export interface ProviderSessionAttachedState {
   providerActivity: ProviderActivitySnapshot;
   providerRetention: ProviderRetentionSnapshot;
   appliedPermissionMode?: PermissionMode;
+  /** The provider's native owner as the backend copies it (plan 195 step 9). */
+  nativeOwner?: unknown;
   /**
    * Canonical id the provider reported in its init message. A controller
    * attaching after that event was acknowledged never sees it replayed.

@@ -15,8 +15,13 @@ import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setAntigravityLiveLimitsForTests } from "../../src/sdk/providers/antigravity-live-projection.js";
-import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
+import {
+  antigravityWriteIsOwn,
+  hostedAntigravityOwnerLink,
+  ownAntigravitySession,
+} from "../../src/sdk/providers/antigravity-owners.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
+import { ownHostedAntigravitySession } from "../utils/antigravity-hosted-owner.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 
 const ID = "c0ffee00-0000-4000-8000-000000000197";
@@ -248,100 +253,314 @@ describe("Antigravity reader over the log", () => {
   const logged = prompt("Ask") + reply(1, "Reply");
   const resumedAt = { step: 1, end: Buffer.byteLength(logged) };
 
-  it("reads again when an owner resumes during a cold read, so its logged turn is not shown twice", async () => {
+  it("shows the log alone, never as complete, for a hosted owner this backend cannot read yet, and takes its writes as YA's", async () => {
     const conversations = await store("a", logged);
     const scope = await realpath(conversations);
     const target = reader(conversations);
-    const owner = ownAntigravitySession(scope, ID);
-    try {
-      duringNextLogRead(target, async () => {
-        // The resumed owner opens and agy logs its prompt, read as cold.
-        owner.open(resumedAt);
-        owner.record({
-          type: "user",
-          uuid: "live-prompt",
-          message: { role: "user", content: "Next" },
-        });
-        await appendFile(
-          join(
-            root,
-            "a",
-            "brain",
-            ID,
-            ".system_generated",
-            "logs",
-            "transcript_full.jsonl",
-          ),
-          line({
-            step_index: 2,
-            source: "USER_EXPLICIT",
-            type: "USER_INPUT",
-            status: "DONE",
-            created_at: at,
-            content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
-          }),
-        );
+    // A replacement backend before its worker reattached, or one whose
+    // attach failed and whose worker the host has not reaped yet.
+    const read = () =>
+      target.getSession(ID, toUrlProjectId(project), undefined, {
+        tailCompactions: 2,
       });
-      const loaded = await target.getSession(
-        ID,
-        toUrlProjectId(project),
-        undefined,
-        {
-          tailCompactions: 2,
-        },
-      );
-      expect(uuids(loaded)).toEqual([
-        `${ID}:step-0`,
-        `${ID}:step-1:text`,
-        "live-prompt",
-      ]);
+    // One this backend is launching has written nothing past the log yet.
+    const launching = hostedAntigravityOwnerLink();
+    launching.expect({ storageScope: scope, id: ID });
+    expect((await read())?.transcriptComplete).toBeUndefined();
+    launching.end("exited");
+    const link = hostedAntigravityOwnerLink();
+    link.expect({ storageScope: scope, id: ID }, true);
+    try {
+      const pending = await read();
+      expect(uuids(pending)).toEqual([`${ID}:step-0`, `${ID}:step-1:text`]);
+      expect(pending?.transcriptComplete).toBe(false);
+      expect(antigravityWriteIsOwn(scope, ID, Date.now())).toBe(true);
     } finally {
-      owner.release();
+      link.end("exited");
     }
-    // Once the owner has gone, the log alone shows the turn, once.
-    expect(
-      texts(
-        await target.getSession(ID, toUrlProjectId(project), undefined, {
-          tailCompactions: 2,
-        }),
-      ),
-    ).toEqual(["Ask", "Reply", "Next"]);
+    expect((await read())?.transcriptComplete).toBeUndefined();
+    expect(antigravityWriteIsOwn(scope, ID, Date.now() - 1_000)).toBe(true);
+    expect(antigravityWriteIsOwn(scope, ID, Date.now() + 60_000)).toBe(false);
   });
 
-  it("reads again when the owner moves a turn into the log during a read, losing and repeating nothing", async () => {
-    const conversations = await store("a", logged);
-    const scope = await realpath(conversations);
-    const target = reader(conversations);
-    const owner = ownAntigravitySession(scope, ID);
-    let proven: ((boundary: typeof resumedAt) => void) | undefined;
-    const live = owner.open(
-      resumedAt,
-      () => new Promise((resolve) => (proven = resolve)),
-    );
-    const turn = [
-      {
-        type: "user" as const,
-        uuid: "live-prompt",
-        message: { role: "user", content: "Next" },
-      },
-      {
+  // The same reads with the owner in this process and in a Provider Host
+  // worker, whose view crosses as JSON (plan 195 step 9).
+  describe.each([
+    ["in this process", ownAntigravitySession],
+    ["in a Provider Host worker", ownHostedAntigravitySession],
+  ] as const)("with the owner %s", (_where, own) => {
+    it("reads again when an owner resumes during a cold read, so its logged turn is not shown twice", async () => {
+      const conversations = await store("a", logged);
+      const scope = await realpath(conversations);
+      const target = reader(conversations);
+      const owner = own(scope, ID);
+      try {
+        duringNextLogRead(target, async () => {
+          // The resumed owner opens and agy logs its prompt, read as cold.
+          owner.open(resumedAt);
+          owner.record({
+            type: "user",
+            uuid: "live-prompt",
+            message: { role: "user", content: "Next" },
+          });
+          await appendFile(
+            join(
+              root,
+              "a",
+              "brain",
+              ID,
+              ".system_generated",
+              "logs",
+              "transcript_full.jsonl",
+            ),
+            line({
+              step_index: 2,
+              source: "USER_EXPLICIT",
+              type: "USER_INPUT",
+              status: "DONE",
+              created_at: at,
+              content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
+            }),
+          );
+        });
+        const loaded = await target.getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          {
+            tailCompactions: 2,
+          },
+        );
+        expect(uuids(loaded)).toEqual([
+          `${ID}:step-0`,
+          `${ID}:step-1:text`,
+          "live-prompt",
+        ]);
+      } finally {
+        owner.release();
+      }
+      // Once the owner has gone, the log alone shows the turn, once.
+      expect(
+        texts(
+          await target.getSession(ID, toUrlProjectId(project), undefined, {
+            tailCompactions: 2,
+          }),
+        ),
+      ).toEqual(["Ask", "Reply", "Next"]);
+    });
+
+    it("reads again when the owner moves a turn into the log during a read, losing and repeating nothing", async () => {
+      const conversations = await store("a", logged);
+      const scope = await realpath(conversations);
+      const target = reader(conversations);
+      const owner = own(scope, ID);
+      let proven: ((boundary: typeof resumedAt) => void) | undefined;
+      const live = owner.open(
+        resumedAt,
+        () => new Promise((resolve) => (proven = resolve)),
+      );
+      const turn = [
+        {
+          type: "user" as const,
+          uuid: "live-prompt",
+          message: { role: "user", content: "Next" },
+        },
+        {
+          type: "assistant" as const,
+          uuid: "live-reply",
+          message: { role: "assistant", content: "Done" },
+        },
+      ];
+      for (const row of turn) owner.record(row);
+      const turnLog =
+        line({
+          step_index: 2,
+          source: "USER_EXPLICIT",
+          type: "USER_INPUT",
+          status: "DONE",
+          created_at: at,
+          content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
+        }) + reply(3, "Done");
+      await appendFile(
+        join(
+          root,
+          "a",
+          "brain",
+          ID,
+          ".system_generated",
+          "logs",
+          "transcript_full.jsonl",
+        ),
+        turnLog,
+      );
+      // The next turn's prompt, a candidate the log proves.
+      const seq = live.seq;
+      owner.record({
+        type: "user",
+        uuid: "live-next",
+        message: { role: "user", content: "Again" },
+      });
+      setAntigravityLiveLimitsForTests({ softRows: 1, splitAgeMs: 0 });
+      try {
+        // The read takes the log through the old boundary; then the turn
+        // leaves memory for the log before it takes the owner's rows.
+        duringNextLogRead(target, async () => {
+          live.addCandidate({ seq, size: 0, at: 0 });
+          proven!({ step: 3, end: Buffer.byteLength(logged + turnLog) });
+          await new Promise((resolve) => setImmediate(resolve));
+          expect(live.history().map((m) => m.uuid)).toEqual(["live-next"]);
+        });
+        const loaded = await target.getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          { tailCompactions: 2 },
+        );
+        expect(uuids(loaded)).toEqual([
+          `${ID}:step-0`,
+          `${ID}:step-1:text`,
+          `${ID}:step-2`,
+          `${ID}:step-3:text`,
+          "live-next",
+        ]);
+        expect(loaded?.transcriptComplete).not.toBe(false);
+        const catchUp = (id: string) =>
+          target.getSession(ID, toUrlProjectId(project), id, {
+            tailCompactions: 2,
+          });
+        // A cursor on a row that left memory is not in the answer: a miss.
+        expect(uuids(await catchUp("live-reply"))).not.toContain("live-reply");
+        // A log cursor before the moved rows would cross rows a client may
+        // hold under live IDs: a deliberate miss, though the page holds it.
+        const crossing = await catchUp(`${ID}:step-1:text`);
+        expect(crossing?.afterAnchor).toBe("missed");
+        expect(uuids(crossing)).toContain(`${ID}:step-1:text`);
+        // One after the moved rows, or on a live row, is incremental.
+        expect(
+          (await catchUp(`${ID}:step-3:text`))?.afterAnchor,
+        ).toBeUndefined();
+        expect(uuids(await catchUp("live-next"))).toEqual(["live-next"]);
+      } finally {
+        setAntigravityLiveLimitsForTests();
+        owner.release();
+      }
+    });
+
+    it("shows a live tool call and its result once when the result arrives while a page is read", async () => {
+      const conversations = await store("a", logged);
+      const scope = await realpath(conversations);
+      const target = reader(conversations);
+      const owner = own(scope, ID);
+      owner.open(resumedAt);
+      const call = {
         type: "assistant" as const,
-        uuid: "live-reply",
-        message: { role: "assistant", content: "Done" },
-      },
-    ];
-    for (const row of turn) owner.record(row);
-    const turnLog =
-      line({
-        step_index: 2,
-        source: "USER_EXPLICIT",
-        type: "USER_INPUT",
-        status: "DONE",
-        created_at: at,
-        content: "<USER_REQUEST>\nNext\n</USER_REQUEST>",
-      }) + reply(3, "Done");
-    await appendFile(
-      join(
+        uuid: "live-call",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "tool_use", id: "tool-1", name: "read_file", input: {} },
+          ],
+        },
+      };
+      owner.record(call);
+      try {
+        duringNextLogRead(target, () => {
+          owner.record({
+            type: "user",
+            uuid: "live-result",
+            message: {
+              role: "user",
+              content: [
+                { type: "tool_result", tool_use_id: "tool-1", content: "done" },
+              ],
+            },
+          });
+        });
+        const loaded = await target.getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          {
+            tailCompactions: 2,
+          },
+        );
+        expect(uuids(loaded)).toEqual([
+          `${ID}:step-0`,
+          `${ID}:step-1:text`,
+          "live-call",
+          "live-result",
+        ]);
+        // A page before the live call is the log through the boundary.
+        const older = await target.getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          {
+            tailCompactions: 2,
+            beforeMessageId: "live-call",
+          },
+        );
+        expect(uuids(older)).toEqual([
+          `${ID}:step-0`,
+          `${ID}:step-1:text`,
+          "live-call",
+          "live-result",
+        ]);
+        expect(older?.readWindow).toMatchObject({
+          kind: "log-page",
+          before: false,
+        });
+        // A page before a log row is the log alone.
+        const logPage = await target.getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          {
+            tailCompactions: 2,
+            beforeMessageId: `${ID}:step-1:text`,
+          },
+        );
+        expect(uuids(logPage)).toEqual([`${ID}:step-0`]);
+        expect(logPage?.readWindow).toMatchObject({
+          kind: "log-page",
+          before: true,
+        });
+        // A catch-up from a live row is the live rows; from a log row, the
+        // log after it and the live rows.
+        expect(
+          uuids(
+            await target.getSession(ID, toUrlProjectId(project), "live-call", {
+              tailCompactions: 2,
+            }),
+          ),
+        ).toEqual(["live-call", "live-result"]);
+        expect(
+          uuids(
+            await target.getSession(
+              ID,
+              toUrlProjectId(project),
+              `${ID}:step-0`,
+              {
+                tailCompactions: 2,
+              },
+            ),
+          ),
+        ).toEqual([
+          `${ID}:step-0`,
+          `${ID}:step-1:text`,
+          "live-call",
+          "live-result",
+        ]);
+      } finally {
+        owner.release();
+      }
+    });
+
+    it("reports the history before an open boundary as unavailable once the log is gone, for every request", async () => {
+      const conversations = await store("a", logged);
+      const scope = await realpath(conversations);
+      const target = reader(conversations);
+      const logFile = join(
         root,
         "a",
         "brain",
@@ -349,326 +568,164 @@ describe("Antigravity reader over the log", () => {
         ".system_generated",
         "logs",
         "transcript_full.jsonl",
-      ),
-      turnLog,
-    );
-    // The next turn's prompt, a candidate the log proves.
-    const seq = live.seq;
-    owner.record({
-      type: "user",
-      uuid: "live-next",
-      message: { role: "user", content: "Again" },
-    });
-    setAntigravityLiveLimitsForTests({ softRows: 1, splitAgeMs: 0 });
-    try {
-      // The read takes the log through the old boundary; then the turn
-      // leaves memory for the log before it takes the owner's rows.
-      duringNextLogRead(target, async () => {
-        live.addCandidate({ seq, size: 0, at: 0 });
-        proven!({ step: 3, end: Buffer.byteLength(logged + turnLog) });
-        await new Promise((resolve) => setImmediate(resolve));
-        expect(live.history().map((m) => m.uuid)).toEqual(["live-next"]);
-      });
-      const loaded = await target.getSession(
-        ID,
-        toUrlProjectId(project),
-        undefined,
-        { tailCompactions: 2 },
       );
-      expect(uuids(loaded)).toEqual([
-        `${ID}:step-0`,
-        `${ID}:step-1:text`,
-        `${ID}:step-2`,
-        `${ID}:step-3:text`,
-        "live-next",
-      ]);
-      expect(loaded?.transcriptComplete).not.toBe(false);
-      const catchUp = (id: string) =>
-        target.getSession(ID, toUrlProjectId(project), id, {
-          tailCompactions: 2,
-        });
-      // A cursor on a row that left memory is not in the answer: a miss.
-      expect(uuids(await catchUp("live-reply"))).not.toContain("live-reply");
-      // A log cursor before the moved rows would cross rows a client may
-      // hold under live IDs: a deliberate miss, though the page holds it.
-      const crossing = await catchUp(`${ID}:step-1:text`);
-      expect(crossing?.afterAnchor).toBe("missed");
-      expect(uuids(crossing)).toContain(`${ID}:step-1:text`);
-      // One after the moved rows, or on a live row, is incremental.
-      expect((await catchUp(`${ID}:step-3:text`))?.afterAnchor).toBeUndefined();
-      expect(uuids(await catchUp("live-next"))).toEqual(["live-next"]);
-    } finally {
-      setAntigravityLiveLimitsForTests();
-      owner.release();
-    }
-  });
-
-  it("shows a live tool call and its result once when the result arrives while a page is read", async () => {
-    const conversations = await store("a", logged);
-    const scope = await realpath(conversations);
-    const target = reader(conversations);
-    const owner = ownAntigravitySession(scope, ID);
-    owner.open(resumedAt);
-    const call = {
-      type: "assistant" as const,
-      uuid: "live-call",
-      message: {
-        role: "assistant",
-        content: [
-          { type: "tool_use", id: "tool-1", name: "read_file", input: {} },
+      const projectId = toUrlProjectId(project);
+      const requests: Array<[string | undefined, object]> = [
+        [undefined, { tailCompactions: 2 }],
+        [undefined, {}],
+        [
+          undefined,
+          { tailCompactions: 2, beforeMessageId: `${ID}:step-1:text` },
         ],
-      },
-    };
-    owner.record(call);
-    try {
-      duringNextLogRead(target, () => {
-        owner.record({
-          type: "user",
-          uuid: "live-result",
-          message: {
-            role: "user",
-            content: [
-              { type: "tool_result", tool_use_id: "tool-1", content: "done" },
-            ],
-          },
-        });
-      });
-      const loaded = await target.getSession(
-        ID,
-        toUrlProjectId(project),
-        undefined,
-        {
-          tailCompactions: 2,
-        },
-      );
-      expect(uuids(loaded)).toEqual([
-        `${ID}:step-0`,
-        `${ID}:step-1:text`,
-        "live-call",
-        "live-result",
-      ]);
-      // A page before the live call is the log through the boundary.
-      const older = await target.getSession(
-        ID,
-        toUrlProjectId(project),
-        undefined,
-        {
-          tailCompactions: 2,
-          beforeMessageId: "live-call",
-        },
-      );
-      expect(uuids(older)).toEqual([
-        `${ID}:step-0`,
-        `${ID}:step-1:text`,
-        "live-call",
-        "live-result",
-      ]);
-      expect(older?.readWindow).toMatchObject({
-        kind: "log-page",
-        before: false,
-      });
-      // A page before a log row is the log alone.
-      const logPage = await target.getSession(
-        ID,
-        toUrlProjectId(project),
-        undefined,
-        {
-          tailCompactions: 2,
-          beforeMessageId: `${ID}:step-1:text`,
-        },
-      );
-      expect(uuids(logPage)).toEqual([`${ID}:step-0`]);
-      expect(logPage?.readWindow).toMatchObject({
-        kind: "log-page",
-        before: true,
-      });
-      // A catch-up from a live row is the live rows; from a log row, the
-      // log after it and the live rows.
-      expect(
-        uuids(
-          await target.getSession(ID, toUrlProjectId(project), "live-call", {
-            tailCompactions: 2,
-          }),
-        ),
-      ).toEqual(["live-call", "live-result"]);
-      expect(
-        uuids(
-          await target.getSession(ID, toUrlProjectId(project), `${ID}:step-0`, {
-            tailCompactions: 2,
-          }),
-        ),
-      ).toEqual([
-        `${ID}:step-0`,
-        `${ID}:step-1:text`,
-        "live-call",
-        "live-result",
-      ]);
-    } finally {
-      owner.release();
-    }
-  });
-
-  it("reports the history before an open boundary as unavailable once the log is gone, for every request", async () => {
-    const conversations = await store("a", logged);
-    const scope = await realpath(conversations);
-    const target = reader(conversations);
-    const logFile = join(
-      root,
-      "a",
-      "brain",
-      ID,
-      ".system_generated",
-      "logs",
-      "transcript_full.jsonl",
-    );
-    const projectId = toUrlProjectId(project);
-    const requests: Array<[string | undefined, object]> = [
-      [undefined, { tailCompactions: 2 }],
-      [undefined, {}],
-      [undefined, { tailCompactions: 2, beforeMessageId: `${ID}:step-1:text` }],
-      [undefined, { tailCompactions: 2, beforeMessageId: "live-prompt" }],
-      [`${ID}:step-0`, { tailCompactions: 2 }],
-      ["live-prompt", { tailCompactions: 2 }],
-    ];
-    const owner = ownAntigravitySession(scope, ID);
-    owner.open(resumedAt);
-    owner.record({
-      type: "user",
-      uuid: "live-prompt",
-      message: { role: "user", content: "Next" },
-    });
-    try {
-      // Intact: every form is complete.
-      for (const [after, options] of requests)
-        expect(
-          (await target.getSession(ID, projectId, after, options))
-            ?.transcriptComplete,
-          JSON.stringify([after, options]),
-        ).toBeUndefined();
-      for (const damage of ["unlinked", "truncated"]) {
-        if (damage === "unlinked") await rm(logFile);
-        else await writeFile(logFile, prompt("Ask"));
-        for (const [after, options] of requests) {
-          const loaded = await target.getSession(ID, projectId, after, options);
-          const label = JSON.stringify([damage, after, options]);
-          expect(loaded?.transcriptComplete, label).toBe(false);
-          // One row says the earlier history cannot be shown; the owner's
-          // rows are still served (a page before a log row is older than
-          // all of them).
-          const ids = uuids(loaded);
-          expect(ids[0], label).toBe(`${ID}:history-unavailable`);
-          if (
-            "beforeMessageId" in options &&
-            options.beforeMessageId !== "live-prompt"
-          )
-            expect(ids, label).toHaveLength(1);
-          else expect(ids, label).toContain("live-prompt");
-        }
-      }
-    } finally {
-      owner.release();
-    }
-  });
-
-  it("serves only the final owner's rows when the log was replaced on the last handoff", async () => {
-    const conversations = await store("a", logged);
-    const scope = await realpath(conversations);
-    const target = reader(conversations);
-    const logFile = join(
-      root,
-      "a",
-      "brain",
-      ID,
-      ".system_generated",
-      "logs",
-      "transcript_full.jsonl",
-    );
-    let owner = ownAntigravitySession(scope, ID);
-    owner.open(resumedAt);
-    const internals = target as unknown as {
-      readLog(...args: unknown[]): Promise<unknown>;
-    };
-    const original = internals.readLog.bind(target);
-    let reads = 0;
-    vi.spyOn(internals, "readLog").mockImplementation(async (...args) => {
-      const result = await original(...args);
-      reads++;
-      owner.release();
-      owner = ownAntigravitySession(scope, ID);
-      let boundary: object = resumedAt;
-      if (reads >= 4) {
-        // A different file of the same shape, pinned by the final owner.
-        const replacement = `${logFile}.next`;
-        await writeFile(replacement, prompt("Asked") + reply(1, "Other"));
-        await rename(replacement, logFile);
-        const { dev, ino } = await stat(logFile);
-        boundary = { ...resumedAt, dev, ino };
-      }
-      owner.open(boundary as typeof resumedAt);
-      owner.record({
-        type: "user",
-        uuid: `live-${reads}`,
-        message: { role: "user", content: `Live ${reads}` },
-      });
-      return result;
-    });
-    try {
-      const loaded = await target.getSession(
-        ID,
-        toUrlProjectId(project),
-        undefined,
-        { tailCompactions: 2 },
-      );
-      expect(reads).toBe(4);
-      expect(loaded?.transcriptComplete).toBe(false);
-      // The old file's rows are not the final owner's history.
-      expect(uuids(loaded)).toEqual([`${ID}:history-unavailable`, "live-4"]);
-    } finally {
-      owner.release();
-    }
-  });
-
-  it("answers with the last read, marked incomplete, when the owner changes during every read", async () => {
-    const conversations = await store("a", logged);
-    const scope = await realpath(conversations);
-    const target = reader(conversations);
-    let owner = ownAntigravitySession(scope, ID);
-    owner.open(resumedAt);
-    const internals = target as unknown as {
-      readLog(...args: unknown[]): Promise<unknown>;
-    };
-    const original = internals.readLog.bind(target);
-    let reads = 0;
-    vi.spyOn(internals, "readLog").mockImplementation(async (...args) => {
-      const result = await original(...args);
-      // A distinct owner, at the same boundary, after every read.
-      reads++;
-      owner.release();
-      owner = ownAntigravitySession(scope, ID);
+        [undefined, { tailCompactions: 2, beforeMessageId: "live-prompt" }],
+        [`${ID}:step-0`, { tailCompactions: 2 }],
+        ["live-prompt", { tailCompactions: 2 }],
+      ];
+      const owner = own(scope, ID);
       owner.open(resumedAt);
       owner.record({
         type: "user",
-        uuid: `live-${reads}`,
-        message: { role: "user", content: `Live ${reads}` },
+        uuid: "live-prompt",
+        message: { role: "user", content: "Next" },
       });
-      return result;
+      try {
+        // Intact: every form is complete.
+        for (const [after, options] of requests)
+          expect(
+            (await target.getSession(ID, projectId, after, options))
+              ?.transcriptComplete,
+            JSON.stringify([after, options]),
+          ).toBeUndefined();
+        for (const damage of ["unlinked", "truncated"]) {
+          if (damage === "unlinked") await rm(logFile);
+          else await writeFile(logFile, prompt("Ask"));
+          for (const [after, options] of requests) {
+            const loaded = await target.getSession(
+              ID,
+              projectId,
+              after,
+              options,
+            );
+            const label = JSON.stringify([damage, after, options]);
+            expect(loaded?.transcriptComplete, label).toBe(false);
+            // One row says the earlier history cannot be shown; the owner's
+            // rows are still served (a page before a log row is older than
+            // all of them).
+            const ids = uuids(loaded);
+            expect(ids[0], label).toBe(`${ID}:history-unavailable`);
+            if (
+              "beforeMessageId" in options &&
+              options.beforeMessageId !== "live-prompt"
+            )
+              expect(ids, label).toHaveLength(1);
+            else expect(ids, label).toContain("live-prompt");
+          }
+        }
+      } finally {
+        owner.release();
+      }
     });
-    try {
-      const loaded = await target.getSession(
+
+    it("serves only the final owner's rows when the log was replaced on the last handoff", async () => {
+      const conversations = await store("a", logged);
+      const scope = await realpath(conversations);
+      const target = reader(conversations);
+      const logFile = join(
+        root,
+        "a",
+        "brain",
         ID,
-        toUrlProjectId(project),
-        undefined,
-        { tailCompactions: 2 },
+        ".system_generated",
+        "logs",
+        "transcript_full.jsonl",
       );
-      expect(reads).toBeGreaterThan(1);
-      expect(loaded?.transcriptComplete).toBe(false);
-      expect(uuids(loaded)).toEqual([
-        `${ID}:step-0`,
-        `${ID}:step-1:text`,
-        `live-${reads}`,
-      ]);
-    } finally {
-      owner.release();
-    }
+      let owner = own(scope, ID);
+      owner.open(resumedAt);
+      const internals = target as unknown as {
+        readLog(...args: unknown[]): Promise<unknown>;
+      };
+      const original = internals.readLog.bind(target);
+      let reads = 0;
+      vi.spyOn(internals, "readLog").mockImplementation(async (...args) => {
+        const result = await original(...args);
+        reads++;
+        owner.release();
+        owner = own(scope, ID);
+        let boundary: object = resumedAt;
+        if (reads >= 4) {
+          // A different file of the same shape, pinned by the final owner.
+          const replacement = `${logFile}.next`;
+          await writeFile(replacement, prompt("Asked") + reply(1, "Other"));
+          await rename(replacement, logFile);
+          const { dev, ino } = await stat(logFile);
+          boundary = { ...resumedAt, dev, ino };
+        }
+        owner.open(boundary as typeof resumedAt);
+        owner.record({
+          type: "user",
+          uuid: `live-${reads}`,
+          message: { role: "user", content: `Live ${reads}` },
+        });
+        return result;
+      });
+      try {
+        const loaded = await target.getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          { tailCompactions: 2 },
+        );
+        expect(reads).toBe(4);
+        expect(loaded?.transcriptComplete).toBe(false);
+        // The old file's rows are not the final owner's history.
+        expect(uuids(loaded)).toEqual([`${ID}:history-unavailable`, "live-4"]);
+      } finally {
+        owner.release();
+      }
+    });
+
+    it("answers with the last read, marked incomplete, when the owner changes during every read", async () => {
+      const conversations = await store("a", logged);
+      const scope = await realpath(conversations);
+      const target = reader(conversations);
+      let owner = own(scope, ID);
+      owner.open(resumedAt);
+      const internals = target as unknown as {
+        readLog(...args: unknown[]): Promise<unknown>;
+      };
+      const original = internals.readLog.bind(target);
+      let reads = 0;
+      vi.spyOn(internals, "readLog").mockImplementation(async (...args) => {
+        const result = await original(...args);
+        // A distinct owner, at the same boundary, after every read.
+        reads++;
+        owner.release();
+        owner = own(scope, ID);
+        owner.open(resumedAt);
+        owner.record({
+          type: "user",
+          uuid: `live-${reads}`,
+          message: { role: "user", content: `Live ${reads}` },
+        });
+        return result;
+      });
+      try {
+        const loaded = await target.getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          { tailCompactions: 2 },
+        );
+        expect(reads).toBeGreaterThan(1);
+        expect(loaded?.transcriptComplete).toBe(false);
+        expect(uuids(loaded)).toEqual([
+          `${ID}:step-0`,
+          `${ID}:step-1:text`,
+          `live-${reads}`,
+        ]);
+      } finally {
+        owner.release();
+      }
+    });
   });
 });

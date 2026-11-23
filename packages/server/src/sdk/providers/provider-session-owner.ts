@@ -8,7 +8,8 @@ import {
 } from "../../agent-api/controller-protocol.js";
 import { CoreApiError, type ApiReadPort } from "../../core-api/service.js";
 import type { PermissionMode } from "@yep-anywhere/shared";
-import type { MessageQueue } from "../messageQueue.js";
+import type { AgentMessageQueue, MessageQueue } from "../messageQueue.js";
+import { WorkerNativeOwner } from "./provider-session-native-owner.js";
 import type {
   ProviderActivitySnapshot,
   ProviderRetentionSnapshot,
@@ -157,6 +158,12 @@ export class ProviderSessionOwner {
   private boundIdentity: BoundRuntimeIdentity | undefined;
   private creationInputConsumed = false;
 
+  private readonly nativeOwner = new WorkerNativeOwner(
+    (message) => this.emitController(message),
+    () => this.sequence,
+    () => this.acknowledgedSequence,
+  );
+
   constructor(private readonly options: ProviderSessionOwnerOptions) {}
 
   setCreationIdentity(value: unknown): void {
@@ -258,6 +265,9 @@ export class ProviderSessionOwner {
           this.publishCreationEvidence();
         }
       },
+      nativeOwnerHost: this.nativeOwner.host(),
+      observeNativeStore: (listener) => this.nativeOwner.observeStore(listener),
+      markOutputDelivery: () => this.nativeOwner.markDelivery(),
       onAgentApiRead: (operation, _caller, input = {}) =>
         this.requestAgentApiRead(operation, input),
       onToolApproval: (toolName, input, approvalOptions) =>
@@ -346,12 +356,20 @@ export class ProviderSessionOwner {
         probeLiveness: Boolean(session.probeLiveness),
         getProviderActivity: Boolean(session.getProviderActivity),
         getProviderRetention: Boolean(session.getProviderRetention),
+        retentionReadReconciles: session.retentionReadReconciles === true,
         refreshPromptCache: Boolean(session.refreshPromptCache),
         publishAgentctlSessionId: Boolean(
           session.publishAgentctlSessionId || this.agentctlSessionEnvBridge,
         ),
         steer: Boolean(session.steer),
         steerUsesMessageQueue: session.steerUsesMessageQueue,
+        steerConsumptionReported: session.steerConsumptionReported === true,
+        queueHold: Boolean(
+          (session.queue as AgentMessageQueue).setConfigurationInputHeld,
+        ),
+        consumerIdle: Boolean(
+          (session.queue as AgentMessageQueue).onConsumerIdle,
+        ),
         appendConversationContext: Boolean(session.appendConversationContext),
         mcpAppRequest: Boolean(session.mcpAppRequest),
         instructionRestoration: Boolean(
@@ -454,6 +472,11 @@ export class ProviderSessionOwner {
     if (this.attachedController?.id !== controllerId) return;
     const generation = this.attachedController.generation;
     this.session?.setAgentApiControllerAttached?.(false);
+    // A configuration change the detached Process held input for cannot
+    // finish on its side; the provider's own pending change still holds.
+    (
+      this.session?.queue as AgentMessageQueue | undefined
+    )?.setConfigurationInputHeld?.(false);
     for (const pending of [...this.pendingAgentReads.values()])
       pending.finish(
         new CoreApiError(
@@ -516,6 +539,14 @@ export class ProviderSessionOwner {
       queue.removeByTempId(String(request.tempId));
       return;
     }
+    // Process's configuration hold and idle report, for providers that wait
+    // on them (Antigravity), and the native store changes it observes.
+    const queue = () => this.requireSession().queue as AgentMessageQueue;
+    if (request.type === "queueHold")
+      return queue().setConfigurationInputHeld?.(request.held === true);
+    if (request.type === "consumerIdle") return queue().onConsumerIdle?.();
+    if (request.type === "nativeStoreChanged")
+      return this.nativeOwner.storeChanged();
     if (request.type === "approvalResult") {
       const pending = this.pendingApprovals.get(String(request.requestId));
       if (!pending) return;
@@ -571,6 +602,7 @@ export class ProviderSessionOwner {
       providerActivity: this.providerActivity,
       providerRetention: this.providerRetention,
       appliedPermissionMode: this.appliedPermissionMode,
+      nativeOwner: this.nativeOwner.snapshot(),
       providerSessionId: this.providerSessionId,
       steering: this.steering,
       ...(this.boundIdentity ? { binding: this.boundIdentity } : {}),
@@ -1041,6 +1073,7 @@ export class ProviderSessionOwner {
       );
     }
     this.acknowledgedSequence = sequence;
+    this.nativeOwner.acknowledge(sequence);
     let removeCount = 0;
     let removeBytes = 0;
     for (const event of this.events) {
@@ -1080,6 +1113,12 @@ export class ProviderSessionOwner {
         );
       case "drainQueue":
         return session.queue.drain();
+      case "readProviderRetention":
+        // The read itself may settle native evidence; a change is published.
+        session.getProviderRetention?.();
+        return undefined;
+      case "readNativeOwner":
+        return this.nativeOwner.read(args[0]);
       case "probeLiveness":
         return await session.probeLiveness?.();
       case "refreshPromptCache":

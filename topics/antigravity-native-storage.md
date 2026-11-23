@@ -1244,6 +1244,25 @@ except that no split was proven and the cap bounded the rows. A
 never-prompted conversation resumed with no earlier context and its first
 log record at step 0. No `session/load` was sent.
 
+## In the Provider Host — plan 195 step 9
+
+Observed while moving the owner into a Provider Host worker, on `agy`
+1.5.13 and 1.5.14 with the scripted model (macOS arm64, the app cases in
+`app-antigravity-hosted-reload.test.ts`):
+
+- `agy` depends on nothing in YA's backend. With the backend killed and
+  the wrapper held, `agy` kept streaming a turn, ran a scheduled task's wake
+  to its end and logged both; the worker buffered the output and the
+  replacement backend received it in order.
+- The worker's `agy` runs in the worker's own process group (the host
+  reports no separate provider process group for it), so the host's
+  teardown of the worker reaps it; after idle reap neither process is left.
+- After the worker was reaped and the conversation resumed with
+  `session/resume`, the next model request carried a system message after
+  the user's prompt: "[Notice] All your subagents and background tasks have
+  been stopped due to server restart. ...". `agy` adds it on resume; YA
+  sends nothing of the kind.
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:
@@ -1358,6 +1377,8 @@ The existing readers follow these constraints, and a new reader should too:
 - What database `status` 5 means, and why ACP replay omits the thinking and
   calls of those steps but keeps their text.
 
-The [large-history gap](../gaps/antigravity-large-history-and-replay-ownership.md)
-is the reason these matter: it asks whether the log can serve a bounded,
-read-only view of a root conversation.
+These mattered to
+[plan 195](../docs/tactical/195-antigravity-native-history.md), which asked
+whether the log could serve a bounded, read-only view of a root
+conversation; since its last step every read of one does, with the owner
+in the backend or in a Provider Host worker.

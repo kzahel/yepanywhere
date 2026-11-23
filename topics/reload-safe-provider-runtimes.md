@@ -1061,6 +1061,23 @@ proves:
 - completed output is neither lost nor duplicated; and
 - idle teardown leaves no provider or transport process behind.
 
+Antigravity earned the claim on 2026-11-23 (plan 195 step 9) on macOS arm64,
+with real `agy` 1.5.13 and 1.5.14 against the scripted model, through the real
+wrapper, host, worker and backend
+(`packages/server/test/native-app/app-antigravity-hosted-reload.test.ts`). A
+turn streams with no backend at all (the wrapper held, the backend killed),
+and its output appears once after the replacement attaches. A permission
+request pending across a reload is answered once on the replacement and
+`agy` writes once; a patient message queued before it is delivered once; a
+steer after reattach reaches the same turn. Model and effort, Stop, a queued
+`/compact` with the message behind it, and a second scheduled reload each act
+once, on the same worker and `agy`. A detached wake that starts and ends with
+no backend is shown once and settles. Idle reap leaves no worker or `agy`
+process, and the conversation resumes afterwards. Its window stays in the
+worker; what the backend reads of it, and how a replacement rebuilds that, is
+in [Antigravity in the Provider Host](antigravity.md#in-the-provider-host).
+Linux and hosted CI have not run it.
+
 For remote executor sessions, the local worker owns the SSH transport and its
 provider SDK state. The remote provider PID alone remains insufficient. The
 local worker boundary is complete; its release validation still needs to prove

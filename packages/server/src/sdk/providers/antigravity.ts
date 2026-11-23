@@ -350,6 +350,7 @@ export class AntigravityProvider implements AgentProvider {
         ? {
             steer: async (message: UserMessage) =>
               controls.steer?.(message) ?? false,
+            steerConsumptionReported: true,
           }
         : {}),
       supportedModels: async () => controls.models ?? this.getAvailableModels(),
@@ -381,6 +382,7 @@ export class AntigravityProvider implements AgentProvider {
         controls.reconcileSubagents?.({ silent: true });
         return background.snapshot();
       },
+      retentionReadReconciles: true,
       abort: async () => {
         controller.abort();
         await runtime.close();
@@ -558,6 +560,7 @@ export class AntigravityProvider implements AgentProvider {
         owner = ownAntigravitySession(
           namespace.storageScope,
           options.resumeSessionId,
+          options.nativeOwnerHost,
         );
       runtime.onPermission = (params, requestSignal) =>
         this.permissionUntil(params, options, signal, requestSignal);
@@ -657,7 +660,11 @@ export class AntigravityProvider implements AgentProvider {
       const id = parseNativeSessionId(
         options.resumeSessionId || setup.sessionId,
       );
-      owner ??= ownAntigravitySession(namespace.storageScope, id);
+      owner ??= ownAntigravitySession(
+        namespace.storageScope,
+        id,
+        options.nativeOwnerHost,
+      );
       controls.id = id;
       controls.models = buildAntigravityModels(setup);
       let configOptions: AntigravityConfigOption[] = setup.configOptions ?? [];
@@ -832,6 +839,7 @@ export class AntigravityProvider implements AgentProvider {
         boundary,
         antigravitySplitCheck(namespace.storageScope, id),
         "earlier" in opened ? opened.earlier : undefined,
+        options.markOutputDelivery,
       );
       liveWindow = live;
       const sampler = new AntigravitySplitSampler(namespace.storageScope, id);

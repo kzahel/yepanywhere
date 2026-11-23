@@ -56,6 +56,7 @@ export {
 } from "./codex.js";
 
 import { antigravityProvider } from "./antigravity.js";
+import { hostedAntigravityOwnerLink } from "./antigravity-owners.js";
 // Grok Build ACP provider (uses `grok agent stdio`)
 // Phase 1 isolated addition per topics/grok.md. Gated by ENABLED_PROVIDERS=grok.
 import { grokACPProvider } from "./grok-acp.js";
@@ -216,10 +217,18 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
           options: Parameters<AgentProvider["startSession"]>[0],
         ) => {
           await assertAndroidWorkspaceAvailable(options.cwd);
+          // Readers here join a hosted Antigravity owner with the log; a
+          // resumed conversation is held from before its worker starts.
+          const hostedNativeOwner =
+            target.name === "antigravity"
+              ? hostedAntigravityOwnerLink()
+              : undefined;
+          hostedNativeOwner?.expect(options.nativeResumeSource?.native);
           return startHostedProviderSession(
             target.name,
             {
               ...options,
+              ...(hostedNativeOwner ? { hostedNativeOwner } : {}),
               launchModel: target.resolveLaunchModel?.(options.model),
               // The worker holds no catalog, so the endpoint is decided here,
               // from the one this process reads for the model picker.
@@ -233,7 +242,11 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
                 : {}),
             },
             getProviderRuntimeSnapshot(),
-          );
+          ).catch((error: unknown) => {
+            // Never attached: the host reaps the worker at its deadline.
+            hostedNativeOwner?.end("unattached");
+            throw error;
+          });
         };
       }
       const value = Reflect.get(target, property, target) as unknown;
@@ -247,7 +260,7 @@ function hostedProvider(rawProvider: AgentProvider): AgentProvider {
 export { isProviderRuntimeHostAvailable };
 
 function runtimeProvider(rawProvider: AgentProvider): AgentProvider {
-  if (rawProvider.name === "antigravity" || !isProviderRuntimeHostAvailable())
+  if (!isProviderRuntimeHostAvailable())
     return new Proxy(rawProvider, {
       get(target, property) {
         if (property === "runtimeOwner") return "local";

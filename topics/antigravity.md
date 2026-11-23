@@ -1,8 +1,8 @@
 # Antigravity provider
 
 Status: **experimental and listed by default when installed.** Basic foreground
-work is usable. Patient delivery, detached work and scheduled backend reload
-still have reproduced correctness gaps. The primary integration
+work is usable. Patient delivery and detached work still have reproduced
+correctness gaps. The primary integration
 runs Google's `agy acp` against the user's native login and store. Legacy Gemini
 history retains its original provider and identity.
 
@@ -21,14 +21,14 @@ child-tree teardown qualification. YA runs `agy` 1.5.13 or later only; see
 | Patient delivery | YA saves patient intent durably and waits through retained native work and its root wake. The item's quiet interval starts at verified idle. An ordinary deferred message can deliver at the foreground turn boundary. [YA delivery rules](message-control-steer-queue-btw-later-interrupt.md#delivery-intent-behavior-matrix) · [Overlapping wakes](../gaps/antigravity-overlapping-wake-inbox.md) |
 | Detached work | Known shell tasks, schedules and native subagents appear in live work state. An unsettled root wake retains its owner across the last task ending and the root generating a reply. Metadata and the session stream report its activity. [Provider settlement evidence](provider-wait-and-background-work.md#recorded-work) |
 | Cold history and resume | Cold history comes from `agy`'s brain log a page at a time, starting no `agy` and writing nothing but [SQLite's sidecars for the summaries index](../gaps/antigravity-summaries-read-creates-sqlite-sidecars.md); see [cold history from the log](#cold-history-from-the-log). Resume uses ACP `session/resume`, which replays nothing: the resumed session's view is the log through its resume point plus the owner's own rows ([resume](#resume-and-the-live-view)). A live session keeps a bounded recent window in memory and the log serves the rest, so it runs however long it lasts ([live memory](#live-memory)). YA never replays history through ACP `session/load` (removed in plan 195 step 8): a missing or unreadable log is shown as one row saying the earlier history cannot be shown, and the conversation still resumes with `session/resume`, keeping the context `agy` holds in its database ([history YA cannot show](#history-ya-cannot-show)). |
-| Backend reload | `agy` is backend-local. Scheduled reload waits for retained work and checks blockers again at the wrapper handoff. Immediate restart can interrupt the session and records it in the shutdown log. [Reload contract](reload-safe-provider-runtimes.md#reload-ux-and-compatibility) |
+| Backend reload | Where the Provider Host is available, the owner runs in a Provider Host worker (plan 195 step 9), so a reload, scheduled or immediate, or a crashed backend leaves the session running: the replacement reattaches and rebuilds its view of the owner from the worker. A turn, a pending permission request, a patient message and a detached wake survive it, each shown and delivered once, and control after it is single-writer; idle reap leaves no `agy`. Real `agy` 1.5.13 and 1.5.14 on macOS arm64 ([app cases](../packages/server/test/native-app/app-antigravity-hosted-reload.test.ts)); Linux and hosted CI not run. Without the host the owner stays in the backend: a scheduled reload waits for its work and an immediate one interrupts it. [In the Provider Host](#in-the-provider-host) · [Reload contract](reload-safe-provider-runtimes.md#shared-worker-providers) |
 | Other controls | Model and effort changes and advertised `/compact` are implemented. A verified native checkpoint gates delivery of messages queued after compaction. Permission prompts reach the approval handler in default and accept-edits sessions. Real `agy` cases cover Allow, Deny and Stop for the tested `write_file` and `run_command` calls, and each offered mode. Inline images/documents, rewind and fork remain unavailable. |
 
 The [native lifecycle tests](../packages/server/test/native-app/app-antigravity-gap-repros.test.ts)
-use real `agy` with a scripted model. They cover idle reap and scheduled
-reload during detached replies, patient delivery after settlement, and late
-foreground admission at the wrapper handoff. One scenario follows a wake
-through patient delivery, safe reload, and reopening the final history. The
+use real `agy` with a scripted model. They cover idle reap during detached replies and patient delivery after
+settlement; the [hosted reload cases](../packages/server/test/native-app/app-antigravity-hosted-reload.test.ts)
+follow a turn, a permission request, a patient message and a detached wake
+through a reload and with no backend at all. The
 [upgrade checks](native-provider-testing.md#checking-an-antigravity-upgrade-candidate)
 can run with an explicitly selected `agy` version.
 
@@ -641,8 +641,9 @@ Every owner has a resume point.
 
 An owner holds the conversation from before its `agy` starts. Until its
 session is open, readers read the log as for a stopped conversation:
-nothing has been written past it. The preview uses a local in-process
-owner, even when the shared provider host is enabled.
+nothing has been written past it. Where the shared provider host is
+available the owner runs in a Provider Host worker
+([in the Provider Host](#in-the-provider-host)).
 
 ### Live memory
 
@@ -722,7 +723,9 @@ log serves everything through its boundary, as above.
   orphaned until the owner stops.
 - **Not too early.** A candidate is used only once Process's replay buckets
   holding every row before it have expired: 30 seconds after P was sent
-  plus a 5-second margin, measured on the monotonic clock. The buckets
+  plus a 5-second margin, measured on the monotonic clock (for an owner in
+  a Provider Host worker, from when the backend acknowledged every row
+  before P; see [in the Provider Host](#in-the-provider-host)). The buckets
   rotate on a timer, so an event-loop stall longer than the margin can
   leave a moved row in the buffer for a viewer that joins late, which then
   receives it under its old ID beside the log's copy until its next
@@ -805,7 +808,10 @@ grace applies as for them.
 - **YA's own writes** are not evidence: anything written while YA's owner
   holds the conversation (from before its `agy` starts, so a resume under
   way is included), and anything written before it let go (remembered 30
-  seconds). An owner holds the conversation until its
+  seconds). An owner in a Provider Host worker holds it in the backend
+  from before its worker launches (from the backend's start, for a worker
+  a reload left running) and lets go at the release time the worker
+  published ([in the Provider Host](#in-the-provider-host)). An owner holds the conversation until its
   `agy` has exited, so this covers its turns, wakes, compactions, Stop, its
   close, and the idle close an `agy` makes about 30 seconds after its last
   write (a checkpoint of the database, no new step). A write after the
@@ -860,11 +866,80 @@ grace applies as for them.
   client leaves, with the poll every open page's watch already has. An
   owner adds one asynchronous stat per turn.
 
+### In the Provider Host
+
+Plan 195 step 9. Where the [shared Provider Host](reload-safe-provider-runtimes.md#shared-provider-host-architecture)
+is available, an Antigravity session's owner runs in a Provider Host
+worker like every other provider's: its `agy`, the ACP client, the live
+window with its split candidates, checks, cut rows and retired-ID ring,
+the permission requests, the detached-work tracker and the queued input
+all live in the worker, so a backend reload or a backend crash no longer
+ends the session ([backend reload](#support-status--2026-11-22)). Without
+the host (Windows, a disabled host, a host that could not start) the same
+owner code runs in the backend, as before, and a reload interrupts it. Only
+where readers find the owner differs.
+
+- **What the backend keeps.** That a hosted owner holds the conversation,
+  from before its `agy` starts (a resume names its conversation before the
+  worker launches; a new session's owner is known once `agy` created it)
+  until that `agy` has exited, then the release time the worker published;
+  and the IDs the owner retired, as it publishes them. Every attach
+  carries a snapshot of both, so a replacement backend rebuilds them from
+  the worker rather than from the message stream: the owner's state is a
+  current value, not a sequence to replay. The window itself stays in the
+  worker.
+- **Reads.** Every reader (the detail route, the v0 conversation source,
+  agent-session and mapping reads, the hover excerpt and frozen sharing)
+  asks the worker for the owner's view when it reads: its boundary,
+  generation, opened point, incompleteness, title and why earlier history
+  cannot be shown, and, in the same answer, the rows that go with that
+  boundary. A read checks the generation across its log read as for an
+  owner in the backend, so a row is never shown twice or lost between the
+  log and the rows. A catch-up after a live row takes only the rows from
+  that row on; the hover excerpt takes only the owner's newest prose. The
+  answers are the same in both places, as are
+  [another writer](#another-writer)'s rules: a hosted owner's own writes
+  are YA's.
+- **A view the backend cannot read.** Between a replacement backend's
+  start and its worker's reattach (and for 31 seconds after a reattach that
+  failed, until the host reaps the worker), a read shows the log alone,
+  through its end, marked `transcriptComplete: false` (v0: incomplete
+  coverage), and never marks the conversation external. A worker this
+  backend is still launching has written nothing past the log, so a read
+  then is the log, as for a stopped conversation.
+- **Split age.** A split candidate is used once Process's replay buffer
+  can no longer hold a row before it. For an owner in the backend that is
+  30 seconds plus a 5-second margin after the prompt was sent. For a hosted
+  owner it is the same interval after the attached backend acknowledged
+  every row before the prompt (its Process had applied them, so its buffer
+  held them from then): rows a replacement backend receives in its replay
+  after a reload are acknowledged, and so dated, when it applied them, and
+  a backend that has gone took its buffer with it. Both on the worker's
+  monotonic clock.
+- **What crosses.** Process's configuration hold and its idle report (the
+  point held permission requests are put to the user) reach the worker as
+  notices; a configuration hold a backend left behind is released when it
+  detaches, and a replacement that starts idle reports idle at once. The
+  summaries-index changes the backend's provider-root watcher observes are
+  forwarded to the worker, with one on every attach for changes made while
+  no backend was attached, so a detached wake that ended meanwhile still
+  settles. A retention read is passed on to the worker, one at a time,
+  because reading retention is where Antigravity checks its native
+  settlement evidence; the retention snapshot keeps its detached-reply
+  state across the process boundary. A steer's native consumption (its
+  prompt returned) reaches the backend's queue, so a v0 steer receipt
+  reports it consumed, without the steer ever being queued there.
+- **Reload.** A hosted owner's active turn, detached work and pending
+  permission request do not block a reload; queued messages still do,
+  as for every provider ([reload UX](reload-safe-provider-runtimes.md#reload-ux-and-compatibility)).
+  Idle reap tears the worker down through the host, leaving no `agy`.
+
 ### Live normalization and limits
 
 Owner projections survive YA's short transport replay window, are discarded
 on owner exit, and are never persisted as a substitute transcript. A second
-live owner of the same conversation in this process is refused. Concurrent
+live owner of the same conversation in one process is refused, and the
+Provider Host runs at most one worker per session. Concurrent
 use of the same conversation in a separate editor/CLI is not qualified
 ([another writer](#another-writer)).
 
@@ -1086,11 +1161,12 @@ Before the first discovery pass, the concrete splits were:
    source-version and disposal owners. Bound native subprocess allocation
    across readers, not just inside each reader. Antigravity history reads
    start no native process since plan 195 step 8 (they read the brain log),
-   so its reads need no subprocess budget; its live owner still lives in
-   one process's registry, which the backend reader consults. Reusing the
-   existing provider-session owner is preferable to expanding the preview's isolated
-   in-process ownership map into a second lifecycle system. Shared-host support
-   needs its own qualification; a local memory guard is not a cross-process lock.
+   so its reads need no subprocess budget. Since plan 195 step 9 its live
+   owner runs in the existing provider-session owner of a Provider Host
+   worker where the host is available, and the backend registry holds only
+   a copy of what that owner publishes
+   ([in the Provider Host](#in-the-provider-host)); that copy is not a
+   cross-process lock.
 
 This pass should remove Antigravity's parallel project-inventory path and
 reduce generic provider switches where the common registration is actually

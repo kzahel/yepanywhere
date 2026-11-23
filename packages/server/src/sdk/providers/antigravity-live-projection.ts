@@ -64,7 +64,22 @@ export interface AntigravitySplitCandidate {
   ino?: number;
   /** When it was sent, on the monotonic clock. */
   at: number;
+  /**
+   * Hosted: when the backend had applied every row before it, on the
+   * monotonic clock; undefined until then ({@link AntigravityDeliveryClock}).
+   */
+  delivered?: () => number | undefined;
 }
+
+/**
+ * Where the rows' consumer is another process (a Provider Host worker's
+ * backend, plan 195 step 9): marks what has been yielded so far, and tells
+ * when the consumer had applied all of it (Process put it in its replay
+ * buffer and acknowledged it), on this process's monotonic clock, or
+ * undefined until it has. An owner in the backend's own process needs no
+ * clock: Process applies each row before the provider resumes.
+ */
+export type AntigravityDeliveryClock = () => () => number | undefined;
 
 /**
  * The boundary a candidate proves under the current one; none when it
@@ -203,7 +218,7 @@ export class AntigravityLiveProjection {
   /** Held rows stored cut: the view is not complete while one is held. */
   private readonly cut = new Set<string>();
   /** IDs of rows that left memory (moved or evicted), oldest first. */
-  private readonly retiredIds = new Set<string>();
+  private readonly retiredIds_ = new Set<string>();
   private candidates: AntigravitySplitCandidate[] = [];
   private checking = false;
   /**
@@ -221,12 +236,25 @@ export class AntigravityLiveProjection {
   /** The boundary the owner opened at: log rows after it were once live. */
   readonly opened: AntigravityLogBoundary;
 
+  private readonly now: () => number;
+  private readonly delivery?: AntigravityDeliveryClock;
+  private readonly onRetired?: (ids: string[]) => void;
+
   constructor(
     public boundary: AntigravityLogBoundary,
     private readonly check?: AntigravitySplitCheck,
-    private readonly now: () => number = () => performance.now(),
+    options: {
+      now?: () => number;
+      /** The consumer is in another process: see {@link AntigravityDeliveryClock}. */
+      delivery?: AntigravityDeliveryClock;
+      /** IDs that left memory, in the order they left. */
+      onRetired?: (ids: string[]) => void;
+    } = {},
   ) {
     this.opened = { ...boundary };
+    this.now = options.now ?? (() => performance.now());
+    this.delivery = options.delivery;
+    this.onRetired = options.onRetired;
   }
 
   /** Whether the cap evicted rows the log does not serve yet, or a held row is cut. */
@@ -246,11 +274,27 @@ export class AntigravityLiveProjection {
    * `capRows` retired IDs are remembered.
    */
   retired(id: string): boolean {
-    return this.retiredIds.has(id);
+    return this.retiredIds_.has(id);
   }
-  /** A copy of the rows, oldest first. */
-  history(): SDKMessage[] {
-    return structuredClone([...this.rows.values()].map((row) => row.message));
+  /**
+   * A copy of the rows, oldest first; from `from` on when this holds it.
+   */
+  history(from?: string): SDKMessage[] {
+    const rows: SDKMessage[] = [];
+    let taking = from === undefined || !this.rows.has(from);
+    for (const [id, row] of this.rows) {
+      taking ||= id === from;
+      if (taking) rows.push(row.message);
+    }
+    return structuredClone(rows);
+  }
+  /** The rows themselves, oldest first, for a read-only scan now. */
+  peek(): readonly SDKMessage[] {
+    return [...this.rows.values()].map((row) => row.message);
+  }
+  /** The remembered retired IDs, oldest first. */
+  retiredIds(): string[] {
+    return [...this.retiredIds_];
   }
 
   record(message: SDKMessage): void {
@@ -294,6 +338,8 @@ export class AntigravityLiveProjection {
     if (this.closed || !this.check) return;
     const last = this.candidates.at(-1);
     if (last && last.seq >= candidate.seq) return;
+    if (this.delivery && !candidate.delivered)
+      candidate = { ...candidate, delivered: this.delivery() };
     this.candidates.push(candidate);
     while (this.candidates.length > CANDIDATES) {
       let drop = 1;
@@ -337,10 +383,18 @@ export class AntigravityLiveProjection {
       return;
     const ready = this.now() - limits.splitAgeMs;
     // The newest old enough, passing over those pending with no new row.
+    // Its age runs from when Process had every row before it: at once in
+    // this process; at the backend's acknowledgement for a hosted owner.
     let candidate: AntigravitySplitCandidate | undefined;
-    for (const entry of this.candidates)
-      if (entry.at <= ready && this.pending.get(entry) !== this.nextSeq)
+    for (const entry of this.candidates) {
+      const at = entry.delivered ? entry.delivered() : entry.at;
+      if (
+        at !== undefined &&
+        at <= ready &&
+        this.pending.get(entry) !== this.nextSeq
+      )
         candidate = entry;
+    }
     if (!candidate) return;
     const started = this.nextSeq;
     const foreignWrites = this.foreignWrites;
@@ -364,12 +418,15 @@ export class AntigravityLiveProjection {
     candidate: AntigravitySplitCandidate,
     boundary: AntigravityLogBoundary,
   ): void {
+    const retired: string[] = [];
     for (const [id, row] of this.rows) {
       if (row.seq >= candidate.seq) break;
       this.bytes -= row.bytes;
       this.rows.delete(id);
       this.retire(id);
+      retired.push(id);
     }
+    if (retired.length) this.onRetired?.(retired);
     this.candidates = this.candidates.filter((c) => c.seq > candidate.seq);
     if (this.droppedSeq < candidate.seq) this.droppedSeq = -1;
     this.boundary = { ...boundary };
@@ -378,9 +435,9 @@ export class AntigravityLiveProjection {
 
   private retire(id: string): void {
     this.cut.delete(id);
-    this.retiredIds.add(id);
-    if (this.retiredIds.size > limits.capRows)
-      this.retiredIds.delete(this.retiredIds.values().next().value!);
+    this.retiredIds_.add(id);
+    if (this.retiredIds_.size > limits.capRows)
+      this.retiredIds_.delete(this.retiredIds_.values().next().value!);
   }
 
   /** Within the cap: the oldest rows go, never the row just recorded. */
@@ -400,6 +457,7 @@ export class AntigravityLiveProjection {
       this.bytes -= row.bytes;
       this.droppedSeq = Math.max(this.droppedSeq, row.seq);
       this.retire(victim);
+      this.onRetired?.([victim]);
       this.generation++;
     }
   }
