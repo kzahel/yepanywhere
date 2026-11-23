@@ -85,6 +85,14 @@ export function createConversationSource(
     // reader would show the conversation.
     let ownerGeneration = 0;
     const departed = new Set<number>();
+    // An Antigravity owner resumed through the ACP replay fallback has no
+    // resume point: it replays the whole history (marked `isReplay`) under
+    // its own IDs, and the reader serves its whole projection. A baseline
+    // read before that holds the same turns under step IDs, so a replayed
+    // row makes the next read replace it even while the owner is in turn. An
+    // owner resumed from the log replays nothing and keeps its cheap attach.
+    let replayRevision = 0;
+    let baselineReplayRevision = 0;
     const drop = () => {
       failed = true;
       dirty = true;
@@ -96,6 +104,8 @@ export function createConversationSource(
       // Finalized provider records and YA's identity-preserving user echoes are
       // usable now. Raw token frames need a separate block assembler.
       if (raw.type === "stream_event" || raw._isStreaming === true) return;
+      if (raw.isReplay === true && process?.provider === "antigravity")
+        replayRevision++;
       if (!["assistant", "user", "error", "system"].includes(String(raw.type)))
         return;
       let message = markSubagent(
@@ -274,8 +284,10 @@ export function createConversationSource(
           row?.location.kind === "file" &&
           (!baseline ||
             departed.size > 0 ||
+            baselineReplayRevision !== replayRevision ||
             (dirty && process?.state.type !== "in-turn"))
         ) {
+          const replayAtReadStart = replayRevision;
           const liveAtReadStart = new Map(live);
           const departedAtReadStart = new Set(departed);
           const observedRevision = durableRevision;
@@ -300,6 +312,7 @@ export function createConversationSource(
           // the read can hold beyond its boundary; its rows join from here.
           if (row.catalogFamily === "antigravity") attachProcess();
           baseline = { ...result, sessionId };
+          baselineReplayRevision = replayAtReadStart;
           if (settledAtReadStart && observedRevision === durableRevision) {
             liveLimits.clear();
             liveOmittedPrefix = false;

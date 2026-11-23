@@ -60,6 +60,8 @@ export function planAntigravityJoin(
             kind: "join",
             request: { kind: "latest", compactions: request.compactions },
           };
+    case "head":
+      return { kind: "log", request };
   }
 }
 
@@ -89,6 +91,25 @@ export function sameAntigravitySplit(
     : after?.state !== "open";
 }
 
+/**
+ * A window cut to an owner's boundary: a read taken under another split
+ * keeps no log row past the history the owner's rows begin after.
+ */
+export function throughAntigravityBoundary(
+  conversationId: string,
+  window: AntigravityLogWindow,
+  boundary: AntigravityLogBoundary,
+): AntigravityLogWindow {
+  if (window.status !== "known") return window;
+  return {
+    ...window,
+    messages: window.messages.filter((message) => {
+      const step = antigravityMessageStep(conversationId, String(message.uuid));
+      return step === undefined || step <= boundary.step;
+    }),
+  };
+}
+
 /** One read of a conversation, divided between the log and an owner. */
 export type AntigravitySessionRead =
   /** An owner whose projection is the whole history. */
@@ -101,8 +122,12 @@ export type AntigravitySessionRead =
       live?: Message[];
       /** Whether the log was read as a page of this request. */
       paged: boolean;
-      /** The log's first prompt, when the window was not read. */
-      firstPrompt?: string;
+      /**
+       * Earlier history the answer cannot supply: an open owner's log is
+       * missing or unknown through its boundary, or the owner kept
+       * changing during every read.
+       */
+      incomplete?: boolean;
     }
   /** The log is missing or unknown and no owner holds the conversation. */
   | { kind: "fallback" };
@@ -138,7 +163,7 @@ export function antigravityJoinedSession(
   const messages = [...(known?.messages ?? []), ...(live ?? [])];
   // The conversation's first prompt, from the log: a resumed owner's own
   // prompt never titles it.
-  const title = known?.firstPrompt ?? read.firstPrompt;
+  const title = known?.firstPrompt;
   if (title !== undefined) {
     summary.title = title.slice(0, 120);
     summary.fullTitle = title;
@@ -147,7 +172,7 @@ export function antigravityJoinedSession(
   summary.model = lastModel(messages);
   return {
     summary,
-    ...(!known && window.status !== "missing"
+    ...(read.incomplete || window.status === "unknown"
       ? { transcriptComplete: false as const }
       : {}),
     transcriptSnapshotUpdatedAt: mtime.toISOString(),

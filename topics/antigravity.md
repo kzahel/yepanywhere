@@ -507,9 +507,8 @@ exactly one, with no row twice and none missing at the resume point:
 
 - the log **through the resume point**, a page at a time with
   [step IDs](#cold-history-from-the-log); a window reads the file as if it
-  ended there, and a log whose record at the resume point is no longer that
-  step is unknown (the view is then the owner's rows alone, reported
-  incomplete);
+  ended there and reads nothing after it (a record still being written
+  past it costs nothing);
 - then **the owner's rows**, under their live IDs: everything it produced
   since, including steps the log has also recorded since, which are served
   from the owner until it exits.
@@ -527,12 +526,36 @@ exactly one, with no row twice and none missing at the resume point:
 
 Every answer's title is the conversation's first prompt from the log (a
 bounded read of the file's start when the log page itself was not read),
-never the resumed owner's own prompt. A read that an owner opened or closed
-under is read again, so a page never mixes one owner's split with
-another's. A new session's owner, and one
-resumed through the fallback, have no resume point: their projection is the
-whole history, as before step 5. Plan 195 step 6 bounds live memory by
-moving the resume point forward as the log catches up.
+never the resumed owner's own prompt. A live-row catch-up reads no records
+but still checks the log through the resume point.
+
+**Unavailable earlier history.** The resume point also pins the log file's
+device and inode. If, while the owner lives, the log is missing, has been
+replaced, is shorter than the resume point, or no longer has that step's
+record there, the history before the resume point is unavailable: every
+answer (latest, older pages, catch-ups, complete) carries the detail
+response's existing `transcriptComplete: false`, still serves the owner's
+rows (a page before a log row is then empty), and never starts the ACP
+fallback beside the owner. The v0 source reports that read as incomplete
+coverage with `earlierOutsideScope: "unknown"`. The browser does not read
+`transcriptComplete` for any provider today, so it shows such a view
+without a marker; no indicator was added in plan 195 step 5. An in-place
+edit of earlier records that keeps the resume point's step and offset is
+not detected; external writes belong to plan 195 step 7.
+
+A read that an owner opened, closed or moved the resume point of is read
+again, so a page never mixes one owner's split with another's. If the owner
+changes during four reads in a row, the last read is the answer: its log
+rows are cut to the current owner's resume point, the current owner's rows
+follow it where the request includes them, and it is marked
+`transcriptComplete: false`, rather than a missing conversation. A new
+session's owner, and one resumed through the fallback, have no resume
+point: their projection is the whole history, as before step 5. A v0
+observer that held the log's rows when such a fallback owner attached
+replaces them with the owner's whole projection at its next read, even
+while the owner is in turn, because that owner replays the history under
+its own IDs. Plan 195 step 6 bounds live memory by moving the resume point
+forward as the log catches up.
 
 A resumed owner is **starting** from the moment its provider iterator runs,
 before it is registered or holds the native lease, until its session is

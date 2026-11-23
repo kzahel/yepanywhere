@@ -442,4 +442,107 @@ describe("Antigravity reader over the log", () => {
       owner.release();
     }
   });
+
+  it("reports the history before an open boundary as unavailable once the log is gone, for every request", async () => {
+    const conversations = await store("a", logged);
+    const scope = await realpath(conversations);
+    const target = reader(conversations);
+    const logFile = join(
+      root,
+      "a",
+      "brain",
+      ID,
+      ".system_generated",
+      "logs",
+      "transcript_full.jsonl",
+    );
+    const projectId = toUrlProjectId(project);
+    const requests: Array<[string | undefined, object]> = [
+      [undefined, { tailCompactions: 2 }],
+      [undefined, {}],
+      [undefined, { tailCompactions: 2, beforeMessageId: `${ID}:step-1:text` }],
+      [undefined, { tailCompactions: 2, beforeMessageId: "live-prompt" }],
+      [`${ID}:step-0`, { tailCompactions: 2 }],
+      ["live-prompt", { tailCompactions: 2 }],
+    ];
+    const owner = ownAntigravitySession(scope, ID);
+    owner.open(resumedAt);
+    owner.record({
+      type: "user",
+      uuid: "live-prompt",
+      message: { role: "user", content: "Next" },
+    });
+    try {
+      // Intact: every form is complete.
+      for (const [after, options] of requests)
+        expect(
+          (await target.getSession(ID, projectId, after, options))
+            ?.transcriptComplete,
+          JSON.stringify([after, options]),
+        ).toBeUndefined();
+      for (const damage of ["unlinked", "truncated"]) {
+        if (damage === "unlinked") await rm(logFile);
+        else await writeFile(logFile, prompt("Ask"));
+        for (const [after, options] of requests) {
+          const loaded = await target.getSession(ID, projectId, after, options);
+          const label = JSON.stringify([damage, after, options]);
+          expect(loaded?.transcriptComplete, label).toBe(false);
+          // The owner's rows are still served (a page before a log row is
+          // older than all of them), and nothing is replayed.
+          if (
+            "beforeMessageId" in options &&
+            options.beforeMessageId !== "live-prompt"
+          )
+            expect(uuids(loaded), label).toEqual([]);
+          else expect(uuids(loaded), label).toContain("live-prompt");
+        }
+      }
+    } finally {
+      owner.release();
+    }
+  });
+
+  it("answers with the last read, marked incomplete, when the owner changes during every read", async () => {
+    const conversations = await store("a", logged);
+    const scope = await realpath(conversations);
+    const target = reader(conversations);
+    let owner = ownAntigravitySession(scope, ID);
+    owner.open(resumedAt);
+    const internals = target as unknown as {
+      readLog(...args: unknown[]): Promise<unknown>;
+    };
+    const original = internals.readLog.bind(target);
+    let reads = 0;
+    vi.spyOn(internals, "readLog").mockImplementation(async (...args) => {
+      const result = await original(...args);
+      // A distinct owner, at the same boundary, after every read.
+      reads++;
+      owner.release();
+      owner = ownAntigravitySession(scope, ID);
+      owner.open(resumedAt);
+      owner.record({
+        type: "user",
+        uuid: `live-${reads}`,
+        message: { role: "user", content: `Live ${reads}` },
+      });
+      return result;
+    });
+    try {
+      const loaded = await target.getSession(
+        ID,
+        toUrlProjectId(project),
+        undefined,
+        { tailCompactions: 2 },
+      );
+      expect(reads).toBeGreaterThan(1);
+      expect(loaded?.transcriptComplete).toBe(false);
+      expect(uuids(loaded)).toEqual([
+        `${ID}:step-0`,
+        `${ID}:step-1:text`,
+        `live-${reads}`,
+      ]);
+    } finally {
+      owner.release();
+    }
+  });
 });

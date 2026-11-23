@@ -40,8 +40,10 @@ Records from before all three checkpoints remain in the log. Cold ACP history
 in YA omits checkpoint boundaries. This sample leaves native behavior on
 hundreds-of-megabytes histories unmeasured. A separate short `agy` 1.5.14 probe
 with scripted inference verified that `session/resume` emitted no prior
-messages and preserved prior context in the next model request. YA's cold
-continuation still uses `session/load`.
+messages and preserved prior context in the next model request. That was
+the evidence before plan 195; since step 5, YA's cold continuation of a
+conversation with a readable log uses `session/resume`, and only a missing
+or unknown log still continues through `session/load`.
 
 Before selecting a fix, reproduce the size limit and the ownership races with
 controlled replay, then qualify real `agy` on a large compacted conversation.
@@ -59,7 +61,16 @@ with no `session/load`. Step 5 flipped the resume half: it resumes with no
 replayed message retained. The live cap remains for step 6. It also
 measured real `agy` 1.5.13 and 1.5.14 on a 7,261-step compacted
 conversation: `session/resume` answered in 37 ms with no replayed history
-and kept the compacted context. The ownership races remain unreproduced.
+and kept the compacted context. Step 5 also tests the ownership races it
+could reach with the controlled peer: a history read in the interval
+between a resumed process's registration and its native lease waits and
+issues no `session/load`, and one admitted just before the resume claims
+the conversation is refused right before `session/load`. What remains is
+the fallback itself (a missing or unknown log, for viewing or resuming),
+whose replay is still retained under the 8 MiB / 10,000-message cap; a v0
+observer that held the log's rows when a fallback owner attached replaces
+them at its next read (step 5 review round 1). Concurrent independent YA
+servers and other native programs remain unqualified.
 [Measurements](../topics/antigravity-native-storage.md#measurements--plan-195-step-2)
 [Read-only native log reader](../packages/server/src/sessions/antigravity-subagent-links.ts#L1050) ·
 [Native storage and log format](../topics/antigravity-native-storage.md) ·

@@ -846,6 +846,27 @@ step 2 measurements of `session/resume` (no history streamed, the log and
 database unchanged, the summaries index's time changed) still apply; a
 resume therefore still produces a summaries-index change notification.
 
+A window with a resume point opens the file, checks that its device and
+inode are the ones recorded, that the file is at least as long as the
+offset, that the byte before the offset is a newline and that the record
+ending there has the recorded step. It reads nothing after the offset. In
+review, a generated log with an unchanged resume point and a 96 MiB
+unterminated record appended after it read 7,528 bytes for the latest page
+before the record was appended and 100,670,824 after; the window no longer
+looks for the file's physical end when it has a resume point, and the unit
+test bounds the read to the page's cost. A same-width in-place edit of an
+earlier record is not detected.
+
+**Never-prompted conversations.** The step 5 review measured an empty
+conversation (created, never prompted, no log) on 1.5.13 and 1.5.14, two
+samples per version: `session/load` took 136–140 ms and `session/resume`
+33–48 ms, neither streaming history. After either, the summaries index
+row had `step_count = 0` and the sentinel `last_modified_time`; a prompted
+fixture had `step_count = 2`. YA does not read `step_count`. It is a
+possible later way to resume a conversation with no log through
+`session/resume` instead of the fallback, if a zero proves reliable across
+stale rows and crash recovery. Not implemented.
+
 ## Runtime identity
 
 ACP `initialize` reports `agentInfo.version` equal to `agy --version`:

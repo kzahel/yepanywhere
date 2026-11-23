@@ -733,13 +733,49 @@ describe("Antigravity log windows", () => {
     }
   });
 
+  it("reads a page through a resume boundary without scanning an unterminated suffix after it", async () => {
+    await put([prompt(0), reply(1, "BEFORE_RESUME")]);
+    const { last: boundary } = await known({ kind: "latest", compactions: 2 });
+    const unbounded = await known({ kind: "latest", compactions: 2 });
+    // A record still being written after the resume point: no newline yet.
+    await appendFile(
+      logPath,
+      `${JSON.stringify(prompt(2)).slice(0, -1)},"content_tail":"${"u".repeat(96 * MiB)}`,
+    );
+    const bounded = await known(
+      { kind: "latest", compactions: 2 },
+      { boundary },
+    );
+    expect(textOf(bounded.messages)).toEqual(["PROMPT_0", "BEFORE_RESUME"]);
+    // About what the same page cost before the suffix, not the suffix.
+    expect(bounded.bytesRead).toBeLessThan(unbounded.bytesRead + 8 * 1024);
+  });
+
+  it("reads a log replaced since its resume point as unknown, even with the same bytes", async () => {
+    await put([prompt(0), reply(1, "BEFORE_RESUME")]);
+    const { last: boundary } = await known({ kind: "latest", compactions: 2 });
+    expect(boundary).toMatchObject({ step: 1 });
+    const copy = join(root, "copy.jsonl");
+    await writeFile(copy, await readFile(logPath));
+    await rename(copy, logPath);
+    const read = await readAntigravityLogWindow({
+      scope,
+      conversationId: ID,
+      ownerLive: false,
+      request: { kind: "latest", compactions: 2 },
+      boundary,
+    });
+    expect(read.status).toBe("unknown");
+  });
+
   it("reads the log only through a resume boundary, and checks the record there", async () => {
     await put([prompt(0), reply(1, "BEFORE_RESUME")]);
     const resumed = await known({ kind: "latest", compactions: 2 });
     const boundary = resumed.last!;
-    expect(boundary).toEqual({
+    expect(boundary).toMatchObject({
       step: 1,
       end: (await readFile(logPath)).length,
+      ino: fs.statSync(logPath).ino,
     });
     // The resumed owner's turn is logged after the boundary.
     await appendFile(

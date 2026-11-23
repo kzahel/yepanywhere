@@ -116,6 +116,12 @@ export function createProviderConversationSource(
         loaded.readWindow?.kind === "log-page" &&
         loaded.readWindow.omittedPrefix &&
         loaded.readWindow.cut === "bytes";
+      // Antigravity reports history it could not read (an unreadable log
+      // under a live owner's resume point) as an incomplete transcript:
+      // whether earlier history exists is then unknown.
+      const unread =
+        row.catalogFamily === "antigravity" &&
+        loaded.transcriptComplete === false;
       return {
         sessionId: row.sessionId,
         activity: "unknown",
@@ -126,11 +132,12 @@ export function createProviderConversationSource(
           complete: byteCut
             ? false
             : (loaded.transcriptComplete ?? window.sourceCoverage.complete),
-          earlierOutsideScope: byteCut
-            ? "unknown"
-            : loaded.readWindow?.omittedPrefix
-              ? "yes"
-              : window.sourceCoverage.earlierOutsideScope,
+          earlierOutsideScope:
+            byteCut || unread
+              ? "unknown"
+              : loaded.readWindow?.omittedPrefix
+                ? "yes"
+                : window.sourceCoverage.earlierOutsideScope,
           ...(byteCut
             ? {
                 earlierInScope: true,

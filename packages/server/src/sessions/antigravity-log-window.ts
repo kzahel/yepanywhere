@@ -45,7 +45,9 @@ export type AntigravityLogWindowRequest =
   /** From a message to the end, when that fits a page; else the latest page. */
   | { kind: "after"; messageId: string; compactions: number }
   /** The whole log: a deliberate complete read. */
-  | { kind: "complete" };
+  | { kind: "complete" }
+  /** No records: only the boundary check and the first prompt. */
+  | { kind: "head" };
 
 /** Why a page omitted earlier records. */
 export type AntigravityLogCut = "compactions" | "bytes";
@@ -166,10 +168,11 @@ class WindowRead {
   ) {}
 
   async run(request: AntigravityLogWindowRequest): Promise<Read> {
-    this.end = await this.source.completeEnd();
+    // With a boundary, nothing after it is read: not even the physical end,
+    // which an unterminated record being written may be far past.
     if (this.boundary) {
       const { step, end } = this.boundary;
-      if (end > this.end)
+      if (end > this.source.size)
         throw new UnknownLog("the log is shorter than its resume point");
       const newline = end > 0 ? await this.source.read(end - 1, 1) : undefined;
       const line =
@@ -178,9 +181,11 @@ class WindowRead {
         throw new UnknownLog("the log changed before its resume point");
       this.source.release(line);
       this.end = end;
-    }
+    } else this.end = await this.source.completeEnd();
     if (this.end === 0) return { status: "missing" };
     switch (request.kind) {
+      case "head":
+        return { status: "known", messages: [], omittedPrefix: true };
       case "complete":
         return this.complete();
       case "latest":
@@ -507,6 +512,16 @@ export async function readAntigravityLogWindow(
           bytesRead,
         };
       close = () => opened.handle.close().catch(() => {});
+      const pinned = options.boundary;
+      if (
+        pinned?.ino !== undefined &&
+        (pinned.dev !== opened.dev || pinned.ino !== opened.ino)
+      )
+        return {
+          status: "unknown",
+          reason: "the log was replaced since its resume point",
+          bytesRead,
+        };
       source = new LogSource(opened.handle, opened.size);
       const fence = await captureTranscriptFence(source.probe, opened.path, {
         dev: opened.dev,
@@ -527,8 +542,9 @@ export async function readAntigravityLogWindow(
           read.firstPrompt = read.omittedPrefix
             ? await window.firstPrompt()
             : firstUserText(read.messages);
-          if (options.request.kind === "latest")
-            read.last = await window.last();
+          const last =
+            options.request.kind === "latest" ? await window.last() : undefined;
+          if (last) read.last = { ...last, dev: opened.dev, ino: opened.ino };
         }
       } catch (error) {
         if (!(error instanceof UnknownLog)) throw error;

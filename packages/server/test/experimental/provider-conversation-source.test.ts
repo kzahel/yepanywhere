@@ -35,6 +35,10 @@ function publish(input: ConversationInput, compactions = 2) {
   return view.coverage;
 }
 import { createProviderConversationSource } from "../../src/experimental/provider-conversation-source.js";
+import { ConversationSubscriptions } from "../../src/experimental/conversation-subscriptions.js";
+import { createConversationRead } from "../../src/core-api/conversation.js";
+import { readAntigravityResumePoint } from "../../src/sessions/antigravity-log-window.js";
+import { EventBus } from "../../src/watcher/EventBus.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
@@ -517,6 +521,224 @@ describe("an Antigravity conversation source", () => {
       for (const view of views) view.close();
     } finally {
       abort.abort();
+      await reader.close();
+    }
+  });
+
+  /** The text of every published message that mentions `marker`. */
+  const mentioning = (
+    messages: readonly { content?: unknown }[],
+    marker: string,
+  ) => messages.filter((m) => JSON.stringify(m.content).includes(marker));
+
+  // Review round 1, finding 1: a fallback owner (no resume point) supplies
+  // the whole history as its replay; a warm observer's log rows go.
+  it.each([
+    {
+      trigger: "a log readable at the observer's scope but unknown at resume's",
+      compactions: 1,
+      log:
+        prompt +
+        record(1, "PLANNER_RESPONSE", { content: "Reply" }) +
+        record(2, "CHECKPOINT", { content: "First summary" }) +
+        record(3, "UNRECOGNIZED_NATIVE_TYPE", { content: "unknown" }) +
+        record(5, "CHECKPOINT", { content: "Second summary" }) +
+        record(6, "USER_INPUT", {
+          content: "<USER_REQUEST>\nSaved prompt\n</USER_REQUEST>",
+        }) +
+        record(7, "PLANNER_RESPONSE", { content: "Saved reply" }),
+      resume: "unknown",
+    },
+    {
+      trigger: "a log unlinked before the resume",
+      compactions: 2,
+      log:
+        record(6, "USER_INPUT", {
+          content: "<USER_REQUEST>\nSaved prompt\n</USER_REQUEST>",
+        }) + record(7, "PLANNER_RESPONSE", { content: "Saved reply" }),
+      resume: "missing",
+    },
+  ])(
+    "publishes a fallback owner's replayed turns once to a warm observer: $trigger",
+    async ({ compactions, log, resume }) => {
+      const { reader, row: source, scope } = await setup(log);
+      const bus = new EventBus();
+      let current: ReturnType<typeof owner> | undefined;
+      const open = createProviderConversationSource({
+        eventBus: bus,
+        readerFactory: () => reader,
+        resolve: async () => source,
+        getProcess: () => current?.process as never,
+      });
+      const published = new ConversationSubscriptions(open);
+      const views: unknown[] = [];
+      const unsubscribe = published.subscribe(
+        { sessionId: nativeId, maxMessages: 100, anchorMessageId: null },
+        "warm",
+        { send: (raw: string) => views.push(JSON.parse(raw).view), close() {} },
+        compactions,
+      );
+      const native = ownAntigravitySession(scope, nativeId);
+      try {
+        await vi.waitFor(() => expect(views.length).toBeGreaterThan(0));
+        expect(JSON.stringify(views.at(-1))).toContain(":step-6");
+        if (resume === "missing") await rm(logPath());
+        expect((await readAntigravityResumePoint(scope, nativeId)).status).toBe(
+          resume,
+        );
+        // The fallback owner replays the saved turns under positional IDs
+        // (marked as replay, as the provider yields them) and is in turn.
+        const replayed = [
+          row(`${nativeId}:0`, "user", "Saved prompt"),
+          row(`${nativeId}:1`, "assistant", "Saved reply"),
+        ].map((message) => ({ ...message, isReplay: true }));
+        native.open();
+        for (const message of replayed) native.record(message as never);
+        const next = row("next-uuid", "user", "Next");
+        native.record(next as never);
+        current = owner([...replayed, next]);
+        bus.emit({
+          type: "ownership-change",
+          sessionId: nativeId,
+          ownership: { owner: "self" },
+        } as never);
+        const read = await createConversationRead(published)(nativeId, {
+          tailCompactions: compactions,
+          maxMessages: 100,
+        });
+        expect(mentioning(read.messages, "Saved prompt")).toHaveLength(1);
+        expect(mentioning(read.messages, "Saved reply")).toHaveLength(1);
+        expect(mentioning(read.messages, "Next")).toHaveLength(1);
+        expect(JSON.stringify(read.messages)).not.toContain(":step-");
+      } finally {
+        unsubscribe();
+        published.close();
+        native.release();
+        await reader.close();
+      }
+    },
+  );
+
+  // Review round 1, finding 2.
+  it("reports the history before a live owner's resume point as unavailable once its log is gone", async () => {
+    const { reader, row: source, scope } = await setup(logged);
+    const native = ownAntigravitySession(scope, nativeId);
+    native.open(resumedAt);
+    const next = row("next-uuid", "user", "Next");
+    native.record(next as never);
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => source,
+      getProcess: () => owner([next], "idle").process as never,
+    });
+    const abort = new AbortController();
+    try {
+      const view = await open(nativeId, () => {}, abort.signal);
+      expect((await view.read(abort.signal)).sourceCoverage.complete).toBe(
+        true,
+      );
+      view.close();
+      await rm(logPath());
+      const fresh = await open(nativeId, () => {}, abort.signal);
+      const input = await fresh.read(abort.signal);
+      expect(uuids(input)).toEqual(["next-uuid"]);
+      expect(input.sourceCoverage).toMatchObject({
+        complete: false,
+        earlierOutsideScope: "unknown",
+      });
+      expect(publish(input)).toMatchObject({
+        completeForRequest: false,
+        earlierOutsideScope: "unknown",
+      });
+      fresh.close();
+    } finally {
+      abort.abort();
+      native.release();
+      await reader.close();
+    }
+  });
+
+  // Review round 1: a departure while a read is held. The direct source can
+  // merge that cold read with the departed owner's rows; the termination
+  // invalidates the read, so the publisher discards it and reads again.
+  it("never publishes a cold read beside a known-log owner that departed during it", async () => {
+    const { reader, row: source, scope } = await setup(logged);
+    const native = ownAntigravitySession(scope, nativeId);
+    native.open(resumedAt);
+    const rows = [
+      row("next-uuid", "user", "Next"),
+      row("reply-uuid", "assistant", "Reply 2"),
+    ];
+    for (const message of rows) native.record(message as never);
+    // In turn: its rows stay the observer's live rows, not its baseline.
+    let current: ReturnType<typeof owner> | undefined = owner(rows);
+    const direct = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => source,
+      getProcess: () => current?.process as never,
+    });
+    // Every result the direct source returns, published or not.
+    const reads: Array<{ message?: { content?: unknown } }[]> = [];
+    const open: typeof direct = async (...args) => {
+      const opened = await direct(...args);
+      return {
+        ...opened,
+        read: async (signal) => {
+          const input = await opened.read(signal);
+          reads.push(input.messages as never);
+          return input;
+        },
+      };
+    };
+    const published = new ConversationSubscriptions(open);
+    const views: Array<{ messages?: { content?: unknown }[] }> = [];
+    const unsubscribe = published.subscribe(
+      { sessionId: nativeId, maxMessages: 100, anchorMessageId: null },
+      "held",
+      { send: (raw: string) => views.push(JSON.parse(raw).view), close() {} },
+    );
+    try {
+      await vi.waitFor(() => expect(views.length).toBeGreaterThan(0));
+      expect(mentioning(views.at(-1)!.messages!, "Reply 2")).toHaveLength(1);
+      // The next read reaches the reader before the owner departs, and
+      // reads the log after agy has logged the turn and the owner is gone.
+      const entered = Promise.withResolvers<void>();
+      const proceed = Promise.withResolvers<void>();
+      const original = reader.getSession.bind(reader);
+      vi.spyOn(reader, "getSession").mockImplementationOnce(async (...args) => {
+        entered.resolve();
+        await proceed.promise;
+        return original(...args);
+      });
+      const departing = current;
+      departing.process.state = { type: "idle" };
+      departing.emit("state-change");
+      await entered.promise;
+      await appendFile(logPath(), nextTurn);
+      native.release();
+      current = undefined;
+      departing.emit("terminated");
+      proceed.resolve();
+      await vi.waitFor(() =>
+        expect(
+          JSON.stringify(views.at(-1)?.messages ?? []).includes(":step-2"),
+        ).toBe(true),
+      );
+      // The held read merged the cold log with the departed owner's rows...
+      const replies = (input: { message?: { content?: unknown } }[]) =>
+        input.filter((m) =>
+          JSON.stringify(m.message?.content).includes("Reply 2"),
+        ).length;
+      expect(reads.some((input) => replies(input) === 2)).toBe(true);
+      // ...and was invalidated by the departure, so it was never published.
+      for (const view of views)
+        expect(mentioning(view.messages ?? [], "Reply 2").length).toBeLessThan(
+          2,
+        );
+      expect(mentioning(views.at(-1)!.messages!, "Reply 2")).toHaveLength(1);
+    } finally {
+      unsubscribe();
+      published.close();
       await reader.close();
     }
   });

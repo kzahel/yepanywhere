@@ -338,7 +338,11 @@ no alternate authentication or provider transcript store is introduced.
   ([resume and the live view](antigravity.md#resume-and-the-live-view)),
   so a durable snapshot and the owner's live rows never hold the same step
   under two IDs, whichever owner (or none) it was read under; an owner
-  attaching or starting needs no extra read. When an owner departs
+  attaching or starting needs no extra read. The exception is an owner
+  resumed through the ACP replay fallback, which replays the whole history
+  under its own IDs: its first replayed row makes the next durable read
+  replace the snapshot even while it is in turn. A read that a departure
+  invalidated is not published (the subscription reads again). When an owner departs
   (terminates or is replaced), the next durable read is taken even if a new
   owner is working, and it replaces every row the departed owner
   contributed: the view is what a cold reader shows, without text the log

@@ -11,6 +11,14 @@ import type { SDKMessage } from "../types.js";
 export interface AntigravityLogBoundary {
   step: number;
   end: number;
+  /**
+   * The log file's identity when the boundary was taken: a replaced file is
+   * not the history it bounds. An in-place edit of earlier records that
+   * keeps the boundary record's step and offset is not detected (plan 195
+   * step 7 owns external writes).
+   */
+  dev?: number;
+  ino?: number;
 }
 
 // One entry per live preview owner; removed when its iterator closes. The preview

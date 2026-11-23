@@ -52,6 +52,7 @@ import {
   ownerBoundary,
   planAntigravityJoin,
   sameAntigravitySplit,
+  throughAntigravityBoundary,
 } from "./antigravity-live-join.js";
 import { scanAgentExcerpt, toolExcerpt } from "./agent-excerpt.js";
 import {
@@ -733,7 +734,10 @@ export class AntigravitySessionReader implements ISessionReader {
     id: string,
     request: AntigravityLogWindowRequest,
   ): Promise<AntigravitySessionRead | null> {
-    for (let attempt = 0; attempt < 4 && !this.closed; attempt++) {
+    for (let attempt = 1; !this.closed; attempt++) {
+      // Reads an owner keeps changing under end with the last one, marked
+      // incomplete: never a missing conversation or a dropped prefix.
+      const last = attempt >= 4;
       const before = antigravityOwnerView(scope, id);
       if (before?.state === "open" && !before.boundary)
         return { kind: "owner", messages: before.history() };
@@ -742,30 +746,46 @@ export class AntigravitySessionReader implements ISessionReader {
         before?.state === "open" && boundary
           ? planAntigravityJoin(id, request, before.has)
           : ({ kind: "log", request } as const);
-      const window: AntigravityLogWindow =
-        plan.kind === "live"
-          ? { status: "missing", bytesRead: 0 }
-          : await this.readLog(scope, id, plan.request, false, boundary);
+      // A live-only catch-up still checks the log through the boundary and
+      // takes the title from it; it reads no records.
+      const window = await this.readLog(
+        scope,
+        id,
+        plan.kind === "live" ? { kind: "head" } : plan.request,
+        false,
+        boundary,
+      );
       const after = antigravityOwnerView(scope, id);
-      if (!sameAntigravitySplit(before, after)) continue;
+      const settled = sameAntigravitySplit(before, after);
+      if (!settled && !last) continue;
+      if (after?.state === "open" && !after.boundary)
+        return { kind: "owner", messages: after.history() };
       if (after?.state === "open") {
-        const live =
-          plan.kind === "log" ? undefined : (after.history() as Message[]);
+        // Whether this request's answer holds live rows, by the owner now.
+        const joined =
+          settled || planAntigravityJoin(id, request, after.has).kind !== "log";
         return {
           kind: "log",
-          window,
-          // A page before a log message is older than every live row.
-          ...(live ? { live } : {}),
+          window: settled
+            ? window
+            : throughAntigravityBoundary(id, window, after.boundary!),
+          ...(plan.kind !== "log" || (!settled && joined)
+            ? { live: after.history() as Message[] }
+            : {}),
           paged: plan.kind !== "live",
-          // The title is the log's first prompt, never a live row's.
-          ...(window.status === "known"
-            ? {}
-            : { firstPrompt: await readAntigravityFirstPrompt(scope, id) }),
+          // History before the boundary that the log cannot supply now.
+          incomplete: window.status !== "known" || !settled,
         };
       }
       if (window.status === "known")
-        return { kind: "log", window, paged: true };
+        return {
+          kind: "log",
+          window,
+          paged: true,
+          ...(settled ? {} : { incomplete: true }),
+        };
       if (after?.state !== "starting") return { kind: "fallback" };
+      if (last) return null;
       // The fallback never loads ahead of a starting owner: serve its view.
       await antigravityOwnerSettled(scope, id);
     }
