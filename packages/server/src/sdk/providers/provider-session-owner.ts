@@ -7,13 +7,9 @@ import {
   AGENT_CATALOG_TIMEOUT_MS,
 } from "../../agent-api/controller-protocol.js";
 import { CoreApiError, type ApiReadPort } from "../../core-api/service.js";
-import type {
-  PermissionMode,
-  SessionSandboxEnforcement,
-} from "@yep-anywhere/shared";
+import type { PermissionMode } from "@yep-anywhere/shared";
 import type { MessageQueue } from "../messageQueue.js";
 import type {
-  CanUseTool,
   ProviderActivitySnapshot,
   ProviderRetentionSnapshot,
   SDKMessage,
@@ -44,6 +40,13 @@ import type {
   ProviderSessionOptions,
   ProviderSessionOptionsUpdateResult,
 } from "./types.js";
+import type {
+  ProviderSessionAttachedState,
+  ProviderSessionOwnerOptions,
+  ProviderSessionReadyMetadata,
+  ProviderSessionSandboxMetadata,
+  StartOwnedProviderSession,
+} from "./provider-session-protocol.js";
 import {
   PROVIDER_SESSION_OPTION_KEYS,
   resolveProviderSessionOptions,
@@ -97,104 +100,6 @@ interface AttachedController {
   generation: string;
   write: (message: unknown) => void;
   isActive?: () => boolean;
-}
-
-export interface ProviderSessionSandboxMetadata {
-  enforcement: SessionSandboxEnforcement;
-  stateKey: string;
-  projectPath: string;
-}
-
-export interface ProviderSessionReadyMetadata {
-  steering?: import("@yep-anywhere/shared").ProviderSteeringState;
-  binding?: BoundRuntimeIdentity;
-  creation?: CreationRuntimeEvidence;
-  sessionId?: string;
-  queueDepth: number;
-  providerActivity: ProviderActivitySnapshot;
-  providerRetention: ProviderRetentionSnapshot;
-  capabilities: {
-    agentApi?: boolean;
-    peerAgentApi?: boolean;
-    publishAgentSelfSelection?: boolean;
-    publishAgentSessionViews?: boolean;
-    probeLiveness: boolean;
-    getProviderActivity: boolean;
-    getProviderRetention: boolean;
-    refreshPromptCache: boolean;
-    publishAgentctlSessionId: boolean;
-    steer: boolean;
-    steerUsesMessageQueue?: boolean;
-    appendConversationContext?: boolean;
-    mcpAppRequest?: boolean;
-    instructionRestoration?: boolean;
-    setMaxThinkingTokens: boolean;
-    setEffort: boolean;
-    effortUpdatesActiveTurn?: boolean;
-    setServiceTier?: boolean;
-    setSessionOptions: boolean;
-    interrupt: boolean;
-    supportedModels: boolean;
-    supportedCommands: boolean;
-    getContextBreakdown?: boolean;
-    setModel: boolean;
-    runProviderCommand: boolean;
-  };
-  sandbox?: ProviderSessionSandboxMetadata;
-  diagnostics?: Record<string, unknown>;
-}
-
-export interface ProviderSessionStartHooks {
-  onNativeInputConsumed(nativeSessionId: string, inputId: string): void;
-  onAgentApiRead: ApiReadPort;
-  onToolApproval: CanUseTool;
-  onPermissionModeApplied: (mode: PermissionMode) => void;
-  onProviderRetentionChange: () => void;
-  shouldEmitLiveDeltas: () => boolean;
-  getBrowserDebugEnvironment: () => Record<string, string>;
-}
-
-export interface ProviderSessionStartResult {
-  session: AgentSession;
-  sandbox?: ProviderSessionSandboxMetadata;
-  diagnostics?: Record<string, unknown>;
-  /**
-   * Host-owned Bash bridge so every hosted provider publishes
-   * `AGENTCTL_SESSION_ID`, including adapters that have no session method.
-   */
-  agentctlSessionEnvBridge?: AgentctlSessionEnvBridge;
-}
-
-export type StartOwnedProviderSession = (
-  hooks: ProviderSessionStartHooks,
-) => Promise<ProviderSessionStartResult>;
-
-export interface ProviderSessionOwnerOptions {
-  runtimeId: string;
-  peerGrantId?: string;
-  emitSupervisor?: (message: unknown) => void;
-  onTerminal?: (reason: string, exitCode: number) => void | Promise<void>;
-}
-
-export interface ProviderSessionAttachedState {
-  steering?: import("@yep-anywhere/shared").ProviderSteeringState;
-  type: "attached";
-  protocolVersion: number;
-  runtimeId: string;
-  acknowledgedSequence: number;
-  activeProviderTurn: boolean;
-  queueDepth: number;
-  providerAlive: boolean;
-  providerActivity: ProviderActivitySnapshot;
-  providerRetention: ProviderRetentionSnapshot;
-  appliedPermissionMode?: PermissionMode;
-  /**
-   * Canonical id the provider reported in its init message. A controller
-   * attaching after that event was acknowledged never sees it replayed.
-   */
-  providerSessionId?: string;
-  binding?: BoundRuntimeIdentity;
-  creation?: CreationRuntimeEvidence;
 }
 
 export function providerSessionErrorMessage(error: unknown): string {

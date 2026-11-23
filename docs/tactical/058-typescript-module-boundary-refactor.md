@@ -426,6 +426,7 @@ extracting pure protocol/model/normalization modules with strong fixtures.
 | 4.12 | Done 2026-11-09 | Claude model and slash-command catalog | Move the launch-model aliases, SDK model and slash-command mapping, family merge and the remote slash-command filter from `claude.ts` into `claude-model-catalog.ts`, mirroring `codex-model-catalog.ts`. | 367 lines. Pure functions; the provider's model cache, its TTL, the probe and catalog status stay. `claude.ts` 2,805 -> 2,469. Move-only, Tier 1 plus the Claude provider tests, `pnpm test:providers` and `pnpm test:e2e:sdk`. |
 | 4.13 | Not started | Claude helper sessions and session object | Move the recap, fork-summary and prompt-cache keepalive helper queries behind a provider host, then give the live Claude session its own object, as plan 186 did for Codex. | Write a plan doc first. `ClaudeGatewayProvider` and `ClaudeOllamaProvider` override protected hooks (`getEnv`, `getSettings`, `getDisallowedTools`, `getSystemPrompt`, `sessionEnvironment`, `normalizeSupportedModels`), so moved code must reach them through the provider at call time, with a Gateway test per slice. Tier 3. |
 | 4.14 | Done 2026-11-11 | Provider instruction assembly and interpretation | Move Claude session system-prompt assembly to `claude-system-prompt.ts` and Codex developer-message/text interpretation to `codex/instruction-messages.ts`, preparing native Agent API bootstrap routing. | Move-only prerequisite. Claude reaches subclass `getSystemPrompt` through an explicit callback; sandbox and content-filter behavior stay unchanged. `claude.ts` 2,469 -> 2,455; `sessions/normalization.ts` 2,451 -> 2,438. Tier 1/2, Claude/Codex provider and native tests, Gateway/Ollama native cases and the two native browser cases. Full browser Tier 3 is replaced by the owned native browser/live-history checks because no React or transport boundary moves. |
+| 4.15 | Done 2026-11-23 | Provider Host proxy queue, snapshots and worker protocol | Move `HostedMessageQueue` to `hosted-message-queue.ts` and the activity/retention snapshot revival to `hosted-provider-snapshots.ts` from `provider-runtime-host.ts`, and the worker protocol interfaces (ready metadata, start hooks and result, owner options, attached state) from `provider-session-owner.ts` to `provider-session-protocol.ts`. | Move-only prerequisite for plan 195 step 9, which changes the queue, the retention revival and the protocol shapes for a hosted Antigravity owner. `provider-runtime-host.ts` 2,066 -> 1,950; `provider-session-owner.ts` 1,528 -> 1,433, under the threshold, so its entry is retired. The host's budget is recorded by step 9's commit, after its wiring. `provider-runtime-fake.ts` imports the start hooks from the new module. Tier 1 plus the provider-host and owner tests.
 
 ## Phase 5: Load-Bearing Supervisor And Process Files
 
@@ -488,6 +489,26 @@ Follow-ups recorded:
 ```
 
 ## Landing Notes
+
+### Slice 4.15 — Provider Host proxy queue, snapshots and worker protocol (Landed 2026-11-23, this commit)
+
+Moved:
+- `HostedMessageQueue` -> `sdk/providers/hosted-message-queue.ts` (now exported)
+- `reviveActivity`, `reviveRetention` -> `sdk/providers/hosted-provider-snapshots.ts`
+- `ProviderSessionSandboxMetadata`, `ProviderSessionReadyMetadata`,
+  `ProviderSessionStartHooks`, `ProviderSessionStartResult`,
+  `StartOwnedProviderSession`, `ProviderSessionOwnerOptions`,
+  `ProviderSessionAttachedState` -> `sdk/providers/provider-session-protocol.ts`
+
+Signature conversions: none.
+Behavior changes: none.
+Verification:
+- Tier 1: server typecheck, exact-file lint and format, the provider-host,
+  creation-owner, eventual-turn, agentctl-environment, owner-self and
+  instruction-restoration tests.
+Follow-ups recorded:
+- The host's budget is lowered by plan 195 step 9's commit, which adds its
+  hosted Antigravity owner wiring to `HostedAgentSession`.
 
 ### Router control boundary — prepare hosted pairing (2026-11-15)
 

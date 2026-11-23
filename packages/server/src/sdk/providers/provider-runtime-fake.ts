@@ -11,7 +11,7 @@ import {
   resolveProviderSessionOptions,
   type ProviderSessionOptionsUpdateResult,
 } from "./types.js";
-import type { ProviderSessionStartHooks } from "./provider-session-owner.js";
+import type { ProviderSessionStartHooks } from "./provider-session-protocol.js";
 
 function userText(message: {
   message: { content: string | Array<{ type: string; text?: string }> };
