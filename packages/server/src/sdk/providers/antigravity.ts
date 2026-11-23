@@ -503,6 +503,7 @@ export class AntigravityProvider implements AgentProvider {
     };
     const input = queue[Symbol.asyncIterator]();
     let owner: ReturnType<typeof ownAntigravitySession> | undefined;
+    let advancer: AntigravityLiveAdvancer | undefined;
     let subagents: AntigravitySubagentTracker | undefined;
     let unobserveSummaries: (() => void) | undefined;
     let wake: (() => void) | undefined;
@@ -829,12 +830,18 @@ export class AntigravityProvider implements AgentProvider {
       for (const message of replay ?? []) live.record(message);
       // Rows leave memory once the log holds them; without a boundary (a
       // fallback replay of a log YA cannot read) only the cap bounds them.
-      const advancer = live.boundary
+      // Rows leave memory only past the soft budget, at a proven split
+      // point; without a boundary (a fallback replay of a log YA cannot
+      // read) only the cap bounds them.
+      let updateCount = 0;
+      advancer = live.boundary
         ? new AntigravityLiveAdvancer({
             scope: namespace.storageScope,
             conversationId: id,
             projection: live,
             signal,
+            idle: () => !foregroundUpdate && !compacting,
+            updates: () => updateCount,
           })
         : undefined;
       releaseStart?.();
@@ -861,8 +868,9 @@ export class AntigravityProvider implements AgentProvider {
           converted.message.model = attributionModel;
           converted._selectedProviderModel = resolvedModel;
         }
-        const { _isStreaming: _partial, ...committed } = converted;
-        live.record(committed);
+        // A block still streaming stays marked, so a client that reads it
+        // keeps following its stream; its commit replaces it.
+        live.record(converted);
         if (updates.at(-1)?.uuid === converted.uuid)
           updates[updates.length - 1] = converted;
         else updates.push(converted);
@@ -939,26 +947,26 @@ export class AntigravityProvider implements AgentProvider {
             argument,
           );
           if (result.completion === "completed") {
-            const uuid = randomUUID();
             publish({
               type: "system",
               subtype: "compact_boundary",
-              uuid,
+              uuid: randomUUID(),
               session_id: id,
             });
-            advancer?.compacted(uuid);
             await subagents?.onCompacted();
           }
           return result;
         } finally {
-          advancer?.quiet(live.seq);
           compacting = false;
+          advancer?.ended();
           runtime.endingTurn();
           reconcileRoot();
           changed();
         }
       };
       runtime.onUpdate = (update, updateSessionId, isReplay) => {
+        // Any update at all rules out a split point at the next prompt.
+        if (updateSessionId === id) updateCount++;
         if (
           isReplay ||
           updateSessionId !== id ||
@@ -1009,6 +1017,7 @@ export class AntigravityProvider implements AgentProvider {
             true,
           );
           const passiveOut = passiveTranscript.accept(update);
+          advancer?.passive();
           for (const { _isStreaming: _partial, ...converted } of passiveOut)
             publish({ ...converted, _passiveProviderUpdate: true });
           if (
@@ -1067,6 +1076,7 @@ export class AntigravityProvider implements AgentProvider {
                   return block.text;
                 })
                 .join("\n");
+        await advancer?.beforePrompt();
         const promptStartedAt = new Date();
         const initialStartPosition = await subagents.readStartPosition();
         if (signal.aborted) break;
@@ -1088,7 +1098,6 @@ export class AntigravityProvider implements AgentProvider {
           options.onNativeInputConsumed?.(id, uuid);
         };
         let activeTurnModel = resolvedModel;
-        let progressed = false;
         foregroundUpdate = (update) => {
           // A new owner has no earlier turn that could produce this output.
           // Confirm startup on native progress so the first turn can be steered.
@@ -1112,17 +1121,6 @@ export class AntigravityProvider implements AgentProvider {
           ) {
             verifiedOnProgress.add(activePromptScope);
             subagents?.schedulePromptAnchorVerification(activePromptScope);
-          }
-          // By its first progress the turn's prompt is in the log, so the
-          // rows before it can leave memory.
-          if (
-            !progressed &&
-            (update.sessionUpdate === "agent_message_chunk" ||
-              update.sessionUpdate === "agent_thought_chunk" ||
-              update.sessionUpdate === "tool_call")
-          ) {
-            progressed = true;
-            advancer?.progress();
           }
           const emitted = transcript.accept(update);
           for (const converted of emitted) publish(converted, activeTurnModel);
@@ -1242,8 +1240,6 @@ export class AntigravityProvider implements AgentProvider {
           await waitForChange();
         }
         foregroundUpdate = undefined;
-        // Later rows are detached output, not this turn's.
-        const quietSeq = live.seq;
         await subagents.drainPending();
         // Retry any completed (non-failed) invoke_subagent call whose
         // transcript.jsonl entry had not flushed yet when tool_call_update arrived.
@@ -1286,8 +1282,7 @@ export class AntigravityProvider implements AgentProvider {
         }
         if (failure) throw failure;
         runtime.endingTurn();
-        // agy has logged the turn by its result; its rows can leave memory.
-        advancer?.quiet(quietSeq);
+        advancer?.ended();
         yield { type: "result", session_id: id, usage };
       }
     } catch (error) {
@@ -1313,6 +1308,7 @@ export class AntigravityProvider implements AgentProvider {
       signal.removeEventListener("abort", stop);
       await input.return?.();
       await runtime.close();
+      advancer?.close();
       owner?.release();
       releaseStart?.();
     }

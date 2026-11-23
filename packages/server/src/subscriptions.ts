@@ -30,7 +30,6 @@ import {
 import type { Process } from "./supervisor/Process.js";
 import type { ProcessEvent } from "./supervisor/types.js";
 import type { BusEvent, EventBus } from "./watcher/index.js";
-import { isReplayMessageRetired } from "./supervisor/retired-replay-messages.js";
 
 export type Emit = (eventType: string, data: unknown) => void;
 
@@ -589,12 +588,8 @@ export function createSessionSubscription(
   // still feed task correlation, which depends on the whole ordered buffer.
   const history = process.getMessageHistory();
   const replaySeqs = history.map((message) => process.getReplaySeq(message));
-  // A row the provider retired is served by durable history under another
-  // ID now (topics/antigravity.md#live-memory); replaying it would show it twice.
   const sendsMessage = replaySeqs.map(
-    (seq, index) =>
-      (resumeCursor === null || seq === undefined || seq > resumeCursor) &&
-      !isReplayMessageRetired(history[index]?.uuid),
+    (seq) => resumeCursor === null || seq === undefined || seq > resumeCursor,
   );
   // History is not ordered by position (in-turn steer echoes come first), so
   // a replay frame may only claim positions below every one still to come.

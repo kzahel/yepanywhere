@@ -277,35 +277,47 @@ Resume stops retaining replayed history.
 
 ### 6 — bound live session memory
 
-A live session's history comes from the log plus the part the log has not
-written yet.
+A live session's history comes from the log through its owner's boundary
+plus a bounded recent window of the owner's rows: the variant this step
+always named ("keep the projection as a bounded recent window and serve
+everything older from the log"), chosen in review round 1.
 
-- The in-memory projection holds only that unwritten part. A message leaves
-  it once the log contains its step.
-- A hard cap evicts the oldest message instead of throwing.
+- While the rows stay under a soft budget (2 MiB of JSON or 2,000 rows),
+  nothing moves, and no row a client streamed changes its ID.
+- Over it, the boundary moves to a proven split point and the rows before
+  it leave memory. A split point is a turn's first prompt P whose
+  `USER_INPUT` U is proven to separate the two sides: a read of the log
+  reached its end E while the owner was idle, no ACP update arrived between
+  that read's start and P, and a later read finds U as the first record
+  after E. A wake or detached task that overlaps a prompt fails, so that
+  prompt is not a split point.
+- A split point is used only once every row before it has left Process's
+  replay buffer (Process's own retention, plus margin), so no replay
+  suppression is needed.
+- A move is a replacement event for a connected client whose last fetched
+  row left memory, using the existing missed-anchor path. Preserving its
+  loaded older pages is client work shared by all providers
+  ([gap](../../gaps/client-tail-replacement-drops-loaded-history.md)).
+- The log is read incrementally from a verified cursor, at most 8 MiB a
+  pass, resuming next time; a log YA cannot follow, or a user input YA did
+  not send, stops moves for that owner, and the cap bounds it.
+- A hard cap (8 MiB / 10,000 rows) evicts the oldest row instead of
+  throwing, and the view is marked incomplete until a move covers it.
 - Remove the 8 MiB and 10,000-message limit and its error.
-- Tests: a scripted run of many turns shows retained bytes staying flat and
-  at or below the Codex figure from step 2. Live and cold views of the same
-  conversation agree, including across the moment a turn ends.
-- If step 2 shows the log trails too far, keep the projection as a bounded
-  recent window and serve everything older from the log.
-- Adjusted while implementing: "once the log contains its step" means once
-  the log is seen to hold the message's turn, because no live row maps to a
-  log step (ACP tool call IDs are random) and some steps are never logged.
-  Measured on 1.5.13 and 1.5.14, every record of a foreground turn is in the
-  log before the prompt's result. The boundary therefore moves at a turn's
-  or `/compact`'s result when the log holds a `USER_INPUT` for everything
-  sent since it (in order, by text) and ends with a turn-ending record, and
-  otherwise once the next turn's `USER_INPUT` is logged, which proves every
-  earlier step final; neither waits on time. A new session starts at an
-  empty log; a fallback-resumed owner has no boundary and only the cap
-  bounds it. A client that streamed a turn holds its live IDs and may
-  catch up from a row before it, so the owner keeps a copy of the turn it
-  moved last (inside the cap) to answer those catch-ups; an idle owner
-  therefore holds one turn, not nothing, until it exits. Older moved rows
-  resolve through a bounded alias map or miss cleanly, and Process's
-  late-join replay skips moved rows. The Codex comparison is the step 2 harness bar (a fixed
-  projection bound, heap within 1 MB from turn 150 to 600).
+- Tests: a scripted run of many turns shows retained count and bytes
+  bounded by the budget whatever the turn count, and the heap flat across
+  sawtooth cycles. Live and cold views of the same conversation agree,
+  including across a move.
+
+Why not per-turn moves: step 6's first version moved every turn into the
+log at its result. That changed the IDs of rows connected clients had just
+streamed and needed a moved-turn copy, cursor aliases, retired-ID lists and
+a global replay-retirement map to hide it; review round 1 found duplicates
+when a detached wake overlapped a result or the next prompt, loaded history
+lost across two moves, a tail scan that a large record locked out for good,
+and a v0 race, all in that layer, which had added about 1,200 lines. With a
+budget, ordinary turns never change an ID and a move is a rare, ordinary
+replacement.
 
 ### 7 — warn on an external writer
 

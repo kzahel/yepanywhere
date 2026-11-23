@@ -30,10 +30,30 @@ export interface AntigravitySubagentTrackerOptions {
  * `USER_INPUT` anchor verification/advancement, and bounded active-child
  * background retention reconciliation for one live ACP owner.
  */
+/** Children and calls remembered, per owner. */
+const RECENT_IDS = 4096;
+
+/** A set that forgets its oldest entries past a limit. */
+class RecentSet {
+  private readonly entries = new Set<string>();
+  constructor(private readonly limit: number) {}
+  has(value: string): boolean {
+    return this.entries.has(value);
+  }
+  add(value: string): void {
+    this.entries.delete(value);
+    this.entries.add(value);
+    if (this.entries.size > this.limit)
+      this.entries.delete(this.entries.values().next().value!);
+  }
+}
+
 export class AntigravitySubagentTracker {
   private summariesReader: AntigravitySummariesReader | undefined;
-  private readonly claimedSubagentIds = new Set<string>();
-  private readonly resolvedSubagentToolCalls = new Set<string>();
+  // Bounded to the most recent: a new call's child is found only among its
+  // own prompt's launches or its own result, never an old turn's child.
+  private readonly claimedSubagentIds = new RecentSet(RECENT_IDS);
+  private readonly resolvedSubagentToolCalls = new RecentSet(RECENT_IDS);
   private readonly pendingLookups = new Set<Promise<void>>();
   private lookupTail = Promise.resolve();
 

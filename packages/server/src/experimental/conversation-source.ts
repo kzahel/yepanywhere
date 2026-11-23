@@ -8,7 +8,6 @@ import type { Process } from "../supervisor/Process.js";
 import type { ProcessEvent } from "../supervisor/types.js";
 import type { EventBus } from "../watcher/EventBus.js";
 import { normalizeStreamMessage } from "../subscriptions.js";
-import { isReplayMessageRetired } from "../supervisor/retired-replay-messages.js";
 import { readConversationFile } from "./conversation-reader.js";
 import { selectConversationWindow } from "../sessions/conversation-window.js";
 import {
@@ -38,15 +37,20 @@ export interface ConversationSourceDependencies {
   eventBus?: EventBus;
   watch?(row: Readonly<SessionCatalogRow>, invalidate: () => void): () => void;
   readFile?: typeof readConversationFile;
-  /**
-   * `liveRowsHeld`: the read holds every row of the conversation's open
-   * owner (an Antigravity join), so a live row it lacks has left the owner.
-   */
   readWindow?(
     row: Readonly<SessionCatalogRow> & { nativeSessionId?: string },
     compactions: number,
     signal: AbortSignal,
-  ): Promise<ConversationInput & { liveRowsHeld?: boolean }>;
+  ): Promise<ConversationInput>;
+  /**
+   * Whether the conversation's live owner has moved this row out of its
+   * memory (an Antigravity owner past its soft budget): the durable read
+   * serves it under another ID now.
+   */
+  retired?(
+    row: Readonly<SessionCatalogRow> & { nativeSessionId?: string },
+    message: { uuid?: unknown; timestamp?: unknown },
+  ): boolean;
   resolveRolloutPath?: (
     row: Readonly<SessionCatalogRow>,
     id: string,
@@ -84,12 +88,10 @@ export function createConversationSource(
     >();
     // An Antigravity owner's rows use live IDs, and the log serves the same
     // steps under step IDs once they leave the owner's memory (plan 195 step
-    // 6), or once the owner exits. A read that holds every row of the open
-    // owner, or one taken after the row's process went, replaces a live row
-    // it lacks, as the reader does: the row has moved to the log (or out of
-    // the read's scope).
-    // An owner change forces that read even in turn, so the view takes the
-    // new split at once (a fallback owner's replay, a departed owner's turns).
+    // 6) or once the owner exits. The source drops a row the owner retired,
+    // and, at a read taken after the row's process went, a row the read
+    // lacks: the view is what the reader shows. An owner change forces that
+    // read even in turn (a fallback owner's replay, a departed owner's turns).
     let ownerChanged = false;
     const drop = () => {
       failed = true;
@@ -106,7 +108,8 @@ export function createConversationSource(
       // projection under the same IDs; a retired row is served from the log.
       if (
         process?.provider === "antigravity" &&
-        (raw.isReplay === true || isReplayMessageRetired(raw.uuid))
+        (raw.isReplay === true ||
+          (row !== undefined && deps.retired?.(row, raw)))
       )
         return;
       if (!["assistant", "user", "error", "system"].includes(String(raw.type)))
@@ -293,10 +296,7 @@ export function createConversationSource(
             !process ||
             process.state.type === "idle" ||
             process.state.type === "terminated";
-          const {
-            liveRowsHeld,
-            ...result
-          }: ConversationInput & { liveRowsHeld?: boolean } = deps.readWindow
+          const result = deps.readWindow
             ? await deps.readWindow(row, compactions, readSignal)
             : await (deps.readFile ?? readConversationFile)({
                 path: row.location.path,
@@ -319,12 +319,17 @@ export function createConversationSource(
           }
           dirty = observedRevision !== durableRevision;
           if (row.catalogFamily === "antigravity") {
+            // Committed against the split this read returned: a row the
+            // owner moved out of memory, even one that arrived during the
+            // read, is the read's log row now; a departed process's row the
+            // read lacks is history the log holds.
             const read = new Set(result.messages.map(getMessageId));
             for (const [id, entry] of live)
               if (
-                entry === liveAtReadStart.get(id) &&
-                !read.has(id) &&
-                (liveRowsHeld || entry.process !== process)
+                deps.retired?.(row, entry.message) ||
+                (entry === liveAtReadStart.get(id) &&
+                  !read.has(id) &&
+                  entry.process !== process)
               ) {
                 liveBytes -= entry.bytes;
                 live.delete(id);

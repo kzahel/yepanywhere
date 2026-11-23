@@ -44,12 +44,6 @@ export type AntigravityLogWindowRequest =
   | { kind: "before"; messageId: string; compactions: number }
   /** From a message to the end, when that fits a page; else the latest page. */
   | { kind: "after"; messageId: string; compactions: number }
-  /**
-   * The messages of records after `step` to the end, when that fits a
-   * page; else the latest page with the anchor missed. A cursor an owner
-   * moved into the log names a step, whatever that record shows.
-   */
-  | { kind: "since"; step: number; compactions: number }
   /** The whole log: a deliberate complete read. */
   | { kind: "complete" }
   /** No records: only the boundary check and the first prompt. */
@@ -209,8 +203,6 @@ class WindowRead {
         return this.before(request.messageId, request.compactions);
       case "after":
         return this.after(request.messageId, request.compactions);
-      case "since":
-        return this.since(request.step, request.compactions);
     }
   }
 
@@ -453,17 +445,15 @@ class WindowRead {
     return this.pageBefore(anchor.start, compactions, after, messageId);
   }
 
-  /** The latest page, as the answer to an anchor this window cannot serve. */
-  private async missedAfter(compactions: number): Promise<Read> {
-    const read = await this.pageBefore(this.end, compactions, []);
-    return read.status === "known" ? { ...read, anchor: "missed" } : read;
-  }
-
-  /**
-   * From the record that owns `anchor` (itself, or the planner before a
-   * result) to the end, if that fits one page; undefined if it does not.
-   */
-  private async fromOwner(anchor: LogLine): Promise<Read | undefined> {
+  /** From the message's record to the end, if that fits one page. */
+  private async after(messageId: string, compactions: number): Promise<Read> {
+    const missed = async (): Promise<Read> => {
+      const read = await this.pageBefore(this.end, compactions, []);
+      return read.status === "known" ? { ...read, anchor: "missed" } : read;
+    };
+    const anchor = await this.locate(messageId);
+    if (!anchor) return missed();
+    // A result starts the page at the record that owns it.
     let start = anchor.start;
     let total = 0;
     for (
@@ -471,7 +461,7 @@ class WindowRead {
       type === "GENERIC";
     ) {
       const line = await this.source.lineBefore(start, this.pageBytes - total);
-      if (!line) return undefined;
+      if (!line) return missed();
       this.source.release(line);
       total += lineLength(line);
       start = line.start;
@@ -484,52 +474,22 @@ class WindowRead {
       const line = await this.source.lineFrom(at, this.end);
       this.bound(line);
       total += lineLength(line);
-      if (total > this.pageBytes) return undefined;
+      if (total > this.pageBytes) return missed();
       lines.push(line);
       at = line.end + 1;
     }
     const projection = new AntigravityLogProjection(this.conversationId);
     await this.project(projection, lines.map(show));
-    return this.finish(projection, {
+    const read = this.finish(projection, {
       omittedPrefix: start > 0,
       anchor: "found",
     });
-  }
-
-  /** From the message's record to the end, if that fits one page. */
-  private async after(messageId: string, compactions: number): Promise<Read> {
-    const anchor = await this.locate(messageId);
-    const read = anchor ? await this.fromOwner(anchor) : undefined;
     if (
-      !read ||
-      (read.status === "known" &&
-        !read.messages.some((message) => message.uuid === messageId))
+      read.status === "known" &&
+      !read.messages.some((message) => message.uuid === messageId)
     )
-      return this.missedAfter(compactions);
+      return missed();
     return read;
-  }
-
-  /** The messages of records after `step`, if they fit one page. */
-  private async since(step: number, compactions: number): Promise<Read> {
-    const next = await this.source.findStep(step + 1, this.end);
-    if (!next)
-      return {
-        status: "known",
-        messages: [],
-        omittedPrefix: this.end > 0,
-        anchor: "found",
-      };
-    const read = await this.fromOwner(next);
-    if (!read) return this.missedAfter(compactions);
-    if (read.status !== "known") return read;
-    return {
-      ...read,
-      messages: read.messages.filter(
-        (message) =>
-          (antigravityMessageStep(this.conversationId, String(message.uuid)) ??
-            Number.POSITIVE_INFINITY) > step,
-      ),
-    };
   }
 }
 
@@ -560,9 +520,7 @@ export async function readAntigravityLogWindow(
       omittedPrefix: false,
       ...(request.kind === "before" || request.kind === "after"
         ? { anchor: "missed" as const }
-        : request.kind === "since"
-          ? { anchor: "found" as const }
-          : {}),
+        : {}),
       bytesRead: 0,
       heldPeak: 0,
     };

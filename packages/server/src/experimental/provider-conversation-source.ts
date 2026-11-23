@@ -10,6 +10,7 @@ import type { SessionReaderFactory } from "../sessions/types.js";
 import { normalizeSession } from "../sessions/normalization.js";
 import type { Message } from "@yep-anywhere/shared/transcript/message";
 import { selectConversationWindow } from "../sessions/conversation-window.js";
+import { antigravityOwnerView } from "../sdk/providers/antigravity-owners.js";
 import {
   MAX_PROJECTION_INPUT_BYTES,
   MAX_PROJECTION_RECORDS,
@@ -32,6 +33,25 @@ export function createProviderConversationSource(
 ) {
   return createConversationSource({
     ...deps,
+    retired(row, message) {
+      if (
+        row.catalogFamily !== "antigravity" ||
+        !row.nativeStorageScope ||
+        typeof message.uuid !== "string"
+      )
+        return false;
+      const owner = antigravityOwnerView(
+        row.nativeStorageScope,
+        row.nativeSessionId ?? row.sessionId,
+      );
+      return (
+        owner?.state === "open" &&
+        owner.retired(
+          message.uuid,
+          typeof message.timestamp === "string" ? message.timestamp : undefined,
+        )
+      );
+    },
     async readWindow(row, compactions, signal) {
       signal.throwIfAborted();
       if (
@@ -126,7 +146,6 @@ export function createProviderConversationSource(
         sessionId: row.sessionId,
         activity: "unknown",
         pendingRequests: [],
-        ...(loaded.liveRowsHeld ? { liveRowsHeld: true } : {}),
         ...window,
         sourceCoverage: {
           ...window.sourceCoverage,

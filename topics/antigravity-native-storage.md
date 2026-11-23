@@ -883,9 +883,10 @@ stale rows and crash recovery. Not implemented.
 
 ## Live memory — plan 195 step 6
 
-A live owner's in-memory rows hold only what the log does not serve yet;
-the [provider contract](antigravity.md#live-memory) states the rules. They
-rest on when `agy` writes a turn's records, measured 2026-11-23 with
+A live owner keeps a bounded recent window of rows and, past a soft
+budget, moves its boundary to a proven split point; the
+[provider contract](antigravity.md#live-memory) states the rules. When
+`agy` writes a turn's records was measured 2026-11-23 with
 [`antigravity-turn-end-probe.mjs`](../scripts/perf-repro/antigravity-turn-end-probe.mjs)
 (run from `packages/server`, same profile and scripted model as the step 2
 probe):
@@ -923,39 +924,58 @@ So, on both versions:
   progress ([step 2](#how-far-a-record-trails-its-acp-event)), but then the
   owner is gone.
 
-The owner reads only what follows its boundary
-(`readAntigravityLogTail`): each record's step, type and offsets, a user
-input's text and a planner's call count, with the same file identity,
-fixed-offset boundary check, increasing steps and append-only fence as a
-window, and at most 64 MiB, so its cost is the records it evicts. At a
-turn's or command's result it moves the boundary to the log's last record
-when every expected `USER_INPUT` is present and that record ends a turn;
-otherwise it waits for the next turn's `USER_INPUT`, which proves every
-earlier step final because steps only increase. The measurements make the
-first case the ordinary one; the second needs no timing. It keeps a copy of
-the turn it moved last, for catch-ups from clients that streamed it.
+These are why a turn's result is a good moment to look, not the proof the
+owner relies on. The proof of a split point (a turn's first prompt P) is
+read from the log: a read reached the log's last record E while the owner
+was idle, no ACP update arrived between that read's start and P, and a
+later read finds P's `USER_INPUT` as the first record after E. A row
+received before P whose record was not at or before E would have to land
+between E and P's input, because steps only increase; the last condition
+rules that out. The design of plan 195 step 6's first version moved at
+every result without the first two conditions, and a detached wake that
+overlapped the result's read or the next prompt was shown twice (review
+round 1, reproduced on both versions).
+
+The owner's reader (`AntigravityLogTail`) keeps a verified cursor (the last
+record it read: offset, step, raw first bytes) and how far it has searched
+a long or unterminated line, and each pass reads only new bytes: record
+heads, a user input's body, and the newline search, at most 8 MiB, then
+resumes on the next pass. A pass with nothing appended reads nothing. In
+the unit test a log with a 96 MiB record and 2,000 records of 4 KiB after
+the boundary took 13 passes and read the file's bytes about once; step 6's
+first version read 100,666,311 bytes and then reported that log
+permanently unreadable (review round 1). The file's identity, the cursor's
+line at its offsets, increasing steps and the append-only fence are checked
+as a window checks them; a failure, or a user input YA did not send, stops
+the owner's moves for good.
 
 ### Retention after step 6
 
 The [step 2 harness](#live-session-retention), rerun 2026-11-23 on `agy`
-1.5.13 and Node 24.22.1, 600 turns, twice. It now waits (at most two
-seconds) for each turn to move before sampling, and also counts the copy
-of the turn moved last that the owner keeps for clients that streamed it:
+1.5.13 and Node 24.22.1, 600 turns of a 4 KiB reply, twice, with the soft
+budget lowered to 128 KiB and split points usable at once (a test option),
+so the window moves about every 27 turns. The projection's count and bytes
+are asserted after every turn against the budget plus two turns, and the
+heap is sampled right after each move, a comparable point of each sawtooth
+cycle:
 
-| Turns 150 → 600 | Heap samples after GC | Sampled growth | Projection at idle → after the move | Moved copy |
-| --- | --- | ---: | --- | --- |
-| Run 1 | 74.09 → 74.91 MB | +0.823 MB | 2 → 0 messages, every sample | 2 messages, 4,623 bytes, every sample |
-| Run 2 | 74.10 → 74.92 MB | +0.814 MB | 2 → 0 messages, every sample | 2 messages, 4,623 bytes, every sample |
+| | Run 1 | Run 2 |
+| --- | ---: | ---: |
+| Moves | 22 | 22 |
+| Peak projection | 56 messages, 129,417 bytes | 56 messages, 129,417 bytes |
+| Heap right after the move at turn 163 → turn 595 | 74.02 → 74.87 MB | 74.05 → 74.88 MB |
+| Largest growth between consecutive cycles | +0.218 MB | +0.195 MB |
+| Heap samples, turn 150 → 600 | 74.16 → 74.94 MB (+0.778 MB) | 74.17 → 74.94 MB (+0.767 MB) |
 
-Both bars hold. The projection's count and bytes do not depend on the
-turn count (none once a turn moves; the copy is one turn), against the
-linear 4,622 bytes a turn of step 2. Heap grew under 1 MB in both runs
-(+2.8 to +3.1 MB before). Two earlier runs of this step's first version,
-whose side tables were larger (1,024 aliases, 4,096 retired IDs, a
-120-second replay-retirement window), grew +1.005 and +1.008 MB while
-those tables filled; they are now 128, 256 and 60 seconds. The samples
-still rise a little between turn 150 and 600 (0.4 MB in the first
-interval); Codex's step 2 samples moved within 3 MB with no trend.
+The projection is bounded by the budget whatever the turn count (step 2
+grew it 4,622 bytes a turn), and no cycle grew the heap by more than
+0.22 MB. Across the 16 cycles from turn 163 the heap still rose about
+0.85 MB, roughly 1.9 KB a turn, outside the projection (which the
+harness asserts); the step's first version showed the same slope, and its
+source is not identified. Codex's step 2 samples moved within 3 MB with no
+trend. With the production limits a split point is used only 35 seconds
+after its prompt, so the window can exceed the 2 MiB budget by what
+arrives in that time, and the 8 MiB cap bounds it absolutely.
 
 ## Runtime identity
 
@@ -979,7 +999,7 @@ root, and refuses a symlink that leaves it. It decodes no protobuf.
 | [Summaries reader](../packages/server/src/sessions/antigravity-summaries.ts) | `conversation_summaries.db` | Project binding from the workspace, title, lineage and child settlement from bounded columns. A conversation with no workspace row is not listed. |
 | [Log window](../packages/server/src/sessions/antigravity-log-window.ts) | `transcript_full.jsonl` | Cold history: pages, catch-up, children's and complete reads ([step 4](#serving-cold-history--plan-195-step-4)). |
 | `readAntigravityResumePoint` (log window) | `transcript_full.jsonl` | Whether a resume can use `session/resume`, and its resume point: the latest page must read as known, and its last record is the boundary ([step 5](#resuming-from-the-log--plan-195-step-5)). |
-| [`readAntigravityLogTail`](../packages/server/src/sessions/antigravity-log-tail.ts) | `transcript_full.jsonl` | A live owner's records after its boundary, to move the boundary once the log holds a turn ([step 6](#live-memory--plan-195-step-6)). |
+| [`AntigravityLogTail`](../packages/server/src/sessions/antigravity-log-tail.ts) | `transcript_full.jsonl` | A live owner's incremental read of the records after its boundary, to prove split points ([step 6](#live-memory--plan-195-step-6)). |
 | `readAntigravityReplayTail` | `transcript_full.jsonl`, else `transcript.jsonl` | The saved text a fallback replay, or a fallback resume, must reach. |
 | `readAntigravityTurnBoundary`, `readAntigravityTranscriptPosition` | `transcript.jsonl` | The step and file position before a prompt. |
 | `readAntigravitySubagentLaunches`, `readAntigravityTurnSubagentLaunches` | `transcript.jsonl` | Pairing `invoke_subagent` calls with child IDs. |
@@ -991,8 +1011,8 @@ The other named log readers are in
 and each read is bounded to 4 MiB. The projection reads nothing itself.
 Cold history, root and child, comes from the log. A live session, new or
 resumed from the log, is the log through its owner's boundary and the
-owner's in-memory rows the log does not serve yet; one resumed through the
-fallback is its owner's projection. ACP `session/load` replay runs only
+owner's recent rows after it; one resumed through the fallback is its
+owner's projection. ACP `session/load` replay runs only
 when a log is missing or unknown, as [identity and history](antigravity.md#identity-and-history)
 describes. [Provider history facts](provider-history-facts.md#consumers) lists
 these readers among YA's history consumers.

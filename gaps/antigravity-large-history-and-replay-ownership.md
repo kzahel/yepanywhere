@@ -14,10 +14,11 @@ that replay reached the saved text. For the fallback, YA still
 accumulates normalized history in memory and rejects replay beyond 8 MiB or
 10,000 messages; that limit applies to what YA retains, so the native
 database's size alone cannot tell whether a fallback replay fits. Since
-step 6 a live session has no history limit: its owner keeps only what the
-log does not serve yet, moving its boundary as the log holds each turn,
-and a cap evicts the oldest row instead of failing
-([live memory](../topics/antigravity.md#live-memory)). See the
+step 6 a live session has no history limit: its owner keeps a bounded
+recent window (a 2 MiB / 2,000-row soft budget), moves its boundary to a
+proven split point past it once Process's replay buffer has let go of the
+rows before it, and a cap of 8 MiB / 10,000 rows evicts the oldest row
+instead of failing ([live memory](../topics/antigravity.md#live-memory)). See the
 [reader](../packages/server/src/sessions/antigravity-reader.ts#L359),
 [replay](../packages/server/src/sdk/providers/antigravity-replay.ts#L32),
 and [history limits](../topics/antigravity.md#identity-and-history).
@@ -62,8 +63,10 @@ resume, and a live session that passes the cap is stopped mid-turn. Step 4
 flipped the open half: a history over 8 MiB opens and pages from the log
 with no `session/load`. Step 5 flipped the resume half: it resumes with no
 replayed message retained. Step 6 flipped the live half: a session keeps
-running past 8 MiB, retaining nothing once each turn is in the log, and
-its whole history stays readable. Step 2 also
+running past 8 MiB with its window bounded, and its history stays readable
+while the log can be followed (a log that is replaced, malformed or
+written by another program stops the owner's moves, and past the cap the
+oldest rows are then missing from the view, marked incomplete). Step 2 also
 measured real `agy` 1.5.13 and 1.5.14 on a 7,261-step compacted
 conversation: `session/resume` answered in 37 ms with no replayed history
 and kept the compacted context. Step 5 also tests the ownership races it
@@ -75,9 +78,8 @@ the fallback itself (a missing or unknown log, for viewing or resuming),
 whose replay is still retained under the 8 MiB / 10,000-message cap, and
 whose owner has no boundary, so only the live cap bounds it afterwards; a
 v0 observer that held the log's rows when a fallback owner attached
-replaces them at its next read (step 5 review round 1). The owner registry,
-the cursor aliases and the replay retirement are in one process's memory
-(step 9). Concurrent independent YA servers and other native programs
+replaces them at its next read (step 5 review round 1). The owner registry and
+its window are in one process's memory (step 9). Concurrent independent YA servers and other native programs
 remain unqualified.
 [Measurements](../topics/antigravity-native-storage.md#measurements--plan-195-step-2)
 [Read-only native log reader](../packages/server/src/sessions/antigravity-subagent-links.ts#L1050) ·

@@ -16,6 +16,7 @@ import {
   claimAntigravityStart,
   ownAntigravitySession,
 } from "../../src/sdk/providers/antigravity-owners.js";
+import { setAntigravityLiveLimitsForTests } from "../../src/sdk/providers/antigravity-live-projection.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
 import {
@@ -336,6 +337,71 @@ describe("an Antigravity conversation source", () => {
       "transcript_full.jsonl",
     );
   const coldIds = [`${nativeId}:step-0`, `${nativeId}:step-1:text`];
+
+  // Review finding 4: a live message that arrives while a read is pending,
+  // and leaves the owner's memory before the read returns, is the read's log
+  // row by then. On the step 6 design this commit replaces, the source kept
+  // it under its live ID beside that log row.
+  it("never keeps a turn under both a live ID and a log ID when it leaves memory during a pending read", async () => {
+    setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
+    const { reader, row: source, scope } = await setup(logged);
+    const native = ownAntigravitySession(scope, nativeId);
+    const live = native.open(resumedAt);
+    const prompt2 = row("next-uuid", "user", "Next");
+    native.record(prompt2 as never);
+    const current = owner([prompt2]);
+    const open = createProviderConversationSource({
+      readerFactory: () => reader,
+      resolve: async () => source,
+      getProcess: () => current.process as never,
+    });
+    const abort = new AbortController();
+    try {
+      const view = await open(nativeId, () => {}, abort.signal);
+      expect(uuids(await view.read(abort.signal))).toEqual([
+        ...coldIds,
+        "next-uuid",
+      ]);
+      current.process.state = { type: "idle" };
+      current.emit("complete");
+      const held = holdNextRead(reader);
+      const reading = view.read(abort.signal);
+      await held.entered;
+      // During the read: the reply arrives, agy logs the turn, the next
+      // prompt goes out, and the owner moves the turn into the log.
+      const reply = row("reply-uuid", "assistant", "Reply 2");
+      native.record(reply as never);
+      current.emit("message", reply);
+      await appendFile(logPath(), nextTurn);
+      const prompt3 = row("third-uuid", "user", "Third");
+      native.record(prompt3 as never);
+      current.emit("message", prompt3);
+      live.addSplit({
+        seq: live.seqOf("third-uuid")!,
+        boundary: { step: 3, end: Buffer.byteLength(logged + nextTurn) },
+        dispatchedAt: 0,
+      });
+      expect(live.history().map((m) => m.uuid)).toEqual(["third-uuid"]);
+      held.release();
+      await reading;
+      // This read, and the next, show the turn once, under its log IDs.
+      current.emit("complete");
+      for (const input of [await view.read(abort.signal)]) {
+        expect(uuids(input)).toEqual([
+          ...coldIds,
+          `${nativeId}:step-2`,
+          `${nativeId}:step-3:text`,
+          "third-uuid",
+        ]);
+      }
+      view.close();
+    } finally {
+      setAntigravityLiveLimitsForTests();
+      native.release();
+      abort.abort();
+      await reader.close();
+    }
+  });
 
   it("joins a resumed owner's rows after the log's history, each once", async () => {
     const { reader, row: source, scope } = await setup(logged);

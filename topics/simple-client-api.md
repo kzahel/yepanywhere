@@ -334,21 +334,19 @@ no alternate authentication or provider transcript store is introduced.
   permanent for the lifetime of the lease.
 - An Antigravity owner's live rows carry IDs its brain log does not use.
   While an owner lives, the reader serves the log only through that
-  owner's boundary and the owner's rows the log does not serve yet
+  owner's boundary and the owner's rows after it
   ([live memory](antigravity.md#live-memory)), so a durable snapshot and
   the owner's live rows never hold the same step under two IDs, whichever
-  owner (or none) it was read under. When a turn moves from the owner's
-  memory to the log, a durable read that holds every row of the open owner
-  replaces the source's live rows it lacks, as it does a departed owner's
-  rows once read after that owner went: the view is what the reader shows,
-  without text the log lacks. A read taken while an owner only starts
-  keeps the rows it cannot know yet (a queued prompt). An owner attaching
-  or departing forces the next durable read even while one is working, so
-  a fallback owner's replay (whose `isReplay` rows the source never keeps)
-  and a departed owner's turns take the reader's IDs at once. A turn that
-  moves while one is working shows under its live IDs, with the same
-  content, until the next idle read. Rows a provider retired from replay
-  are not taken from Process history either. A read that a departure
+  owner (or none) it was read under. When the owner moves rows past its
+  soft budget into the log, the source drops the live rows the owner says
+  have left (those it no longer holds that arrived no later than the move's
+  split prompt), at every message and at every durable read, including
+  rows that arrived while that read was pending; and at a read taken after
+  a row's process went, a row the read lacks. A queued prompt the owner
+  has not recorded yet stays. An owner attaching or departing forces the
+  next durable read even while one is working, so a fallback owner's
+  replay (whose `isReplay` rows the source never keeps) and a departed
+  owner's turns take the reader's IDs at once. A read that a departure
   invalidated is not published (the subscription reads again). Claude and
   Codex keep their ID-based reconciliation.
 - A newly created exact managed Claude/Codex session can precede its retained

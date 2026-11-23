@@ -1,8 +1,5 @@
 import type { SDKMessage } from "../types.js";
-import {
-  type AntigravityCursorAlias,
-  AntigravityLiveProjection,
-} from "./antigravity-live-projection.js";
+import { AntigravityLiveProjection } from "./antigravity-live-projection.js";
 
 /**
  * Where a live session's history divides between `agy`'s brain log and its
@@ -11,8 +8,8 @@ import {
  * what the owner produced since, from its live projection. It starts at
  * the log's last record when the owner resumed, or at an empty log
  * (`step: -1, end: 0`) for a new session, and only moves forward: plan 195
- * step 6 advances it once the log holds a turn
- * ({@link AntigravityLiveProjection}).
+ * step 6 moves it to a proven split point once the owner's rows pass a
+ * soft budget ({@link AntigravityLiveProjection}).
  */
 export interface AntigravityLogBoundary {
   step: number;
@@ -79,18 +76,17 @@ export type AntigravityOwnerView =
       boundary?: AntigravityLogBoundary;
       /** Whether the live projection holds this message ID. */
       has(messageId: string): boolean;
-      /** Where a row that left memory for the log reads from, if known. */
-      alias(messageId: string): AntigravityCursorAlias | undefined;
-      /** Rows the cap dropped that the log does not serve yet. */
+      /**
+       * Whether a row left memory: one the last move or the cap evicted, or
+       * one not held that arrived no later than an earlier move's split.
+       */
+      retired(messageId: string, timestamp?: string): boolean;
+      /** Rows the cap evicted that the log does not serve yet. */
       incomplete: boolean;
-      /** The boundary the owner opened at. */
+      /** The boundary the owner opened at: log rows after it were once live. */
       opened?: AntigravityLogBoundary;
-      /** The boundary before the last advance, and whether its turn's rows are held. */
-      moved?: { before: AntigravityLogBoundary; held: boolean };
-      /** The index of a row of the turn the last advance moved, or -1. */
-      movedIndex(messageId: string): number;
-      /** A copy of that turn's rows, as clients streamed them. */
-      movedRows(): SDKMessage[] | undefined;
+      /** The first prompt, when the log cannot title the conversation. */
+      firstPrompt?: string;
       /** A copy of the live projection, taken when called. */
       history(): SDKMessage[];
     };
@@ -114,14 +110,15 @@ export function antigravityOwnerView(
       generation: live.generation,
       boundary: live.boundary,
       has: (messageId) => live.has(messageId),
-      alias: (messageId) => live.alias(messageId),
+      retired: (messageId, timestamp) =>
+        live.retired(messageId) ||
+        (!live.has(messageId) &&
+          live.movedThrough !== undefined &&
+          timestamp !== undefined &&
+          Date.parse(timestamp) <= live.movedThrough),
       incomplete: live.incomplete,
       opened: live.opened,
-      moved: live.moved
-        ? { before: live.moved.before, held: !!live.moved.rows }
-        : undefined,
-      movedIndex: (messageId) => live.movedIndex(messageId),
-      movedRows: () => live.movedRows(),
+      firstPrompt: live.firstPrompt,
       history: () => live.history(),
     };
   if ((owner && !owner.historyRead) || startingSessions.has(key))
@@ -145,8 +142,8 @@ export function antigravityOwnerSettled(
 }
 
 /**
- * The live projection of an open owner: only what the log does not serve
- * yet; the history through its boundary is in the log.
+ * The live projection of an open owner: its rows after its boundary; the
+ * history through the boundary is in the log.
  */
 export function antigravityLiveHistory(
   scope: string,

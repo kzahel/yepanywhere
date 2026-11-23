@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setAntigravityLiveLimitsForTests } from "../../src/sdk/providers/antigravity-live-projection.js";
 import { ownAntigravitySession } from "../../src/sdk/providers/antigravity-owners.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
@@ -380,24 +381,23 @@ describe("Antigravity reader over the log", () => {
       ),
       turnLog,
     );
+    // The next turn's prompt, proven to follow the turn's last record.
+    owner.record({
+      type: "user",
+      uuid: "live-next",
+      message: { role: "user", content: "Again" },
+    });
+    setAntigravityLiveLimitsForTests({ softRows: 1, splitAgeMs: 0 });
     try {
       // The read takes the log through the old boundary; then the turn
       // leaves memory for the log before it takes the owner's rows.
       duringNextLogRead(target, () => {
-        expect(
-          live.advance(
-            {
-              boundary: {
-                step: 3,
-                end: Buffer.byteLength(logged + turnLog),
-              },
-              evictBefore: live.seq,
-              consumed: 0,
-              aliases: [["live-prompt", { after: 2, before: 2 }]],
-            },
-            live.boundaryVersion,
-          ),
-        ).toBe(true);
+        live.addSplit({
+          seq: live.seqOf("live-next")!,
+          boundary: { step: 3, end: Buffer.byteLength(logged + turnLog) },
+          dispatchedAt: 0,
+        });
+        expect(live.history().map((m) => m.uuid)).toEqual(["live-next"]);
       });
       const loaded = await target.getSession(
         ID,
@@ -410,32 +410,25 @@ describe("Antigravity reader over the log", () => {
         `${ID}:step-1:text`,
         `${ID}:step-2`,
         `${ID}:step-3:text`,
+        "live-next",
       ]);
       expect(loaded?.transcriptComplete).not.toBe(false);
-      // A client that streamed the turn: its cursors read the log.
       const catchUp = (id: string) =>
         target.getSession(ID, toUrlProjectId(project), id, {
           tailCompactions: 2,
         });
-      // A client that streamed the turn holds it under live IDs, so the
-      // turn the owner moved last is served to its catch-ups as it was.
-      expect((await catchUp("live-reply"))?.afterAnchor).toBe("resolved");
-      expect(uuids(await catchUp("live-reply"))).toEqual([]);
-      expect(uuids(await catchUp("live-prompt"))).toEqual(["live-reply"]);
-      // So is one whose last row predates the turn: never its records too.
-      expect(uuids(await catchUp(`${ID}:step-1:text`))).toEqual([
-        `${ID}:step-1:text`,
-        "live-prompt",
-        "live-reply",
-      ]);
-      const older = await target.getSession(
-        ID,
-        toUrlProjectId(project),
-        undefined,
-        { tailCompactions: 2, beforeMessageId: "live-prompt" },
-      );
-      expect(uuids(older)).toEqual([`${ID}:step-0`, `${ID}:step-1:text`]);
+      // A cursor on a row that left memory is not in the answer: a miss.
+      expect(uuids(await catchUp("live-reply"))).not.toContain("live-reply");
+      // A log cursor before the moved rows would cross rows a client may
+      // hold under live IDs: a deliberate miss, though the page holds it.
+      const crossing = await catchUp(`${ID}:step-1:text`);
+      expect(crossing?.afterAnchor).toBe("missed");
+      expect(uuids(crossing)).toContain(`${ID}:step-1:text`);
+      // One after the moved rows, or on a live row, is incremental.
+      expect((await catchUp(`${ID}:step-3:text`))?.afterAnchor).toBeUndefined();
+      expect(uuids(await catchUp("live-next"))).toEqual(["live-next"]);
     } finally {
+      setAntigravityLiveLimitsForTests();
       owner.release();
     }
   });

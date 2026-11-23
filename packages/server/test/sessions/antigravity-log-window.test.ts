@@ -825,31 +825,21 @@ describe("Antigravity log windows", () => {
     expect(changed.status).toBe("unknown");
   });
 
-  it("reads an empty boundary as an empty log, and the records after a step", async () => {
+  it("reads an empty boundary as an empty log, file or no file", async () => {
     // A new session's owner before its log exists.
     const empty = { step: -1, end: 0 };
     for (const request of [
       { kind: "latest", compactions: 2 },
       { kind: "head" },
-      { kind: "since", step: -1, compactions: 2 },
     ] as const)
       expect(
         await known(request, { boundary: empty }),
         request.kind,
       ).toMatchObject({ messages: [], omittedPrefix: false });
-    await put([prompt(0), reply(1, "ONE"), prompt(2), reply(3, "TWO")]);
+    await put([prompt(0), reply(1, "ONE")]);
     expect(
       (await known({ kind: "latest", compactions: 2 }, { boundary: empty }))
         .messages,
-    ).toEqual([]);
-    const since = await known({ kind: "since", step: 1, compactions: 2 });
-    expect(since.anchor).toBe("found");
-    expect(since.messages.map((m) => m.uuid)).toEqual([
-      `${ID}:step-2`,
-      `${ID}:step-3:text`,
-    ]);
-    expect(
-      (await known({ kind: "since", step: 3, compactions: 2 })).messages,
     ).toEqual([]);
   });
 

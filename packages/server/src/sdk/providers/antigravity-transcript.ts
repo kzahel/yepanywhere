@@ -7,6 +7,13 @@ import {
 import type { SDKMessage } from "../types.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
 
+/** Calls a live transcript remembers. */
+const LIVE_CALLS = 256;
+
+function trimOldest<V>(map: Map<string, V>): void {
+  while (map.size > LIVE_CALLS) map.delete(map.keys().next().value!);
+}
+
 /**
  * One ACP replay or one live turn, as normalized messages. A replay keeps
  * its messages, capped at 8 MiB and 10,000 (the fallback's history limit).
@@ -19,7 +26,8 @@ export class AntigravityTranscript {
   private bytes = 0;
   private count = 0;
   private text?: { kind: string; message: SDKMessage; value: string };
-  // A replay's are bounded by its limits; a live turn's are discarded with it.
+  // A replay's are bounded by its limits; a live transcript keeps its most
+  // recent calls (a passive one lasts until the next prompt).
   private tools = new Map<string, SDKMessage>();
   private subagents = new Map<string, AntigravitySubagentCall>();
 
@@ -219,6 +227,10 @@ export class AntigravityTranscript {
         };
         this.record(message);
         this.tools.set(id, message);
+        if (this.live) {
+          trimOldest(this.tools);
+          trimOldest(this.subagents);
+        }
       }
       out.push(structuredClone(message));
       // Cold ACP `session/load` replays `invoke_subagent` as a single

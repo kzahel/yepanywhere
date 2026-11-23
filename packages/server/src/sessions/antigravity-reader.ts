@@ -747,6 +747,7 @@ export class AntigravitySessionReader implements ISessionReader {
           kind: "owner",
           messages: before.history(),
           incomplete: before.incomplete,
+          firstPrompt: before.firstPrompt,
         };
       const boundary = ownerBoundary(before);
       const plan: AntigravityJoinPlan =
@@ -770,6 +771,7 @@ export class AntigravitySessionReader implements ISessionReader {
           kind: "owner",
           messages: after.history(),
           incomplete: after.incomplete || !settled,
+          firstPrompt: after.firstPrompt,
         };
       if (after?.state === "open") {
         const read = joinAntigravityOwnerRead(
@@ -838,7 +840,11 @@ export class AntigravitySessionReader implements ISessionReader {
       }
       const loaded =
         read.kind === "owner"
-          ? { entries: read.messages, complete: !read.incomplete, owner: true }
+          ? {
+              entries: read.messages,
+              complete: !read.incomplete,
+              firstPrompt: read.firstPrompt,
+            }
           : await this.loadTranscriptEntries(
               id,
               metadata.scope,
@@ -879,7 +885,7 @@ export class AntigravitySessionReader implements ISessionReader {
       entries: SDKMessage[];
       model?: string;
       complete: boolean;
-      owner?: boolean;
+      firstPrompt?: string;
     },
   ): Promise<LoadedSession | null> {
     const summary = await this.summary(id, projectId);

@@ -668,9 +668,9 @@ export function registerSessionDetailRoute(
       };
     }
     let incrementalAnchorFound = false;
-    if (session && providerAfterMessageId && loadedSession?.afterAnchor) {
-      incrementalAnchorFound = loadedSession.afterAnchor === "resolved";
-    } else if (session && providerAfterMessageId) {
+    // A provider's deliberate miss replaces the window even where it holds
+    // the cursor.
+    if (session && providerAfterMessageId && !loadedSession?.afterAnchor) {
       const sliced = sliceAfterMessageIdWithMatch(
         session.messages,
         providerAfterMessageId,

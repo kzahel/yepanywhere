@@ -106,6 +106,7 @@ import {
   isAskUserQuestionTool,
 } from "./modeToolApproval.js";
 import { isResumeDropsTurnRefusalText } from "./resume-truncation.js";
+import { PROCESS_REPLAY_BUCKET_MS } from "./replay-window.js";
 import type {
   AgentActivity,
   InputRequest,
@@ -1038,14 +1039,13 @@ export class Process {
   private transportFailed = false;
 
   /**
-   * Two-bucket message buffer for SSE replay to late-joining clients.
-   * Buckets swap every 15 seconds, giving 15-30s of history.
-   * This bounds memory while covering the JSONL persistence gap.
+   * Two-bucket message buffer for SSE replay to late-joining clients: 15-30s
+   * of history (replay-window.ts), covering the JSONL persistence gap.
    */
   private currentBucket: SDKMessage[] = [];
   private previousBucket: SDKMessage[] = [];
   private bucketSwapTimer: ReturnType<typeof setInterval> | null = null;
-  private static readonly BUCKET_SWAP_INTERVAL_MS = 15_000;
+  private static readonly BUCKET_SWAP_INTERVAL_MS = PROCESS_REPLAY_BUCKET_MS;
 
   /**
    * Replay position of each buffered message. Tool-result state updates get a
