@@ -963,14 +963,14 @@ cycle:
 | --- | ---: | ---: |
 | Moves | 22 | 22 |
 | Peak projection | 56 messages, 129,417 bytes | 56 messages, 129,417 bytes |
-| Heap right after the move at turn 163 → turn 595 | 74.02 → 74.87 MB | 74.05 → 74.88 MB |
-| Largest growth between consecutive cycles | +0.218 MB | +0.195 MB |
-| Heap samples, turn 150 → 600 | 74.16 → 74.94 MB (+0.778 MB) | 74.17 → 74.94 MB (+0.767 MB) |
+| Heap right after the move at turn 163 → turn 595 | 74.04 → 74.87 MB | 74.02 → 74.88 MB |
+| Largest growth between consecutive cycles | +0.214 MB | +0.197 MB |
+| Heap samples, turn 150 → 600 | 74.17 → 74.93 MB (+0.750 MB) | 74.17 → 74.94 MB (+0.767 MB) |
 
 The projection is bounded by the budget whatever the turn count (step 2
 grew it 4,622 bytes a turn), and no cycle grew the heap by more than
 0.22 MB. Across the 16 cycles from turn 163 the heap still rose about
-0.85 MB, roughly 1.9 KB a turn, outside the projection (which the
+0.83 to 0.85 MB, roughly 1.9 KB a turn, outside the projection (which the
 harness asserts); the step's first version showed the same slope, and its
 source is not identified. Codex's step 2 samples moved within 3 MB with no
 trend. With the production limits a split point is used only 35 seconds
