@@ -121,11 +121,13 @@ export class AntigravitySplitSampler {
  * through `to`, are all known: read back from `to` a page at a time, as
  * "Load older" reads them, stopping at the first unknown page.
  */
-async function spanKnown(
+export async function spanKnown(
   scope: string,
   conversationId: string,
   from: AntigravityLogBoundary,
   to: AntigravityLogBoundary,
+  alive: () => boolean,
+  read = readAntigravityLogWindow,
 ): Promise<boolean> {
   let request: AntigravityLogWindowRequest = {
     kind: "latest",
@@ -133,14 +135,18 @@ async function spanKnown(
   };
   let previous = Number.POSITIVE_INFINITY;
   for (;;) {
-    const page = await readAntigravityLogWindow({
+    // A closed owner opens no further page.
+    if (!alive()) return false;
+    const page = await read({
       scope,
       conversationId,
       ownerLive: true,
       request,
       boundary: to,
     });
-    if (page.status !== "known") return false;
+    if (!alive() || page.status !== "known") return false;
+    // A cursor that did not resolve proves nothing.
+    if (page.anchor === "missed") return false;
     if (!page.omittedPrefix) return true;
     const first = page.messages[0];
     const step =
@@ -161,7 +167,8 @@ export function antigravitySplitCheck(
   scope: string,
   conversationId: string,
 ): AntigravitySplitCheck {
-  return async (candidate, boundary) => {
+  return async (candidate, boundary, alive) => {
+    if (!alive()) return undefined;
     const opened = await openPhysicalBrainTranscript(
       scope,
       conversationId,
@@ -195,9 +202,11 @@ export function antigravitySplitCheck(
       const pieces: Buffer[] = [];
       let from = z;
       let start: number | undefined;
+      // The longest line the window parses, its newline and the one before.
+      const limit = ANTIGRAVITY_LOG_RECORD_BYTES + 2;
       for (let chunk = FIRST_CHUNK; start === undefined; ) {
-        if (z - from > ANTIGRAVITY_LOG_RECORD_BYTES) return undefined;
-        const length = Math.min(chunk, from);
+        if (z - from >= limit || !alive()) return undefined;
+        const length = Math.min(chunk, from, limit - (z - from));
         const piece = await source.read(from - length, length);
         if (!pieces.length && piece[length - 1] !== 10) return undefined;
         pieces.unshift(piece);
@@ -210,6 +219,7 @@ export function antigravitySplitCheck(
         else if (from === 0) start = 0;
         chunk = Math.min(chunk * 2, MAX_CHUNK);
       }
+      if (z - 1 - start > ANTIGRAVITY_LOG_RECORD_BYTES) return undefined;
       const bytes = Buffer.concat(pieces).subarray(start - from, z - from - 1);
       const decoded = decodeAntigravityLogLine(bytes);
       if (decoded.invalidUtf8 || !decoded.text) return undefined;
@@ -236,7 +246,7 @@ export function antigravitySplitCheck(
     }
     // Rows leave memory only for a span a reader can show.
     try {
-      return (await spanKnown(scope, conversationId, boundary, next))
+      return (await spanKnown(scope, conversationId, boundary, next, alive))
         ? next
         : undefined;
     } catch {

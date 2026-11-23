@@ -5,7 +5,10 @@ import {
   normalizeInvokeSubagentInput,
 } from "../../sessions/antigravity-subagent-links.js";
 import type { SDKMessage } from "../types.js";
-import { ANTIGRAVITY_LIVE_CUT_NOTICE } from "./antigravity-live-projection.js";
+import {
+  ANTIGRAVITY_LIVE_CUT,
+  ANTIGRAVITY_LIVE_CUT_NOTICE,
+} from "./antigravity-live-projection.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
 
 /** Calls a live transcript remembers. */
@@ -52,9 +55,16 @@ export class AntigravityTranscript {
 
   /** Commits the open text block: the same id without `_isStreaming`. */
   close(): SDKMessage | undefined {
-    const message = this.text?.message;
+    const text = this.text;
     this.text = undefined;
-    return message ? structuredClone(message) : undefined;
+    return text ? this.copy(text) : undefined;
+  }
+  /** A copy of the block being assembled, marked when it was cut. */
+  private copy(text: NonNullable<typeof this.text>): SDKMessage {
+    return {
+      ...structuredClone(text.message),
+      ...(text.bytes > LIVE_TEXT_BYTES ? { [ANTIGRAVITY_LIVE_CUT]: true } : {}),
+    };
   }
 
   private reserveHistory(bytes: number, addingMessage = false): void {
@@ -184,7 +194,12 @@ export class AntigravityTranscript {
       if (this.live && this.text!.bytes + added > LIVE_TEXT_BYTES) {
         // Already cut: nothing new to show.
         if (this.text!.bytes > LIVE_TEXT_BYTES) return out;
-        this.text!.value += ANTIGRAVITY_LIVE_CUT_NOTICE;
+        // The part of this chunk that fits, cut at a character boundary.
+        const fits = Buffer.from(content.text, "utf8");
+        let end = LIVE_TEXT_BYTES - this.text!.bytes;
+        while (end > 0 && (fits[end]! & 0xc0) === 0x80) end--;
+        this.text!.value +=
+          `${fits.subarray(0, end).toString("utf8")}${ANTIGRAVITY_LIVE_CUT_NOTICE}`;
         this.text!.bytes = LIVE_TEXT_BYTES + 1;
       } else {
         this.text!.value += content.text;
@@ -194,7 +209,7 @@ export class AntigravityTranscript {
         kind === "agent_thought_chunk"
           ? [{ type: "thinking", thinking: this.text!.value }]
           : this.text!.value;
-      out.push({ ...structuredClone(this.text!.message), _isStreaming: true });
+      out.push({ ...this.copy(this.text!), _isStreaming: true });
       return out;
     }
     if (kind !== "tool_call" && kind !== "tool_call_update") return [];

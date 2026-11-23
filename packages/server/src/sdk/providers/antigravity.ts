@@ -1089,6 +1089,13 @@ export class AntigravityProvider implements AgentProvider {
         ) {
           if (updates.length) yield updates.shift()!;
           else await waitForChange();
+          // Stopped, aborted or gone: leave without reading again.
+          if (
+            controls.interrupts !== interrupts ||
+            signal.aborted ||
+            !runtime.alive
+          )
+            break;
           if (!inputHeld() && !compacting)
             initialStartPosition = await subagents.readStartPosition();
         }

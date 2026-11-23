@@ -260,7 +260,10 @@ describe("Antigravity native process boundary", () => {
     vi.stubEnv("ANTIGRAVITY_ACP_PATH", executable);
     vi.stubEnv("AGY_TEST_LOG", log);
   });
+  /** Spies a test installs on shared prototypes, restored after it. */
+  const spies: Array<{ mockRestore(): void }> = [];
   afterEach(async () => {
+    for (const spy of spies.splice(0)) spy.mockRestore();
     setAntigravityLiveLimitsForTests();
     await admissionFinished;
     admissionFinished = undefined;
@@ -1468,16 +1471,17 @@ describe("Antigravity native process boundary", () => {
         const reading = new Promise<void>((resolve) => (entered = resolve));
         const gate = new Promise<void>((resolve) => (release = resolve));
         const read = AntigravitySubagentTracker.prototype.readStartPosition;
-        vi.spyOn(
-          AntigravitySubagentTracker.prototype,
-          "readStartPosition",
-        ).mockImplementationOnce(async function (
-          this: AntigravitySubagentTracker,
-        ) {
-          entered();
-          await gate;
-          return read.call(this);
-        });
+        spies.push(
+          vi
+            .spyOn(AntigravitySubagentTracker.prototype, "readStartPosition")
+            .mockImplementationOnce(async function (
+              this: AntigravitySubagentTracker,
+            ) {
+              entered();
+              await gate;
+              return read.call(this);
+            }),
+        );
         session.queue.push({ text: "held", uuid: "turn-2" });
         await reading;
         session.queue.setConfigurationInputHeld(true);
@@ -1488,6 +1492,66 @@ describe("Antigravity native process boundary", () => {
         session.queue.setConfigurationInputHeld(false);
         await consuming;
         expect(await prompts()).toBe(2);
+      } finally {
+        await session.abort();
+      }
+    },
+    20_000,
+  );
+
+  // Review round 4 finding 4: a Stop that woke the hold wait as the hold
+  // cleared still read the position again before acknowledging.
+  it.skipIf(process.platform === "win32")(
+    "acknowledges a Stop during the hold wait without reading the position again",
+    async () => {
+      const session = await new AntigravityProvider().startSession({
+        cwd: directory,
+        initialMessage: { text: "first", uuid: "turn-1" },
+      });
+      let results = 0;
+      const consuming = (async () => {
+        for await (const message of session.iterator)
+          if (message.type === "result" && ++results === 2) return;
+      })();
+      try {
+        await vi.waitFor(() => expect(results).toBe(1));
+        let entered = () => {};
+        let release = () => {};
+        const reading = new Promise<void>((resolve) => (entered = resolve));
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        const read = AntigravitySubagentTracker.prototype.readStartPosition;
+        let rereads = 0;
+        spies.push(
+          vi
+            .spyOn(AntigravitySubagentTracker.prototype, "readStartPosition")
+            .mockImplementationOnce(async function (
+              this: AntigravitySubagentTracker,
+            ) {
+              entered();
+              await gate;
+              return read.call(this);
+            })
+            .mockImplementation(async function (
+              this: AntigravitySubagentTracker,
+            ) {
+              rereads++;
+              return read.call(this);
+            }),
+        );
+        session.queue.push({ text: "held", uuid: "turn-2" });
+        await reading;
+        session.queue.setConfigurationInputHeld(true);
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        // Stop, and the hold clears before the staged path runs again.
+        const stopped = session.interrupt!();
+        session.queue.setConfigurationInputHeld(false);
+        expect(await stopped).toBe(true);
+        await consuming;
+        expect(rereads).toBe(0);
+        expect(
+          (await methods()).filter((method) => method === "session/prompt"),
+        ).toHaveLength(1);
       } finally {
         await session.abort();
       }

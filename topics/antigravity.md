@@ -405,9 +405,16 @@ It never reads the shortened `transcript.jsonl`.
   "truncated" notice ([measured](antigravity-native-storage.md#clipped-prompts)).
   YA shows such a record as the user prompt's beginning followed by
   "[agy logged only the beginning of this prompt; it left out the last N
-  bytes.]"; when the clip falls after the request (in its metadata) the
-  prompt is shown whole. Any other shape of clip stays unknown. The live
-  row, while the owner holds it, shows the whole prompt as sent.
+  bytes.]". Only when the last `</USER_REQUEST>` in the kept text is
+  followed by at most 512 characters (the longest trailer measured was
+  387) that read as whole trailer blocks then one partial block is the clip
+  taken to fall after the request, and the prompt shown whole; any other
+  close, such as one a paste quotes, is part of the prompt, so every kept
+  byte after the opening marker is shown with the notice. A clipped record
+  is never unknown for its content; only another length, notice or opening
+  is. An unclipped prompt that quotes the close is read correctly already:
+  its real close is the last one. The live row, while the owner holds it,
+  shows the whole prompt as sent.
 - **Cost.** A page reads its own bytes (about 4 MiB, the first record or
   trailing tool group excepted), the records after an older page's cursor
   that resolve its group or error, a search by halves for a cursor, and
@@ -610,17 +617,22 @@ log serves everything through its boundary, as above.
   enough, the owner checks it asynchronously, one check at a time. A check
   can start when a row is recorded or when a candidate is added. It reads
   the 512-byte head at Z (a `USER_INPUT`), the byte before Z (a newline),
-  and the record ending at Z, read once in chunks back from Z (at most the
-  16 MiB record limit plus one chunk), which must parse completely and end a
-  turn (a planner with no calls, or an `ERROR_MESSAGE`; a longer record
-  fails, and a later candidate will do).
+  and the record ending at Z, found and read once in chunks back from Z,
+  the last chunk clamped to the 16 MiB record limit and its two newlines;
+  it must be within that limit, parse completely and end a turn (a planner
+  with no calls, or an `ERROR_MESSAGE`; a longer record fails, and a later
+  candidate will do).
   These show the two records around Z, not that the input at Z is P's
   (step 7 adds that). Then it reads the span it would retire, from the
   current boundary to Z, through the log window reader, a page back at a
   time as "Load older" would serve it, stopping at the first unknown page;
-  any unknown page drops the candidate and the rows stay in memory (the
-  cap still bounds them). That read costs about the span's log bytes (plus
-  at most one page) once per move. The new boundary is the record ending
+  any unknown page, or an older-page cursor that does not resolve, drops
+  the candidate and the rows stay in memory (the cap still bounds them).
+  What these reads cost is a description, not a cap: the span check reads
+  the span's pages through the window reader, which looks up each cursor
+  by halving and may read the record ending at Z again; a failed
+  candidate's reads are not reused by the next. Once the owner closes, the
+  check opens no further page. The new boundary is the record ending
   at Z. A failed check discards the candidate and caches nothing, so a
   truncated, replaced or unreadable log moves nothing; a log with nothing
   past Z yet leaves it pending, checked again once a row arrives after

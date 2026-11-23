@@ -13,8 +13,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AntigravitySplitSampler,
   antigravitySplitCheck,
+  spanKnown,
 } from "../../../src/sdk/providers/antigravity-live-advance.js";
 import {
+  ANTIGRAVITY_LIVE_CUT_NOTICE,
   AntigravityLiveProjection,
   type AntigravitySplitCandidate,
   EMPTY_ANTIGRAVITY_LOG,
@@ -84,7 +86,7 @@ async function candidate(): Promise<AntigravitySplitCandidate> {
 const check = (
   taken: AntigravitySplitCandidate,
   boundary: AntigravityLogBoundary = EMPTY_ANTIGRAVITY_LOG,
-) => antigravitySplitCheck(scope, ID)(taken, boundary);
+) => antigravitySplitCheck(scope, ID)(taken, boundary, () => true);
 
 describe("proving an Antigravity split candidate", () => {
   it("proves the record ending at the size taken at dispatch when a user input starts there", async () => {
@@ -260,6 +262,62 @@ describe("proving an Antigravity split candidate", () => {
       spy.mockRestore();
     }
     expect(bytes).toBeLessThanOrEqual(taken.size + 512);
+  });
+
+  // Review round 4 finding 5: the last backward read could take a record
+  // past the limit, which was then accepted.
+  it("refuses a record ending at the size of 16 MiB plus one chunk", async () => {
+    await writeFile(log, input(0, "First"));
+    await appendFile(log, reply(1, "y".repeat(16 * 1024 * 1024 + 64 * 1024)));
+    const taken = await candidate();
+    await appendFile(log, input(2, "Second"));
+    expect(await check(taken)).toBeUndefined();
+  });
+
+  // Review round 4 finding 2: a closed owner kept paging the span, and a
+  // cursor that did not resolve ended the span check as a success.
+  it("opens no page of the span once the owner closed, and fails on a cursor miss", async () => {
+    let alive = true;
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const pages: string[] = [];
+    const page = (step: number) => ({
+      status: "known" as const,
+      messages: [{ type: "user", uuid: `${ID}:step-${step}` }] as never,
+      omittedPrefix: true,
+      bytesRead: 0,
+      heldPeak: 0,
+    });
+    const checking = spanKnown(
+      scope,
+      ID,
+      { step: 1, end: 10 },
+      { step: 40, end: 1000 },
+      () => alive,
+      async (options) => {
+        pages.push(options.request.kind);
+        if (pages.length === 1) await held;
+        return page(30);
+      },
+    );
+    await vi.waitFor(() => expect(pages).toHaveLength(1));
+    alive = false;
+    release();
+    expect(await checking).toBe(false);
+    expect(pages).toEqual(["latest"]);
+    // A `before` page whose cursor missed is known and whole: no proof.
+    const missed = await spanKnown(
+      scope,
+      ID,
+      { step: 1, end: 10 },
+      { step: 40, end: 1000 },
+      () => true,
+      async (options) =>
+        options.request.kind === "latest"
+          ? page(30)
+          : { ...page(20), omittedPrefix: false, anchor: "missed" as const },
+    );
+    expect(missed).toBe(false);
   });
 
   it("leaves a candidate pending until the prompt's input is logged", async () => {
@@ -524,6 +582,29 @@ describe("a live Antigravity window", () => {
       expect(live.incomplete).toBe(false);
     },
   );
+
+  // Review round 4 finding 3: a row quoting the notice was taken for cut.
+  it("leaves the view complete for an ordinary row that ends with the notice's text", () => {
+    const live = new AntigravityLiveProjection(EMPTY_ANTIGRAVITY_LOG);
+    live.record(
+      row("quote", `As YA says:${ANTIGRAVITY_LIVE_CUT_NOTICE}`, "user"),
+    );
+    expect(live.incomplete).toBe(false);
+  });
+
+  // Review round 4 finding 6: an overflowing chunk was dropped whole.
+  it("keeps the part of an overflowing chunk that fits, then the notice", () => {
+    const transcript = new AntigravityTranscript(ID, `${ID}:turn`, true);
+    const [snapshot] = transcript.accept({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "é".repeat((9 * 1024 * 1024) / 2) },
+    });
+    const content = String(snapshot!.message!.content);
+    expect(content.endsWith(ANTIGRAVITY_LIVE_CUT_NOTICE)).toBe(true);
+    const kept = content.slice(0, -ANTIGRAVITY_LIVE_CUT_NOTICE.length);
+    expect(Buffer.byteLength(kept, "utf8")).toBe(8 * 1024 * 1024);
+    expect(kept).toBe("é".repeat((8 * 1024 * 1024) / 2));
+  });
 
   // Review round 3 item 8: the block being assembled grew without bound.
   it("stops a live text block at the cap, with the same notice, and marks the view incomplete", () => {

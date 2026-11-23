@@ -73,6 +73,8 @@ export interface AntigravitySplitCandidate {
 export type AntigravitySplitCheck = (
   candidate: AntigravitySplitCandidate,
   boundary: AntigravityLogBoundary,
+  /** False once the owner closed: no further log read starts. */
+  alive: () => boolean,
 ) => Promise<AntigravityLogBoundary | "pending" | undefined>;
 
 interface Row {
@@ -184,17 +186,13 @@ function storedCopy(
   return done(skeleton, sizeOf(skeleton));
 }
 
-/** Whether a live block stopped growing at the cap (the transcript cut it). */
-function stoppedGrowing(message: SDKMessage): boolean {
-  const content = message.message?.content as string | Block[] | undefined;
-  const text =
-    typeof content === "string"
-      ? content
-      : content?.length === 1
-        ? (content[0]!.thinking ?? content[0]!.text)
-        : undefined;
-  return typeof text === "string" && text.endsWith(ANTIGRAVITY_LIVE_CUT_NOTICE);
-}
+/**
+ * Set (never serialized) on a live block the transcript stopped at the
+ * cap, so the window knows the row is cut whatever its text says.
+ */
+export const ANTIGRAVITY_LIVE_CUT: unique symbol = Symbol(
+  "antigravity live cut",
+);
 
 export class AntigravityLiveProjection {
   private readonly rows = new Map<string, Row>();
@@ -267,7 +265,11 @@ export class AntigravityLiveProjection {
       bytes,
       seq: previous?.seq ?? this.nextSeq++,
     });
-    if (stored.cut || stoppedGrowing(message)) this.cut.add(id);
+    if (
+      stored.cut ||
+      (message as { [ANTIGRAVITY_LIVE_CUT]?: boolean })[ANTIGRAVITY_LIVE_CUT]
+    )
+      this.cut.add(id);
     else this.cut.delete(id);
     // Without a log to take the title from (a new session's empty log, or a
     // fallback owner's whole history), the first prompt this owner recorded
@@ -332,7 +334,7 @@ export class AntigravityLiveProjection {
     if (!candidate) return;
     const started = this.nextSeq;
     this.checking = true;
-    void this.check(candidate, this.boundary)
+    void this.check(candidate, this.boundary, () => !this.closed)
       .catch(() => undefined)
       .then((boundary) => {
         this.checking = false;

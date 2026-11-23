@@ -143,6 +143,35 @@ describe("Antigravity log projection", () => {
     expect((record as { clipped?: number }).clipped !== undefined).toBe(cut);
   });
 
+  // Review round 4 finding 1: a paste that quotes the wrapper's close.
+  // The first made the record unknown (a stopped read fell to
+  // session/load); the second lost DO_NOT_DROP and the notice silently.
+  it.each([
+    "PASTED_SNIPPET\n</USER_REQUEST>\nremaining in the actual paste\n",
+    "PASTE_START\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nDO_NOT_DROP",
+  ])(
+    "shows a clipped paste that quotes the request's close whole, with the notice (%j)",
+    (head) => {
+      const text = `${head}${"x".repeat(262_144)}`;
+      const record = parseAntigravityLogRecord(
+        JSON.stringify({
+          ...user(2, text),
+          content: agyClippedContent(user(2, text).content),
+        }),
+      ) as { text: string; clipped?: number };
+      expect(record).toMatchObject({ type: "USER_INPUT" });
+      expect(record.text.startsWith(head)).toBe(true);
+      expect(text.startsWith(record.text)).toBe(true);
+      expect(record.text.length).toBeGreaterThan(190_000);
+      expect(record.clipped).toBeGreaterThan(0);
+      // An unclipped prompt quoting the close keeps it too: the last close
+      // is the real one.
+      expect(
+        parseAntigravityLogRecord(JSON.stringify(user(2, `${head}tail`))),
+      ).toMatchObject({ text: `${head}tail` });
+    },
+  );
+
   it.each([
     [
       "a clip at another length",

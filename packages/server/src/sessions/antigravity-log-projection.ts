@@ -199,6 +199,11 @@ const CLIP_BYTES = 192_000;
 const CLIP_MARK =
   /\n<truncated ([1-9]\d{0,15}) bytes>\n\nNOTE: The output was truncated because it was too long\. Use a more targeted query or a smaller range to get the information you need\.$/;
 const TRAILER_BLOCKS = ["ADDITIONAL_METADATA", "USER_SETTINGS_CHANGE"];
+/**
+ * The most that may follow a real close in a clipped record: the longest
+ * trailer measured was 387 characters (metadata and settings blocks).
+ */
+const CLIP_TRAILER_CHARS = 512;
 
 /**
  * Whether `rest`, what follows a closed request, is the start of the
@@ -235,14 +240,17 @@ function clippedRequest(
     bytes < CLIP_BYTES - 3
   )
     return undefined;
+  // The request closed before the cut (only its trailer was clipped) when
+  // the last close is followed by no more than a trailer and reads as one;
+  // any other close is part of the pasted text.
   const close = kept.lastIndexOf(USER_CLOSE);
-  // The request closed before the cut: only its trailer was clipped.
-  if (close >= USER_OPEN.length - 1)
-    return trailerStart(kept.slice(close + USER_CLOSE.length))
-      ? {
-          text: kept.slice(USER_OPEN.length, Math.max(close, USER_OPEN.length)),
-        }
-      : undefined;
+  const rest = close < 0 ? "" : kept.slice(close + USER_CLOSE.length);
+  if (
+    close >= USER_OPEN.length - 1 &&
+    rest.length <= CLIP_TRAILER_CHARS &&
+    trailerStart(rest)
+  )
+    return { text: kept.slice(USER_OPEN.length, close) };
   // Cut inside the request, or inside its closing marker.
   let text = kept.slice(USER_OPEN.length);
   for (let length = USER_CLOSE.length - 1; length >= 2; length--)

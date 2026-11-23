@@ -49,14 +49,15 @@ function prose(messages: readonly Message[]): string[] {
 }
 
 /** The prompt texts the adapter sends on the ACP pipe, as it sends them. */
-function promptsSent(): string[] {
-  const sent: string[] = [];
+function promptsSent(): string[] & { methods: string[] } {
+  const sent = Object.assign([] as string[], { methods: [] as string[] });
   const original = AntigravityRuntime.prototype.call;
   vi.spyOn(AntigravityRuntime.prototype, "call").mockImplementation(function (
     this: AntigravityRuntime,
     ...args: Parameters<typeof original>
   ) {
     const [method, params] = args;
+    sent.methods.push(method);
     if (method === "session/prompt")
       sent.push(
         (params as { prompt: Array<{ text: string }> }).prompt[0]!.text,
@@ -348,20 +349,26 @@ describe.skipIf(!providers.includes("antigravity"))(
 
     // Review round 3 finding 1 on real agy: a long pasted prompt is logged
     // clipped; a move past it kept only the turn after it readable.
+    // Round 4: the paste quotes the request's close; that made the record
+    // unknown, so the move was refused and a stopped read fell to
+    // session/load.
     it("keeps every turn readable across a move past a pasted prompt agy clipped", async () => {
       setAntigravityLiveLimitsForTests({ softRows: 2, splitAgeMs: 0 });
       const s = await session();
       const { f } = s;
+      const sent = promptsSent();
+      const quoted =
+        "PASTED_SNIPPET\n</USER_REQUEST>\nremaining in the actual paste\n";
       try {
         (await f.model.next()).finish("FIRST_DONE");
         await f.output("FIRST_DONE");
         await f.idle();
         await s.listed();
-        await s.turn(`PASTE_START ${"p".repeat(262_144)}`, "PASTE_DONE");
+        await s.turn(`${quoted}${"p".repeat(262_144)}`, "PASTE_DONE");
         await s.turn("AFTER_PASTE", "AFTER_PASTE_DONE");
         await vi.waitFor(async () =>
           expect(JSON.stringify((await s.owner())?.history())).not.toContain(
-            "PASTE_START",
+            "PASTED_SNIPPET",
           ),
         );
         const fresh = new AntigravitySessionReader({ projectPath: f.project });
@@ -378,9 +385,10 @@ describe.skipIf(!providers.includes("antigravity"))(
             .map((message) => String(message.message?.content));
           expect(users.map((text) => text.slice(0, 12))).toEqual([
             "INITIAL_NATI",
-            "PASTE_START ",
+            "PASTED_SNIPP",
             "AFTER_PASTE",
           ]);
+          expect(users[1]!.startsWith(quoted)).toBe(true);
           expect(users[1]).toMatch(
             /agy logged only the beginning of this prompt/,
           );
@@ -388,6 +396,32 @@ describe.skipIf(!providers.includes("antigravity"))(
         } finally {
           await fresh.close();
         }
+        // Stopped, a read is served from the log, all kept text shown.
+        await f.stop();
+        const stopped = new AntigravitySessionReader({
+          projectPath: f.project,
+        });
+        try {
+          const loaded = await stopped.getSession(
+            f.nativeId(),
+            toUrlProjectId(f.project),
+            undefined,
+            { tailCompactions: 1 },
+          );
+          expect(loaded?.transcriptComplete).not.toBe(false);
+          const paste = (
+            loaded!.data.session as { messages: Message[] }
+          ).messages.find((message) =>
+            String(message.message?.content).startsWith("PASTED_SNIPPET"),
+          );
+          expect(String(paste?.message?.content).startsWith(quoted)).toBe(true);
+          expect(String(paste?.message?.content).length).toBeGreaterThan(
+            190_000,
+          );
+        } finally {
+          await stopped.close();
+        }
+        expect(sent.methods).not.toContain("session/load");
       } finally {
         await s.viewer.close();
       }

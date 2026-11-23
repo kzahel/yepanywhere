@@ -564,9 +564,15 @@ The projection accepts exactly this: content ending in that notice with
 any N, whose kept part is 191,997 to 192,000 bytes and begins
 `<USER_REQUEST>\n`. A cut inside the request (or its closing marker,
 whose partial bytes are dropped) becomes the user prompt's kept text with
-YA's notice; a cut after the closed request keeps the request whole and
-requires the rest to be whole trailer blocks then one partial block. Any
-other length, notice or opening stays unknown. The step 6 review (round
+YA's notice. The longest trailer measured after a close was 387
+characters (metadata and settings blocks, the first prompt of a session),
+so a close is taken for the request's own only when it is the last one and
+at most 512 characters precede the notice after it, reading as whole
+trailer blocks then one partial block; the request is then whole. Any
+other close is pasted text (step 6 review round 4 found pastes quoting
+`</USER_REQUEST>` that made the record unknown, or lost text silently), and
+the whole kept text after the opening marker is the prompt, with the
+notice. Any other length, notice or opening stays unknown. The step 6 review (round
 3) found that before this, such a record made the whole log unknown.
 
 ### Windows
@@ -1013,14 +1019,19 @@ soft budget and P is old enough, `antigravitySplitCheck`
 ([`antigravity-live-advance.ts`](../packages/server/src/sdk/providers/antigravity-live-advance.ts))
 opens the log and reads the head at Z (512 bytes, a `USER_INPUT`) and the
 record ending at Z, each of its bytes once, in chunks back from Z that it
-keeps (at most the 16 MiB record limit; a longer record fails the
-candidate), which must parse as the window parses it and end a turn. The
+keeps, the last one clamped to the 16 MiB record limit and its two
+newlines (a longer record fails the candidate), which must parse as the
+window parses it and end a turn. The
 round 2 version found the record's start and then read its body again
 (33 MB of reads for a 15.9 MiB record, review round 3). These reads show the two records around Z; they do not show
 that the input at Z is P's. Then it reads the span it would retire through
 the log window reader, a page at a time back from Z to the old boundary,
-and drops the candidate at the first unknown page: about the span's bytes,
-plus at most one page, once per move. Its result is the new boundary, with
+and drops the candidate at the first unknown page or at an older-page
+cursor that does not resolve; a closed owner opens no further page. As a
+description, not a cap: the window reader reads each page, looks up each
+cursor by halving and may read the record ending at Z again, and a failed
+candidate's reads are not reused (review round 4 counted 16.67 MB in the
+terminal search and about 33.68 MB in the pages for a 15.9 MiB record). Its result is the new boundary, with
 the record's offsets and first bytes. Nothing is cached between checks. The design of step 6's first
 version moved at every result, and its second proved splits with an
 incremental scan of the log, expectations matched by prompt text, a read
