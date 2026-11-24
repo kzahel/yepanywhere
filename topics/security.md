@@ -98,7 +98,12 @@ This section states the boundary that layer claims and what lies outside it.
 **Login.** A limited user authenticates with their own password: a direct
 cookie login naming the username, or Remote Access SRP with the username as
 the SRP identity under the host's relay name. The relay learns nothing new,
-and the principal is bound before any API call. While the feature is on,
+and the server binds the selected principal before any API call. The current
+compatibility profile does not return that identity inside its authenticated
+server information; the bounded same-password account-confusion condition and
+proposed versioned repair are recorded in
+[SRP and login security](srp-login-security.md#authenticate-the-selected-identity-to-the-client).
+While the feature is on,
 `srp_hello` does not disclose which names exist:
 
 - an unknown or disabled identity gets a challenge against a decoy salt and
@@ -387,6 +392,10 @@ can steal a password or cached resume secret before transport encryption helps.
 Use signed/bundled or locally served client assets when the threat model
 includes compromise of both the relay and live hosted client delivery; see
 [`trusted-client-packaging.md`](trusted-client-packaging.md).
+
+The current cryptographic boundary, the November 2026 predictable-randomness
+incident comparison and the known hardening register live in
+[SRP and login security](srp-login-security.md).
 
 ## Update Server Contact
 

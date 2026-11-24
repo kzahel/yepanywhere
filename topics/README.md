@@ -30,7 +30,10 @@
 - [Connection-safe settings](connection-safe-settings.md) (the same settings
   over direct and Remote Access connections, confirmation before a change cuts
   off its own caller, and runtime listener changes)
-- Security trust boundaries
+- [Security trust boundaries](security.md)
+- [SRP and login security](srp-login-security.md) (current Remote Access
+  guarantees, the predictable-randomness incident comparison, review evidence
+  and a ranked hardening register)
 - [Deliberate departures from standard web practice](web-practice-exceptions.md)
   (register of loosened browser-hardening defaults and declined platform
   recommendations, each with its need, compensating control and owner;
