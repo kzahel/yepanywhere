@@ -1027,4 +1027,29 @@ describe("useProviders", () => {
     expect(result.current.fresh).toBe(true);
     expect(mockGetProvider).not.toHaveBeenCalled();
   });
+
+  it("asks a listed not-installed provider by name and adopts its recovery", async () => {
+    const codex = (installed: boolean) => ({
+      name: "codex",
+      displayName: "Codex",
+      installed,
+      authenticated: installed,
+      enabled: installed,
+    });
+    mockGetProviders
+      .mockResolvedValueOnce({ providers: [codex(false)] })
+      .mockResolvedValue({ providers: [codex(true)] });
+    mockGetProvider.mockResolvedValue({ provider: codex(true) });
+
+    const { result } = renderHook(() => providersModule.useProviders());
+
+    await waitFor(() =>
+      expect(result.current.providers[0]?.installed).toBe(true),
+    );
+    expect(mockGetProvider).toHaveBeenCalledExactlyOnceWith("codex", {
+      refresh: false,
+    });
+    // The recovered list is not rechecked again.
+    expect(mockGetProviders).toHaveBeenCalledTimes(2);
+  });
 });

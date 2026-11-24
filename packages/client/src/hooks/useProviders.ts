@@ -35,12 +35,45 @@ function loadProviders(
   forceRefresh: boolean,
   bypassClientCache = false,
 ) {
-  return acquireProviders(
+  const providers = acquireProviders(
     sourceKey,
     (options) => api.getProviders(options),
     forceRefresh,
     bypassClientCache,
   );
+  void providers.then(
+    () => recheckMissingProviders(sourceKey),
+    () => {},
+  );
+  return providers;
+}
+
+const recheckedAggregates = new Map<ClientSummarySourceKey, number>();
+
+/**
+ * The list answers at once with a missing CLI's retained row. Ask each such
+ * row by name, which waits for the server's recheck, once per list response.
+ */
+async function recheckMissingProviders(sourceKey: ClientSummarySourceKey) {
+  const list = getProviderCache(sourceKey);
+  if (
+    !list ||
+    list.stale ||
+    recheckedAggregates.get(sourceKey) === list.requestSequence
+  ) {
+    return;
+  }
+  recheckedAggregates.set(sourceKey, list.requestSequence);
+  const rechecked = await Promise.all(
+    list.providers
+      .filter((row) => !row.installed)
+      .map((row) =>
+        loadProviderRow(sourceKey, row.name, false).catch(() => null),
+      ),
+  );
+  if (rechecked.some((entry) => entry?.row.installed)) {
+    await loadProviders(sourceKey, false, true).catch(() => {});
+  }
 }
 
 function loadProviderRow(

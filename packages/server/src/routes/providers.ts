@@ -77,6 +77,27 @@ export function createProvidersRoutes(deps: ProviderRouteDeps = {}): Hono {
     ProviderName,
     ProviderInfoGeneration
   >();
+  const installRechecks = new Map<ProviderName, Promise<boolean>>();
+  /**
+   * A retained "not installed" row is never served unchecked: a CLI installed
+   * or repaired outside YA changes no cache key. Providers answer a missing
+   * CLI from PATH lookups alone, so this costs far less than discovery.
+   */
+  const isInstalledNow = (provider: AgentProvider): Promise<boolean> => {
+    const providerName = provider.name as ProviderName;
+    let pending = installRechecks.get(providerName);
+    if (!pending) {
+      pending = provider
+        .getAuthStatus()
+        .then(
+          (status) => status.installed,
+          () => false,
+        )
+        .finally(() => installRechecks.delete(providerName));
+      installRechecks.set(providerName, pending);
+    }
+    return pending;
+  };
   const usageCache = new Map<
     ProviderName,
     {
@@ -171,6 +192,7 @@ export function createProvidersRoutes(deps: ProviderRouteDeps = {}): Hono {
   const getProviderInfo = async (
     provider: AgentProvider,
     forceRefresh: boolean,
+    installRecheck: "await" | "background" = "await",
   ): Promise<ProviderInfo> => {
     const providerName = provider.name as ProviderName;
     const admission = providerInfoGenerations.get(providerName) ?? {
@@ -191,7 +213,19 @@ export function createProvidersRoutes(deps: ProviderRouteDeps = {}): Hono {
         if (!requireForce) {
           const accepted = providerInfoOwner.getAccepted(providerName);
           if (accepted && accepted.value.catalogCacheKey === catalogCacheKey) {
-            return accepted.value.info;
+            const row = accepted.value;
+            if (row.info.installed) return row.info;
+            if (installRecheck === "background") {
+              // The list must not wait on one missing CLI; a later read
+              // sees what this recheck finds.
+              void getProviderInfo(provider, false).catch(() => {});
+              return row.info;
+            }
+            if (!(await isInstalledNow(provider))) return row.info;
+            // Rediscover, unless another caller replaced the row meanwhile.
+            requireForce =
+              providerInfoOwner.getAccepted(providerName)?.value === row;
+            continue;
           }
         }
 
@@ -302,7 +336,7 @@ export function createProvidersRoutes(deps: ProviderRouteDeps = {}): Hono {
     const forceRefresh = isRefreshRequest(c);
     const providerInfos: ProviderInfo[] = await Promise.all(
       getExposedProviders().map((provider) =>
-        getProviderInfo(provider, forceRefresh),
+        getProviderInfo(provider, forceRefresh, "background"),
       ),
     );
 

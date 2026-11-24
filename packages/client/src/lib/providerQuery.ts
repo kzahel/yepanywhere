@@ -460,7 +460,9 @@ export async function acquireProviderRow(
   const key = providerRowKey(sourceKey, providerName);
   if (!forceRefresh) {
     const cached = readCachedProviderRowEntry(sourceKey, providerName);
-    if (cached) return cached;
+    // "Not installed" is never trusted from cache: the named read is what
+    // makes the server recheck a CLI installed outside YA.
+    if (cached?.row.installed) return cached;
   }
 
   const pending = providerRowRequests.get(key);
@@ -540,7 +542,7 @@ export function getInitialProviderRowState(
   const row =
     currentRow ??
     (providerName ? readProviderRowDisplay(sourceKey, providerName) : null);
-  const fresh = currentRow !== null && !forceRefreshOnMount;
+  const fresh = currentRow?.installed === true && !forceRefreshOnMount;
   return {
     sourceKey,
     providerName,

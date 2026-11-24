@@ -198,54 +198,52 @@ describe("Providers Routes", () => {
     expect(provider.getAvailableModels).toHaveBeenCalledTimes(1);
   });
 
-  it("retains unavailable provider rows until explicit refresh", async () => {
-    const getAuthStatus = vi
-      .fn()
-      .mockResolvedValueOnce({
-        installed: false,
-        authenticated: false,
-        enabled: false,
-      })
-      .mockResolvedValue({
-        installed: true,
-        authenticated: true,
-        enabled: true,
-      });
+  it("rechecks a not-installed provider without holding up the list", async () => {
+    let installed = false;
+    let statusGate: Promise<void> | undefined;
+    const getAuthStatus = vi.fn(async () => {
+      await statusGate;
+      return { installed, authenticated: installed, enabled: installed };
+    });
     const provider = createProvider({ getAuthStatus });
     const routes = createProvidersRoutes({
       providers: [provider],
     });
+    const named = async () =>
+      (
+        (await (await routes.request("/claude")).json()) as {
+          provider: ProviderInfo;
+        }
+      ).provider.installed;
+    const listed = async () =>
+      (
+        (await (await routes.request("/")).json()) as {
+          providers: ProviderInfo[];
+        }
+      ).providers[0]?.installed;
 
-    const unavailable = await routes.request("/");
-    const cached = await routes.request("/");
-    const clock = vi
-      .spyOn(Date, "now")
-      .mockReturnValue(Date.now() + 365 * 24 * 60 * 60_000);
-    let later: Response;
-    try {
-      later = await routes.request("/");
-    } finally {
-      clock.mockRestore();
-    }
-    expect(
-      ((await later.json()) as { providers: ProviderInfo[] }).providers[0]
-        ?.installed,
-    ).toBe(false);
-    const recovered = await routes.request("/?refresh=1");
-
-    expect(
-      ((await unavailable.json()) as { providers: ProviderInfo[] }).providers[0]
-        ?.installed,
-    ).toBe(false);
-    expect(
-      ((await cached.json()) as { providers: ProviderInfo[] }).providers[0]
-        ?.installed,
-    ).toBe(false);
-    expect(
-      ((await recovered.json()) as { providers: ProviderInfo[] }).providers[0]
-        ?.installed,
-    ).toBe(true);
+    expect(await named()).toBe(false);
+    expect(await named()).toBe(false);
+    // Still missing: the status was asked again, the catalog was not.
     expect(getAuthStatus).toHaveBeenCalledTimes(2);
+    expect(provider.getAvailableModels).toHaveBeenCalledTimes(1);
+
+    const gate = deferred<void>();
+    statusGate = gate.promise;
+    installed = true;
+    // The list answers from the retained row while the recheck is pending.
+    expect(await listed()).toBe(false);
+    statusGate = undefined;
+    gate.resolve();
+    await vi.waitFor(async () => expect(await listed()).toBe(true));
+    expect(provider.getAvailableModels).toHaveBeenLastCalledWith({
+      forceRefresh: true,
+    });
+
+    const statusReads = getAuthStatus.mock.calls.length;
+    expect(await named()).toBe(true);
+    expect(getAuthStatus).toHaveBeenCalledTimes(statusReads);
+    expect(provider.getAvailableModels).toHaveBeenCalledTimes(2);
   });
 
   it("shares retained results across clients without age or size eviction", async () => {

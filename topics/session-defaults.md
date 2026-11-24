@@ -160,13 +160,25 @@ The provider chooser separates identity enumeration from dynamic readiness:
 - `GET /api/providers/:name` resolves and refreshes one selected provider without
   probing unrelated providers.
 
-The server retains one provider row per registered provider for its lifetime,
-including unavailable-provider results. Ordinary reads from any client reuse
-that result without time expiry or size eviction; opening a tab does not
-schedule a background probe. Explicit Refresh or a changed model-catalog
-configuration key starts discovery again. The fixed provider set bounds the
-number of retained rows, rather than a shared byte budget that could make a
-large catalog rediscover itself on every read.
+The server retains one provider row per registered provider for its lifetime.
+Ordinary reads from any client reuse an installed provider's row without time
+expiry or size eviction; opening a tab does not schedule a background probe
+of it. Explicit Refresh or a changed model-catalog configuration key starts
+discovery again. The fixed provider set bounds the number of retained rows,
+rather than a shared byte budget that could make a large catalog rediscover
+itself on every read.
+
+A "not installed" row is never reused unchecked, because a CLI installed,
+updated or repaired outside YA changes no configuration key. Every read of
+such a row asks that provider's status again, which for an absent CLI is a
+PATH lookup with no model or catalog work. While it is still missing the
+retained row is served; once it is installed, full discovery replaces the row.
+`GET /api/providers/:name` waits for that recheck. `GET /api/providers`
+never does: it returns the retained row at once and lets the recheck finish
+behind it, so one missing CLI cannot delay the installed providers' rows. A
+client therefore follows each list response with a named read of every
+not-installed row, reloads the list when one has recovered, and never
+satisfies a named read from its own cached "not installed" row.
 
 One source-versioned owner coordinates acquisition. Ordinary callers join current work, concurrent forced
 callers coalesce, forced work supersedes older ordinary work, and late old
