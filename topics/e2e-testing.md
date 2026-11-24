@@ -134,9 +134,11 @@ Compare a case that fails alone with the latest `main` CI run before treating
 it as caused by the current change. A physically attached Android device
 enables the device-stream cases, which then fail under parallel load.
 
-CI continues to run the full client E2E suite. A focused local run does not
-turn a failing full CI run into a pass, and CI retries do not make an
-intermittent assertion healthy. Visual verification and capture remain owned by
+CI runs the full client E2E suite without automatic retries. A failed first
+attempt fails its shard and keeps its action timeline, failure screenshot,
+and any scenario-specific diagnostics. The default trace leaves DOM and
+network snapshots off so tracing does not alter sandboxed export frames.
+Visual verification and capture remain owned by
 [UI testing](ui-testing.md), including a user's explicit visual-QA handoff.
 
 The separate iPad WebKit job allows 45 minutes for cold dependency installation
@@ -177,8 +179,7 @@ Crossing it is a decision for the change that does so: trim the suite, move
 cases to the cheaper level the contract allows (see the table above), or
 raise the budget with the reason in the commit, adding a shard when the
 slower shard would exceed about eight minutes. Never cut retained coverage or
-raise per-case timeouts to fit. Failing cases cost three attempts each in CI,
-so a red or flaky suite is also a time problem.
+raise per-case timeouts to fit.
 
 ### Worker-owned services
 
@@ -186,9 +187,7 @@ Mutable services are worker-owned by default; parallel runs need no extra
 isolation environment setting. Builds and the
 remote-client Vite/preview servers remain invocation-owned; each worker starts
 its own seeded YA profile (about 3.4s) and relay only when a fixture needs
-them. A failed case replaces its worker, so failures also pay that startup
-again. Keep `--retries=0` in diagnostic parallel runs so a retry cannot hide
-shared state.
+them. A failed case replaces its worker before running the next case.
 
 Paths derive from Playwright's `TEST_WORKER_INDEX` before spec imports, rather
 than from a test callback. A replacement worker after failure gets fresh

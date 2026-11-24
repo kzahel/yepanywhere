@@ -11,6 +11,10 @@ import { InstallService } from "../../server/src/services/InstallService.js";
 import { writeAntigravityScaleConversation } from "../../server/test/utils/antigravity-scale-log.js";
 import { toUrlProjectId } from "../../shared/src/index.js";
 import { expect, test } from "./fixtures.js";
+import {
+  startTypingDiagnostics,
+  typingAckTargetMs,
+} from "./support/typing-diagnostics.js";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
 import {
   disposeYaServerProcess,
@@ -188,7 +192,7 @@ for (const viewport of [
 ]) {
   test(`pages a long Antigravity log and keeps typing responsive on ${viewport.name}`, async ({
     browser,
-  }) => {
+  }, testInfo) => {
     const { server, projectId, started, store, nextStep } =
       await serve(nativeId);
     const context = await browser.newContext({
@@ -221,11 +225,20 @@ for (const viewport of [
     await expect(main.getByText(/TURN_\d+_REPLY/).first()).toBeAttached({
       timeout: 20_000,
     });
+    // Settle the initial render before measuring the separate append.
+    await expect(main.locator("[data-message-list]")).not.toHaveAttribute(
+      "aria-busy",
+      "true",
+      { timeout: 20_000 },
+    );
 
     // Sequential typing while the log grows and the client catches up.
     const composer = page.locator("[data-composer-input]");
     await composer.focus();
     await expect(composer).toBeFocused();
+    const recordTyping = await startTypingDiagnostics(composer, {
+      limitMs: typingAckTargetMs,
+    });
     await composer.evaluate((element) => {
       const field = element as HTMLTextAreaElement & {
         acks: { value: string; latency: number }[];
@@ -295,7 +308,13 @@ for (const viewport of [
     console.log(
       `Antigravity log typing (${viewport.name}): ${acks.length} keys during a log append and catch-up, browser maximum ${slowest.toFixed(1)} ms; controller wall maximum ${Math.max(...delays).toFixed(1)} ms`,
     );
-    expect(slowest).toBeLessThan(100);
+    await recordTyping(
+      testInfo,
+      `antigravity-log-${viewport.name}`,
+      acks,
+      slowest,
+    );
+    expect(slowest).toBeLessThan(typingAckTargetMs);
     await expect(composer).toHaveValue(draft);
     // The append reached the client through a refresh of the transcript.
     await expect
@@ -485,7 +504,7 @@ for (const hosted of [false, true]) {
   const where = hosted ? " (owner in the Provider Host)" : "";
   test(`resumes a long Antigravity conversation from the browser without replaying it${where}`, async ({
     browser,
-  }) => {
+  }, testInfo) => {
     const viewport = { name: "desktop" as const, width: 1000, height: 600 };
     const resumedId = "a9a90000-0000-4000-8000-000000000196";
     const { server, projectId, started } = await serve(resumedId, {
@@ -535,6 +554,9 @@ for (const hosted of [false, true]) {
 
     // Sequential typing while the resumed turn streams.
     await composer.focus();
+    const recordTyping = await startTypingDiagnostics(composer, {
+      limitMs: typingAckTargetMs,
+    });
     await composer.evaluate((element) => {
       const field = element as HTMLTextAreaElement & {
         acks: { value: string; latency: number }[];
@@ -584,7 +606,8 @@ for (const hosted of [false, true]) {
     console.log(
       `Antigravity resumed-turn typing (${viewport.name}): ${acks.length} keys while streaming, browser maximum ${slowest.toFixed(1)} ms`,
     );
-    expect(slowest).toBeLessThan(100);
+    await recordTyping(testInfo, "antigravity-resume", acks, slowest);
+    expect(slowest).toBeLessThan(typingAckTargetMs);
 
     // The turn ends; its prompt and reply show once, after the history.
     await expect(main.getByText(/RESUMED_REPLY_DONE/)).toHaveCount(1, {
@@ -630,7 +653,7 @@ for (const hosted of [false, true]) {
 
   test(`keeps a long live Antigravity session whole across a move of its live rows to the log${where}`, async ({
     browser,
-  }) => {
+  }, testInfo) => {
     // Plan 195 step 6: past its 2 MiB soft budget, once a split point is
     // older than Process's replay window, the owner moves the rows before it
     // to the log. A move is one replacement window for a connected client.
@@ -734,7 +757,15 @@ for (const hosted of [false, true]) {
         timeout: 20_000,
       })
       .toBe(1);
+    await expect(main.getByText(/SLOW_TURN_3_REPLY/)).toHaveCount(1, {
+      timeout: 20_000,
+    });
     await composer.focus();
+    const maxTypingKeys = 400;
+    const recordTyping = await startTypingDiagnostics(composer, {
+      limitMs: typingAckTargetMs,
+      maxKeys: maxTypingKeys,
+    });
     await composer.evaluate((element) => {
       const field = element as HTMLTextAreaElement & {
         acks: { value: string; latency: number }[];
@@ -758,7 +789,7 @@ for (const hosted of [false, true]) {
     const prefixes: string[] = [];
     let draft = "";
     const sentence = "Typing while live rows move to the log. ";
-    for (let index = 0; index < 400; index++) {
+    for (let index = 0; index < maxTypingKeys; index++) {
       const character = sentence[index % sentence.length]!;
       draft += character;
       await page.keyboard.type(character);
@@ -790,7 +821,8 @@ for (const hosted of [false, true]) {
     console.log(
       `Antigravity live-memory typing (${viewport.name}): ${acks.length} keys while a turn streamed across a move, browser maximum ${slowest.toFixed(1)} ms`,
     );
-    expect(slowest).toBeLessThan(100);
+    await recordTyping(testInfo, "antigravity-live-move", acks, slowest);
+    expect(slowest).toBeLessThan(typingAckTargetMs);
     await finished("SLOW_TURN_3_DONE");
     await expect(composer).toHaveValue(draft);
 

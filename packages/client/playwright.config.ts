@@ -21,7 +21,7 @@ export default defineConfig({
   outputDir,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: 0,
   // Mutable services are worker-owned. Four workers ran the full suite in
   // 7.6 minutes on a 14-core Mac, against about an hour serially; CI passes
   // its own count per shard.
@@ -36,13 +36,9 @@ export default defineConfig({
   use: {
     launchOptions: { chromiumSandbox: true },
     // baseURL provided by fixtures.ts (reads port from global-setup)
-    // Not `retain-on-failure`, which records every test and whose injected
-    // recorder script is blocked in a sandboxed `srcdoc` frame — the mockup
-    // export spec counts that as a console problem and fails. CI retries
-    // twice, so a failure there still produces a trace, which is what carries
-    // the requests, responses and DOM snapshots a screenshot cannot. A local
-    // failure has no retry: rerun the spec with `--trace on` to get one.
-    trace: "on-first-retry",
+    // Keep the failing attempt's action timeline. DOM snapshots inject a
+    // script into sandboxed export frames and change their console output.
+    trace: { mode: "retain-on-failure", snapshots: false, screenshots: false },
     screenshot: "only-on-failure",
     actionTimeout: 5000,
   },

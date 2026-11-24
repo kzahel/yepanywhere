@@ -35,8 +35,11 @@ type ObservedInput = HTMLElement & {
 };
 
 /** Supplement the existing input gate; never subtract these phases from it. */
-export async function startTypingDiagnostics(input: Locator) {
-  await input.evaluate((element) => {
+export async function startTypingDiagnostics(
+  input: Locator,
+  { limitMs = typingAckLimitMs, maxKeys = 256 } = {},
+) {
+  await input.evaluate((element, maxKeys) => {
     const field = element as ObservedInput;
     const data: TypingDiagnostics = {
       keys: [],
@@ -62,7 +65,7 @@ export async function startTypingDiagnostics(input: Locator) {
       field.typingObservers.push(observer);
     }
     field.addEventListener("keydown", (event) => {
-      if (data.keys.length >= 256) return;
+      if (data.keys.length >= maxKeys) return;
       const sample: KeyTiming = {
         key: event.key,
         startTime: event.timeStamp,
@@ -83,7 +86,7 @@ export async function startTypingDiagnostics(input: Locator) {
       const sample = data.keys.at(-1);
       if (sample) sample.inputMs = performance.now() - sample.startTime;
     });
-  });
+  }, maxKeys);
   return async (
     testInfo: TestInfo,
     name: string,
@@ -93,7 +96,7 @@ export async function startTypingDiagnostics(input: Locator) {
     if (maxMs > typingAckTargetMs) {
       testInfo.annotations.push({
         type: "typing-target-miss",
-        description: `${name}: ${maxMs.toFixed(1)} ms; target ${typingAckTargetMs} ms; gate ${typingAckLimitMs} ms`,
+        description: `${name}: ${maxMs.toFixed(1)} ms; target ${typingAckTargetMs} ms; gate ${limitMs} ms`,
       });
     }
     const diagnostics = await input.evaluate((element) => {
@@ -118,7 +121,7 @@ export async function startTypingDiagnostics(input: Locator) {
       JSON.stringify(
         {
           targetMs: typingAckTargetMs,
-          limitMs: typingAckLimitMs,
+          limitMs,
           maxMs,
           acknowledgements,
           ...diagnostics,
