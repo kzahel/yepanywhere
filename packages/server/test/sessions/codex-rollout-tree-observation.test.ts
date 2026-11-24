@@ -76,6 +76,9 @@ describe("watcher-trusted Codex rollout enumeration", () => {
       provider: "codex",
       eventBus: events,
       debounceMs: 10,
+      // Match the production reconciliation path on macOS and Windows.
+      // This fixture has no thread index, so the check scans its tiny tree.
+      periodicRescanMs: 100,
     });
     watcher.start();
     cleanups.push(() => watcher.stop());
@@ -219,6 +222,7 @@ describe("watcher-trusted Codex rollout enumeration", () => {
       provider: "codex",
       eventBus,
       debounceMs: 20,
+      periodicRescanMs: 100,
     });
     watcher.start();
     cleanups.push(() => watcher.stop());

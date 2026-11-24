@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { watch } from "node:fs";
+import { EventEmitter } from "node:events";
+import { type FSWatcher, watch } from "node:fs";
 import {
   lstat,
   mkdir,
@@ -18,7 +19,6 @@ import { createApp } from "../setup/create-app.js";
 import { canonicalizeProjectPath } from "../../src/projects/paths.js";
 import {
   __test__ as projectPathIndexTest,
-  getProjectPathIndex,
   type PathIndexIo,
 } from "../../src/projects/projectPathIndex.js";
 import {
@@ -40,16 +40,24 @@ async function primeProjectFiles(
   projectPath: string,
   relativePaths: readonly string[],
 ): Promise<void> {
-  const index = await getProjectPathIndex(projectPath);
+  // These responses read already-known paths. The path-index suite exercises
+  // watch invalidation separately, including invalidation during a read.
+  const index = projectPathIndexTest.claimIndex(projectPath, {
+    io: {
+      lstat,
+      readdir: (path) => readdir(path, { withFileTypes: true }),
+      watch: () =>
+        Object.assign(new EventEmitter(), {
+          close() {
+            this.removeAllListeners();
+          },
+        }) as unknown as FSWatcher,
+    },
+  });
   try {
-    // macOS may deliver fixture-creation events after fs.watch attaches. Let
-    // that valid invalidation settle, then rebuild the known-only facts the
-    // response under test is meant to consume.
-    await index.findExisting(relativePaths);
-    await new Promise((resolve) =>
-      setTimeout(resolve, process.platform === "darwin" ? 100 : 10),
+    expect(await index.findExisting(relativePaths)).toEqual(
+      new Set(relativePaths),
     );
-    await index.findExisting(relativePaths);
   } finally {
     index.release();
   }
@@ -113,6 +121,7 @@ describe("Files API", () => {
   });
 
   afterEach(async () => {
+    projectPathIndexTest.reset();
     await rm(testDir, { recursive: true, force: true });
   });
 

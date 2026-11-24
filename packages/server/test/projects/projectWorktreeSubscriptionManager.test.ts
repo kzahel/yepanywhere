@@ -2107,12 +2107,12 @@ describe("ProjectWorktreeSubscriptionManager", () => {
     let waiter:
       | {
           afterSequence: number;
+          path: string;
           changeType: GitWorktreeDeltaEvent["changes"][number]["changeType"];
           resolve: (event: GitWorktreeDeltaEvent) => void;
         }
       | undefined;
     const manager = new ProjectWorktreeSubscriptionManager({
-      platform: "linux",
       scanner: {
         getProject: vi.fn(async () => ({
           id: projectId,
@@ -2128,6 +2128,8 @@ describe("ProjectWorktreeSubscriptionManager", () => {
       },
       debounceMs: 25,
       maxEventAgeMs: 1_000,
+      // Exercise the host's supported mode, including polling outside Linux.
+      fallbackPollMs: 1_000,
     });
     let sequence = 0;
     const subscription = manager.subscribe(
@@ -2141,7 +2143,7 @@ describe("ProjectWorktreeSubscriptionManager", () => {
           event.generation.sequence > waiter.afterSequence &&
           event.changes.some(
             (change) =>
-              change.path === "probe.txt" &&
+              change.path === waiter?.path &&
               change.changeType === waiter?.changeType,
           )
         ) {
@@ -2150,25 +2152,28 @@ describe("ProjectWorktreeSubscriptionManager", () => {
       },
     );
     const waitForDelta = async (
+      path: string,
       changeType: GitWorktreeDeltaEvent["changes"][number]["changeType"],
       action: () => Promise<void>,
     ): Promise<GitWorktreeDeltaEvent> => {
       const afterSequence = sequence;
       const event = new Promise<GitWorktreeDeltaEvent>((resolve) => {
-        waiter = { afterSequence, changeType, resolve };
+        waiter = { afterSequence, path, changeType, resolve };
       });
-      await action();
+      let timeout: ReturnType<typeof setTimeout> | undefined;
       try {
+        await action();
         return await Promise.race([
           event,
           new Promise<never>((_, reject) => {
-            setTimeout(
+            timeout = setTimeout(
               () => reject(new Error(`${changeType} delta timeout`)),
               5_000,
             );
           }),
         ]);
       } finally {
+        clearTimeout(timeout);
         waiter = undefined;
       }
     };
@@ -2176,9 +2181,16 @@ describe("ProjectWorktreeSubscriptionManager", () => {
     try {
       await subscription.ready;
       const probePath = join(projectPath, "probe.txt");
-      await waitForDelta("create", () => writeFile(probePath, "created\n"));
-      await waitForDelta("modify", () => writeFile(probePath, "modified\n"));
-      await waitForDelta("delete", () => rm(probePath));
+      await waitForDelta("probe.txt", "create", () =>
+        writeFile(probePath, "created\n"),
+      );
+      // Polling sees Git status changes. Linux also sees edits that keep an
+      // untracked file's status unchanged through its native watcher.
+      const edited = process.platform === "linux" ? "probe.txt" : "tracked.txt";
+      await waitForDelta(edited, "modify", () =>
+        writeFile(join(projectPath, edited), "modified\n"),
+      );
+      await waitForDelta("probe.txt", "delete", () => rm(probePath));
     } finally {
       subscription.release();
       manager.dispose();

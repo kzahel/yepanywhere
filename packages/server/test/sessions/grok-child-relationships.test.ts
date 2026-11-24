@@ -363,6 +363,8 @@ it("uses an internal aliased watcher for baseline handover, later children and a
         watchDir: alias,
         internalOnly: true,
         debounceMs: 10,
+        // Reconcile this tiny fixture if macOS drops the native callback.
+        periodicRescanMs: 100,
       },
     ],
   });

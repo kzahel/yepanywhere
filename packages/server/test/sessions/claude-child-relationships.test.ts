@@ -380,6 +380,8 @@ it("publishes late children from a real aliased native watcher into a canonical 
     provider: "claude",
     eventBus: events,
     debounceMs: 10,
+    // Reconcile this tiny fixture if macOS drops the native callback.
+    periodicRescanMs: 100,
   });
   try {
     watcher.start();

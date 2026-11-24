@@ -27,6 +27,7 @@ const MAX_SOURCE_PIXELS = 64 * 1024 * 1024;
 // stopped changing for this long.
 const QUIET_MS = 1000;
 const ROUTE_RESCAN_MS = 250;
+const INBOX_WATCH_STARTUP_RECHECK_MS = 2000;
 const URL_NAMESPACE = Buffer.from("6ba7b8119dad11d180b400c04fd430c8", "hex");
 const DEFAULT_PROFILE: ImagePreparationProfile = {
   maxLongEdge: 2000,
@@ -674,6 +675,8 @@ export class RendezObserver {
     for (const route of routes)
       await this.observeDirectory(route, "", observed);
     await this.intake;
+    // Subscriptions can also arrive before the routes watch is active.
+    if (process.platform === "darwin") this.scheduleRouteRescan(QUIET_MS);
   }
 
   private fail(error: unknown): void {
@@ -732,11 +735,13 @@ export class RendezObserver {
     route: string,
     relative: string,
     observed: number,
+    settleFiles = false,
   ): Promise<void> {
     const inbox = join(this.root, "routes", route, "inbox");
     const visited = new Set<string>();
     const pending = [relative];
     let entries = 0;
+    let attached = false;
     for (
       let current = pending.pop();
       current !== undefined;
@@ -750,16 +755,19 @@ export class RendezObserver {
         if (errorCode(error) === "ENOENT") continue;
         throw error;
       }
+      if (this.closed) return;
       const identity = `${stats.dev}:${stats.ino}`;
       if (visited.has(identity)) continue;
       visited.add(identity);
       const key = this.directoryKey(route, current);
       const directory = current;
-      // Watch before listing, so nothing created in between is missed.
+      // Attach before listing to narrow the native-watch startup window.
       if (!this.watchers.has(key)) {
-        this.watchDirectory(path, key, (name) =>
-          this.settle(route, directory, name),
-        );
+        this.watchDirectory(path, key, (name) => {
+          if (name?.startsWith(".")) return;
+          this.settle(route, name ? join(directory, name) : directory);
+        });
+        attached = true;
       }
       for (const entry of await fs.readdir(path, { withFileTypes: true })) {
         if (entry.name.startsWith(".") || entry.isSymbolicLink()) continue;
@@ -772,17 +780,46 @@ export class RendezObserver {
         }
         const child = current ? `${current}/${entry.name}` : entry.name;
         if (entry.isDirectory()) pending.push(child);
-        else if (entry.isFile()) this.capture(route, child, observed);
+        else if (entry.isFile()) {
+          if (!settleFiles) {
+            this.capture(route, child, observed);
+            continue;
+          }
+          const key = this.directoryKey(route, child);
+          if (this.settling.has(key)) continue;
+          const file = await fs
+            .lstat(join(path, entry.name), { bigint: true })
+            .catch((error) => {
+              if (errorCode(error) === "ENOENT") return undefined;
+              throw error;
+            });
+          if (
+            file?.isFile() &&
+            this.seen.get(seenKey(route, child)) !==
+              fingerprint(file.size, file.mtimeNs) &&
+            !this.settling.has(key)
+          )
+            this.settle(route, child);
+        }
       }
+    }
+    // FSEvents can miss writes while the watch starts. Give a newly watched
+    // subtree a separate startup window before rechecking it once.
+    if (
+      attached &&
+      process.platform === "darwin" &&
+      !this.settling.has(this.directoryKey(route, relative))
+    ) {
+      this.settle(route, relative, INBOX_WATCH_STARTUP_RECHECK_MS);
     }
   }
 
-  private scheduleRouteRescan(): void {
+  private scheduleRouteRescan(delay = ROUTE_RESCAN_MS): void {
     if (this.routeTimer || this.closed) return;
     this.routeTimer = setTimeout(() => {
       this.routeTimer = undefined;
       this.rescanRoutes().catch((error) => this.fail(error));
-    }, ROUTE_RESCAN_MS);
+    }, delay);
   }
 
   /** Follow subscriptions created or removed while observing. */
@@ -795,19 +832,14 @@ export class RendezObserver {
     const observed = Date.now();
     for (const route of routes) {
       if (this.watchers.has(this.directoryKey(route, ""))) continue;
-      await this.observeDirectory(route, "", observed);
+      await this.observeDirectory(route, "", observed, true);
     }
     await this.intake;
   }
 
-  private settle(
-    route: string,
-    directory: string,
-    name: string | undefined,
-  ): void {
-    if (!name || name.startsWith(".") || this.closed) return;
-    const relative = directory ? `${directory}/${name}` : name;
-    const key = `${route}/${relative}`;
+  private settle(route: string, relative: string, delay = QUIET_MS): void {
+    if (this.closed) return;
+    const key = this.directoryKey(route, relative);
     const previous = this.settling.get(key);
     if (previous) clearTimeout(previous.timer);
     else if (this.settling.size >= MAX_FILES) {
@@ -818,7 +850,7 @@ export class RendezObserver {
     const timer = setTimeout(() => {
       this.settling.delete(key);
       this.capture(route, relative, observed);
-    }, QUIET_MS);
+    }, delay);
     timer.unref();
     this.settling.set(key, { timer, observed });
   }
@@ -837,8 +869,8 @@ export class RendezObserver {
           return;
         }
         if (stats.isDirectory()) {
-          // Its files are queued behind this step, not awaited inside it.
-          await this.observeDirectory(route, relative, observed);
+          // Newly discovered uploads still need a quiet interval.
+          await this.observeDirectory(route, relative, observed, true);
           return;
         }
         const record = await snapshot(this.root, route, relative, this.seen);

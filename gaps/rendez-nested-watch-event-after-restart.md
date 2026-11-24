@@ -393,3 +393,12 @@ Node 24.22.1 missed the first nested delivery at line 353 (7,710 other
 server tests passed). Run alone, the file failed in two of three runs
 without step 2b's source changes and in one of three with them. Step 2b
 changes no Rendez source, fixture, assertion or timeout.
+
+2026-11-24: macOS traces also caught a routes watch that received no event
+for a new subscription and an inbox watch that received no event for an
+upload about one second after it attached. YA now rechecks the routes
+directory and each newly watched inbox subtree once during startup. The
+compose integration delivered both uploads with every Rendez native
+callback suppressed. This verifies startup recovery. A missed event after
+that window, including during a long-running observer's steady state, still
+needs separate evidence and recovery.

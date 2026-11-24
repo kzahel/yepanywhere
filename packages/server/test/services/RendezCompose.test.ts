@@ -170,10 +170,10 @@ it.skipIf(process.platform === "win32")(
           .send("expired", ""),
       ).toMatchObject({ accepted: false });
       runIdleSweeps(now);
-      await vi.waitFor(async () =>
-        expect(await readlink(join(root, "active-compose"))).toBe(
-          "latest-session",
-        ),
+      // A rejected claim joins the same queue as the expiration sweep.
+      expect(await claim("first", null, false)).toBe(false);
+      expect(await readlink(join(root, "active-compose"))).toBe(
+        "latest-session",
       );
       expect(drafts.read("", slot).snapshot.payload.attachments).toHaveLength(
         1,
@@ -204,4 +204,7 @@ it.skipIf(process.platform === "win32")(
       await rm(directory, { recursive: true, force: true });
     }
   },
+  // The previous 5s limit preempted the two 8s upload checks on macOS.
+  // A run can need both quiet intervals and both startup rechecks.
+  20_000,
 );

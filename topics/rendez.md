@@ -204,6 +204,10 @@ upload is never delivered twice and an overwritten name with new content is.
 Uploads may sit in nested folders, such as `latest-session/123/shot.png`.
 Folders are noticed when created or moved in, and each file in them is
 delivered separately under its inbox-relative name. Symlinks are not followed.
+On macOS, the observer rechecks the routes directory and each newly watched
+inbox subtree once to recover subscriptions and uploads that arrive during
+native watch startup. Newly discovered uploads still wait for the normal quiet
+interval before delivery.
 rsync creates only the last component of a missing destination path, and
 `--mkpath` creates its parents.
 
