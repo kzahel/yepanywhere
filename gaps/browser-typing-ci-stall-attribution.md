@@ -1,4 +1,4 @@
-# Settings-search and delayed-creation CI typing stalls remain unattributed
+# Browser typing stalls on shared CI
 
 The November 7–14, 2026 survey of 78 CI runs found additional native key-to-two-
 frame samples exceeding the 100 ms responsiveness target:
@@ -45,3 +45,22 @@ evidence of a production responsiveness improvement.
 
 Found 2026-11-14 while auditing other observable CI timing failures after the
 queued-compaction and field-ownership investigation.
+
+On November 24, [CI 45407566083](https://github.com/kzahel/yepanywhere/actions/runs/45407566083)
+recorded 332.0 ms during a stopped Antigravity log append and 221.9 ms during
+a live-to-log move. Both passed on retry. With retries disabled,
+[CI 45419932464](https://github.com/kzahel/yepanywhere/actions/runs/45419932464/job/138536371143)
+recorded 159.4 ms on the live move. Its slow key waited 130.7 ms for dispatch,
+its input event followed 1.2 ms later, and the 156.3 ms frame attributed 30 ms
+to one React scheduler callback. The browser did not attribute the rest of
+the delay to specific scripts. [CI 45420498734](https://github.com/kzahel/yepanywhere/actions/runs/45420498734/job/138538382714)
+recorded 213.2 ms in the same case, with 171.2 ms before dispatch. Its
+browser attributed 35 ms to the React scheduler callback. These two stalls
+affected adjacent keystroke positions about 31–32 seconds after page load.
+Every typed prefix remained present. A full local run of `533add9a4`
+stayed at or below 18.2 ms across the Antigravity cases.
+
+The append and move cases now use the documented 500 ms shared-CI ceiling
+with first-attempt reporting of every 100 ms target miss. The controlled
+local gate stays at 100 ms. The browser measurements leave the source of
+the dispatch stall open.

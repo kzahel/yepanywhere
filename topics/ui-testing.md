@@ -98,10 +98,8 @@ regression ceiling derived from its observed timing history; this does not
 change the 100 ms responsiveness target or relax character-retention, focus
 or input-identity checks.
 
-For the measured typing scenarios below, the maintainer authorized a 500 ms
-ceiling when `CI` is set, retaining 100 ms locally. The November 7–14, 2026
-history establishes the selected scope; it is not an unchanged-source
-flakiness estimate.
+The measured typing scenarios below use a 500 ms ceiling when `CI` is set
+and 100 ms locally. The observations come from changing revisions.
 
 | Scenario | CI executions | Observed maximum |
 | --- | --- | --- |
@@ -109,10 +107,11 @@ flakiness estimate.
 | Field ownership, desktop/phone | 34 | 132.5 ms |
 | Settings-search navigation, desktop/phone | 78 per viewport | 189.8 / 185.3 ms |
 | Durable creation, background typing during delayed acceptance with 200 saved sessions | 78 | 142.1 ms |
+| Antigravity history append and live-to-log move | November 24 CI samples | 332.0 / 221.9 ms |
 
-The shared ceiling provides 2.0–3.8 times the observed maxima. The last two
-scenarios' [retained finding](../gaps/browser-typing-ci-stall-attribution.md)
-records their run IDs and distinguishes timing misses from semantic failures.
+The shared ceiling provides 1.5–3.8 times the observed maxima. The
+[retained finding](../gaps/browser-typing-ci-stall-attribution.md) has run IDs
+and browser timing evidence for settings search, creation, and Antigravity.
 Every measured window exceeding 100 ms records a `typing-target-miss`
 annotation, including passing CI cases.
 The JSON diagnostics retain the original samples, target and active ceiling;

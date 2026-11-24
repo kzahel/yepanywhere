@@ -21,5 +21,9 @@ logged `hostAwakeService initialized (+20029ms)` before a later
 `/api/version` readiness timeout, recorded in
 [windows-validation-baseline.md](windows-validation-baseline.md).
 
+On November 24 the smoke job switched to a single attempt. The real probe
+still uses its production startup deadline, and a first-attempt timeout is
+reported as a job failure.
+
 Found 2026-10-14 while triaging CI failures.
 Contributing-model: claude-opus-5-5

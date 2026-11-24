@@ -13,6 +13,7 @@ import { toUrlProjectId } from "../../shared/src/index.js";
 import { expect, test } from "./fixtures.js";
 import {
   startTypingDiagnostics,
+  typingAckLimitMs,
   typingAckTargetMs,
 } from "./support/typing-diagnostics.js";
 import { presentUiCaptures, recordUiCapture } from "./support/ui-capture.js";
@@ -236,9 +237,7 @@ for (const viewport of [
     const composer = page.locator("[data-composer-input]");
     await composer.focus();
     await expect(composer).toBeFocused();
-    const recordTyping = await startTypingDiagnostics(composer, {
-      limitMs: typingAckTargetMs,
-    });
+    const recordTyping = await startTypingDiagnostics(composer);
     await composer.evaluate((element) => {
       const field = element as HTMLTextAreaElement & {
         acks: { value: string; latency: number }[];
@@ -314,7 +313,7 @@ for (const viewport of [
       acks,
       slowest,
     );
-    expect(slowest).toBeLessThan(typingAckTargetMs);
+    expect(slowest).toBeLessThan(typingAckLimitMs);
     await expect(composer).toHaveValue(draft);
     // The append reached the client through a refresh of the transcript.
     await expect
@@ -761,7 +760,6 @@ for (const hosted of [false, true]) {
     await expect(composer).toBeFocused();
     const maxTypingKeys = 400;
     const recordTyping = await startTypingDiagnostics(composer, {
-      limitMs: typingAckTargetMs,
       maxKeys: maxTypingKeys,
     });
     await composer.evaluate((element) => {
@@ -820,7 +818,7 @@ for (const hosted of [false, true]) {
       `Antigravity live-memory typing (${viewport.name}): ${acks.length} keys while a turn streamed across a move, browser maximum ${slowest.toFixed(1)} ms`,
     );
     await recordTyping(testInfo, "antigravity-live-move", acks, slowest);
-    expect(slowest).toBeLessThan(typingAckTargetMs);
+    expect(slowest).toBeLessThan(typingAckLimitMs);
     await finished("SLOW_TURN_3_DONE");
     await expect(composer).toHaveValue(draft);
 

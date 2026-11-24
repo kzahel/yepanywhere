@@ -412,18 +412,20 @@ describe("ReviewCommentService", () => {
       });
       try {
         await execFileAsync("git", ["-C", dir, "init"]);
-        await execFileAsync("git", [
-          "-C",
-          dir,
-          "config",
-          "user.email",
-          "test@example.com",
-        ]);
-        await execFileAsync("git", ["-C", dir, "config", "user.name", "Test"]);
         await mkdir(join(dir, "src"), { recursive: true });
         await writeFile(join(dir, "src", "a.ts"), "const original = 1;\n");
         await execFileAsync("git", ["-C", dir, "add", "--", "src/a.ts"]);
-        await execFileAsync("git", ["-C", dir, "commit", "-m", "fixture"]);
+        await execFileAsync("git", [
+          "-C",
+          dir,
+          "-c",
+          "user.email=test@example.com",
+          "-c",
+          "user.name=Test",
+          "commit",
+          "-m",
+          "fixture",
+        ]);
         await writeFile(join(dir, "src", "a.ts"), "const reviewed = 2;\n");
 
         const captureWriter = new ReviewCaptureService({ storagePolicy });
@@ -540,6 +542,8 @@ describe("ReviewCommentService", () => {
         await rm(dataDir, { recursive: true, force: true });
       }
     },
+    // Real Git GC and disk persistence took 9.6 s on Ubuntu CI (45419932464).
+    20_000,
   );
 
   it("reads legacy project state without copying it until a future write", async () => {

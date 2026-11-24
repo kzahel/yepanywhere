@@ -412,12 +412,9 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
       - run: pnpm --filter @yep-anywhere/shared build
-      # A hosted runner can rarely spend the full production startup bound in
-      # cold PowerShell/Add-Type setup. One isolated-test retry distinguishes
-      # that host jitter without extending YA's bounded 20-second probe.
       - run: >-
           pnpm --filter @yep-anywhere/server exec vitest run
-          test/services/WindowsHostAwakeBackend.test.ts --retry=1
+          test/services/WindowsHostAwakeBackend.test.ts
 
   # Shards hold equal planned seconds, not equal case counts: Playwright's own
   # --shard splits by count, which left one shard with over twice the work.
