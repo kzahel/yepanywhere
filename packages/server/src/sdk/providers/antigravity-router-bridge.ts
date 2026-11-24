@@ -292,13 +292,13 @@ function writeJsonError(
 }
 
 function parseAllowedRpcTarget(rawUrl: string | undefined): string | null {
-  if (!rawUrl || !rawUrl.startsWith("/")) return null;
-  if (
-    rawUrl.includes("\\") ||
-    /[\u0000-\u001f\u007f]/.test(rawUrl) ||
-    /%2[ef]/i.test(rawUrl.split("?")[0] ?? "")
-  ) {
+  if (!rawUrl?.startsWith("/")) return null;
+  if (rawUrl.includes("\\") || /%2[ef]/i.test(rawUrl.split("?")[0] ?? "")) {
     return null;
+  }
+  for (let i = 0; i < rawUrl.length; i++) {
+    const code = rawUrl.charCodeAt(i);
+    if (code < 32 || code === 127) return null;
   }
   let parsed: URL;
   try {
