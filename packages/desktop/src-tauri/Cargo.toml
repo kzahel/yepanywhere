@@ -1,6 +1,6 @@
 [package]
 name = "yep-anywhere-desktop"
-version = "0.14.0"
+version = "0.14.1"
 description = "Yep Anywhere Desktop App"
 authors = ["Kyle Graehl <kgraehl@gmail.com>"]
 edition = "2021"

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-24
+
+### Fixed
+- Retry desktop dashboard sign-in when its one-time code is rejected. If the
+  retry also fails, reopen the dashboard without restarting Yep Anywhere.
+
 ## [0.14.0] - 2026-11-23
 
 ### Added
