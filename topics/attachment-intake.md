@@ -70,7 +70,8 @@ session hidden by the Android share sheet. When no session is open, it opens
 New Session in the most recent client's direct or relay context. The redirect
 carries only an opaque browser-local share id.
 
-The mounted composer reads the record without consuming it, offers the files
+An existing session waits for its draft controls before reading the record.
+The composer reads without consuming it, offers the files
 to the same attachment pipeline as ordinary paste, and deletes the record only
 after that consumer accepts them. Navigation or unmount before handoff, and a
 consumer rejection, retain the record until its normal expiry or capacity

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useToastContext } from "../contexts/ToastContext";
 import { useI18n } from "../i18n";
 import type { resolveSessionModelConfig } from "../lib/sessionModelConfig";
@@ -7,6 +7,7 @@ import {
   type useAttachmentUploadQuality,
 } from "./useAttachmentUploadQuality";
 import type { useComposerDraftAttachments } from "./useComposerDraftAttachments";
+import type { DraftControls } from "./useDraftPersistence";
 import { useIncomingShareFiles } from "./useIncomingShareFiles";
 import type { useProject } from "./useProjects";
 import type { useSession } from "./useSession";
@@ -28,6 +29,7 @@ export function useSessionAttachmentUploads({
   effectiveModelConfig,
   historyScope,
   isDomLingerParked,
+  onDraftControlsReady,
   uploadFiles,
 }: {
   projectId: string;
@@ -40,10 +42,19 @@ export function useSessionAttachmentUploads({
   effectiveModelConfig: ReturnType<typeof resolveSessionModelConfig>;
   historyScope: string | null;
   isDomLingerParked: boolean;
+  onDraftControlsReady: (controls: DraftControls) => void;
   uploadFiles: ReturnType<typeof useComposerDraftAttachments>["uploadFiles"];
 }) {
   const { t } = useI18n();
   const { showToast } = useToastContext();
+  const [draftReady, setDraftReady] = useState(false);
+  const handleDraftControlsReady = useCallback(
+    (controls: DraftControls) => {
+      onDraftControlsReady(controls);
+      setDraftReady(true);
+    },
+    [onDraftControlsReady],
+  );
 
   const uploadAttachedFiles = useCallback(
     (files: File[]) =>
@@ -87,9 +98,10 @@ export function useSessionAttachmentUploads({
   );
 
   useIncomingShareFiles(handleAttach, {
-    enabled: !isDomLingerParked,
+    // The saved draft must be mounted before an early upload can persist.
+    enabled: draftReady && !isDomLingerParked,
     onError: () => showToast(t("incomingShareAttachmentUnavailable"), "error"),
   });
 
-  return { uploadAttachedFiles, handleAttach };
+  return { uploadAttachedFiles, handleAttach, handleDraftControlsReady };
 }
