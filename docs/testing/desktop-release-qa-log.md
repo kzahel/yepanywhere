@@ -13,6 +13,20 @@ Result meanings:
   action that was not available during the run.
 - **NOT RUN** — the check was outside the completed scope; the reason is noted.
 
+## 2026-11-24 — signed Stable 0.14.1 publication
+
+[Desktop Stable 0.14.1](https://github.com/kzahel/yepanywhere/releases/tag/desktop-v0.14.1)
+published from `aa2e39bfd88638924c9f2b4b8c07f1755be92c27` with the dashboard
+sign-in retry. General CI, the runtime matrix and the desktop preflight all
+passed on that source before the release tag was pushed.
+
+| Check | Result |
+| --- | --- |
+| General CI | PASS. The [first attempt](https://github.com/kzahel/yepanywhere/actions/runs/45468006177/attempts/1) failed an Antigravity history replacement assertion. The focused case passed locally and the [unit-job rerun](https://github.com/kzahel/yepanywhere/actions/runs/45468006177/attempts/2) passed on the same source. |
+| Server runtime and desktop preflight | PASS. [Runtime matrix](https://github.com/kzahel/yepanywhere/actions/runs/45468006248) and [desktop preflight](https://github.com/kzahel/yepanywhere/actions/runs/45468006134). |
+| Tagged desktop publication | PASS. [Desktop CI](https://github.com/kzahel/yepanywhere/actions/runs/45474579295) passed on both Mac architectures and Windows. Windows passed the packaged runtime smoke. The finalizer validated nine release assets and verified all three updater artifacts against the release key. |
+| Public Stable delivery | PASS. Apple Silicon, Intel Mac and Windows offer 0.14.1 from Stable 0.14.0 and Latest 0.13.8101, then report current at 0.14.1. All three installer routes resolve to their matching signed release assets. |
+
 ## 2026-11-23 — signed Stable 0.14.0 publication
 
 [Desktop CI](https://github.com/kzahel/yepanywhere/actions/runs/45268391983)
