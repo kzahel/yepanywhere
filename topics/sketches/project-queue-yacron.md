@@ -1,16 +1,9 @@
-# Project Queue sketches
-
-> Candidate designs related to the current
-> [Project Queue contract](project-queue.md).
-
-Companion to: [Project Queue](project-queue.md)
+# Provider-host yacron launch requests
 
 Status: **proposal only; provider-host queue/admission ownership is not
 implemented.**
 
-## Provider-host yacron launch requests
-
-The provider-host-integrated [yacron proposal](yacron.md) identifies a durable
+The provider-host-integrated [yacron proposal](../yacron.md) identifies a durable
 launch/join-and-prompt request that could replace Project Queue's current
 in-memory launch handoff. Standalone yacron is not a candidate: it cannot see
 all YA queues, apply the complete project idle predicate, or reserve against
@@ -27,7 +20,7 @@ Queue item enters the provider's per-project FIFO admission lane when it is the
 selected head; a due yacron fresh-session occurrence enters the same lane when
 due. Existing-session queued input remains a project-idle blocker and drains
 before either kind of fresh exclusive launch. The provider service applies the
-complete [Project Queue idle predicate](project-queue.md#project-idle-predicate),
+complete [Project Queue idle predicate](../project-queue.md#project-idle-predicate),
 including the `/done` exception, and performs the final recheck plus reservation
 atomically.
 

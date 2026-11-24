@@ -12,7 +12,7 @@ Status: **proposal only; nothing is implemented (2026-08-27).**
 
 Related:
 [provider host API](provider-host-api.md),
-[Project Queue sketches](project-queue.sketches.md),
+[Provider-host yacron launch requests](sketches/project-queue-yacron.md),
 [agent command runtime sketch](agent-command-runtime.sketches.md),
 [new-session agent tooling](new-session-agent-tooling.md),
 [Routines](routines.md),
@@ -356,7 +356,7 @@ owner publishes final canonical metadata on `session-ready` and the prompt-
 acceptance receipt on `submitted`. Project Queue settles its durable item only
 from those states, so Hono reconnects by request id instead of reconstructing a
 lost callback. The detailed candidate remains in
-[Project Queue sketches](project-queue.sketches.md#provider-host-yacron-launch-requests).
+[Provider-host yacron launch requests](sketches/project-queue-yacron.md).
 
 ### Standalone dispatch
 
