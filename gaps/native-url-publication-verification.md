@@ -76,5 +76,12 @@ and submit to the server's default Claude provider rather than the fixture's
 Codex peer. The current action waits for its inherited provider, independently
 of draft typing; creation checks explicitly assert the admitted Codex provider.
 
+On 2026-11-24 a full macOS browser run with zero retries reproduced a
+different recovery symptom. The saved-session action cleared the parent
+composer and its recovery notice, but the viewer stayed on the parent's
+canonical Codex URL. Thirty-six focused executions passed. The case now
+attaches its main-frame navigation sequence and receipt-read statuses on
+failure to distinguish a failed read from a navigation that gets replaced.
+
 Found 2026-11-05 while publishing native viewer URLs and visible saved prompts.
 Contributing-model: 6.1-Sol

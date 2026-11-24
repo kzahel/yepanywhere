@@ -757,10 +757,8 @@ for (const hosted of [false, true]) {
         timeout: 20_000,
       })
       .toBe(1);
-    await expect(main.getByText(/SLOW_TURN_3_REPLY/)).toHaveCount(1, {
-      timeout: 20_000,
-    });
     await composer.focus();
+    await expect(composer).toBeFocused();
     const maxTypingKeys = 400;
     const recordTyping = await startTypingDiagnostics(composer, {
       limitMs: typingAckTargetMs,

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import type { Message } from "../src/types";
@@ -18,14 +18,16 @@ async function saveTranscript(
   messages: Message[],
 ) {
   const projectPath = join(e2ePaths.tempDir, "mockproject");
+  const projectId = Buffer.from(projectPath).toString("base64url");
   const directory = join(
     e2ePaths.claudeSessionsDir,
     hostname(),
     projectPath.replace(/[/\\]/g, "-"),
   );
   mkdirSync(directory, { recursive: true });
+  const temporaryPath = join(directory, `.${sessionId}.tmp`);
   writeFileSync(
-    join(directory, `${sessionId}.jsonl`),
+    temporaryPath,
     `${messages
       .map((message, index) =>
         JSON.stringify({
@@ -40,9 +42,31 @@ async function saveTranscript(
       )
       .join("\n")}\n`,
   );
-  // This suite tests schema rendering, not provider discovery. Wait for its
-  // owned session to be usable by the composer before opening the browser;
-  // native file discovery and the access resolver update asynchronously.
+  renameSync(temporaryPath, join(directory, `${sessionId}.jsonl`));
+  const catalogUrl = new URL("/api/sessions", baseURL);
+  catalogUrl.search = new URLSearchParams({
+    project: projectId,
+    summaryMode: "retained",
+    includeArchived: "true",
+    limit: "500",
+  }).toString();
+  // Await catalog publication before asking the draft resolver to authorize
+  // the session. The old 5s poll on that resolver alone failed at 404.
+  await expect
+    .poll(
+      async () => {
+        const response = await fetch(catalogUrl, {
+          headers: { "X-Yep-Anywhere": "true" },
+        });
+        if (!response.ok) return false;
+        const { sessions } = (await response.json()) as {
+          sessions: Array<{ id: string }>;
+        };
+        return sessions.some(({ id }) => id === sessionId);
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
   await expect
     .poll(
       async () => {
@@ -59,7 +83,7 @@ async function saveTranscript(
       { intervals: [25, 50, 100, 250] },
     )
     .toBe(200);
-  return Buffer.from(projectPath).toString("base64url");
+  return projectId;
 }
 
 for (const viewport of [

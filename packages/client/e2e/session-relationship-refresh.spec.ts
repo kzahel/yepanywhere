@@ -1,5 +1,9 @@
 import { join } from "node:path";
 import { e2ePaths, expect, test } from "./fixtures.js";
+import {
+  startTypingDiagnostics,
+  typingAckTargetMs,
+} from "./support/typing-diagnostics.js";
 import { recordUiCapture } from "./support/ui-capture.js";
 
 const projectId = Buffer.from(join(e2ePaths.tempDir, "mockproject")).toString(
@@ -15,7 +19,7 @@ for (const viewport of [
   test(`late relationship publication preserves typing and transcript on ${viewport.name}`, async ({
     page,
     baseURL,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize(viewport);
     const timestamp = "2026-11-04T00:00:00.000Z";
     const messages = Array.from({ length: 160 }, (_, index) => ({
@@ -113,9 +117,16 @@ for (const viewport of [
     const main = page.getByRole("main");
     const transcript = main.getByText(/Relationship test turn 159\./);
     await expect(transcript).toBeVisible();
+    await expect(main.locator("[data-message-list]")).not.toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
     const node = await transcript.elementHandle();
     await composer.focus();
     await expect(composer).toBeFocused();
+    const recordTyping = await startTypingDiagnostics(composer, {
+      limitMs: typingAckTargetMs,
+    });
     await composer.evaluate((element) => {
       const field = element as HTMLTextAreaElement & {
         acks: { value: string; latency: number }[];
@@ -178,9 +189,16 @@ for (const viewport of [
         ).acks,
     );
     expect(acks.map((ack) => ack.value)).toEqual(prefixes);
-    expect(Math.max(...acks.map((ack) => ack.latency))).toBeLessThan(100);
+    const slowest = Math.max(...acks.map((ack) => ack.latency));
+    await recordTyping(
+      testInfo,
+      `relationship-${viewport.name}`,
+      acks,
+      slowest,
+    );
+    expect(slowest).toBeLessThan(typingAckTargetMs);
     console.log(
-      `Relationship typing: ${acks.length} keys, browser maximum ${Math.max(...acks.map((ack) => ack.latency)).toFixed(1)} ms; controller wall maximum ${Math.max(...delays).toFixed(1)} ms`,
+      `Relationship typing: ${acks.length} keys, browser maximum ${slowest.toFixed(1)} ms; controller wall maximum ${Math.max(...delays).toFixed(1)} ms`,
     );
     await expect(composer).toHaveValue(draft);
     await recordUiCapture(

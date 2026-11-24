@@ -438,11 +438,20 @@ test("unchanged Session-page files are acknowledged once and stay cleared after 
 
 test("lost creation reply and recovery read reload into conditional read-only draft settlement", async ({
   browser,
-}) => {
+}, testInfo) => {
   const f = await originComposer(browser);
   let lost = true,
     posts = 0;
   let sessionId: string;
+  const navigation: string[] = [f.page.url()];
+  const reads: number[] = [];
+  f.page.on("framenavigated", (frame) => {
+    if (frame === f.page.mainFrame()) navigation.push(frame.url());
+  });
+  f.page.on("response", (response) => {
+    if (new URL(response.url()).pathname.includes("/api/session-creations/"))
+      reads.push(response.status());
+  });
   try {
     await f.page.route("**/api/session-creations/*", async (route) => {
       if (lost) return route.abort("failed");
@@ -489,6 +498,12 @@ test("lost creation reply and recovery read reload into conditional read-only dr
             .length,
       )
       .toBe(2);
+  } catch (error) {
+    await testInfo.attach("saved-session-recovery", {
+      body: JSON.stringify({ sessionId, navigation, reads, posts }, null, 2),
+      contentType: "application/json",
+    });
+    throw error;
   } finally {
     await f.dispose();
   }
