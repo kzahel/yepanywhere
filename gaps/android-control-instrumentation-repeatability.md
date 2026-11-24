@@ -33,3 +33,8 @@ The accessibility capture shows the intended link focused and the app window
 focused, with no **Open in new tab** menu. The runner failed because the menu
 item lookup returned `null`. The check must still exercise a real long press
 and verify the tab opens. Hosted publication remained gated by this failure.
+
+[Follow-up run 45379108599](https://github.com/kzahel/yepanywhere/actions/runs/45379108599)
+passed the native tab check with the fixture link clear of the session banner
+and a WebView visual-state callback before the real long press. Native tab
+creation, document identity and the existing typing assertions still ran.

@@ -109,20 +109,36 @@ installation-link check found the open-testing track paused. Resume was saved,
 and its separate activation change is now **in review**, verified after
 reloading Publishing overview on October 6. Quick checks completed; the earlier
 confirmation error did not prevent the change from eventually reaching review.
-The public enrollment page still reports **App not available**. Wait for track
-activation to publish before claiming public testers can install.
-
-The public [beta enrollment link](https://play.google.com/apps/testing/com.yepanywhere.mobile)
-is shareable, but installation still depends on publishing track activation.
+At that point, the public enrollment page still reported **App not available**.
+The existing track uses the public
+[beta enrollment link](https://play.google.com/apps/testing/com.yepanywhere.mobile).
 
 On November 24, Play Console confirmed Open testing active in 177 countries
 and regions, with Open beta 1 (`57901`) as the current release. Production had
 no releases. Candidate `71501` passed build, lint and inspection in
 [Android CI](https://github.com/kzahel/yepanywhere/actions/runs/45355298568).
 The [native tab menu check](../../../gaps/android-control-instrumentation-repeatability.md)
-failed and prevented internal publication. The candidate also reproduced an
-[intermittent fresh-pairing stall](../../../gaps/android-native-pairing-remains-busy-after-registration.md)
-on Android 15. The open-testing rollout remains on `57901`.
+failed and prevented internal publication. That candidate also reproduced an
+intermittent fresh-pairing stall on Android 15. A delayed notification-status
+read could restore the busy flag after pairing had completed.
+
+Source `eea6fc72c` fixes that race and makes the long-press probe wait for
+WebView visual state. [Android CI run 45379108599](https://github.com/kzahel/yepanywhere/actions/runs/45379108599)
+passed all Android release gates and published `0.1.4-ci.616.1` / `71601`
+to internal testing. The two hosted upload probes retained every character,
+with maximum acknowledgements of 342.7 ms direct and 334.9 ms relay under
+the emulator allowance. Physical-device typing at the 100 ms target awaits
+measurement for this candidate. All 1,785 bundle entries matched the signed
+upload, whose receipt records SHA-256
+`7f88cd65a88483121586ce05fb5440cae7929d831b833f1baee9315f4868a7db`.
+The exact bundle passed direct and public relay sign-in on Android 15 and
+public relay on Android 16. An in-place upgrade from `57901` with locally
+signed APKs preserved its saved server, including after a process restart.
+Play's generated APK for `71601` carried the expected app-signing certificate.
+
+On November 24 at 12:50 CET, Play Console accepted `71601` for review as a
+full Open testing rollout across the existing 177 countries and regions.
+Managed publishing is off. `57901` remains available while `71601` is in review.
 
 An under-13 audience would require separate child-data and sharing readiness
 under [Play Families requirements](https://support.google.com/googleplay/android-developer/answer/9893335?hl=en).

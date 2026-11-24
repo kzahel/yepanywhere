@@ -435,11 +435,11 @@ the viewer/download gap remain the next mobile release work.
   October 6. A later link check found the open-testing track paused. Resume is
   saved, with quick checks completed. A later reload confirms its separate
   activation change is in review despite the earlier confirmation error.
-  Public enrollment still reports App not available; await activation
-  publication before claiming public testers can install.
+  At that point, public enrollment still reported App not available.
   November 24 Play Console verification shows Open beta 1 (`57901`) active
-  in those 177 countries/regions. Candidate `71501` is held after Android
-  instrumentation and fresh-pairing failures. See the
+  in those 177 countries/regions. After the pairing and instrumentation fixes,
+  Android candidate `71601` passed the release gates and reached internal
+  testing. Its 100% Open testing rollout is in Google Play review. See the
   [mobile distribution record](../distribution/mobile/README.md#android-public-setup-october-56).
 - Native app CI now runs on relevant platform, shared mobile-core and packaging
   changes rather than ordinary web/server edits. Daily Android/iOS acceptance
