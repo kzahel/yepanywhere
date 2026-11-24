@@ -191,10 +191,15 @@ try {
           await device(["reverse", `tcp:${port}`, `tcp:${port}`]);
           reversed.push(port);
         }
+        const freshRelayPairing =
+          "com.yepanywhere.mobile.ui.YaHostManagementInstrumentedTest#freshRelayPairingOpensAfterRegistration";
         const classes =
           onlyClasses ??
           (publicRelay
-            ? ["com.yepanywhere.mobile.web.YaNativeWebAppInstrumentedTest"]
+            ? [
+                "com.yepanywhere.mobile.web.YaNativeWebAppInstrumentedTest",
+                freshRelayPairing,
+              ]
             : push
               ? [
                   "com.yepanywhere.mobile.notifications.NativePushBindingsInstrumentedTest",
@@ -210,6 +215,7 @@ try {
                   relay
                     ? "com.yepanywhere.mobile.connection.YaRustRuntimeInstrumentedTest"
                     : "com.yepanywhere.mobile.security.YaSecurityClientE2eInstrumentedTest",
+                  ...(relay ? [freshRelayPairing] : []),
                   // Last: its reloads spend the relay's per-user circuit-open
                   // budget, which the runtime probe's exact counts depend on.
                   "com.yepanywhere.mobile.web.YaNativeReconnectInstrumentedTest",

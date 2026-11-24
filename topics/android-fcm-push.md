@@ -415,6 +415,8 @@ Android can show them or will still ask. Enable runs the same permission and
 enrollment flow and then opens the server; Not now or a permission denial opens
 it without enrolling. An enrollment failure keeps the Servers screen and its
 error visible. Blocked devices and builds without Firebase get no offer.
+Refreshes of the saved server and notification status preserve a completed
+pairing and any pending offer.
 
 Inside the Android and iOS apps, whose WebView has no Web Push, the web
 Notifications settings replace the browser Web Push toggle with the app's

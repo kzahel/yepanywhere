@@ -255,12 +255,23 @@ class YaNativeWebAppInstrumentedTest {
             evaluate(scenario, """
                 (() => { const link = document.createElement('a'); link.id = 'native-tab-link';
                   link.href = '/projects?nativeTabProbe=1'; link.target = '_blank'; link.textContent = 'Native internal link';
-                  link.style.cssText = 'position:fixed;top:80px;left:20px;z-index:99999;background:#222;color:white;padding:16px';
+                  link.style.cssText = 'position:fixed;top:40%;left:20px;z-index:99999;background:#222;color:white;padding:16px';
                   document.body.appendChild(link); return true; })()
             """.trimIndent())
             val beforeLink = evaluate(scenario, "performance.timeOrigin")
+            // Accessibility can see the inserted link before the new document
+            // has committed the visual state used for the native gesture.
+            val linkDrawReady = CountDownLatch(1)
+            scenario.onActivity { activity ->
+                activity.findViewById<WebView>(R.id.web_client).postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                    override fun onComplete(requestId: Long) { linkDrawReady.countDown() }
+                })
+            }
+            assertTrue("The restored WebView did not commit the link", linkDrawReady.await(5, TimeUnit.SECONDS))
             awaitWebLink(device, "Native internal link").longClick()
-            device.wait(Until.findObject(By.text("Open in new tab")), 5_000).click()
+            checkNotNull(device.wait(Until.findObject(By.text("Open in new tab")), 5_000)) {
+                "Long-pressing the visible internal link did not open the native tab menu"
+            }.click()
             assertTrue(device.wait(Until.hasObject(By.desc("Tabs, 3 open")), 5_000))
             assertEquals(beforeLink, evaluate(scenario, "performance.timeOrigin"))
             awaitWebLink(device, "Native internal link").click()

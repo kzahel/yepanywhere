@@ -34,15 +34,16 @@ class YaHostManagementViewModel(application: Application) : AndroidViewModel(app
         viewModelScope.launch {
             store.listState.collect { list ->
                 val snapshots = store.snapshots().associateBy { it.profile.id }
-                mutableState.value = mutableState.value.copy(
-                    profiles = list.profiles,
-                    servers = list.profiles.mapNotNull { profile ->
-                        val snapshot = snapshots[profile.id] ?: return@mapNotNull null
-                        profile.id to YaHostState(snapshot.profile,
-                            savedHostConnection(snapshot, runtime.connectionManager(profile.id).state.value, System.currentTimeMillis()),
-                            runtime.nativePush.enabled(profile.id))
-                    }.toMap(),
-                )
+                // Reading push status can suspend across pairing completion.
+                // Read the UI state only after the server lookups finish.
+                val servers = list.profiles.mapNotNull { profile ->
+                    val snapshot = snapshots[profile.id] ?: return@mapNotNull null
+                    val pushEnabled = runtime.nativePush.enabled(profile.id)
+                    profile.id to YaHostState(snapshot.profile,
+                        savedHostConnection(snapshot, runtime.connectionManager(profile.id).state.value, System.currentTimeMillis()),
+                        pushEnabled)
+                }.toMap()
+                mutableState.value = mutableState.value.copy(profiles = list.profiles, servers = servers)
                 observers.keys.filter { id -> list.profiles.none { it.id == id } }.forEach { observers.remove(it)?.cancel() }
                 list.profiles.forEach { profile ->
                     if (profile.id !in observers) observers[profile.id] = launch {
@@ -149,8 +150,11 @@ class YaHostManagementViewModel(application: Application) : AndroidViewModel(app
             catch (error: CancellationException) { throw error }
             catch (error: Exception) { failed = true; mutableState.value = mutableState.value.copy(error = nativePushActionError(error)) }
             finally {
-                val source = mutableState.value.servers[profileId]
-                mutableState.value = mutableState.value.copy(actionInProgress = false, servers = if (source == null) mutableState.value.servers else mutableState.value.servers + (profileId to source.copy(pushEnabled = runtime.nativePush.enabled(profileId))))
+                val enabled = runtime.nativePush.enabled(profileId)
+                val state = mutableState.value
+                val source = state.servers[profileId]
+                val servers = if (source == null) state.servers else state.servers + (profileId to source.copy(pushEnabled = enabled))
+                mutableState.value = state.copy(actionInProgress = false, servers = servers)
                 if (mutableState.value.pushOffer == profileId) finishPushOffer(open = !failed)
             }
         }
