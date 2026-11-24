@@ -115,6 +115,15 @@ activation to publish before claiming public testers can install.
 The public [beta enrollment link](https://play.google.com/apps/testing/com.yepanywhere.mobile)
 is shareable, but installation still depends on publishing track activation.
 
+On November 24, Play Console confirmed Open testing active in 177 countries
+and regions, with Open beta 1 (`57901`) as the current release. Production had
+no releases. Candidate `71501` passed build, lint and inspection in
+[Android CI](https://github.com/kzahel/yepanywhere/actions/runs/45355298568).
+The [native tab menu check](../../../gaps/android-control-instrumentation-repeatability.md)
+failed and prevented internal publication. The candidate also reproduced an
+[intermittent fresh-pairing stall](../../../gaps/android-native-pairing-remains-busy-after-registration.md)
+on Android 15. The open-testing rollout remains on `57901`.
+
 An under-13 audience would require separate child-data and sharing readiness
 under [Play Families requirements](https://support.google.com/googleplay/android-developer/answer/9893335?hl=en).
 That expansion is not part of the selected 13+ beta.

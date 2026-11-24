@@ -36,3 +36,27 @@ automatically reaches its WebView, with no cold-resume workaround. The current
 evidence therefore scopes this stall to the tested Android 15 emulator/setup;
 it is not a demonstrated universal native pairing failure. Root cause of the
 reproduced emulator stall remains unestablished.
+
+November 24 Android release qualification also reproduced this on the bundled
+Release app. The CI build `71401` saved its host after `GET /api/version` (200)
+and `POST /api/security/clients/register` (201), then stayed busy on Android 15
+using both direct loopback and the public TLS relay. Direct sign-in on the
+same APK passed on Android 16 and on Android 15 after changing the emulator
+to 37.2.13, build 16740729.
+
+The exact AAB from [Android CI run 45355298568](https://github.com/kzahel/yepanywhere/actions/runs/45355298568)
+(`0.1.4-ci.615.1` / `71501`) was converted to a locally signed universal APK.
+On 37.2.13 it passed direct sign-in and repeatedly passed public TLS relay
+sign-in, foreground resume and process restart. A fresh Android 15 repeat
+with the same APK also left the registered server Idle with both host actions
+disabled for 60 seconds. The smoke runner waits for an enabled action before
+tapping. The main application thread was idle when sampled during the stalled
+run. These results reproduce the intermittent stall on the pinned emulator.
+
+A locally instrumented Release APK reproduced the same disabled server card.
+Its trace shows that registration persisted and `closeAndAwait()` returned
+after the native event read drained and the lease wrapper was retired. This
+rules out a stuck transport close for that reproduction. The remaining trace
+point is the ViewModel's post-pair notification offer and the Compose state
+observed by the host screen. Local captures are under the ignored
+`tasks/android-companion-release/` directory.
