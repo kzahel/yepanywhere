@@ -72,6 +72,19 @@ const loggedOutDesktopProviders = [
 ];
 
 test.describe("New Session provider readiness", () => {
+  test.beforeEach(async ({ page }) => {
+    // The bundle can prime a real provider row before the mocked named request.
+    await page.route(
+      (url) =>
+        url.pathname === "/api/settings" && url.searchParams.has("bootstrap"),
+      (route) => {
+        const url = new URL(route.request().url());
+        url.searchParams.delete("bootstrap");
+        return route.continue({ url: url.href });
+      },
+    );
+  });
+
   test("separates desktop, runtime, and auth while keeping launch available", async ({
     page,
     baseURL,

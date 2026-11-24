@@ -964,6 +964,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     }
   });
 
+  // CI 45484393274 exhausted 5 s around host startup, replay, and teardown.
   it("detaches after acceptance and resumes one turn from a record cursor", async () => {
     const runtimeRoot = await mkdtemp(
       join(runtimeTmpDir, "provider-host-await-"),
@@ -1048,7 +1049,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
       }
       await waitForChildExit(host).catch(() => host.kill("SIGKILL"));
     }
-  });
+  }, 15_000);
 
   it("lazily resumes a cleanly stopped runtime for a later turn", async () => {
     const runtimeRoot = await mkdtemp(

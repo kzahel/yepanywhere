@@ -126,8 +126,8 @@ test("composer beacon acknowledges real sends and leaves typing and title option
       "true",
       { timeout: 15_000 },
     );
-    await composer.focus();
-    await composer.fill("mid draft");
+    // Run 45484393274 reached the 5 s action limit after transcript hydration.
+    await composer.fill("mid draft", { timeout: 15_000 });
     await composer.evaluate((element) =>
       (element as HTMLTextAreaElement).setSelectionRange(3, 3),
     );
