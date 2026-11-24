@@ -6,6 +6,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
+import type { Page } from "@playwright/test";
 import { InstallService } from "../../server/src/services/InstallService.js";
 import { writeAntigravityScaleConversation } from "../../server/test/utils/antigravity-scale-log.js";
 import { toUrlProjectId } from "../../shared/src/index.js";
@@ -31,6 +32,34 @@ test.afterEach(async () => {
   if (active) await disposeYaServerProcess(active);
   active = undefined;
 });
+
+async function loadNextHistoryPage(page: Page, sessionId: string) {
+  const boundary = page.locator("[data-load-older-messages]");
+  const button = boundary.getByRole("button");
+  await expect(button).toBeEnabled();
+  // Scrolling to the button kicks off the intersection observer's own load.
+  await button.evaluate((element: HTMLButtonElement) =>
+    element.focus({ preventScroll: true }),
+  );
+  await expect(button).toBeFocused();
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname.endsWith(`/sessions/${sessionId}`) &&
+          url.searchParams.has("beforeMessageId")
+        );
+      },
+      { timeout: 20_000 },
+    ),
+    page.keyboard.press("Enter"),
+  ]);
+  expect(response.ok()).toBe(true);
+  await expect(boundary.locator('[aria-busy="true"]')).toHaveCount(0, {
+    timeout: 20_000,
+  });
+}
 
 /**
  * A stand-in `agy acp` for resuming (plan 195 step 5): it records each ACP
@@ -281,12 +310,7 @@ for (const viewport of [
     const loadOlder = page.locator("[data-load-older-messages]");
     for (let attempt = 0; attempt < 12; attempt++) {
       if ((await loadOlder.count()) === 0) break;
-      const older = loadOlder.getByRole("button");
-      await older.scrollIntoViewIfNeeded();
-      await older.click();
-      await expect(loadOlder.locator('[aria-busy="true"]')).toHaveCount(0, {
-        timeout: 20_000,
-      });
+      await loadNextHistoryPage(page, nativeId);
     }
     await expect(loadOlder).toHaveCount(0);
     const earliest = olderPages.at(-1);
@@ -575,12 +599,7 @@ for (const hosted of [false, true]) {
     const loadOlder = page.locator("[data-load-older-messages]");
     for (let attempt = 0; attempt < 12; attempt++) {
       if ((await loadOlder.count()) === 0) break;
-      const older = loadOlder.getByRole("button");
-      await older.scrollIntoViewIfNeeded();
-      await older.click();
-      await expect(loadOlder.locator('[aria-busy="true"]')).toHaveCount(0, {
-        timeout: 20_000,
-      });
+      await loadNextHistoryPage(page, resumedId);
     }
     await expect(loadOlder).toHaveCount(0);
     expect(olderPages.length).toBeGreaterThanOrEqual(2);
@@ -701,11 +720,7 @@ for (const hosted of [false, true]) {
     expect(firstReply).not.toContain(":step-");
     // An older page loaded before the move.
     const loadOlder = page.locator("[data-load-older-messages]");
-    await loadOlder.getByRole("button").scrollIntoViewIfNeeded();
-    await loadOlder.getByRole("button").click();
-    await expect(loadOlder.locator('[aria-busy="true"]')).toHaveCount(0, {
-      timeout: 20_000,
-    });
+    await loadNextHistoryPage(page, liveId);
     await send("BIG_TURN_2");
     await finished("BIG_TURN_2_DONE");
     expect(catchUps.filter((entry) => entry.replaced)).toEqual([]);
@@ -853,11 +868,7 @@ for (const hosted of [false, true]) {
     });
     for (let attempt = 0; attempt < 12; attempt++) {
       if ((await loadOlder.count()) === 0) break;
-      await loadOlder.getByRole("button").scrollIntoViewIfNeeded();
-      await loadOlder.getByRole("button").click();
-      await expect(loadOlder.locator('[aria-busy="true"]')).toHaveCount(0, {
-        timeout: 20_000,
-      });
+      await loadNextHistoryPage(page, liveId);
     }
     await expect(loadOlder).toHaveCount(0);
     expect(olderAfter.at(-1)?.messages[0]?.uuid).toBe(`${liveId}:step-0`);

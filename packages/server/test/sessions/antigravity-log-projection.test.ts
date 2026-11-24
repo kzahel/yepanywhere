@@ -529,18 +529,22 @@ describe("Antigravity log projection", () => {
         store: join(root, "antigravity-cli"),
         id: ID,
         cwd: root,
-        steps: 400,
-        targetBytes: 200_000,
-        checkpointEvery: 120,
-        skipEvery: 150,
-        interruptedGroupEvery: 90,
-        interiorGapGroupEvery: 70,
+        // Every split projects the entire fixture again, so keep this
+        // fixture small while forcing the interesting record boundaries.
+        steps: 120,
+        targetBytes: 48_000,
+        checkpointEvery: 20,
+        skipEvery: 29,
+        interruptedGroupEvery: 35,
+        interiorGapGroupEvery: 24,
         shortLog: false,
         summaries: false,
       });
       expect(scale.interruptedGroups.map((group) => group.shape)).toEqual(
         expect.arrayContaining(["suffix", "interior"]),
       );
+      expect(scale.checkpoints).toBeGreaterThan(0);
+      expect(scale.skipped.length).toBeGreaterThan(0);
       const records = (await readFile(scale.fullPath, "utf8"))
         .trimEnd()
         .split("\n")

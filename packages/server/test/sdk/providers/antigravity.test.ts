@@ -1076,10 +1076,9 @@ describe("Antigravity native process boundary", () => {
         messages.map((message) => message.uuid);
       const texts = (messages: Page["messages"]) =>
         messages.map((message) => JSON.stringify(message.message?.content));
-      const signal = AbortSignal.timeout(15_000);
       try {
         const first = await resume("continue");
-        await waitForIdle(first, signal);
+        await waitForIdle(first, AbortSignal.timeout(15_000));
         // agy logged the resumed turn after the boundary; the owner's rows
         // serve it.
         const live = first
@@ -1157,7 +1156,8 @@ describe("Antigravity native process boundary", () => {
         ).toHaveLength(1);
         expect(new Set(uuids(during)).size).toBe(during.length);
         expect(await second.interrupt()).toBe(true);
-        await waitForIdle(second, signal);
+        // Earlier pagination reads do not consume this turn's idle budget.
+        await waitForIdle(second, AbortSignal.timeout(15_000));
         await second.abort();
       } finally {
         app.stopNotifications();
