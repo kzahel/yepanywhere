@@ -228,6 +228,10 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_7
+          # Build 16740729 passed with this guest and the same input gate.
+          # Build 16970787 repeatedly lost the tail of the typed string
+          # during a direct upload (runs 44905110716 and 45345831115).
+          emulator-build: '16740729'
           # Two-core software-rendered runs 36974124012/36977714721 missed
           # the unchanged 100 ms frame gate at 122/128 ms (physical: 24 ms).
           # Use the hosted runner's four cores and the current software backend;
