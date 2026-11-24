@@ -151,9 +151,11 @@ export async function probeCodexExecution(
       void client?.close().catch(() => {});
     }
   });
-  server.on("connect", (_request, socket) =>
-    socket.end("HTTP/1.1 403 Forbidden\r\n\r\n"),
-  );
+  server.on("connect", (_request, socket) => {
+    // Node hands ownership of CONNECT sockets to this listener.
+    socket.on("error", () => socket.destroy());
+    socket.end("HTTP/1.1 403 Forbidden\r\n\r\n", () => socket.destroy());
+  });
   const abort = () => {
     void client?.close().catch(() => {});
   };
