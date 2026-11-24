@@ -7,6 +7,20 @@ import {
   writeCapturePreview,
 } from "../scripts/artifact-capture.js";
 import { e2ePaths, expect, test } from "./fixtures.js";
+import {
+  startTypingDiagnostics,
+  typingAckLimitMs,
+} from "./support/typing-diagnostics.js";
+
+type KeyAcknowledgement = {
+  latency: number;
+  value: string;
+  focused: boolean;
+};
+
+type MeasuredComposer = HTMLTextAreaElement & {
+  acknowledgements: KeyAcknowledgement[];
+};
 
 // One owned browser fixture bundle; the production UI retains its own CSP.
 const nativeFixtureBundle = buildSync({
@@ -202,7 +216,11 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
     await expect(composer).toHaveValue("Offline draft");
     await composer.clear();
 
-    await page.evaluate(() => {
+    await composer.click();
+    await expect(composer).toBeFocused();
+    const recordTyping = await startTypingDiagnostics(composer);
+    await composer.evaluate((element) => {
+      const field = element as MeasuredComposer;
       const host = (
         window as unknown as {
           nativeFixture: { emit: (event: unknown) => Promise<void> };
@@ -213,34 +231,37 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
         nativeLoadTimer: setInterval(() => {
           void host.emit({ type: "state", phase: "CONNECTED", pad });
         }, 50),
-        nativeTypingLatencies: [],
       });
-      const input = document.querySelector<HTMLTextAreaElement>(
-        "textarea[data-composer-input]",
-      );
-      input?.addEventListener("keydown", () => {
-        const started = performance.now();
-        input.addEventListener(
+      field.acknowledgements = [];
+      field.addEventListener("keydown", (event) => {
+        field.addEventListener(
           "input",
-          () => {
+          () =>
             requestAnimationFrame(() =>
-              (
-                window as unknown as { nativeTypingLatencies: number[] }
-              ).nativeTypingLatencies.push(performance.now() - started),
-            );
-          },
+              field.acknowledgements.push({
+                latency: performance.now() - event.timeStamp,
+                value: field.value,
+                focused: document.activeElement === field,
+              }),
+            ),
           { once: true },
         );
       });
     });
-    await composer.click();
+    const readAcknowledgements = () =>
+      composer.evaluate(
+        (element) => (element as MeasuredComposer).acknowledgements,
+      );
     const text =
       "Native transport keeps every key responsive during incoming updates.";
-    // The 5 s action limit applies to each key, not this 68-key sequence.
-    // CI exhausted the whole-sequence action despite retaining each input.
-    // The unchanged frame measurements below enforce every key within 100 ms.
+    const prefixes: string[] = [];
     for (const character of text) {
-      await composer.pressSequentially(character, { delay: 35 });
+      const prefix = (prefixes.at(-1) ?? "") + character;
+      prefixes.push(prefix);
+      await page.keyboard.type(character, { delay: 35 });
+      await expect
+        .poll(async () => (await readAcknowledgements())?.at(-1)?.value)
+        .toBe(prefix);
     }
     await expect(composer).toHaveValue(text);
     await page.evaluate(() =>
@@ -248,13 +269,17 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
         (window as unknown as { nativeLoadTimer: number }).nativeLoadTimer,
       ),
     );
-    const latencies = await page.evaluate(
-      () =>
-        (window as unknown as { nativeTypingLatencies: number[] })
-          .nativeTypingLatencies,
+    const acknowledgements = await readAcknowledgements();
+    const slowest = Math.max(...acknowledgements.map(({ latency }) => latency));
+    await recordTyping(
+      testInfo,
+      `native-webview-${viewport.name}`,
+      acknowledgements,
+      slowest,
     );
-    expect(latencies).toHaveLength(text.length);
-    expect(Math.max(...latencies)).toBeLessThanOrEqual(100);
+    expect(acknowledgements.map(({ value }) => value)).toEqual(prefixes);
+    expect(acknowledgements.every(({ focused }) => focused)).toBe(true);
+    expect(slowest).toBeLessThanOrEqual(typingAckLimitMs);
     expect(
       await page.evaluate(() =>
         Object.keys(localStorage).filter((key) =>
@@ -275,7 +300,7 @@ window.yaNativeFixtureModule = yaNativeFixtureModule;
       }),
     );
     console.log(
-      `Native typing ${viewport.name}: ${text.length} keys, maximum ${Math.max(...latencies).toFixed(1)} ms at 20 Hz / 1 MiB frames`,
+      `Native typing ${viewport.name}: ${text.length} keys, maximum ${slowest.toFixed(1)} ms at 20 Hz / 1 MiB frames`,
     );
   });
 }

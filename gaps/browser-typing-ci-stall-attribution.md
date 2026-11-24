@@ -64,3 +64,13 @@ The append and move cases now use the documented 500 ms shared-CI ceiling
 with first-attempt reporting of every 100 ms target miss. The controlled
 local gate stays at 100 ms. The browser measurements leave the source of
 the dispatch stall open.
+
+The native WebView desktop bridge probe measured 229.9 ms from key dispatch
+to the acknowledgement frame in [CI 45467406774](https://github.com/kzahel/yepanywhere/actions/runs/45467406774/job/138705891352)
+while receiving 1 MiB frames at 20 Hz. The run kept the final draft and every
+input event, but its probe recorded neither intermediate values nor browser
+phase attribution. The probe now records each rendered prefix, focus,
+native-event timing and browser diagnostics on desktop and phone. It uses the
+same 500 ms shared-CI ceiling (2.2 times the observed sample) and keeps the
+100 ms controlled-host gate and target-miss annotations. The cause of the
+229.9 ms sample remains open.

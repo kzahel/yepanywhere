@@ -49,12 +49,16 @@ test("reload cleanup preserves a concurrent live owner and serializes journal up
     page.evaluate(() => window.previewCleanupProbe.open("source-a", "live")),
     peer.evaluate(() => window.previewCleanupProbe.open("source-a", "peer-0")),
   ]);
-  expect(
-    await page.evaluate(
-      (key) => JSON.parse(localStorage.getItem(key)!).length,
+  // The peer's write can return before Chromium updates this tab's snapshot.
+  const journalIds = () =>
+    page.evaluate(
+      (key) =>
+        (JSON.parse(localStorage.getItem(key) ?? "[]") as { id: string }[])
+          .map((row) => row.id)
+          .sort(),
       journal,
-    ),
-  ).toBe(2);
+    );
+  await expect.poll(journalIds).toEqual(["live", "peer-0"]);
   for (let index = 1; index <= 18; index++) {
     await peer.reload();
     await ready(peer);
@@ -62,14 +66,13 @@ test("reload cleanup preserves a concurrent live owner and serializes journal up
       (id) => window.previewCleanupProbe.open("source-a", id),
       `peer-${index}`,
     );
-    expect(removed).toHaveLength(index);
-    expect(removed).not.toContain("/cleanup-api/artifact-previews/live");
-    expect(
-      await page.evaluate(
-        (key) => JSON.parse(localStorage.getItem(key)!).length,
-        journal,
+    expect(removed).toEqual(
+      Array.from(
+        { length: index },
+        (_, previous) => `/cleanup-api/artifact-previews/peer-${previous}`,
       ),
-    ).toBe(2);
+    );
+    await expect.poll(journalIds).toEqual(["live", `peer-${index}`]);
   }
   await peer.evaluate(() => window.previewCleanupProbe.close("peer-18"));
   await page.evaluate(() => window.previewCleanupProbe.close("live"));

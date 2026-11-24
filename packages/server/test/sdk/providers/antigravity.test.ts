@@ -1652,9 +1652,28 @@ describe("Antigravity native process boundary", () => {
       if (order === "after the result")
         vi.stubEnv("AGY_TEST_RECORD_ORDER", "after-result");
       // Four rows: past them a move happens at the next proven split point.
-      setAntigravityLiveLimitsForTests({ softRows: 4, splitAgeMs: 0 });
+      const softRows = 4;
+      setAntigravityLiveLimitsForTests({ softRows, splitAgeMs: 0 });
       const route = await liveRoute();
-      const signal = AbortSignal.timeout(15_000);
+      const logPath = join(
+        store,
+        "brain",
+        nativeId,
+        ".system_generated",
+        "logs",
+        "transcript_full.jsonl",
+      );
+      const waitForReplyRecord = async (turn: number) => {
+        if (order !== "after the result") return;
+        await vi.waitFor(async () => {
+          const records = (await readFile(logPath, "utf8")).split("\n");
+          expect(
+            records.filter((line) =>
+              line.includes('"type":"PLANNER_RESPONSE"'),
+            ),
+          ).toHaveLength(turn + 1); // Includes the seeded reply.
+        });
+      };
       try {
         await route.client.load();
         expect(
@@ -1670,7 +1689,8 @@ describe("Antigravity native process boundary", () => {
           ).status,
         ).toBe(200);
         const active = route.app.supervisor.getProcessForSession(nativeId)!;
-        await waitForIdle(active, signal);
+        await waitForIdle(active, AbortSignal.timeout(15_000));
+        await waitForReplyRecord(1);
         const expected = [
           "Original question",
           "Saved",
@@ -1678,9 +1698,6 @@ describe("Antigravity native process boundary", () => {
           "Hello world",
         ];
         const send = async (message: string) => {
-          // A record agy writes late still precedes the next prompt's.
-          if (order === "after the result")
-            await new Promise((resolve) => setTimeout(resolve, 100));
           await route.post(`/api/sessions/${nativeId}/messages`, { message });
           await vi.waitFor(() =>
             expect(JSON.stringify(active.getMessageHistory())).toContain(
@@ -1702,7 +1719,7 @@ describe("Antigravity native process boundary", () => {
         ) as { _isStreaming?: boolean } | undefined;
         expect(streaming?._isStreaming).toBe(true);
         expect(await active.interrupt()).toBe(true);
-        await waitForIdle(active, signal);
+        await waitForIdle(active, AbortSignal.timeout(15_000));
         await route.client.catchUp();
         expected.push("wait", "Waiting");
         expect(route.shown(route.client.rows)).toEqual(expected);
@@ -1715,10 +1732,15 @@ describe("Antigravity native process boundary", () => {
           const before = boundary();
           const replaced = route.client.replacements;
           await send(`turn ${turn}`);
-          await waitForIdle(active, signal);
-          // The prompt's candidate is checked once agy logged its input; a
-          // short turn can end before that check does.
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await waitForIdle(active, AbortSignal.timeout(15_000));
+          await waitForReplyRecord(turn);
+          // An asynchronous split can finish after the turn goes idle. At
+          // the soft limit no further split can race the catch-up assertion.
+          await vi.waitFor(() =>
+            expect(
+              antigravityLiveHistory(route.scope, nativeId)!.length,
+            ).toBeLessThanOrEqual(softRows),
+          );
           if (boundary() !== before) moves++;
           // Once the row it last fetched has left memory, the client gets one
           // replacement; otherwise its catch-up appends.
@@ -1731,10 +1753,6 @@ describe("Antigravity native process boundary", () => {
             left ? 1 : 0,
           );
           expected.push(`turn ${turn}`, "Hello world");
-          // The live rows stay within the soft budget and a turn.
-          expect(
-            antigravityLiveHistory(route.scope, nativeId)!.length,
-          ).toBeLessThanOrEqual(4 + 2);
         }
         // Each move was one replacement for this client, never an append
         // of rows it held; the client shows every row once, in order.
