@@ -312,19 +312,19 @@
   margin-left: auto;
 }
 
-.contentFilterBlock {
+.warningNotice {
   display: block;
   max-width: min(100%, 980px);
 }
 
-.contentFilterBlockTitle {
+.warningNoticeTitle {
   display: flex;
   align-items: baseline;
   gap: 8px;
   font-weight: 600;
 }
 
-.contentFilterBlockGuidance {
+.warningNoticeGuidance {
   margin: 6px 0 0;
   /* Align the guidance under the title text, past the icon and its gap. */
   padding-left: calc(1ch + 8px);
@@ -333,7 +333,7 @@
   white-space: pre-wrap;
 }
 
-.contentFilterBlockLabel {
+.warningNoticeLabel {
   color: var(--text-muted);
 }
 

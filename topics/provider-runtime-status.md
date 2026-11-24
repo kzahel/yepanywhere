@@ -382,6 +382,45 @@ This row is live-only when the provider does not persist the notification. It
 must have a stable message id, but YA must not write a shadow provider turn to
 make it survive reload.
 
+### Restricted capability
+
+A provider may answer a refusal by retrying on a different model and leaving
+the session there. YA reports the recorded evidence; it never infers a
+restriction from wording or from a model change alone.
+
+Claude Code is the one provider with durable evidence today. It writes a
+`model_refusal_fallback` system row naming the original and fallback models,
+the refusal category when the provider gave one, and whether the swap is for
+the session or for one subagent or side-question reply.
+
+- The row renders in the transcript as a warning notice with both model
+  names and the category.
+- A Claude session summary carries `capabilityRestriction`: the eight newest
+  fallbacks on the current branch, whether earlier ones exist, and
+  `activeModel`, the fallback model of the latest session-wide swap. A swap
+  stops being active when a later assistant turn on that branch is answered by
+  a different model. A single-reply fallback never makes a session active. The
+  field is absent when no fallback is recorded; other providers and older
+  servers never send it.
+- The session header shows a **Restricted capability** badge whenever the
+  summary or the loaded transcript holds a fallback. It is warning-colored and
+  labelled while active, and a muted icon afterwards. Its menu states the
+  status and lists the fallbacks, newest first, each a link that opens the
+  session scrolled to that row. Narrow headers keep the icon alone.
+- A fallback that arrives on the live stream shows at once: the client
+  continues the server's summary through the loaded rows, accepting the live
+  message's snake_case fields as well as the durable camelCase ones.
+
+The summary fact is part of the existing Claude summary parse and its
+condensed index form, so it adds no transcript reader. A durable index built
+by an older server does not hold fallbacks recorded before it was built; they
+appear after that session's index is rebuilt.
+
+Session lists do not show the badge yet, and Codex's equivalent is not
+surfaced; see the gaps
+[session lists](../gaps/capability-restriction-missing-from-session-lists.md)
+and [Codex reroutes](../gaps/codex-model-reroute-not-surfaced.md).
+
 ### Diagnostics
 
 Process info may expose kind, reason, provider message, source notification,

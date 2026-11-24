@@ -4,6 +4,7 @@ import collapsibleStyles from "./Collapsible.module.css";
 import { memo, useCallback, useRef } from "react";
 import { MACHINE_CONTROL_INSTRUCTIONS_NOTICE } from "@yep-anywhere/shared/machine-control-instructions";
 import { AGENT_API_BOOTSTRAP_NOTICE } from "@yep-anywhere/shared/agent-api-bootstrap";
+import { readModelRefusalFallback } from "@yep-anywhere/shared/transcript/capabilityRestriction";
 import { useSessionRewind } from "../contexts/SessionRewindContext";
 import { useI18n } from "../i18n";
 import { getRenderItemRewoundGroupId } from "../lib/sessionDetail/renderItems";
@@ -301,6 +302,47 @@ function RewoundGroupHeader({
   );
 }
 
+/** A titled warning row whose body states what the provider did. */
+function WarningNotice({
+  title,
+  label,
+  body,
+}: {
+  title: string;
+  /** Muted lead-in that says whose words the body is. */
+  label?: string;
+  body: string;
+}) {
+  return (
+    <div
+      className={`${styles.systemMessage} ${styles.systemMessageWarning} ${styles.warningNotice}`}
+      data-system-message
+      data-system-message-warning
+    >
+      <div className={styles.warningNoticeTitle}>
+        <span
+          className={styles.systemMessageIcon}
+          data-system-message-icon
+          aria-hidden="true"
+        >
+          !
+        </span>
+        <span>{title}</span>
+      </div>
+      {body && (
+        <p className={styles.warningNoticeGuidance}>
+          {label && (
+            <>
+              <span className={styles.warningNoticeLabel}>{label}</span>{" "}
+            </>
+          )}
+          {body}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
  * A provider response blocked by its content filter, with the recovery
  * guidance the provider gave the agent before retrying. The guidance is the
@@ -309,30 +351,45 @@ function RewoundGroupHeader({
 function ContentFilterBlockNotice({ guidance }: { guidance: string }) {
   const { t } = useI18n();
   return (
-    <div
-      className={`${styles.systemMessage} ${styles.systemMessageWarning} ${styles.contentFilterBlock}`}
-      data-system-message
-      data-system-message-warning
-    >
-      <div className={styles.contentFilterBlockTitle}>
-        <span
-          className={styles.systemMessageIcon}
-          data-system-message-icon
-          aria-hidden="true"
-        >
-          !
-        </span>
-        <span>{t("contentFilterBlockTitle")}</span>
-      </div>
-      {guidance && (
-        <p className={styles.contentFilterBlockGuidance}>
-          <span className={styles.contentFilterBlockLabel}>
-            {t("contentFilterBlockGuidanceLabel")}
-          </span>{" "}
-          {guidance}
-        </p>
+    <WarningNotice
+      title={t("contentFilterBlockTitle")}
+      label={t("contentFilterBlockGuidanceLabel")}
+      body={guidance}
+    />
+  );
+}
+
+/**
+ * A refusal the provider answered by retrying on a fallback model: the
+ * transcript spot the restricted capability badge points at.
+ */
+function ModelRefusalFallbackNotice({
+  item,
+}: {
+  item: Extract<RenderItem, { type: "system" }>;
+}) {
+  const { t } = useI18n();
+  const fallback = readModelRefusalFallback(
+    (item.sourceMessages[0] ?? {}) as Record<string, unknown>,
+  );
+  if (!fallback) return <WarningNotice title={item.content} body="" />;
+  const models = t("capabilityRestrictionModels", {
+    from: fallback.fromModel,
+    to: fallback.toModel,
+  });
+  return (
+    <WarningNotice
+      title={t(
+        fallback.scope === "session"
+          ? "capabilityRestrictionNoticeSession"
+          : "capabilityRestrictionNoticeReply",
       )}
-    </div>
+      body={
+        fallback.category
+          ? `${models} · ${t("capabilityRestrictionCategory", { category: fallback.category })}`
+          : models
+      }
+    />
   );
 }
 
@@ -696,6 +753,9 @@ export const RenderItemComponent = memo(function RenderItemComponent({
         }
         if (item.subtype === "content_filter_block") {
           return <ContentFilterBlockNotice guidance={item.content} />;
+        }
+        if (item.subtype === "model_refusal_fallback") {
+          return <ModelRefusalFallbackNotice item={item} />;
         }
 
         // Different styling for compacting vs completed compaction

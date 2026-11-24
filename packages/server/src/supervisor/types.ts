@@ -146,6 +146,7 @@ export interface SessionSummary {
    * its own visits. Undefined when the provider's reader does not report it.
    */
   lastHumanTurnAt?: string;
+  capabilityRestriction?: AppSessionSummary["capabilityRestriction"];
   asyncQuestions?: AppSessionSummary["asyncQuestions"];
   /** Launcher identifier from session metadata (e.g. "Codex Desktop", "yep-anywhere") */
   originator?: string;

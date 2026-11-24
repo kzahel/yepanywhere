@@ -569,7 +569,8 @@ function processMessage(
       subtype === "content_filter_block" ||
       subtype === "config_ack" ||
       subtype === "away_summary" ||
-      subtype === "subagent_activity"
+      subtype === "subagent_activity" ||
+      subtype === "model_refusal_fallback"
     ) {
       const configSignature =
         subtype === "config_ack" ? getConfigAckSignature(msg) : null;
@@ -586,7 +587,9 @@ function processMessage(
                   ? "Recap unavailable"
                   : subtype === "subagent_activity"
                     ? "Subagent updated"
-                    : "Context compacted";
+                    : subtype === "model_refusal_fallback"
+                      ? "Retried on a fallback model after a refusal"
+                      : "Context compacted";
       const systemItem: SystemItem = {
         type: "system",
         id: msgId,

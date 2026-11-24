@@ -23,6 +23,7 @@ import type {
   UserEntry,
 } from "./claude-sdk-schema/types.js";
 import type { CodexAsyncUserInputQuestion } from "./codex-schema/session.js";
+import type { CapabilityRestrictionSummary } from "./transcript/capabilityRestriction.js";
 import { isUrlProjectId, type UrlProjectId } from "./projectId.js";
 import type {
   EffortLevel,
@@ -740,6 +741,11 @@ export interface AppSessionSummary
    * itself. A message another session delivered counts as written.
    */
   lastHumanTurnAt?: string;
+  /**
+   * Refusal fallbacks recorded in the transcript. Absent when none is known,
+   * from readers that do not report them, and from older servers.
+   */
+  capabilityRestriction?: CapabilityRestrictionSummary;
   contextUsage?: ContextUsage;
   /** SSH host alias for remote execution (undefined = local) */
   executor?: string;

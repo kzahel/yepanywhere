@@ -1,3 +1,4 @@
+import { MAX_CAPABILITY_RESTRICTION_EVENTS } from "@yep-anywhere/shared/transcript/capabilityRestriction";
 import {
   createParseState,
   type ClaudeSummaryParseState,
@@ -40,6 +41,10 @@ export function condenseClaudeSummary(
       (n.type === "assistant" || n.type === "user") &&
       Number.isFinite(Date.parse(n.timestamp)),
   );
+  // One more than the summary reports, so it can tell that earlier ones exist.
+  let fallback = nodes.length;
+  for (let i = 0; i <= MAX_CAPABILITY_RESTRICTION_EVENTS && fallback >= 0; i++)
+    fallback = last((n) => !!n.refusalFallback, fallback);
   return nodes.filter((n) => keep.has(n));
 }
 function total(n: CompactClaudeSummaryNode) {

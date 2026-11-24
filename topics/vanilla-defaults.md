@@ -189,6 +189,13 @@ and otherwise sits in `...`; opening search is its only effect. Toolbar settings
 can hide it. See
 [composer-bottom-bar-overflow](composer-bottom-bar-overflow.md).
 
+The **Restricted capability** badge and its transcript notice are
+default-visible, requested by graehl on 2026-11-24. They appear only in a
+session whose transcript records a provider refusal fallback, which Claude
+Code's own interface also announces, and add nothing to any other session.
+There is no setting. See
+[provider runtime status](provider-runtime-status.md#restricted-capability).
+
 Structured Codex async questions and their toolbar reminders ship default-on,
 explicitly authorized by graehl on 2026-09-07. They make an existing provider
 question answerable without blocking ongoing work. Clickable choices and the

@@ -1,0 +1,22 @@
+/* A header chip sized like its neighbors; the label never wraps or shrinks. */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.status {
+  margin: 0;
+  padding: 2px 8px 6px;
+  max-width: 34rem;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Model ids are long and unbroken; let a narrow menu wrap them. */
+.models {
+  overflow-wrap: anywhere;
+}

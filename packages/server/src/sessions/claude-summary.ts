@@ -14,6 +14,12 @@ import {
   stripIdeMetadata,
   truncateSessionTitle,
 } from "@yep-anywhere/shared";
+import {
+  CapabilityRestrictionFold,
+  type CapabilityRestrictionSummary,
+  type ModelRefusalFallback,
+  readModelRefusalFallback,
+} from "@yep-anywhere/shared/transcript/capabilityRestriction";
 import { getLogger } from "../logging/logger.js";
 import type { ContextUsage, SessionSummary } from "../supervisor/types.js";
 import { iterateJsonlLines } from "../utils/jsonl.js";
@@ -45,6 +51,8 @@ export interface CompactClaudeSummaryNode {
   assistantToolName?: string;
   /** A user entry carrying prose: someone wrote into the session here. */
   humanTurn?: boolean;
+  /** A refusal answered by retrying on a fallback model. */
+  refusalFallback?: ModelRefusalFallback;
 }
 
 interface ParseMetrics {
@@ -393,6 +401,9 @@ export function addEntryToState(
   const usage = getAssistantUsage(entry);
   const compactionPreTokens = getCompactionPreTokens(entry);
   const awaySummaryExcerpt = systemAwaySummaryExcerpt(entry);
+  const refusalFallback = readModelRefusalFallback(
+    entry as Record<string, unknown>,
+  );
   // A synthetic no-response placeholder is assistant-shaped but no model
   // produced it, so it must not become the session's "last agent turn" excerpt.
   const assistantParts =
@@ -422,6 +433,7 @@ export function addEntryToState(
     // The same text test that picks a session's title, reused so one rule
     // decides what counts as someone writing into the session.
     ...(getFirstUserTitleCandidate(entry) ? { humanTurn: true } : {}),
+    ...(refusalFallback ? { refusalFallback } : {}),
   };
 
   state.nodeMap.set(uuid, node);
@@ -573,6 +585,27 @@ function extractModel(
     if (node.model && node.model !== "<synthetic>") return node.model;
   }
   return undefined;
+}
+
+function extractCapabilityRestriction(
+  activeBranch: CompactClaudeSummaryNode[],
+): CapabilityRestrictionSummary | undefined {
+  const fold = new CapabilityRestrictionFold();
+  for (const node of activeBranch) {
+    if (node.refusalFallback) {
+      const at = Number.isFinite(Date.parse(node.timestamp))
+        ? { at: node.timestamp }
+        : {};
+      fold.fallback({ messageId: node.uuid, ...at, ...node.refusalFallback });
+    } else if (
+      node.type === "assistant" &&
+      node.model &&
+      node.model !== "<synthetic>"
+    ) {
+      fold.answeredBy(node.model);
+    }
+  }
+  return fold.summary();
 }
 
 function computeCompactCompactionOverhead(
@@ -773,6 +806,7 @@ export function buildSummaryFromState(
       ? options.stats.birthtime.toISOString()
       : options.stats.mtime.toISOString());
   const lastHumanTurnAt = findLastHumanTurnAt(activeBranch);
+  const capabilityRestriction = extractCapabilityRestriction(activeBranch);
 
   return {
     id: options.sessionId,
@@ -794,6 +828,7 @@ export function buildSummaryFromState(
     model,
     lastAgentText: findLastAgentExcerpt(activeBranch),
     ...(lastHumanTurnAt ? { lastHumanTurnAt } : {}),
+    ...(capabilityRestriction ? { capabilityRestriction } : {}),
   };
 }
 
