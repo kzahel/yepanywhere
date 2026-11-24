@@ -442,7 +442,7 @@ test("lost creation reply and recovery read reload into conditional read-only dr
   const f = await originComposer(browser);
   let lost = true,
     posts = 0;
-  let sessionId: string;
+  let sessionId: string | undefined;
   const navigation: string[] = [f.page.url()];
   const reads: number[] = [];
   f.page.on("framenavigated", (frame) => {
@@ -470,6 +470,7 @@ test("lost creation reply and recovery read reload into conditional read-only dr
     await expect(
       f.page.getByRole("button", { name: "Open saved session", exact: true }),
     ).toBeVisible();
+    expect(sessionId).toBeTruthy();
     await expect(f.input).toHaveValue("OWNED_PAGE_REQUEST");
     await expect(
       f.page.getByRole("button", { name: "Remove request.txt", exact: true }),
@@ -483,7 +484,7 @@ test("lost creation reply and recovery read reload into conditional read-only dr
     await f.page
       .getByRole("button", { name: "Open saved session", exact: true })
       .click();
-    await expect.poll(() => viewedSessionId(f.page)).toBe(sessionId!);
+    await expect.poll(() => viewedSessionId(f.page)).toBe(sessionId);
     await f.page.goto(f.path);
     await expect(f.input).toBeEditable();
     await expect(f.input).toHaveValue("");
