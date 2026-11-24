@@ -1,16 +1,18 @@
 use std::{
     sync::{
         atomic::{AtomicU64, Ordering},
-        Mutex,
+        Arc, Mutex,
     },
     time::Duration,
 };
 use tauri::{
-    async_runtime::JoinHandle, AppHandle, Manager, Url, WebviewUrl, WebviewWindow,
-    WebviewWindowBuilder,
+    async_runtime::JoinHandle, webview::PageLoadEvent, AppHandle, Manager, Url, WebviewUrl,
+    WebviewWindow, WebviewWindowBuilder,
 };
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{oneshot, Mutex as AsyncMutex};
 
+const DASHBOARD_LOAD_TIMEOUT: Duration = Duration::from_secs(60);
+const DESKTOP_BOOTSTRAP_PATH: &str = "/desktop-bootstrap/";
 const DEFAULT_DASHBOARD_UNLOAD_DELAY: Duration = Duration::from_secs(5 * 60);
 const TEST_UNLOAD_DELAY_ENV: &str = "YEP_DESKTOP_TEST_UNLOAD_DELAY_MS";
 const MAX_SAVED_DASHBOARD_ROUTE_BYTES: usize = 8 * 1024;
@@ -18,6 +20,7 @@ const MAX_SAVED_DASHBOARD_ROUTE_BYTES: usize = 8 * 1024;
 pub struct DashboardWindowState {
     gate: AsyncMutex<()>,
     server_attempt: Mutex<Option<u64>>,
+    page_loads: Mutex<DashboardPageLoads>,
     last_route: Mutex<Option<String>>,
     unload_generation: AtomicU64,
     unload_task: Mutex<Option<JoinHandle<()>>>,
@@ -28,6 +31,7 @@ impl DashboardWindowState {
         Self {
             gate: AsyncMutex::new(()),
             server_attempt: Mutex::new(None),
+            page_loads: Mutex::new(DashboardPageLoads::default()),
             last_route: Mutex::new(None),
             unload_generation: AtomicU64::new(0),
             unload_task: Mutex::new(None),
@@ -35,12 +39,71 @@ impl DashboardWindowState {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum DashboardPage {
+    Loaded,
+    Rejected,
+}
+
+fn dashboard_page(bootstrap_url: &Url, loaded_url: &Url) -> Option<DashboardPage> {
+    if loaded_url.origin() != bootstrap_url.origin() {
+        return None;
+    }
+    if loaded_url.path() == bootstrap_url.path() {
+        return Some(DashboardPage::Rejected);
+    }
+    if loaded_url.path().starts_with(DESKTOP_BOOTSTRAP_PATH) {
+        return None;
+    }
+    Some(DashboardPage::Loaded)
+}
+
+struct PendingDashboardLoad {
+    bootstrap_url: Url,
+    finished: oneshot::Sender<DashboardPage>,
+}
+
+#[derive(Clone, Default)]
+struct DashboardPageLoads(Arc<Mutex<Option<PendingDashboardLoad>>>);
+
+impl DashboardPageLoads {
+    fn expect(&self, bootstrap_url: Url) -> Result<oneshot::Receiver<DashboardPage>, String> {
+        let (finished, receiver) = oneshot::channel();
+        *self.0.lock().map_err(|error| error.to_string())? = Some(PendingDashboardLoad {
+            bootstrap_url,
+            finished,
+        });
+        Ok(receiver)
+    }
+
+    fn finish(&self, loaded_url: &Url) {
+        let Ok(mut pending) = self.0.lock() else {
+            return;
+        };
+        if let Some(page) = pending
+            .as_ref()
+            .and_then(|load| dashboard_page(&load.bootstrap_url, loaded_url))
+        {
+            if let Some(load) = pending.take() {
+                let _ = load.finished.send(page);
+            }
+        }
+    }
+
+    fn clear(&self) {
+        if let Ok(mut pending) = self.0.lock() {
+            pending.take();
+        }
+    }
+}
+
 fn dashboard_is_current(
-    dashboard_exists: bool,
+    dashboard_url: Option<&Url>,
     dashboard_attempt: Option<u64>,
     server_attempt: u64,
 ) -> bool {
-    dashboard_exists && dashboard_attempt == Some(server_attempt)
+    dashboard_attempt == Some(server_attempt)
+        && dashboard_url.is_some_and(|url| !url.path().starts_with(DESKTOP_BOOTSTRAP_PATH))
 }
 
 fn show_existing(window: &WebviewWindow) -> Result<(), String> {
@@ -51,7 +114,8 @@ fn show_existing(window: &WebviewWindow) -> Result<(), String> {
 
 fn dashboard_route_from_url(url: &Url) -> Option<String> {
     let path = url.path();
-    if !path.starts_with('/') || path.starts_with("//") || path.starts_with("/desktop-bootstrap/") {
+    if !path.starts_with('/') || path.starts_with("//") || path.starts_with(DESKTOP_BOOTSTRAP_PATH)
+    {
         return None;
     }
 
@@ -195,18 +259,15 @@ pub async fn show_dashboard_window(app: &AppHandle) -> Result<(), String> {
         .server_attempt
         .lock()
         .map_err(|error| error.to_string())?;
-    if dashboard_is_current(
-        app.get_webview_window("dashboard").is_some(),
-        dashboard_attempt,
-        server_attempt,
-    ) {
-        if let Some(window) = app.get_webview_window("dashboard") {
+    if let Some(window) = app.get_webview_window("dashboard") {
+        if dashboard_is_current(
+            window.url().ok().as_ref(),
+            dashboard_attempt,
+            server_attempt,
+        ) {
             show_existing(&window)?;
             return Ok(());
         }
-    }
-
-    if let Some(window) = app.get_webview_window("dashboard") {
         remember_dashboard_route(&state, &window);
     }
     let last_route = state
@@ -214,25 +275,31 @@ pub async fn show_dashboard_window(app: &AppHandle) -> Result<(), String> {
         .lock()
         .map_err(|error| error.to_string())?
         .clone();
-    let url =
-        crate::server::get_dashboard_url_for_route(app.clone(), last_route.as_deref()).await?;
-    let url = url
-        .parse()
-        .map_err(|error| format!("Invalid desktop dashboard URL: {error}"))?;
+    *state
+        .server_attempt
+        .lock()
+        .map_err(|error| error.to_string())? = None;
+    let page_loads = {
+        let mut page_loads = state.page_loads.lock().map_err(|error| error.to_string())?;
+        if app.get_webview_window("dashboard").is_none() {
+            *page_loads = DashboardPageLoads::default();
+        }
+        page_loads.clone()
+    };
 
-    let window = if let Some(window) = app.get_webview_window("dashboard") {
-        window.navigate(url).map_err(|error| error.to_string())?;
-        window
-    } else {
-        WebviewWindowBuilder::new(app, "dashboard", WebviewUrl::External(url))
-            .title("Yep Anywhere")
-            .inner_size(1100.0, 750.0)
-            .initialization_script(crate::runtime_metadata::dashboard_initialization_script(
-                app,
-            ))
-            .visible(true)
-            .build()
-            .map_err(|error| error.to_string())?
+    let result = load_dashboard(app, &page_loads, last_route.as_deref()).await;
+    page_loads.clear();
+    let window = match result {
+        Ok(window) => window,
+        Err(error) => {
+            if let Some(window) = app.get_webview_window("dashboard") {
+                if let Err(close_error) = window.destroy() {
+                    let _ = window.hide();
+                    eprintln!("Failed to close dashboard after sign-in failure: {close_error}");
+                }
+            }
+            return Err(error);
+        }
     };
     show_existing(&window)?;
     *state
@@ -240,6 +307,58 @@ pub async fn show_dashboard_window(app: &AppHandle) -> Result<(), String> {
         .lock()
         .map_err(|error| error.to_string())? = Some(server_attempt);
     Ok(())
+}
+
+async fn load_dashboard(
+    app: &AppHandle,
+    page_loads: &DashboardPageLoads,
+    last_route: Option<&str>,
+) -> Result<WebviewWindow, String> {
+    // One fresh code after a rejected exchange. A redirect must finish before
+    // the window is eligible for the focus-only path.
+    for _ in 0..2 {
+        let url = crate::server::get_dashboard_url_for_route(app.clone(), last_route).await?;
+        let url: Url = url
+            .parse()
+            .map_err(|_| "Invalid desktop dashboard URL".to_string())?;
+        let finished = page_loads.expect(url.clone())?;
+        let window = navigate_dashboard(app, page_loads, url)?;
+        match tokio::time::timeout(DASHBOARD_LOAD_TIMEOUT, finished).await {
+            Ok(Ok(DashboardPage::Loaded)) => return Ok(window),
+            Ok(Ok(DashboardPage::Rejected)) => {}
+            Ok(Err(_)) => return Err("Desktop dashboard navigation was interrupted".to_string()),
+            Err(_) => return Err("Timed out opening the desktop dashboard".to_string()),
+        }
+    }
+    Err("Desktop dashboard sign-in failed after retry".to_string())
+}
+
+fn navigate_dashboard(
+    app: &AppHandle,
+    page_loads: &DashboardPageLoads,
+    url: Url,
+) -> Result<WebviewWindow, String> {
+    if let Some(window) = app.get_webview_window("dashboard") {
+        window
+            .navigate(url)
+            .map_err(|_| "Could not navigate to the desktop dashboard".to_string())?;
+        return Ok(window);
+    }
+    let page_loads = page_loads.clone();
+    WebviewWindowBuilder::new(app, "dashboard", WebviewUrl::External(url))
+        .title("Yep Anywhere")
+        .inner_size(1100.0, 750.0)
+        .initialization_script(crate::runtime_metadata::dashboard_initialization_script(
+            app,
+        ))
+        .on_page_load(move |_, payload| {
+            if payload.event() == PageLoadEvent::Finished {
+                page_loads.finish(payload.url());
+            }
+        })
+        .visible(false)
+        .build()
+        .map_err(|_| "Could not create the desktop dashboard".to_string())
 }
 
 pub fn show_server_output_window(app: &AppHandle) -> Result<(), String> {
@@ -305,17 +424,46 @@ mod tests {
     use std::time::Duration;
 
     use super::{
-        dashboard_is_current, dashboard_route_from_url, unload_delay_from_values,
-        DEFAULT_DASHBOARD_UNLOAD_DELAY,
+        dashboard_is_current, dashboard_route_from_url, unload_delay_from_values, DashboardPage,
+        DashboardPageLoads, DEFAULT_DASHBOARD_UNLOAD_DELAY,
     };
     use tauri::Url;
+    use tokio::sync::oneshot;
 
     #[test]
     fn repeat_launch_focuses_only_the_current_dashboard() {
-        assert!(dashboard_is_current(true, Some(3), 3));
-        assert!(!dashboard_is_current(false, Some(3), 3));
-        assert!(!dashboard_is_current(true, Some(2), 3));
-        assert!(!dashboard_is_current(true, None, 3));
+        let dashboard = Url::parse("http://127.0.0.1:4567/sessions/abc").unwrap();
+        let bootstrap = Url::parse("http://127.0.0.1:4567/desktop-bootstrap/code").unwrap();
+        assert!(dashboard_is_current(Some(&dashboard), Some(3), 3));
+        assert!(!dashboard_is_current(None, Some(3), 3));
+        assert!(!dashboard_is_current(Some(&dashboard), Some(2), 3));
+        assert!(!dashboard_is_current(Some(&dashboard), None, 3));
+        assert!(!dashboard_is_current(Some(&bootstrap), Some(3), 3));
+    }
+
+    #[test]
+    fn bootstrap_retry_ignores_an_old_code_and_accepts_the_dashboard_redirect() {
+        let loads = DashboardPageLoads::default();
+        let first_url = Url::parse("http://127.0.0.1:4567/desktop-bootstrap/first").unwrap();
+        let mut first = loads.expect(first_url.clone()).unwrap();
+        loads.finish(&Url::parse("http://127.0.0.1:1234/").unwrap());
+        assert!(matches!(
+            first.try_recv(),
+            Err(oneshot::error::TryRecvError::Empty)
+        ));
+        loads.finish(&first_url);
+        assert_eq!(first.try_recv().unwrap(), DashboardPage::Rejected);
+
+        let mut retry = loads
+            .expect(Url::parse("http://127.0.0.1:4567/desktop-bootstrap/retry").unwrap())
+            .unwrap();
+        loads.finish(&first_url);
+        assert!(matches!(
+            retry.try_recv(),
+            Err(oneshot::error::TryRecvError::Empty)
+        ));
+        loads.finish(&Url::parse("http://127.0.0.1:4567/sessions/abc").unwrap());
+        assert_eq!(retry.try_recv().unwrap(), DashboardPage::Loaded);
     }
 
     #[test]

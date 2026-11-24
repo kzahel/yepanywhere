@@ -212,6 +212,14 @@ responses, or logs.
 Reload, dashboard close/reopen, and server restart must recover without a 401.
 Password, LAN, and relay authentication keep their existing boundaries.
 
+The shell treats the dashboard as ready when its WebView finishes the
+same-origin bootstrap redirect. If the WebView finishes on the rejected
+bootstrap page, the shell opens a fresh code once and keeps the requested
+dashboard route. If the retry fails or navigation times out, the launcher
+offers another Open Dashboard attempt. These attempts use the running server
+and keep its provider sessions active. Opening an already ready dashboard
+focuses the existing window.
+
 Bootstrap v1 holds at most 16 active codes for 30 seconds, allows at most 30
 invalid attempts per minute, and keeps at most 32 in-memory desktop sessions
 for 30 days. The browser cookie itself has no persistent expiry and therefore
