@@ -1,6 +1,25 @@
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
 import type { EventBus, FileChangeEvent } from "./EventBus.js";
 import type { ProviderObservationCallbacks } from "./ProviderSessionWatcherRegistry.js";
+import type { ProviderSessionWatcherSpec } from "./ProviderSessionWatcherRegistry.js";
+import { COPILOT_SESSIONS_DIR, GROK_SESSIONS_DIR } from "../projects/paths.js";
+
+export const standaloneSessionWatcherSpecs: readonly ProviderSessionWatcherSpec[] =
+  [
+    {
+      family: "grok",
+      provider: "grok",
+      watchDir: GROK_SESSIONS_DIR,
+      debounceMs: 200,
+      internalOnly: true,
+    },
+    {
+      family: "copilot",
+      provider: "copilot",
+      watchDir: COPILOT_SESSIONS_DIR,
+      debounceMs: 200,
+    },
+  ];
 
 export interface ProviderObservationBinding {
   attachRetainedCollections(observer: {

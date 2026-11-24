@@ -14,9 +14,8 @@ Topic: copilot-provider
 
 The [ACP topic](acp.md) records the separate native Copilot CLI option via
 `copilot --acp --stdio`, T3's implementation and a recommendation for sharing
-YA's ACP machinery. Architecture C below remains the SDK/CLI proposal; neither
-a native Copilot provider nor a generic ACP Registry provider is implemented
-in YA. Existing Pi/OpenCode/Gateway routes use other harnesses.
+YA's ACP machinery. Architecture C below proposes running Copilot from YA
+through the SDK. Pi, OpenCode and Claude Gateway use their own harnesses.
 
 See also: [`opencode-copilot.md`](opencode-copilot.md),
 [`copilot-oauth-claude.md`](copilot-oauth-claude.md),
@@ -25,6 +24,25 @@ See also: [`opencode-copilot.md`](opencode-copilot.md),
 `AgentSession` contract any new provider implements),
 [`grok.md`](grok.md) (the isolated-additive provider template to copy),
 [`cost-efficiency.md`](cost-efficiency.md).
+
+## External Copilot CLI sessions
+
+YA shows native Copilot CLI sessions in the sidebar and session lists when
+external session discovery is enabled. It reads
+`~/.copilot/session-state/<session-id>/events.jsonl` on the server host.
+`COPILOT_SESSIONS_DIR` overrides the `session-state` directory. The
+`session.start` record supplies the session ID and working directory. The
+sidebar can use the first prompt within the transcript's first 32 KiB as its
+title.
+
+Opening a Copilot session shows the user and assistant text. The Copilot CLI
+continues to own the session. YA presents a read-only viewer and follows new
+transcript writes when the store exists at server startup. Catalog refreshes
+read only the affected session headers. Opening the conversation streams its
+complete JSONL transcript and ignores an unfinished final line.
+
+Discovery and text viewing were checked against the on-disk event shape
+produced by Copilot CLI 1.0.114. The SDK proposal below covers execution.
 
 ## Correction recorded (2026-06-21)
 

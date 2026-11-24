@@ -124,6 +124,10 @@ export const GROK_DIR =
 export const GROK_SESSIONS_DIR =
   process.env.GROK_SESSIONS_DIR ?? join(GROK_DIR, "sessions");
 
+export const COPILOT_SESSIONS_DIR =
+  process.env.COPILOT_SESSIONS_DIR ??
+  join(homedir(), ".copilot", "session-state");
+
 /** Session-scoped Grok media roots YA may materialize (images + videos). */
 export function grokSessionMediaRoots(
   sessionsDir: string,

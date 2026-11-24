@@ -50,10 +50,10 @@ export class BoundSessionReads {
   ) {}
 
   async read(input: BoundSessionRead): Promise<LoadedSession | null> {
-    // Indexed reads own Claude branch context. Complete fallback reads retain
-    // the full forest before route slicing.
+    // Complete reads leave the visible anchor in place for route slicing.
     const afterMessageId =
-      input.native.family === "claude" && !input.options?.tailCompactions
+      (input.native.family === "claude" && !input.options?.tailCompactions) ||
+      input.native.family === "copilot"
         ? undefined
         : input.afterMessageId;
     const reader = this.deps.readerFactory(

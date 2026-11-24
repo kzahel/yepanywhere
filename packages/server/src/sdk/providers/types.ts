@@ -17,6 +17,7 @@ import type {
   UrlProjectId,
   PermissionMode,
   PromptCacheKeepaliveProviderInfo,
+  ProviderName,
   ProviderSubscriptionUsage,
   SlashCommand,
 } from "@yep-anywhere/shared";
@@ -36,25 +37,7 @@ import type {
   UserMessage,
 } from "../types.js";
 
-/**
- * Provider names - extensible for future providers.
- *
- * "grok" added (additive only, Phase 1) for Grok Build ACP provider.
- * See topics/grok.md for full isolation contract + ENABLED_PROVIDERS gating.
- * This local copy must stay in sync with @yep-anywhere/shared ProviderName.
- */
-export type ProviderName =
-  | "claude"
-  | "claude-gateway"
-  | "claude-ollama"
-  | "codex"
-  | "codex-oss"
-  | "gemini"
-  | "gemini-acp"
-  | "antigravity"
-  | "grok"
-  | "opencode"
-  | "pi";
+export type { ProviderName } from "@yep-anywhere/shared";
 
 /**
  * Provider-native address of a completed transcript prefix. These identities

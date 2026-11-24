@@ -59,6 +59,7 @@ const USAGE_SOURCE_BY_PROVIDER: Readonly<
   grok: { frame: "none", cachedReadsInInput: false },
   opencode: { frame: "result", cachedReadsInInput: false },
   pi: { frame: "result", cachedReadsInInput: false },
+  copilot: { frame: "none", cachedReadsInInput: false },
 };
 
 /** Whether a provider counts cached prompt reads inside `input_tokens`. */

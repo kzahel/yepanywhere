@@ -1812,6 +1812,7 @@
   "pendingToolRiskDiscardBody": " Resuming a transcript whose last step is an unanswered tool call forces the provider to drop or synthesize a result, losing whatever that run was doing.",
   "pendingToolRiskCaveat": "YA cannot tell a program parked at a prompt from one that has exited — both leave the same unfinished tool call on disk — so this is a hedge, not a certainty. The safe move is to check the other program first.",
   "sessionGeminiRetired": "Gemini CLI sessions are read-only. Start a new Antigravity session to continue.",
+  "sessionCopilotReadOnly": "Copilot CLI sessions are read-only here. Continue in the Copilot CLI.",
   "sessionLoading": "Loading session...",
   "sessionLoadingRenderingTranscript": "Rendering {count} messages...",
   "sessionProgressiveRenderingStatus": "Rendering transcript {percent}%...",

@@ -34,15 +34,18 @@ const CURRENT_VERSION = 2;
 export interface InstallServiceOptions {
   /** Directory to store install state (defaults to ~/.yep-anywhere) */
   dataDir?: string;
+  discoverCopilotSessions?: boolean;
 }
 
 export class InstallService {
   private state: InstallState | null = null;
   private dataDir: string;
   private filePath: string;
+  private readonly discoverCopilotSessions: boolean;
   private mutationTail: Promise<void> = Promise.resolve();
 
   constructor(options: InstallServiceOptions = {}) {
+    this.discoverCopilotSessions = options.discoverCopilotSessions ?? false;
     this.dataDir =
       options.dataDir ??
       path.join(
@@ -169,7 +172,10 @@ export class InstallService {
         "InstallService not initialized. Call initialize() first.",
       );
     }
-    return [...this.state.catalogFamilies];
+    const families = this.state.catalogFamilies.filter(
+      (family) => family !== "copilot",
+    );
+    return this.discoverCopilotSessions ? [...families, "copilot"] : families;
   }
 
   needsCatalogMetadataMigration(): boolean {

@@ -58,9 +58,10 @@ export function resolveSessionProviderCapabilities(params: {
     providerName,
     providerInfo,
     readOnly:
-      params.catalogLoaded === true &&
-      !providerInfo &&
-      (providerName === "gemini" || providerName === "gemini-acp"),
+      providerName === "copilot" ||
+      (params.catalogLoaded === true &&
+        !providerInfo &&
+        (providerName === "gemini" || providerName === "gemini-acp")),
     generallySupportsSteering:
       metadataSupportsSteering || staticSupportsSteering,
     supportsCurrentTurnSteering: providerInfo

@@ -28,7 +28,8 @@ export type ProviderName =
   | "antigravity"
   | "grok"
   | "opencode"
-  | "pi";
+  | "pi"
+  | "copilot";
 
 /**
  * All provider names in display order.
@@ -49,6 +50,7 @@ export const ALL_PROVIDERS: readonly ProviderName[] = [
   "grok",
   "opencode",
   "pi",
+  "copilot",
 ] as const;
 
 export type ClaudeProviderName = "claude" | "claude-gateway" | "claude-ollama";

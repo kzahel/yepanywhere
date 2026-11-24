@@ -3,7 +3,7 @@ import type { NativeSessionRef } from "@yep-anywhere/shared";
 import { antigravityFocusedFile } from "../sessions/antigravity-writer-evidence.js";
 
 /** Native families whose stored YA identities get a focused session watch. */
-export const FOCUSED_NATIVE_FAMILIES: readonly string[] = [
+export const FOCUSED_NATIVE_FAMILIES: readonly NativeSessionRef["family"][] = [
   "claude",
   "codex",
   "opencode",
@@ -11,6 +11,7 @@ export const FOCUSED_NATIVE_FAMILIES: readonly string[] = [
   "grok",
   "gemini",
   "antigravity",
+  "copilot",
 ];
 
 /** What a focused watch follows for a native session file. */

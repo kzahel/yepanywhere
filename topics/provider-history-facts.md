@@ -138,6 +138,7 @@ consumer adds its row here before adding a reader.
 | Fork and clone (`sessions/fork.ts`) | Whole history | **Deliberate.** The copy is proportional to the history. It holds the source file as one string rather than streaming it. |
 | Content search (`routes/session-content-search.ts`, `sessions/issue-text-reader.ts`) | Forward | Separate project; see below. |
 | Issue associations (`services/issues/IssueIndexer.ts`) | Forward | Keeps its scheduler, eligibility and atomic output/checkpoint commits. |
+| Copilot CLI catalog and conversation | Head, whole history | The catalog reads up to 32 KiB per discovered or changed session. Conversation reads stream the complete transcript, including when refreshing an open conversation after an append. |
 | Pi, OpenCode, Grok and Gemini readers; Antigravity summaries, titles and launch links | Various | Not audited: unsupported or explicitly expensive until they are. |
 | Proposed: usage ledger ([accounting](session-usage-accounting.md)), branch navigation ([session tree](provider-session-tree.md)) | Forward, position | Not built by this effort; facts should not preclude them. |
 

@@ -87,7 +87,6 @@ import {
 import { ProjectGlossarySubscriptionManager } from "./projects/projectGlossarySubscriptionManager.js";
 import { ProjectWorktreeSubscriptionManager } from "./projects/projectWorktreeSubscriptionManager.js";
 import { projectPathCacheDiagnostics } from "./projects/projectPathIndex.js";
-import { GROK_SESSIONS_DIR } from "./projects/paths.js";
 import { OPENCODE_DB_PATH } from "./sessions/opencode-reader.js";
 import { antigravitySessionWatcherSpec } from "./sessions/antigravity-summaries.js";
 import { openCodeRelationshipWatcherSpec } from "./sessions/opencode-child-source.js";
@@ -158,6 +157,7 @@ import {
   NetworkListeners,
 } from "./network/listeners.js";
 import { providerCatalogFamily } from "./sessions/provider-catalog-family.js";
+import { standaloneSessionWatcherSpecs } from "./watcher/provider-observation-wiring.js";
 import {
   boundSessionSource,
   resolveLegacySessionSource,
@@ -496,13 +496,7 @@ const providerSessionWatchers = new ProviderSessionWatcherRegistry({
       provider: "pi",
       debounceMs: 200,
     },
-    {
-      family: "grok",
-      provider: "grok",
-      watchDir: GROK_SESSIONS_DIR,
-      debounceMs: 200,
-      internalOnly: true,
-    },
+    ...standaloneSessionWatcherSpecs,
     ...(openCodeRelationshipWatcher ? [openCodeRelationshipWatcher] : []),
   ],
 });
@@ -602,6 +596,7 @@ const remoteSessionService = new RemoteSessionService({
 });
 const installService = new InstallService({
   dataDir: config.dataDir,
+  discoverCopilotSessions: config.externalSessionsEnabled !== false,
 });
 const relayClientService = new RelayClientService();
 const relaySpeechClientService = new RelayClientService();

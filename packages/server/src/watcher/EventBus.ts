@@ -37,7 +37,8 @@ export type WatchProvider =
   | "pi"
   | "grok"
   | "opencode"
-  | "antigravity";
+  | "antigravity"
+  | "copilot";
 
 export interface FileChangeEvent {
   type: "file-change";

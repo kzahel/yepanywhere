@@ -21,6 +21,7 @@ const PROVIDER_COLORS: Record<ProviderName, string> = {
   grok: "var(--provider-grok)", // xAI Grok
   opencode: "var(--provider-opencode)", // OpenCode purple
   pi: "var(--provider-pi)", // pi teal
+  copilot: "var(--provider-opencode)",
 };
 
 const PROVIDER_LABELS: Record<ProviderName, string> = {
@@ -35,6 +36,7 @@ const PROVIDER_LABELS: Record<ProviderName, string> = {
   grok: "Grok",
   opencode: "OpenCode",
   pi: "pi",
+  copilot: "Copilot",
 };
 
 const MODEL_ACCENT_COLORS = {

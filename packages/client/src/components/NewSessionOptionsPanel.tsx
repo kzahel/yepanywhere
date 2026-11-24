@@ -180,6 +180,7 @@ export function NewSessionOptionsPanel({
     grok: t("newSessionProviderDescriptionGrok"),
     opencode: t("newSessionProviderDescriptionOpenCode"),
     pi: t("newSessionProviderDescriptionPi"),
+    copilot: t("sessionCopilotReadOnly"),
   };
   const promptSuggestionModeDescriptions: Record<PromptSuggestionMode, string> =
     {

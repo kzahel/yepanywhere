@@ -8,6 +8,7 @@ export const PROVIDER_CATALOG_FAMILIES = [
   "opencode",
   "pi",
   "antigravity",
+  "copilot",
 ] as const;
 
 export type ProviderCatalogFamily = (typeof PROVIDER_CATALOG_FAMILIES)[number];
@@ -34,6 +35,8 @@ export function providerCatalogFamily(
       return "antigravity";
     case "pi":
       return "pi";
+    case "copilot":
+      return "copilot";
   }
 }
 

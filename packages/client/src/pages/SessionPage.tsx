@@ -3124,7 +3124,7 @@ function SessionPageContent({
           versionInfo={versionInfo}
         />
 
-        <ExternalSessionWarning active={status.owner === "external"} />
+        <ExternalSessionWarning status={status} readOnly={readOnly} />
 
         {hasPendingToolCalls &&
           pendingToolCall &&

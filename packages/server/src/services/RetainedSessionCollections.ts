@@ -367,7 +367,11 @@ export class RetainedSessionCollections {
    * baseline so commits between first scan and watcher activation converge.
    */
   observationReady(family: ProviderCatalogFamily): void {
-    if (family !== "antigravity" || this.controller.signal.aborted) return;
+    if (
+      (family !== "antigravity" && family !== "copilot") ||
+      this.controller.signal.aborted
+    )
+      return;
     for (const store of this.options.projectStores?.() ?? []) {
       if (store.catalogFamily === family) this.invalidate(store.storeKey);
     }

@@ -14,6 +14,7 @@ import type { ProjectScanner } from "../projects/scanner.js";
 import { resolveAntigravityObservedWrite } from "../sessions/antigravity-writer-evidence.js";
 import { readClaudeCatalogHead } from "../sessions/claude-summary.js";
 import { readCodexRolloutMetadata } from "../sessions/codex-discovery.js";
+import { resolveCopilotObservedWrite } from "../sessions/copilot-observed-write.js";
 import type { SessionReaderFactory } from "../sessions/types.js";
 import type { ExternalSessionTrackerOptions } from "./ExternalSessionTracker.js";
 
@@ -37,6 +38,12 @@ export function createObservedSessionResolver(deps: {
     deps;
   const options = { sessionMetadataService: deps.sessionMetadataService };
   return async (event, signal) => {
+    if (event.provider === "copilot")
+      return resolveCopilotObservedWrite(
+        event,
+        signal,
+        deps.sessionMetadataService,
+      );
     if (event.provider === "antigravity")
       return resolveAntigravityObservedWrite(event, signal, {
         sessionMetadataService: deps.sessionMetadataService,

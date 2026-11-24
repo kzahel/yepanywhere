@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n";
 import { RiskAffordance } from "./RiskAffordance";
 import { Banner } from "./ui/Banner";
+import type { SessionOwnership } from "@yep-anywhere/shared";
 
 /**
  * Warning shown while another process (a terminal Claude session, an IDE
@@ -16,7 +17,14 @@ import { Banner } from "./ui/Banner";
  *   text is the affordance that reveals the likely ill effects on hover
  *   (tooltip) and on click (modal).
  */
-export function ExternalSessionWarning({ active }: { active: boolean }) {
+export function ExternalSessionWarning({
+  status,
+  readOnly,
+}: {
+  status: Pick<SessionOwnership, "owner">;
+  readOnly: boolean;
+}) {
+  const active = !readOnly && status.owner === "external";
   const { t } = useI18n();
   const [visible, setVisible] = useState(active);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -66,7 +74,7 @@ export function ExternalSessionWarning({ active }: { active: boolean }) {
     };
   }, [visible]);
 
-  if (!visible) return null;
+  if (!visible || readOnly) return null;
 
   const detectedAt = detectedAtRef.current;
   const elapsedSeconds = detectedAt

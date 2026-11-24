@@ -390,7 +390,13 @@ export function SessionComposerFooter({
     return (
       <footer className={footerClassName} data-session-input>
         <div data-selection-actions-mobile-slot />
-        <Banner compact>{t("sessionGeminiRetired")}</Banner>
+        <Banner compact>
+          {t(
+            session.provider === "copilot"
+              ? "sessionCopilotReadOnly"
+              : "sessionGeminiRetired",
+          )}
+        </Banner>
       </footer>
     );
   }

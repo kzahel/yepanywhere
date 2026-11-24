@@ -56,4 +56,5 @@ export type UnifiedSession =
   | { provider: "grok"; session: GrokSessionContent }
   | { provider: "pi"; session: PiSessionContent }
   | { provider: "antigravity"; session: PiSessionContent }
+  | { provider: "copilot"; session: PiSessionContent }
   | { provider: "opencode"; session: OpenCodeSessionContent };

@@ -25,6 +25,7 @@ import type {
 import type { CodexSessionScanner } from "../projects/codex-scanner.js";
 import {
   GROK_SESSIONS_DIR,
+  COPILOT_SESSIONS_DIR,
   PI_SESSIONS_DIR,
   canonicalizeProjectPath,
 } from "../projects/paths.js";
@@ -52,7 +53,8 @@ type ProviderGroup =
   | "opencode"
   | "grok"
   | "pi"
-  | "antigravity";
+  | "antigravity"
+  | "copilot";
 const SESSION_LIST_READ_BATCH_SIZE = 8;
 
 export interface ProviderProjectCatalog {
@@ -93,7 +95,8 @@ export interface SessionSource {
     | "opencode"
     | "grok"
     | "pi"
-    | "antigravity";
+    | "antigravity"
+    | "copilot";
 }
 
 export interface ResolvedSessionSource {
@@ -341,6 +344,7 @@ function normalizeProviderGroup(
   if (provider === "grok" || provider === "grok-acp") return "grok";
   if (provider === "antigravity") return "antigravity";
   if (provider === "pi") return "pi";
+  if (provider === "copilot") return "copilot";
   return null;
 }
 
@@ -577,6 +581,9 @@ function buildCandidateGroups(
   if (mayHavePiSessions(project)) {
     pushGroup("pi");
   }
+  if (project.sessionCountsByProvider?.copilot) {
+    pushGroup("copilot");
+  }
   if (mayHaveOpenCodeSessions(project)) {
     pushGroup("opencode");
   }
@@ -591,6 +598,13 @@ function getSourceForGroup(
   catalog?: ProviderProjectCatalog,
 ): SessionSource | null {
   switch (group) {
+    case "copilot":
+      return {
+        provider: "copilot",
+        kind: "copilot",
+        sessionDir: COPILOT_SESSIONS_DIR,
+        reader: deps.readerFactory({ ...project, provider: "copilot" }),
+      };
     case "antigravity":
       return {
         provider: "antigravity",

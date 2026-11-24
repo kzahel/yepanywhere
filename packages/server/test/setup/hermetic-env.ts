@@ -41,6 +41,7 @@ delete process.env.YEP_PROVIDER_MEMORY_LIMIT_MIB;
 const root = mkdtempSync(join(tmpdir(), "ya-server-test-"));
 process.env.YEP_DATA_DIR = join(root, "data");
 process.env.YEP_SCRATCH_DIR = join(root, "scratch");
+process.env.COPILOT_SESSIONS_DIR = join(root, "copilot");
 // The speech fingerprint filter reserves a quarter gigabyte by default, which
 // is right for a machine learning years of history and wrong for every test
 // process. The shape under test is the same at a small size.

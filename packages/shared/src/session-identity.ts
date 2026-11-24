@@ -15,6 +15,7 @@ export const NATIVE_SESSION_FAMILIES = [
   "pi",
   "grok",
   "antigravity",
+  "copilot",
 ] as const;
 export type NativeSessionFamily = (typeof NATIVE_SESSION_FAMILIES)[number];
 
@@ -78,6 +79,7 @@ export function nativeSessionFamily(
     case "opencode":
     case "pi":
     case "grok":
+    case "copilot":
       return provider;
   }
 }

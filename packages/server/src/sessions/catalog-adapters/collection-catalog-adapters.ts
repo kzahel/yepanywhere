@@ -3,6 +3,7 @@ import { basename, dirname, join, relative, isAbsolute } from "node:path";
 import { parseNativeSessionId } from "@yep-anywhere/shared";
 import type { ProjectScanner } from "../../projects/scanner.js";
 import type { Project } from "../../supervisor/types.js";
+import { CopilotSessionCatalogAdapter } from "./copilot-catalog-adapter.js";
 import { getCodexRolloutActivityTimeMs } from "../../utils/codexRolloutFiles.js";
 import { buildProviderProjectCatalog } from "../../routes/provider-catalog.js";
 import {
@@ -361,9 +362,15 @@ export async function collectionCatalogAdapters(
         (path) => !native.some((store) => contains(store, path)),
       ),
     );
-    const affected = native.filter((store) =>
-      [...changedPaths].some((path) => contains(store, path)),
-    );
+    const affected = native
+      .filter((store) =>
+        [...changedPaths].some((path) => contains(store, path)),
+      )
+      .map((store) =>
+        store instanceof CopilotSessionCatalogAdapter
+          ? store.forChangedPaths(changedPaths)
+          : store,
+      );
     const keys = new Set(
       affected.map((store) =>
         JSON.stringify([store.catalogFamily, store.storeKey]),

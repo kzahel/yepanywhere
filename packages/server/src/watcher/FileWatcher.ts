@@ -776,9 +776,14 @@ export class FileWatcher {
       provider: this.provider,
       path: fullPath,
       relativePath,
-      ...(["claude", "codex", "grok", "opencode", "antigravity"].includes(
-        this.provider,
-      )
+      ...([
+        "claude",
+        "codex",
+        "grok",
+        "opencode",
+        "antigravity",
+        "copilot",
+      ].includes(this.provider)
         ? { nativeStorageScope: this.watchDir }
         : {}),
       changeType,
@@ -1138,6 +1143,11 @@ export class FileWatcher {
         return this.parseCodexFileType(relativePath);
       case "pi":
         return this.parsePiFileType(relativePath);
+      case "copilot":
+        return relativePath.split(path.sep).length === 2 &&
+          path.basename(relativePath) === "events.jsonl"
+          ? "session"
+          : "other";
       case "grok": {
         const parts = relativePath.split(path.sep);
         if (parts.includes("subagents")) return "agent-session";

@@ -2,6 +2,7 @@ import { antigravityAllSessionsDirs } from "../../sdk/providers/antigravity-runt
 import type { NativeSessionCatalogAdapter } from "../catalog-types.js";
 import type { ProviderCatalogFamily } from "../provider-catalog-family.js";
 import { AntigravitySessionCatalogAdapter } from "./antigravity-catalog-adapter.js";
+import { CopilotSessionCatalogAdapter } from "./copilot-catalog-adapter.js";
 import { GrokSessionCatalogAdapter } from "./grok-catalog-adapter.js";
 import { OpenCodeSessionCatalogAdapter } from "./opencode-catalog-adapter.js";
 import { PiSessionCatalogAdapter } from "./pi-catalog-adapter.js";
@@ -13,6 +14,7 @@ export interface NativeCatalogOptions {
 }
 
 const factories = {
+  copilot: () => new CopilotSessionCatalogAdapter(),
   grok: (options: NativeCatalogOptions) =>
     new GrokSessionCatalogAdapter({ sessionsDir: options.grokSessionsDir }),
   pi: (options: NativeCatalogOptions) =>
