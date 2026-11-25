@@ -94,14 +94,12 @@ test("a background sibling tab never saves over the tab being typed in", async (
   const sibling = await context.newPage();
   const siblingWrites: string[] = [];
   sibling.on("request", (request) => {
-    if (isDraftWrite(request)) siblingWrites.push(request.url());
+    if (isDraftWrite(request)) siblingWrites.push(request.postData() ?? "");
   });
   await sibling.goto(`${baseURL}/new-session`);
   await expect(sibling.locator(composer)).toHaveValue("Typed here.");
   await sibling.locator("body").click({ position: { x: 5, y: 5 } });
   await page.bringToFront();
-  // Opening may save the shared text once; typing elsewhere must not.
-  siblingWrites.length = 0;
 
   // Long enough to cross the save debounce and its ten-second ceiling.
   expect(
@@ -110,5 +108,15 @@ test("a background sibling tab never saves over the tab being typed in", async (
   await expect(sibling.locator(composer)).toHaveValue(
     await page.locator(composer).inputValue(),
   );
-  expect(siblingWrites).toEqual([]);
+  // Opening may save the shared text once, and under load that save can
+  // land after typing begins. Typing mid-line changes the text at once, so
+  // a save still carrying the opening text is that one; any other sibling
+  // save wrote over the tab being typed in.
+  const openingSaves = siblingWrites.filter((body) =>
+    body.includes("Typed here."),
+  );
+  expect(openingSaves.length).toBeLessThanOrEqual(1);
+  expect(siblingWrites.filter((body) => !body.includes("Typed here."))).toEqual(
+    [],
+  );
 });

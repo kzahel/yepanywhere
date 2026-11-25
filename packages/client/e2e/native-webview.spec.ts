@@ -22,6 +22,11 @@ type MeasuredComposer = HTMLTextAreaElement & {
   acknowledgements: KeyAcknowledgement[];
 };
 
+// Each viewport types into this session's synced draft on the worker's shared
+// server; clear it so a later case's emptied composer is not refilled with
+// an earlier case's text.
+test.use({ draftSessionIds: ["transcript-specimen-001"] });
+
 // One owned browser fixture bundle; the production UI retains its own CSP.
 const nativeFixtureBundle = buildSync({
   entryPoints: [
