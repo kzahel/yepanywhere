@@ -62,8 +62,7 @@ async function assertOwnedBootHome(
   }
   const record = marker as Record<string, unknown> | null;
   if (
-    !record ||
-    record.schema !== 1 ||
+    record?.schema !== 1 ||
     record.provider !== "codex" ||
     record.apiClient !== (apiClient ?? null)
   )
