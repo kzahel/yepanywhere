@@ -51,7 +51,10 @@ import {
   type CreationRuntimeEvidence,
 } from "./creation-runtime-identity.js";
 import {
-  BOUND_RUNTIME_FEATURE,
+  PROVIDER_HOST_FEATURE,
+  providerHostHasFeature,
+} from "./provider-host-features.js";
+import {
   BOUND_RUNTIME_PROTOCOL_VERSION,
   parseBoundRuntimeIdentity,
   sameBoundRuntimeIdentity,
@@ -606,31 +609,6 @@ export async function listHostedProviderRuntimes(): Promise<
 
 export function getProviderHostStatus(): Promise<Record<string, unknown>> {
   return requestHost("status");
-}
-
-/**
- * Features the provider host process advertises in its `status` reply
- * (scripts/provider-runtime-host.mjs). These describe the running host
- * build, not server capabilities, though some names coincide.
- */
-const PROVIDER_HOST_FEATURE = {
-  creationOwner: "session-creation-owner-v1",
-  codexCreation: "session-creation-codex-v1",
-  opencodeCreation: "session-creation-opencode-v1",
-  piCreation: "session-creation-pi-v1",
-  adaptersCreation: "session-creation-adapters-v1",
-  sandboxCreation: "session-creation-sandbox-v1",
-  nativeBinding: BOUND_RUNTIME_FEATURE,
-  agentApiRevocation: "agent-api-revocation",
-  agentApiManagement: "agent-api-management",
-  agentApiPeers: "agent-api-peers",
-} as const;
-
-function providerHostHasFeature(
-  status: Record<string, unknown>,
-  feature: (typeof PROVIDER_HOST_FEATURE)[keyof typeof PROVIDER_HOST_FEATURE],
-): boolean {
-  return Array.isArray(status.features) && status.features.includes(feature);
 }
 
 /**
