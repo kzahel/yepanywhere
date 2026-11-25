@@ -1,4 +1,4 @@
-import type { ProjectAppView } from "@yep-anywhere/shared";
+import type { ProjectAppView } from "@yep-anywhere/shared/project-service";
 
 const PROBE_TIMEOUT_MS = 4_000;
 

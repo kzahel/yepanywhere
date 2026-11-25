@@ -4,10 +4,12 @@ import {
   SERVED_APP_SANDBOX,
   SERVER_CAPABILITIES,
   serverHasCapability,
-  type ProjectAppInfo,
-  type ProjectAppView,
-  type ProjectAppAddresses,
 } from "@yep-anywhere/shared";
+import type {
+  ProjectAppInfo,
+  ProjectAppView,
+  ProjectAppAddresses,
+} from "@yep-anywhere/shared/project-service";
 import {
   useCallback,
   useContext,

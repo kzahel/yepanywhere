@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import {
   projectServiceSchema,
   projectFileLinksSchema,
-} from "@yep-anywhere/shared";
+} from "@yep-anywhere/shared/project-service";
 import { prepareSessionSandbox } from "../session-sandbox.js";
 import { z } from "zod";
 import { filterEnvForChildProcess } from "../sdk/providers/env-filter.js";

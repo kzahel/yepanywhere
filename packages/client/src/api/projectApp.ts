@@ -3,7 +3,7 @@ import type {
   ProjectAppInfo,
   ProjectAppView,
   ProjectAppInventory,
-} from "@yep-anywhere/shared";
+} from "@yep-anywhere/shared/project-service";
 import { fetchJSON } from "./sourceApiFetch";
 
 export interface ProjectAppTarget {

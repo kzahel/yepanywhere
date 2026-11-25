@@ -1,8 +1,5 @@
-import {
-  SERVER_CAPABILITIES,
-  serverHasCapability,
-  type ProjectAppInventory,
-} from "@yep-anywhere/shared";
+import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
+import type { ProjectAppInventory } from "@yep-anywhere/shared/project-service";
 import { useEffect, useState } from "react";
 import { projectAppApi } from "../../api/projectApp";
 import { api } from "../../api/client";

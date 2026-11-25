@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { userInfo } from "node:os";
 import { promisify } from "node:util";
-import type { ProjectAppFunnel } from "@yep-anywhere/shared";
+import type { ProjectAppFunnel } from "@yep-anywhere/shared/project-service";
 import { z } from "zod";
 
 const run = promisify(execFile);

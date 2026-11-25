@@ -1,5 +1,5 @@
 import { HTTPException } from "hono/http-exception";
-import type { ProjectAppView } from "@yep-anywhere/shared";
+import type { ProjectAppView } from "@yep-anywhere/shared/project-service";
 import type {
   ProjectAppStore,
   ProjectAppReservation,

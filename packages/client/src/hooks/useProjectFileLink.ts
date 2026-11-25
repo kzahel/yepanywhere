@@ -1,11 +1,13 @@
 import {
-  projectFileLink,
   fromUrlProjectId,
   isUrlProjectId,
   SERVER_CAPABILITIES,
   serverHasCapability,
-  type ProjectAppInfo,
 } from "@yep-anywhere/shared";
+import {
+  projectFileLink,
+  type ProjectAppInfo,
+} from "@yep-anywhere/shared/project-service";
 import { useEffect, useState } from "react";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { usePublicShareContext } from "../contexts/PublicShareContext";

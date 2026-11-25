@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type {
   CreatePublicFileShareResponse,
-  ProjectFileLinks,
   PublicFileShareListResponse,
 } from "@yep-anywhere/shared";
+import type { ProjectFileLinks } from "@yep-anywhere/shared/project-service";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { useCanUseBearerGrants } from "../hooks/useActingPrincipal";
 import { useI18n } from "../i18n";

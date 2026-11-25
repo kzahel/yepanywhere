@@ -14,7 +14,7 @@ import {
   projectServiceSchema,
   projectFileLinksSchema,
   type ProjectServiceDeclaration,
-} from "@yep-anywhere/shared";
+} from "@yep-anywhere/shared/project-service";
 import { z } from "zod";
 import { isPathInsideDirectory } from "../routes/local-resource-policy.js";
 import { writeFileAtomically } from "../utils/writeFileAtomically.js";

@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { projectServiceSchema } from "@yep-anywhere/shared";
+import { projectServiceSchema } from "@yep-anywhere/shared/project-service";
 import {
   ProjectServiceManager,
   readProjectService,

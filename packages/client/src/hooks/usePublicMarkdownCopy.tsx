@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  SERVER_CAPABILITIES,
-  serverHasCapability,
-  type ProjectAppInfo,
-  type ProjectFileLinks,
-} from "@yep-anywhere/shared";
+import { SERVER_CAPABILITIES, serverHasCapability } from "@yep-anywhere/shared";
+import type {
+  ProjectAppInfo,
+  ProjectFileLinks,
+} from "@yep-anywhere/shared/project-service";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { usePublicShareContext } from "../contexts/PublicShareContext";
 import { useOptionalToastContext } from "../contexts/ToastContext";

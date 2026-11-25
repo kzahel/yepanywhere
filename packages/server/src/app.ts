@@ -146,27 +146,15 @@ import { createProjectTemplateSourceRoutes } from "./routes/project-template-sou
 import { createProjectTemplateRoutes } from "./routes/project-templates.js";
 import { TemplateSourceService } from "./projects/TemplateSourceService.js";
 import { TemplateCreationService } from "./projects/TemplateCreationService.js";
-import { ProjectAppAutoStart } from "./projects/ProjectAppAutoStart.js";
-import { ProjectAppHostPorts } from "./projects/ProjectAppHostPorts.js";
 import { ProjectAppStore } from "./projects/ProjectAppStore.js";
 import { TailscaleFunnel } from "./projects/TailscaleFunnel.js";
-import {
-  honoredHostPort,
-  ProjectServiceManager,
-  readAppDeclaration,
-  readProjectService,
-  readStaticAddressMode,
-  projectServiceStaticApp,
-} from "./projects/ProjectServiceManager.js";
-import { ProjectAppDelivery } from "./artifacts/ProjectAppDelivery.js";
+import { createProjectAppRuntime } from "./artifacts/projectAppRuntime.js";
 import { clientVhostSite } from "./artifacts/vhosts.js";
-import { HostedProjectServices } from "./projects/HostedProjectServices.js";
-import { projectAppPublicAllowed } from "./projects/projectAppPolicy.js";
 import { createProjectAccessRoutes } from "./routes/project-access.js";
 import { createProjectAppRoutes } from "./routes/project-app.js";
 import { SESSION_COOKIE_NAME } from "./auth/routes.js";
 import { getCookie as getRequestCookie } from "hono/cookie";
-import { levelFor, satisfies } from "./auth/limitedUserPolicy.js";
+import { levelFor } from "./auth/limitedUserPolicy.js";
 import type { DesktopBootstrapService } from "./desktop/DesktopBootstrapService.js";
 import type { DeviceBridgeService } from "./device/DeviceBridgeService.js";
 import type { FrontendProxy } from "./frontend/index.js";
@@ -1369,88 +1357,28 @@ export function createApp(options: AppOptions): AppResult {
     scanner,
   });
   app.route("/api", artifactPreviews.routes);
-  const projectServices = isProviderRuntimeHostAvailable()
-    ? new HostedProjectServices(effectiveDataDir)
-    : new ProjectServiceManager(effectiveDataDir);
-  const projectAppAutoStart = new ProjectAppAutoStart(effectiveDataDir, {
-    services: projectServices,
-    projectPath: async (projectId) =>
-      (await scanner.getProject(projectId))?.path ?? null,
-    // The enabling principal must still hold what enabling it required.
-    mayAutoStart: async (by, projectId) => {
-      if (by === "superuser") return true;
-      const grants = getActiveLimitedGrants(by);
-      return (
-        grants?.allowPublicApps === true &&
-        satisfies(levelFor(grants, projectId), "new-session")
-      );
-    },
+  const projectApps = createProjectAppRuntime({
+    dataDir: effectiveDataDir,
+    hosted: isProviderRuntimeHostAvailable(),
+    scanner,
+    store: projectAppStore,
+    artifacts: artifactServer,
+    activeGrants: getActiveLimitedGrants,
   });
-  const projectAppHostPorts = new ProjectAppHostPorts({
-    services: projectServices,
-    autoStart: projectAppAutoStart,
-  });
-  // A host proxy such as Tailscale Funnel needs the port held before anyone
-  // opens the app in YA; later declaration reads keep it current.
-  void (async () => {
-    for (const project of await scanner.listProjects()) {
-      if (project.ownerUsername) continue;
-      try {
-        const port = honoredHostPort(
-          project,
-          await readProjectService(project.path),
-          { hostPort: (await readAppDeclaration(project.path))?.hostPort },
-        );
-        if (port !== undefined)
-          await projectAppHostPorts.reconcile(project.id, port);
-      } catch {
-        // An unreadable declaration is reported when its app is viewed.
-      }
-    }
-  })().catch((error: unknown) =>
-    console.error("[ProjectAppHostPorts] Startup scan failed:", error),
-  );
-  const projectAppDelivery = new ProjectAppDelivery(
-    artifactServer,
-    projectServices,
-    projectAppStore,
-    async (projectId) => {
-      const project = await scanner.getProject(projectId);
-      if (!project) return null;
-      const declaration = await readProjectService(project.path);
-      if (declaration?.where.kind !== "static") return null;
-      return {
-        ...(await projectServiceStaticApp(project.path, declaration)),
-        address: await readStaticAddressMode(project.path),
-      };
-    },
-    async (reservation) => {
-      const project = await scanner.getProject(reservation.projectId);
-      return (
-        !!project &&
-        projectAppPublicAllowed(
-          project.ownerUsername,
-          reservation,
-          getActiveLimitedGrants,
-        )
-      );
-    },
-    projectAppAutoStart,
-  );
-  artifactServer.setProjectAppDelivery(projectAppDelivery);
+  artifactServer.setProjectAppDelivery(projectApps.delivery);
   app.route(
     "/api",
     createProjectAppRoutes({
       scanner,
       store: projectAppStore,
-      services: projectServices,
+      services: projectApps.services,
       artifacts: artifactServer,
       sessionAccess: sessionAccessResolver,
       sessionPathScope,
       activeGrants: getActiveLimitedGrants,
-      delivery: projectAppDelivery,
-      autoStart: projectAppAutoStart,
-      hostPorts: projectAppHostPorts,
+      delivery: projectApps.delivery,
+      autoStart: projectApps.autoStart,
+      hostPorts: projectApps.hostPorts,
       funnel: new TailscaleFunnel(),
       onVisibilityChanged: (projectId) =>
         options.eventBus?.emit({
@@ -1459,7 +1387,7 @@ export function createApp(options: AppOptions): AppResult {
           timestamp: new Date().toISOString(),
         }),
       openService: (projectId, audience) =>
-        projectAppDelivery.open(projectId, audience),
+        projectApps.delivery.open(projectId, audience),
     }),
   );
   if (limitedUsersService && options.projectMetadataService) {
@@ -1856,10 +1784,8 @@ export function createApp(options: AppOptions): AppResult {
       await rendezCompose?.close();
       await rendezDraftDelivery?.close();
       await rendezWatch?.close();
-      await projectServices.close();
+      await projectApps.close();
       await projectAppStore.close();
-      await projectAppAutoStart.close();
-      await projectAppHostPorts.close();
       await templateCreations.close();
       await legacyRetirement;
       conversationSubscriptions?.close();

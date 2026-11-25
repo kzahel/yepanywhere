@@ -69,6 +69,11 @@
       "source": "./src/provider-cli-installations.ts",
       "import": "./dist/provider-cli-installations.js",
       "types": "./dist/provider-cli-installations.d.ts"
+    },
+    "./project-service": {
+      "source": "./src/project-service.ts",
+      "import": "./dist/project-service.js",
+      "types": "./dist/project-service.d.ts"
     }
   },
   "scripts": {

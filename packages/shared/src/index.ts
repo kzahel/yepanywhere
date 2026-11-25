@@ -1830,22 +1830,6 @@ export { asRecord, isRecord } from "./plain-record.js";
 export { PDFJS_VERSION } from "./pdfjs.js";
 
 export {
-  projectServiceSchema,
-  projectFileLinksSchema,
-  projectFileLink,
-  projectAppRedirectSchema,
-  projectAppHostPortSchema,
-  type ProjectAppDirect,
-  type ProjectAppFunnel,
-  type ProjectFileLinks,
-  type ProjectServiceDeclaration,
-  type ProjectAppInfo,
-  type ProjectAppView,
-  type ProjectAppAddresses,
-  type ProjectAppInventory,
-} from "./project-service.js";
-
-export {
   DRAFT_MAX_BYTES,
   draftHasContent,
   type DraftPayload,

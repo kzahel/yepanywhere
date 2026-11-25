@@ -1,16 +1,15 @@
 import { basename, join } from "node:path";
 import { realpath, unlink } from "node:fs/promises";
+import { isUrlProjectId, type LimitedUserGrants } from "@yep-anywhere/shared";
 import {
-  isUrlProjectId,
   projectAppHostPortSchema,
   projectAppRedirectSchema,
-  type LimitedUserGrants,
   type ProjectAppDirect,
   type ProjectAppInfo,
   type ProjectAppView,
   type ProjectAppAddresses,
   type ProjectAppInventory,
-} from "@yep-anywhere/shared";
+} from "@yep-anywhere/shared/project-service";
 import { Hono, type Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";

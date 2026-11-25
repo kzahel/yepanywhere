@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ProjectAppInfo } from "@yep-anywhere/shared";
+import type { ProjectAppInfo } from "@yep-anywhere/shared/project-service";
 import { projectAppApi } from "../api/projectApp";
 
 /** `updatedAt` arrives with the server's change stamp; older servers omit it. */

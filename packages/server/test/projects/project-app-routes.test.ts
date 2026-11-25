@@ -10,12 +10,11 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { toUrlProjectId, type LimitedUserGrants } from "@yep-anywhere/shared";
 import {
-  toUrlProjectId,
   projectFileLink,
-  type LimitedUserGrants,
   type ProjectServiceDeclaration,
-} from "@yep-anywhere/shared";
+} from "@yep-anywhere/shared/project-service";
 import { Hono } from "hono";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ArtifactServer } from "../../src/artifacts/ArtifactServer.js";

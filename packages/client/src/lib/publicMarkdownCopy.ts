@@ -3,10 +3,12 @@ import {
   isUrlProjectId,
   parseLocalResourceHref,
   parseLocalResourceLink,
-  projectFileLink,
   splitTrailingCitedPosition,
-  type ProjectFileLinks,
 } from "@yep-anywhere/shared";
+import {
+  projectFileLink,
+  type ProjectFileLinks,
+} from "@yep-anywhere/shared/project-service";
 import type { MarkdownSelectionSnippet } from "./markdownSelectionCopy";
 import { getProjectRelativePath, isAbsoluteLikePath } from "./text";
 

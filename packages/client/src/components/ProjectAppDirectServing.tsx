@@ -1,4 +1,4 @@
-import type { ProjectAppInfo } from "@yep-anywhere/shared";
+import type { ProjectAppInfo } from "@yep-anywhere/shared/project-service";
 import { useState } from "react";
 import { projectAppApi, type ProjectAppDirectFields } from "../api/projectApp";
 import { useI18n } from "../i18n";
