@@ -716,10 +716,9 @@ interface ManagedProviderLaunch {
 }
 
 export class Supervisor {
-  private readonly instructionOptions: Pick<
-    SupervisorOptions,
-    "getInstructionRestorationSettings" | "readInstructionHistory"
-  >;
+  private readonly instructionOptions: Parameters<
+    typeof instructionLaunchOptions
+  >[0];
   private readonly instructionSessions = new Map<
     Process,
     import("../sdk/providers/types.js").AgentSession
@@ -2878,6 +2877,8 @@ export class Supervisor {
         resumeSessionId,
         projectId,
         Boolean(sessionSandbox) || Boolean(modelSettings?.executor),
+        modelSettings,
+        managedIdentity?.sessionId,
       );
       await managedLaunch?.authorize();
       resume?.identity?.assertInputAdmission();
@@ -2926,7 +2927,6 @@ export class Supervisor {
         restoredGoal: this.readRestoredGoal(resumeSessionId),
         executor: modelSettings?.executor,
         remoteEnv: modelSettings?.remoteEnv,
-        globalInstructions: modelSettings?.globalInstructions,
         getSessionChildEnv: this.getSessionChildEnv
           ? (sessionId) =>
               this.getSessionChildEnv?.(sessionId, modelSettings?.executor) ??

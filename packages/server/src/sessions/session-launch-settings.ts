@@ -240,6 +240,9 @@ export function createSessionLaunchSettings(deps: SessionLaunchSettingsDeps) {
       sandboxNetworkFirewall: input.sandboxNetworkFirewall,
       instructionUsername: input.instructionUsername,
       globalInstructions: getGlobalInstructions(),
+      // A successor keeps its source's instruction environment and client.
+      apiClient: source?.apiClient,
+      bootInstructions: source?.bootInstructions,
       permissions: request.permissions,
       recapMode: request.recapMode,
       recapAfterSeconds: request.recapAfterSeconds ?? source?.recapAfterSeconds,

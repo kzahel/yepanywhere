@@ -51,6 +51,7 @@ import {
   type CreationRuntimeEvidence,
 } from "./creation-runtime-identity.js";
 import {
+  assertHostBootSupport,
   PROVIDER_HOST_FEATURE,
   providerHostHasFeature,
 } from "./provider-host-features.js";
@@ -887,6 +888,8 @@ export async function startHostedProviderSession(
       );
     options.assertResumeAdmission?.();
   }
+  if (options.bootInstructions)
+    await assertHostBootSupport(getProviderHostStatus);
   if (creation) {
     await assertHostedCreationSupport(providerName, {
       sandbox: options.sessionSandboxOptions?.level === "project-write",

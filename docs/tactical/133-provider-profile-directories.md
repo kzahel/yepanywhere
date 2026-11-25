@@ -4,6 +4,10 @@ Status: direction agreed, not started, 2026-09-21. No implementation exists;
 this document records the vetted design so implementation can begin from it.
 Contributing-model: fable-5-1.
 
+See also: [session boot instructions](../../topics/session-boot-instructions.md),
+whose per-client Codex boot homes link `sessions/` back to the operator's
+home; its design decisions record why that differs from the rejection below.
+
 The separately opted-in
 [Agent Auth Router integration](143-agent-auth-router-integration.md) now plans
 router-owned account pools and balancing behind YA's native client runtimes.
@@ -231,7 +235,7 @@ login flow. Update `docs/development/local-development.md`, whose
   the private per-session `CLAUDE_CONFIG_DIR` and `CODEX_HOME` the sandbox
   already bootstraps, including symlink anchoring. Step 2 changes only the
   seed source of that bootstrap; the contract for the private tree stays.
-- [`gaps/sketches/virgin-new-session-option.md`](../../gaps/sketches/virgin-new-session-option.md)
+- The virgin-session sketch, now [session boot instructions](../../topics/session-boot-instructions.md),
   sketches a YA-owned `CODEX_HOME` replica and a second Codex scanner root.
   Step 3's settings-derived root list should absorb that need rather than
   adding a special-cased root, and the sketch's symlink-sessions-back

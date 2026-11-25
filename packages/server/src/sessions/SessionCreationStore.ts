@@ -843,6 +843,12 @@ export class SessionCreationStore {
           ...(request.launch?.recapMode !== undefined
             ? { recapMode: request.launch.recapMode }
             : {}),
+          ...(request.launch?.apiClient
+            ? { apiClient: request.launch.apiClient }
+            : {}),
+          ...(request.launch?.bootInstructions
+            ? { bootInstructions: request.launch.bootInstructions }
+            : {}),
           ...(request.copy
             ? {
                 forkedFromSessionId: request.copy.sourceSessionId,

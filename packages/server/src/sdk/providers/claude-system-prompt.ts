@@ -3,17 +3,23 @@ import { findMachineControlInstructions } from "@yep-anywhere/shared/machine-con
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionSandboxRuntime } from "../../session-sandbox.js";
 import { withSessionSandboxAgentContext } from "../../session-sandbox-agent-context.js";
+import { appendBootInstructions } from "./boot-instructions.js";
 
 type BasePrompt =
   | string
   | { type: "preset"; preset: "claude_code"; append?: string }
   | undefined;
 
+/**
+ * A Claude session's system prompt: the base prompt with server-wide and boot
+ * instructions appended, or a sandbox's replacement prompt.
+ */
 export function claudeSessionSystemPrompt(
   basePrompt: (instructions?: string) => BasePrompt,
-  globalInstructions: string | undefined,
+  launch: Parameters<typeof appendBootInstructions>[0],
   sandbox: SessionSandboxRuntime | undefined,
 ): Options["systemPrompt"] {
+  const globalInstructions = appendBootInstructions(launch);
   const refreshInstructions = Boolean(
     globalInstructions &&
       (findAgentApiBootstrapInstructions(globalInstructions) ||

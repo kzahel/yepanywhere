@@ -120,6 +120,7 @@ async function main(): Promise<void> {
           "session-creation-pi-v1",
           "session-creation-adapters-v1",
           "session-creation-sandbox-v1",
+          "session-boot-instructions-v1",
           BOUND_RUNTIME_FEATURE,
         ],
       });

@@ -1,4 +1,5 @@
 import type { ClaudeCopyBoundary } from "../../sessions/claude-copy-boundary.js";
+import type { BootInstructionsLaunch } from "../../sessions/session-boot-instructions.js";
 import {
   nativeSessionFamily,
   parseNativeSessionId,
@@ -434,6 +435,11 @@ export interface StartSessionOptions {
   ) => Record<string, string>;
   /** Global instructions to append to system prompt (from server settings) */
   globalInstructions?: string;
+  /**
+   * Replaces the operator's user-level instruction layer and user skills;
+   * absent loads them unchanged (topics/session-boot-instructions.md).
+   */
+  bootInstructions?: BootInstructionsLaunch;
   /** Explicit provider-owned generation controls; omission means all off. */
   sessionOptions?: ProviderSessionOptions;
   /** Called after a provider applies this mode at a policy boundary. */

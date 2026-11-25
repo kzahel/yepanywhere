@@ -36,6 +36,7 @@ import {
 import { createCoalescingSaver } from "../lib/coalescingSaver.js";
 import { SessionCreationStore } from "../sessions/SessionCreationStore.js";
 import { SessionIdentityStore } from "../sessions/SessionIdentityStore.js";
+import type { BootInstructions } from "../sessions/session-boot-instructions.js";
 import {
   profileSessionRelationships,
   type SessionRelationshipWriter,
@@ -86,6 +87,10 @@ export interface SessionMetadata {
    * topics/limited-users.md § Delivery v1 — Authorization.
    */
   createdByUser?: string;
+  /** API program that created the session; immutable once saved. */
+  apiClient?: string;
+  /** Replacement user-level instructions; immutable once saved. */
+  bootInstructions?: BootInstructions;
   /** Retain the acknowledged receipt so replay cannot raise it again. */
   nonHumanUserTurn?: NonHumanUserTurn & { acknowledged?: boolean };
   /** Custom title that overrides auto-generated title */
@@ -1302,6 +1307,10 @@ export class SessionMetadataService {
       cleaned.creationProvenance = updated.creationProvenance;
     }
     if (updated.createdByUser) cleaned.createdByUser = updated.createdByUser;
+    const apiClient = existing.apiClient ?? updated.apiClient;
+    if (apiClient) cleaned.apiClient = apiClient;
+    const boot = existing.bootInstructions ?? updated.bootInstructions;
+    if (boot) cleaned.bootInstructions = boot;
     if (updated.nonHumanUserTurn) {
       cleaned.nonHumanUserTurn = updated.nonHumanUserTurn;
     }

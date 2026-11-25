@@ -9,11 +9,12 @@
 
 Topic: session-boot-instructions
 
-Status: specified 2026-11-25; implementation in progress, so no server yet
-accepts these fields. Provider mechanics below were verified with marker text
-on Claude Code 2.1.330 and Codex CLI 0.172.0 (see [evidence](#evidence)). This
-contract supersedes the earlier virgin-session sketch, which the implementing
-commit retires.
+Status: the v0 fields, persistence, provider mechanics and host refusal are
+implemented. The [sidebar](#sidebar) grouping is not yet implemented: an
+`apiClient` session is still listed among ordinary sessions. Provider
+mechanics were verified with marker text on Claude Code 2.1.330 and Codex CLI
+0.172.0 (see [evidence](#evidence)). This contract supersedes the earlier
+virgin-session sketch.
 
 See also: [HTTP API v0](http-api-v0.md#creation-and-retry-receipts),
 [provider host API](provider-host-api.md),
@@ -84,7 +85,10 @@ login, transcripts and session discovery are the ordinary ones:
 
 Project `CLAUDE.md` and project or local settings still load. Claude's built-in
 skills and plugins remain; user plugins return only when the carried settings
-enable them.
+enable them. Carried settings join at the explicit-settings layer, so where a
+scalar setting such as `model` is set in both, the operator's user value now
+wins over a project or local one; the `user` source it replaces ranks below
+them.
 
 ## Codex mechanics
 
@@ -94,17 +98,24 @@ to a [boot home](#codex-boot-home) that has no `AGENTS.md`. YA runs one Codex
 app-server process per session, so the variable is per session.
 
 - The boot text is the thread's `developer_instructions`, replacing any value
-  the carried `config.toml` sets, followed by YA's own launch fragments.
+  the carried `config.toml` sets, followed by YA's own launch fragments. A
+  resumed thread keeps the developer instructions it started with in its
+  history; a changed path is sent again on resume, but whether Codex then
+  replaces the earlier text is not established.
 - Codex also loads skills from `~/.agents/skills`, outside `CODEX_HOME`. At
   every launch YA lists `~/.agents/skills/*/SKILL.md` and disables each one
   through the thread's `skills.config`, so skills added later are covered too.
   Codex's built-in and plugin skills remain.
+- YA's own Codex helper threads, which write titles and recaps, still start
+  with the operator's home; their output is metadata, not session work.
 
 ### Codex boot home
 
 The home is `{dataDir}/boot-homes/codex/<apiClient>`, or `_default` when the
 request has no `apiClient`. It is stable: every session of one `apiClient`
-shares it, which keeps that client's transcripts in one tree.
+shares it, along with that client's Codex history, logs and memories. Boot
+homes need symbolic links, so a Codex launch with boot instructions is
+refused on Windows.
 
 - If the directory is absent, YA builds it beside its final path, writes the
   marker `.ya-boot-home` last, then renames it into place. Concurrent first
@@ -122,15 +133,18 @@ At every launch YA refreshes the home's carried entries, then starts Codex:
 
 | Entry | Treatment |
 | --- | --- |
-| `auth.json` | Symlink to the operator's file, so a token refresh is shared |
+| `auth.json` | Symlink to the operator's file; refresh behavior is [unverified](../gaps/codex-boot-home-auth-refresh.md) |
 | `config.toml` | Filtered copy of the operator's file, rewritten at each launch |
 | `rules/` | Symlink to the operator's directory |
-| `AGENTS.md`, `skills/`, `hooks.json` | Never created |
-| `sessions/`, history, logs, caches | Private to the home, created by Codex |
+| `sessions/` | Symlink to the operator's rollout directory |
+| `AGENTS.md`, `hooks.json` | Never created |
+| `skills/` | Never created by YA; Codex installs its own built-in skills there |
+| History, logs, memories, caches | Private to the home, created by Codex |
 
-Transcripts under the home's `sessions/` are bound to their sessions as the
-native storage scope, the same mechanism a sandboxed session uses, so resume
-and history reads find them.
+Rollouts land in the operator's own `sessions/`, so a boot session's native
+storage scope, transcript readers, resume and fork checks are those of any
+other Codex session. A link whose place holds a real directory fails the
+launch instead of being replaced, since that directory may hold rollouts.
 
 ## Carried configuration
 
@@ -193,8 +207,19 @@ ordinary sessions; no capability or extra request is involved.
   already running.
 - **One stable home per `apiClient`, refusing an unproven directory** (vs. a
   home per instruction hash, or a suffixed replacement on mismatch): a
-  client's transcripts stay in one tree, and YA never deletes or shadows a
+  client's Codex state stays in one place, and YA never deletes or shadows a
   directory it did not make.
+- **Rollouts in the operator's tree through a `sessions/` link** (vs. a private
+  rollout tree per home): the session's native storage scope, catalog
+  discovery, resume and fork checks need no boot-specific path, at the cost of
+  Windows support. This departs on purpose (maintainer decision, 2026-11-25)
+  from [provider profile directories](../docs/tactical/133-provider-profile-directories.md),
+  which rejects linking a profile's `sessions/` back to the default home. Its
+  reasons concern homes for different accounts: mutating the user's own tree,
+  breaking with CLI layout changes, and Claude's macOS Keychain. A boot home is
+  YA-owned, serves the operator's one account, and is used only for Codex; the
+  layout risk remains and is accepted. A future per-profile root list can
+  absorb boot homes if rollouts ever need to move.
 - **Structured `bootInstructions`** (vs. a string where a sentinel means
   "none"): `null`, empty text, text and path stay distinct without reserving a
   file name.
@@ -218,3 +243,9 @@ marker token:
 
 Codex accepted a symlinked `auth.json`. Its `skip_host_skill_discovery` and
 `omit_skill_descriptions` features did not hide `~/.agents/skills`.
+
+The same questions through YA's own `ClaudeProvider` and `CodexProvider`
+(in-process, not hosted) gave the expected answers: a Claude session without
+boot instructions quoted the operator's boot and listed the `almanac` user
+skill; with boot instructions it saw neither and reported the supplied marker,
+as did a Codex session started in a fresh boot home.

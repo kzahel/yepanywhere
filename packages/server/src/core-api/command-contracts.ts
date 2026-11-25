@@ -1,6 +1,10 @@
 import { relationshipGraphPageSchema } from "./relationship-graph-contracts.js";
 import { z } from "zod";
 import { selectableProvider } from "./selection-contracts.js";
+import {
+  API_CLIENT_PATTERN,
+  BOOT_INSTRUCTIONS_MAX_CHARACTERS,
+} from "../sessions/session-boot-instructions.js";
 
 export const requestIdSchema = z
   .string()
@@ -92,6 +96,31 @@ export const createSessionRequest = z
         "Router policy id from selection. Requires routerPoolId; manual requires routerAccountId.",
       ),
     routerClaudeAiConnectors: z.boolean().optional(),
+    apiClient: z
+      .string()
+      .regex(API_CLIENT_PATTERN)
+      .optional()
+      .describe(
+        "Name of the calling program, 1-64 of A-Z a-z 0-9 . _ - starting with a letter or digit. The session is listed in a sidebar section for this client. Caller-asserted, not authentication.",
+      ),
+    bootInstructions: z
+      .union([
+        z
+          .object({
+            text: z.string().max(BOOT_INSTRUCTIONS_MAX_CHARACTERS),
+          })
+          .strict(),
+        z
+          .object({
+            path: z.string().min(2).max(4096).startsWith("/"),
+          })
+          .strict(),
+      ])
+      .nullable()
+      .optional()
+      .describe(
+        'Replaces the operator\'s user-level instructions (~/.claude/CLAUDE.md, $CODEX_HOME/AGENTS.md) and user skills; project instructions still load. Omit or null for no change, {"text":""} for none, {"text":"..."} for these, or {"path":"/abs"} for a server file reread at every launch (local callers only). Fixed for the session, including resumes and forks.',
+      ),
   })
   .strict()
   .refine(

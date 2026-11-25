@@ -33,6 +33,7 @@ import {
   createLaunchAgentctlSessionEnvBridge,
 } from "./agentctl-session-env.js";
 import { CodexAppServerClient } from "./codex-app-server-client.js";
+import { prepareCodexBootHome } from "./codex-boot-home.js";
 import { handleServerRequestApproval } from "./codex-approvals.js";
 import {
   type CodexFailureTrace,
@@ -356,6 +357,11 @@ export class CodexSession {
       ...agentServerEnvironmentFor(options),
       ...agentApiEnvironmentFor(options),
     });
+    if (options.bootInstructions)
+      codexEnv.CODEX_HOME = await prepareCodexBootHome(
+        options.bootInstructions,
+        codexEnv.CODEX_HOME,
+      );
     const publicSessionId = options.publicSessionId ?? options.resumeSessionId;
     if (publicSessionId) {
       // The bridge only reaches bash tool shells that source BASH_ENV, which

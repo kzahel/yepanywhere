@@ -16,6 +16,7 @@ export const PROVIDER_HOST_FEATURE = {
   agentApiRevocation: "agent-api-revocation",
   agentApiManagement: "agent-api-management",
   agentApiPeers: "agent-api-peers",
+  bootInstructions: "session-boot-instructions-v1",
 } as const;
 
 /** Whether a host `status` reply advertises `feature`. */
@@ -24,4 +25,22 @@ export function providerHostHasFeature(
   feature: (typeof PROVIDER_HOST_FEATURE)[keyof typeof PROVIDER_HOST_FEATURE],
 ): boolean {
   return Array.isArray(status.features) && status.features.includes(feature);
+}
+
+/**
+ * Refuse a hosted launch with boot instructions on a host that predates
+ * them: its worker would ignore the option and load the operator's layer.
+ */
+export async function assertHostBootSupport(
+  getStatus: () => Promise<Record<string, unknown>>,
+): Promise<void> {
+  if (
+    !providerHostHasFeature(
+      await getStatus(),
+      PROVIDER_HOST_FEATURE.bootInstructions,
+    )
+  )
+    throw new Error(
+      "Restart the provider host before starting a session with boot instructions",
+    );
 }

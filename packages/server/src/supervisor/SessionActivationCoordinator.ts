@@ -18,6 +18,7 @@ import type {
 } from "../metadata/index.js";
 import { getSessionSandboxSettingsError } from "../session-sandbox.js";
 import type { RecoveredSessionLaunchSettings } from "../sessions/types.js";
+import type { BootInstructions } from "../sessions/session-boot-instructions.js";
 import { assertProviderExecutable } from "../sdk/providers/retired-provider.js";
 import { resolveInheritedForkModel } from "../sdk/providers/types.js";
 import { splitAntigravityLegacyModel } from "../sdk/providers/antigravity-models.js";
@@ -92,6 +93,10 @@ export interface ModelSettings {
   sandboxNetworkFirewall?: boolean;
   /** Opaque project-private provider-state key restored from metadata. */
   sandboxStateKey?: string;
+  /** API program creating a new session; a saved value wins at later launches. */
+  apiClient?: string;
+  /** A new session's replacement user-level instructions; saved ones win later. */
+  bootInstructions?: BootInstructions;
 }
 
 export interface SessionReactivationOverrides {

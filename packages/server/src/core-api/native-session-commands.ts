@@ -265,6 +265,17 @@ export function nativeSessionCommandOwner(
               "Name a model: a session started from a router session needs one its router account offers.",
           };
       }
+      // A forwarded request must not name files on this server.
+      if (
+        request.bootInstructions &&
+        "path" in request.bootInstructions &&
+        receipt.creator.principal.kind === "peer"
+      )
+        return {
+          rejected: true,
+          message:
+            "bootInstructions.path is available only to local callers; send the instructions as text",
+        };
       // No provider can start here; a refusal, not an uncertain launch.
       if (
         deps.projectDirectoryExists &&
@@ -317,6 +328,8 @@ export function nativeSessionCommandOwner(
                 ? routerSelectionFromBinding(routed)
                 : {}),
             serviceTier: request.serviceTier,
+            apiClient: request.apiClient,
+            bootInstructions: request.bootInstructions ?? undefined,
             globalInstructions: deps.globalInstructions(),
             recapMode: "off",
             promptSuggestionMode: "off",

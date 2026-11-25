@@ -4,6 +4,10 @@ import {
   SESSION_SANDBOX_LEVELS,
 } from "@yep-anywhere/shared";
 import type { ModelSettings } from "../supervisor/SessionActivationCoordinator.js";
+import {
+  parseApiClient,
+  parseBootInstructions,
+} from "./session-boot-instructions.js";
 
 /** Submitted launch choices; credentials and current authorization stay live. */
 export type CreationLaunchSnapshot = Pick<
@@ -28,6 +32,8 @@ export type CreationLaunchSnapshot = Pick<
   | "sandboxLevel"
   | "sandboxNetworkFirewall"
   | "sandboxStateKey"
+  | "apiClient"
+  | "bootInstructions"
 > & {
   schemaVersion: 1;
   runtimeOwner?: "local" | "host";
@@ -118,6 +124,10 @@ export function snapshotCreationLaunch(
       throw new Error("Invalid saved suggestion mode");
     result.promptSuggestionMode = input.promptSuggestionMode;
   }
+  const apiClient = parseApiClient(input.apiClient);
+  if (apiClient) result.apiClient = apiClient;
+  const bootInstructions = parseBootInstructions(input.bootInstructions);
+  if (bootInstructions) result.bootInstructions = bootInstructions;
   if (input.sandboxLevel !== undefined) {
     if (!SESSION_SANDBOX_LEVELS.includes(input.sandboxLevel))
       throw new Error("Invalid saved sandbox level");

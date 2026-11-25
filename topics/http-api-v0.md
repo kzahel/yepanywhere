@@ -416,6 +416,10 @@ level; legacy effort-suffixed model IDs also remain accepted). Agent Auth Router
 selections, plan mode and service tier are rejected for Antigravity creation.
 The creation receipt reports launch failure when the installed runtime or
 selected model does not offer the requested thinking level.
+Optional `apiClient` names the calling program, and optional
+`bootInstructions` replaces the operator's user-level instructions and user
+skills for Claude and Codex; both are fixed for the session's life. Their
+contract is [session boot instructions](session-boot-instructions.md).
 Blank creation, remote executors, worktree/cloning policy, managed delegation,
 terminal execution and provider upgrades are outside this slice. Global agent
 context and native launch ownership/admission remain shared with existing YA

@@ -139,7 +139,13 @@ or replay. Hono uses the same private token and registered controller generation
 New workers also emit a pre-start IPC `launchHello` (launch protocol 1,
 supported feature names) before reading launch JSON. A host launch with
 `requiredWorkerFeatures` withholds all stdin until that hello accepts every
-requirement. The list is limited to eight names of at most 128 characters;
+requirement. A launch carrying
+[boot instructions](session-boot-instructions.md) requires
+`session-boot-instructions-v1` from both the host's `status` and the worker's
+hello, so an older owner refuses it instead of loading the operator's
+instructions. The worker's hello now lists eight features, the host's limit
+for a hello; adding a ninth needs that limit raised first. The list is limited
+to eight names of at most 128 characters;
 missing hello uses the existing startup deadline, and premature ready is
 rejected. Legacy launches still receive stdin immediately. The negotiated
 [`session-creation-owner-v1` contract](session-identity.md#hosted-creation-contract--implementation-refinement)

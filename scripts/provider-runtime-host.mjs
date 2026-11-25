@@ -57,6 +57,7 @@ const OPENCODE_CREATION_FEATURE = "session-creation-opencode-v1";
 const PI_CREATION_FEATURE = "session-creation-pi-v1";
 const ADAPTERS_CREATION_FEATURE = "session-creation-adapters-v1";
 const SANDBOX_CREATION_FEATURE = "session-creation-sandbox-v1";
+const BOOT_INSTRUCTIONS_FEATURE = "session-boot-instructions-v1";
 const MAX_CONTROL_REQUEST_BYTES = 1024 * 1024;
 const COOPERATIVE_STOP_MS = 5_000;
 const TERM_GRACE_MS = 1_500;
@@ -525,6 +526,7 @@ export class ProviderRuntimeHost {
             PI_CREATION_FEATURE,
             ADAPTERS_CREATION_FEATURE,
             SANDBOX_CREATION_FEATURE,
+            BOOT_INSTRUCTIONS_FEATURE,
             BOUND_RUNTIME_FEATURE,
             "runtime-control",
             "session-turn",
@@ -966,6 +968,15 @@ export class ProviderRuntimeHost {
       if (requiredWorkerFeatures.length >= 8)
         throw new Error("Too many required provider worker features");
       requiredWorkerFeatures.push(SANDBOX_CREATION_FEATURE);
+    }
+    // An older worker would ignore the option and load the operator's layer.
+    if (
+      request.options?.bootInstructions !== undefined &&
+      !requiredWorkerFeatures.includes(BOOT_INSTRUCTIONS_FEATURE)
+    ) {
+      if (requiredWorkerFeatures.length >= 8)
+        throw new Error("Too many required provider worker features");
+      requiredWorkerFeatures.push(BOOT_INSTRUCTIONS_FEATURE);
     }
     if (creation && !requiredWorkerFeatures.includes(CREATION_OWNER_FEATURE)) {
       if (requiredWorkerFeatures.length === 8)
@@ -2012,6 +2023,7 @@ async function main() {
           PI_CREATION_FEATURE,
           ADAPTERS_CREATION_FEATURE,
           SANDBOX_CREATION_FEATURE,
+          BOOT_INSTRUCTIONS_FEATURE,
           BOUND_RUNTIME_FEATURE,
           "runtime-control",
           "session-turn",

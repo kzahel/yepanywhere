@@ -14,8 +14,10 @@ import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js"
 import { routerModelSupportsThinking } from "@yep-anywhere/shared";
 import { claudeRouterEnvironment } from "./router-transport.js";
 import {
+  type ClaudeBootLaunch,
   claudeRouterSettings,
   claudeSessionToolOptions,
+  claudeSettingSources,
 } from "./claude-session-settings.js";
 import { startAgentSelfSession } from "./agent-self.js";
 import {
@@ -974,13 +976,14 @@ export class ClaudeProvider implements AgentProvider {
 
   /** Apply at every confined query, including resumes and helper forks. */
   private getSessionToolOptions(
-    model: string | undefined,
+    launch: ClaudeBootLaunch,
     sandbox: SessionSandboxRuntime | undefined,
   ): ReturnType<typeof claudeSessionToolOptions> {
     return claudeSessionToolOptions(
-      this.getSettings(model),
-      this.getDisallowedTools(model),
+      this.getSettings(launch.model),
+      this.getDisallowedTools(launch.model),
       sandbox,
+      launch.bootInstructions,
     );
   }
 
@@ -1020,12 +1023,12 @@ export class ClaudeProvider implements AgentProvider {
   }
 
   private getSessionSystemPrompt(
-    globalInstructions: string | undefined,
-    sandbox: SessionSandboxRuntime | undefined,
+    launch: ClaudeBootLaunch,
+    sandbox = launch.sessionSandbox,
   ): Options["systemPrompt"] {
     return claudeSessionSystemPrompt(
       this.getSystemPrompt.bind(this),
-      globalInstructions,
+      launch,
       sandbox,
     );
   }
@@ -1356,7 +1359,7 @@ export class ClaudeProvider implements AgentProvider {
           permissionMode: "default",
           pathToClaudeCodeExecutable: resolveLocalClaudeCodeExecutable(),
           env: summaryEnv,
-          ...this.getSessionToolOptions(request.model, request.sessionSandbox),
+          ...this.getSessionToolOptions(request, request.sessionSandbox),
           model: normalizeClaudeLaunchModel(request.model),
           resume: request.generatorSessionId,
           maxTurns: 1,
@@ -1467,6 +1470,7 @@ export class ClaudeProvider implements AgentProvider {
     thinking?: StartSessionOptions["thinking"];
     effort?: StartSessionOptions["effort"];
     globalInstructions?: string;
+    bootInstructions?: StartSessionOptions["bootInstructions"];
     executor?: string;
     pathToClaudeCodeExecutable?: string;
     env: Record<string, string | undefined>;
@@ -1516,11 +1520,8 @@ export class ClaudeProvider implements AgentProvider {
             interrupt: true,
           }),
           // Must match the session's own system prompt to reuse its cache.
-          systemPrompt: this.getSessionSystemPrompt(
-            options.globalInstructions,
-            options.sessionSandbox,
-          ),
-          settingSources: ["user", "project", "local"],
+          systemPrompt: this.getSessionSystemPrompt(options),
+          settingSources: claudeSettingSources(options.bootInstructions),
           includePartialMessages: false,
           persistSession: false,
           maxTurns: 1,
@@ -1530,7 +1531,7 @@ export class ClaudeProvider implements AgentProvider {
           effort: options.effort,
           pathToClaudeCodeExecutable: options.pathToClaudeCodeExecutable,
           env: options.env,
-          ...this.getSessionToolOptions(options.model, options.sessionSandbox),
+          ...this.getSessionToolOptions(options, options.sessionSandbox),
           spawnClaudeCodeProcess,
         },
       });
@@ -1960,11 +1961,8 @@ export class ClaudeProvider implements AgentProvider {
               ? "default"
               : (options.permissionMode ?? "default"),
           canUseTool,
-          systemPrompt: this.getSessionSystemPrompt(
-            options.globalInstructions,
-            sessionSandbox,
-          ),
-          settingSources: ["user", "project", "local"],
+          systemPrompt: this.getSessionSystemPrompt(options, sessionSandbox),
+          settingSources: claudeSettingSources(options.bootInstructions),
           includePartialMessages: true,
           title: providerSessionOptions.sdk.title,
           promptSuggestions: providerSessionOptions.sdk.promptSuggestions,
@@ -1977,13 +1975,14 @@ export class ClaudeProvider implements AgentProvider {
           pathToClaudeCodeExecutable,
           // Filter env to exclude npm_*, yep-anywhere specific, and other irrelevant vars
           env: claudeEnv,
-          ...this.getSessionToolOptions(options.model, sessionSandbox),
+          ...this.getSessionToolOptions(options, sessionSandbox),
           ...(options.routerLaunch
             ? {
                 settings: claudeRouterSettings(
                   this.getSettings(options.model),
                   options.routerLaunch,
                   claudeEnv.ANTHROPIC_CUSTOM_HEADERS,
+                  options.bootInstructions,
                 ),
               }
             : {}),
@@ -2124,6 +2123,7 @@ export class ClaudeProvider implements AgentProvider {
           thinking: options.thinking,
           effort: options.effort,
           globalInstructions: options.globalInstructions,
+          bootInstructions: options.bootInstructions,
           pathToClaudeCodeExecutable,
           env: claudeEnv,
           sessionSandbox,

@@ -195,6 +195,8 @@ it.each(["superuser", "peer"] as const)(
         thinking: "on:high",
         permissionMode: "bypassPermissions",
         prompt: "/clear",
+        apiClient: "learn-harness",
+        bootInstructions: { text: "Fixture boot" },
       });
       const creator =
         principal === "peer"
@@ -239,13 +241,37 @@ it.each(["superuser", "peer"] as const)(
       expect(reopened.getMetadata(publicId)?.creationProvenance).toEqual({
         surface: "api",
       });
+      expect(reopened.getMetadata(publicId)).toMatchObject({
+        apiClient: "learn-harness",
+        bootInstructions: { text: "Fixture boot" },
+      });
       expect(store.get(receipt.id)?.creator.principal.kind).toBe(principal);
       expect(options).toMatchObject({
         model: "fixture-model",
         effort: "high",
         permissionMode: "bypassPermissions",
         globalInstructions: "Fixture guidance",
+        bootInstructions: {
+          source: { text: "Fixture boot" },
+          apiClient: "learn-harness",
+        },
       });
+      if (principal === "peer") {
+        const named = commands.create(
+          project,
+          createSessionRequest.parse({
+            requestId: "native-review-path",
+            projectId: project.id,
+            provider: "codex",
+            prompt: "x",
+            bootInstructions: { path: "/etc/hostname" },
+          }),
+          launch,
+          creator,
+        );
+        await commands.idle();
+        expect(store.get(named.id)).toMatchObject({ state: "failed" });
+      }
       const nativeProcess = supervisor.getProcessForSession(publicId)!;
       expect(supervisor.getProcessForSession(nativeId)).toBeUndefined();
       expect(nativeProcess.hasAcceptedApiInput(receipt.id)).toBe(true);

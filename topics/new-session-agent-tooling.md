@@ -16,9 +16,9 @@ consumer-side story (what the scripts do against the server) is
 [`agent-session-access.md`](agent-session-access.md); this topic owns
 what YA injects into a session at launch. Packaging, desktop delivery, the
 shared `ya-agent` dispatcher, and private input live in
-[`agent-command-runtime.sketches.md`](agent-command-runtime.sketches.md). The one concrete missing
-feature — the virgin instruction-scope option — is tracked in
-[`gaps/sketches/virgin-new-session-option.md`](../gaps/sketches/virgin-new-session-option.md).
+[`agent-command-runtime.sketches.md`](agent-command-runtime.sketches.md). The virgin
+instruction-scope option is implemented for v0 creation as
+[session boot instructions](session-boot-instructions.md).
 
 The [command runtime's first milestone](agent-command-runtime.sketches.md#first-milestone-inspect-the-owning-session)
 is now read-only `ya-agent self` (2026-09-08). It retains command-path and scoped
@@ -106,37 +106,15 @@ should say so rather than introduce a second name for the same value.
 
 ## Instruction-scope options ("virgin" sessions)
 
-[Session boot instructions](session-boot-instructions.md) owns the selected
-contract: a v0 `bootInstructions` field whose empty form is a virgin session.
-The mechanism notes below are the earlier proposal it refines.
-
-A new-session option should let a launch skip the user-global
-instruction layer while keeping project instructions, auth, and provider
-configuration — a *virgin* session. *Vanilla* remains reserved for unchanged
-first-party provider behavior, which normally includes the user's global
-instruction layer; this option deliberately removes that layer. The
-per-provider mechanics differ:
-
-- **Claude**: the Agent SDK's `settingSources` option already controls
-  which filesystem settings tiers load; YA currently passes
-  `["user", "project", "local"]` in
-  `packages/server/src/sdk/providers/claude.ts`. Virgin drops
-  `"user"`. <!-- assumed: that the user tier owns user-global CLAUDE.md
-  as well as user settings; probe before implementation -->
-- **Codex**: no per-file switch exists; the mechanism is a redirected
-  `CODEX_HOME` replica root that omits the user `AGENTS.md`. The
-  concrete replica design, auth handling, session discovery, and route
-  threading are specified in `gaps/sketches/virgin-new-session-option.md`.
-
-The option must persist in session metadata and be reapplied on resume
-and fork — like the sandbox `stateKey` — or a resumed session silently
-regains the user instruction layer (and, for Codex, loses sight of its
-own rollout).
-
-Session sandboxing already redirects `CODEX_HOME`/`CLAUDE_CONFIG_DIR`
-per session (`session-sandbox.ts`); a sandboxed virgin session composes
-by controlling which instruction files exist in the sandbox provider
-state dir, not by double-redirecting.
+A launch can skip the operator's user-level instruction layer while keeping
+project instructions, auth and provider configuration: a *virgin* session.
+*Vanilla* remains reserved for unchanged first-party provider behavior, which
+includes that layer. [Session boot instructions](session-boot-instructions.md)
+owns the implemented contract: the v0 creation field `bootInstructions`, whose
+empty form is a virgin session and whose other forms supply replacement
+instructions. It persists in session metadata and is reapplied on resume and
+fork. The web New Session form does not offer it yet, and a sandboxed session
+cannot combine with it ([gap](../gaps/sandboxed-boot-instructions.md)).
 
 ## Open decisions
 

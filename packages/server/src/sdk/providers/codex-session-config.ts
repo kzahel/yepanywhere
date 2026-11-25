@@ -19,6 +19,7 @@ import type {
 import type { CyberAccessProgram } from "./codex-protocol/generated/v2/CyberAccessProgram.js";
 import type { SandboxPolicy as CodexSandboxPolicy } from "./codex-protocol/generated/v2/SandboxPolicy.js";
 import { CODEX_DESKTOP_BROWSER_SKILL_NAME } from "./codex-skill-inputs.js";
+import { codexUserSkillDisables } from "./codex-boot-home.js";
 import {
   buildThreadPermissionParams,
   buildTurnPermissionParams,
@@ -218,6 +219,7 @@ export function buildThreadConfigOverrides(
     | "model"
     | "routerLaunch"
     | "agentApiEnvironment"
+    | "bootInstructions"
   >,
 ): NonNullable<ThreadStartParams["config"]> {
   // The OpenAI browser plugin controls a desktop-owned browser backend that
@@ -232,6 +234,9 @@ export function buildThreadConfigOverrides(
           name: CODEX_DESKTOP_BROWSER_SKILL_NAME,
           enabled: false,
         },
+        // Boot instructions replace user skills too; Codex finds these
+        // outside CODEX_HOME, so the boot home alone does not hide them.
+        ...(options.bootInstructions ? codexUserSkillDisables() : []),
       ],
     },
   };
