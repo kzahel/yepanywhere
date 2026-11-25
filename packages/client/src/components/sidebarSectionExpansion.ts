@@ -11,9 +11,25 @@ const DEFAULT_SECTION_EXPANSION = {
 export type SidebarSectionKey = keyof typeof DEFAULT_SECTION_EXPANSION;
 /** Which sidebar sections are open, as saved in this browser. */
 export type SidebarSectionExpansion = Record<SidebarSectionKey, boolean> & {
-  /** Named sections (`category:…`, `user:…`) the reader closed; others open. */
+  /**
+   * Named sections the reader toggled away from their default: closed for
+   * `category:…` and `user:…`, opened for `api:…`. The stored name predates
+   * API-client sections.
+   */
   collapsedGroups?: readonly string[];
 };
+
+/** Prefix of an API client's sidebar section key; these start collapsed. */
+export const API_CLIENT_SECTION_PREFIX = "api:";
+
+/** Whether a named sidebar section is open for this reader. */
+export function isSidebarGroupExpanded(
+  expansion: SidebarSectionExpansion,
+  key: string,
+): boolean {
+  const toggled = expansion.collapsedGroups?.includes(key) ?? false;
+  return key.startsWith(API_CLIENT_SECTION_PREFIX) ? toggled : !toggled;
+}
 
 function getLocalStorage(): Storage | null {
   return typeof window !== "undefined" && window.localStorage

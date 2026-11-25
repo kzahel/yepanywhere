@@ -84,7 +84,10 @@ import type {
   SessionCollectionQueryState,
   SessionCollectionRecord,
 } from "./clientSummaryCollections";
-import { ALL_PROJECTS_QUERY_KEY } from "./clientSummaryCollections";
+import {
+  ALL_PROJECTS_QUERY_KEY,
+  isNamedSidebarRecord,
+} from "./clientSummaryCollections";
 import {
   type DraftPresenceChange,
   subscribeDraftPresenceChanges,
@@ -933,7 +936,7 @@ export function useCategorizedSessionRecords(
     () =>
       query
         ? selectSessionCollectionQueryRecords(state, query).filter(
-            (row) => row.sidebarCategory && !row.isArchived,
+            (row) => isNamedSidebarRecord(row) && !row.isArchived,
           )
         : selectCategorizedSessionRecords(state),
     [state, query],

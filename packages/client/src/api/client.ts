@@ -154,6 +154,8 @@ export interface GlobalSessionItem {
   sidebarCategory?: string;
   /** Limited user who started the session; absent means the superuser. */
   createdByUser?: string;
+  /** API program that created the session; it lists under its own section. */
+  apiClient?: string;
   /** True when an explicit manual termination disabled resume. */
   autoResumeDisabled?: boolean;
   /** Interactive Mother session for a YA-owned `/btw` aside. */

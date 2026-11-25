@@ -9,9 +9,8 @@
 
 Topic: session-boot-instructions
 
-Status: the v0 fields, persistence, provider mechanics and host refusal are
-implemented. The [sidebar](#sidebar) grouping is not yet implemented: an
-`apiClient` session is still listed among ordinary sessions. Provider
+Status: implemented, including the v0 fields, persistence, provider
+mechanics, host refusal and the [sidebar](#sidebar) section. Provider
 mechanics were verified with marker text on Claude Code 2.1.330 and Codex CLI
 0.172.0 (see [evidence](#evidence)). This contract supersedes the earlier
 virgin-session sketch.
@@ -185,10 +184,17 @@ open work in [the gap](../gaps/sandboxed-boot-instructions.md).
 ## Sidebar
 
 A session that records an `apiClient` is listed only in a sidebar section
-named for that client, collapsed until the reader expands it, below the
-limited-user sections. Starring or filing the session in a sidebar category
-still moves it there, as with any other session. Sessions without `apiClient`
-are listed exactly as before.
+named for that client, closed until the reader opens it, below the
+limited-user sections. The reader's open or closed choice is remembered per
+browser with the other sections'. Starring or filing the session in a sidebar
+category still moves it there, as with any other session; an API client's
+section takes precedence over the limited-user one. Sessions without
+`apiClient` are listed exactly as before.
+
+The section lists the client's sessions however old they are: the sidebar's
+categorized feed includes every session with an `apiClient` or a limited-user
+creator ([session collection queries](session-collection-queries.md#sidebar-snapshots)).
+v0 session rows report `apiClient` too, so a caller can find its own sessions.
 
 Session rows carry `apiClient` as an optional field. A client that does not
 know the field, or a server that does not send it, lists the session among

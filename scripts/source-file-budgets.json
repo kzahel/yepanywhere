@@ -31,7 +31,7 @@
       "maxLines": 2661
     },
     "packages/client/src/components/Sidebar.tsx": {
-      "maxLines": 1536
+      "maxLines": 1535
     },
     "packages/client/src/components/UserTurnNavigator.tsx": {
       "maxLines": 1562
@@ -43,7 +43,7 @@
       "maxLines": 1769
     },
     "packages/client/src/lib/clientSummaryState.ts": {
-      "maxLines": 2075
+      "maxLines": 2070
     },
     "packages/client/src/lib/connection/RelayProtocol.ts": {
       "maxLines": 1620

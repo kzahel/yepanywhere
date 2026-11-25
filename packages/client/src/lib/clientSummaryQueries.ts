@@ -18,6 +18,7 @@ import {
   type SessionCollectionQueryDescriptor,
   type SessionCollectionQueryState,
   type SessionCollectionRecord,
+  isNamedSidebarRecord,
   resolveSessionCollectionId,
 } from "./clientSummaryCollections";
 import { INBOX_TIERS, type InboxTier } from "./inboxTiers";
@@ -408,12 +409,12 @@ export function selectStarredSessionRecords(
   );
 }
 
-/** Every loaded, unarchived session filed under a sidebar category. */
+/** Every loaded, unarchived session filed under a named sidebar section. */
 export function selectCategorizedSessionRecords(
   state: ClientSummaryState,
 ): SessionCollectionRecord[] {
   return Array.from(state.sessions.entities.values()).filter(
-    (record) => Boolean(record.sidebarCategory) && record.isArchived !== true,
+    (record) => isNamedSidebarRecord(record) && record.isArchived !== true,
   );
 }
 

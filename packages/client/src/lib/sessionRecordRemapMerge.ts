@@ -27,6 +27,7 @@ const REMAP_MERGE_GROUPS = {
     "isStarred",
     "sidebarCategory",
     "createdByUser",
+    "apiClient",
     "autoResumeDisabled",
     "parentSessionId",
     "parentSessionKind",

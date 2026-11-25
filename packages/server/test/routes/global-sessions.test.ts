@@ -107,6 +107,7 @@ describe("Global Sessions Routes", () => {
       isStarred?: boolean;
       sidebarCategory?: string;
       createdByUser?: string;
+      apiClient?: string;
       autoResumeDisabled?: boolean;
     }
   >;
@@ -1395,26 +1396,37 @@ describe("Global Sessions Routes", () => {
       expect(result.sessions[0].isStarred).toBe(true);
     });
 
-    it("reports sidebar category and creator, and filters to categorized", async () => {
+    it("reports named sections and filters categorized to every named section", async () => {
       const project = createProject("proj1", "project", "/sessions/proj1");
       vi.mocked(mockScanner.listProjects).mockResolvedValue([project]);
       sessionsByDir.set("/sessions/proj1", [
         createSession("filed", "proj1", minutesAgo(5)),
         createSession("loose", "proj1", minutesAgo(6)),
+        createSession("limited", "proj1", minutesAgo(7)),
+        createSession("harness", "proj1", minutesAgo(8)),
       ]);
       metadataMap.set("filed", {
         sidebarCategory: "Paper",
         createdByUser: "archer",
       });
+      metadataMap.set("limited", { createdByUser: "archer" });
+      metadataMap.set("harness", { apiClient: "learn-harness" });
 
       const all = await makeRequest();
       const filed = all.sessions.find((session) => session.id === "filed");
       expect(filed?.sidebarCategory).toBe("Paper");
       expect(filed?.createdByUser).toBe("archer");
+      expect(
+        all.sessions.find((session) => session.id === "harness")?.apiClient,
+      ).toBe("learn-harness");
 
+      // The categorized feed reaches every session a named section lists,
+      // however far down the recent pages it sits.
       const categorized = await makeRequest("?categorized=true");
       expect(categorized.sessions.map((session) => session.id)).toEqual([
         "filed",
+        "limited",
+        "harness",
       ]);
     });
   });

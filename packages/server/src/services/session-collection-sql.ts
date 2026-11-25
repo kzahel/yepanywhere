@@ -1,5 +1,6 @@
 import { fromUrlProjectId, isUrlProjectId } from "@yep-anywhere/shared";
 import { isDetachedProjectPath } from "../projects/paths.js";
+import { isNamedSidebarSession } from "./sidebar-named-section.js";
 import type {
   GlobalSessionItem,
   GlobalSessionStats,
@@ -285,7 +286,7 @@ export class SessionCollectionSql {
       flags.archived,
       flags.automatic,
       Number(Boolean(item.isStarred)),
-      Number(Boolean(item.sidebarCategory)),
+      Number(isNamedSidebarSession(item)),
       Number(Boolean(item.hasUnread)),
       flags.attention,
       Number(item.activity === "in-turn"),

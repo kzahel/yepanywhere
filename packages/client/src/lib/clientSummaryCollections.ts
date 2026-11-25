@@ -60,6 +60,7 @@ export interface SessionCollectionRecord {
   isStarred?: boolean;
   sidebarCategory?: string;
   createdByUser?: string;
+  apiClient?: string;
   autoResumeDisabled?: boolean;
   activeStartedAt?: number;
   parentSessionId?: string;
@@ -83,6 +84,20 @@ export interface SessionCollectionRecord {
   lifecycleObservedAt?: number;
   unreadObservedAt?: number;
   eventCreatedAt?: number;
+}
+
+/**
+ * Whether a session belongs to a named sidebar section (category, API client
+ * or limited user), the membership of the server's categorized feed.
+ */
+export function isNamedSidebarRecord(record: {
+  sidebarCategory?: string;
+  apiClient?: string;
+  createdByUser?: string;
+}): boolean {
+  return Boolean(
+    record.sidebarCategory || record.apiClient || record.createdByUser,
+  );
 }
 
 export interface SessionCollectionQueryDescriptor {

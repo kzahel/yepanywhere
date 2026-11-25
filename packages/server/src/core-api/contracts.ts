@@ -171,6 +171,10 @@ export const sessionSchema = z.object({
       "Timestamp used for descending chronological ordering, then session id.",
     ),
   createdByUser: z.string().optional(),
+  apiClient: z
+    .string()
+    .optional()
+    .describe("The apiClient named when this session was created, if any."),
   state: z
     .string()
     .describe(

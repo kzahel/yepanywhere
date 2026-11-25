@@ -50,6 +50,7 @@ export function productionApiSources(deps: {
       title: metadata?.customTitle ?? row.title ?? null,
       updatedAt: row.updatedAt,
       createdByUser: metadata?.createdByUser,
+      apiClient: metadata?.apiClient,
       state:
         deps.sessionState?.(row.sessionId) ??
         (process ? apiSessionState(process) : "not-running"),

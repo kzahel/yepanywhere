@@ -52,6 +52,8 @@ import {
   useProjectQueueSidebarCount,
 } from "../lib/clientSummaryStore";
 import {
+  API_CLIENT_SECTION_PREFIX,
+  isSidebarGroupExpanded,
   loadSidebarSectionExpansion,
   saveSidebarSectionExpansion,
   type SidebarSectionKey,
@@ -612,12 +614,20 @@ export function Sidebar({
       lists[CATEGORY_SECTION_PREFIX + name] =
         sessionCollectionRecordsToSidebarSessionItems(rows);
     }
-    for (const { name, rows } of orderedSessions.creators) {
-      lists[CREATOR_SECTION_PREFIX + name] =
-        sessionCollectionRecordsToSidebarSessionItems(rows);
+    for (const [prefix, groups] of [
+      [CREATOR_SECTION_PREFIX, orderedSessions.creators],
+      [API_CLIENT_SECTION_PREFIX, orderedSessions.apiClients],
+    ] as const) {
+      for (const { name, rows } of groups)
+        lists[prefix + name] =
+          sessionCollectionRecordsToSidebarSessionItems(rows);
     }
     return lists;
-  }, [orderedSessions.categories, orderedSessions.creators]);
+  }, [
+    orderedSessions.categories,
+    orderedSessions.creators,
+    orderedSessions.apiClients,
+  ]);
 
   const sidebarCategoryNames = useMemo(
     () => orderedSessions.categories.map(({ name }) => name),
@@ -857,7 +867,7 @@ export function Sidebar({
     );
   const renderGroupSection = (key: string, name: string, isPerson: boolean) => {
     const rows = displayedByKey[key] ?? [];
-    const expanded = !sectionExpansion.collapsedGroups?.includes(key);
+    const expanded = isSidebarGroupExpanded(sectionExpansion, key);
     const listId = `sidebar-group-${encodeURIComponent(key)}`;
     return (
       <div
@@ -874,7 +884,9 @@ export function Sidebar({
           collapseLabel={t("sidebarSectionCollapse")}
           count={rows.length}
           countIsPartial={
-            isPerson ? hasMoreGlobalSessions : hasMoreCategorizedSessions
+            sidebarCategoriesSupported
+              ? hasMoreCategorizedSessions
+              : hasMoreGlobalSessions
           }
           isPerson={isPerson}
         />
@@ -1430,6 +1442,13 @@ export function Sidebar({
               true,
             ),
           )}
+          {displayedGroupKeys(API_CLIENT_SECTION_PREFIX).map((key) =>
+            renderGroupSection(
+              key,
+              key.slice(API_CLIENT_SECTION_PREFIX.length),
+              false,
+            ),
+          )}
 
           {displayed.older.length > 0 && (
             <div className={sidebarStyles.sidebarSection} data-sidebar-section>
@@ -1485,7 +1504,8 @@ export function Sidebar({
             displayed.recent.length === 0 &&
             displayed.older.length === 0 &&
             displayedGroupKeys(CATEGORY_SECTION_PREFIX).length === 0 &&
-            displayedGroupKeys(CREATOR_SECTION_PREFIX).length === 0 && (
+            displayedGroupKeys(CREATOR_SECTION_PREFIX).length === 0 &&
+            displayedGroupKeys(API_CLIENT_SECTION_PREFIX).length === 0 && (
               <p className={sidebarStyles.sidebarEmpty} data-sidebar-empty>
                 {sessionsLoading
                   ? t("sidebarLoadingSessions")

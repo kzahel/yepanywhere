@@ -3,6 +3,7 @@ import {
   type SidebarSessionLimits,
 } from "@yep-anywhere/shared/sidebar-snapshot";
 import { retainedSessionQuery } from "../services/retained-session-query.js";
+import { isNamedSidebarSession } from "../services/sidebar-named-section.js";
 import { mergeCreationGlobalItems } from "./creation-session-collections.js";
 import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
 import { creationCollectionRows } from "../sessions/session-creation-view.js";
@@ -138,6 +139,8 @@ export interface GlobalSessionItem {
   sidebarCategory?: string;
   /** Limited user who started the session; absent means the superuser. */
   createdByUser?: string;
+  /** API program that created the session (topics/session-boot-instructions.md). */
+  apiClient?: string;
   /** Iterations a running `/clearloop` still has to do; absent when none runs. */
   clearloop?: SessionClearloopBadge;
   /** True when an explicit manual termination disabled automatic resume. */
@@ -304,7 +307,7 @@ function matchesGlobalSessionQuery(
 ): boolean {
   if (row.isArchived && !query.includeArchived) return false;
   if (query.starredOnly && !row.isStarred) return false;
-  if (query.categorizedOnly && !row.sidebarCategory) return false;
+  if (query.categorizedOnly && !isNamedSidebarSession(row)) return false;
   if (query.filterProjectId && row.projectId !== query.filterProjectId) {
     return false;
   }
@@ -855,6 +858,7 @@ export function createGlobalSessionsRoutes(deps: GlobalSessionsDeps): Hono {
           isStarred,
           sidebarCategory: metadata?.sidebarCategory,
           createdByUser: metadata?.createdByUser,
+          apiClient: metadata?.apiClient,
           autoResumeDisabled: metadata?.autoResumeDisabled === true,
           parentSessionId,
           parentSessionKind,

@@ -145,7 +145,7 @@ describe("sidebar user chronology", () => {
 });
 
 describe("sidebar named sections", () => {
-  it("files each session once: starred, category, creator, then by time", () => {
+  it("files each session once: starred, category, API client, creator, then by time", () => {
     setCurrentClientSummarySourceKey(
       createClientSummaryHostSourceKey("named-sections"),
     );
@@ -172,10 +172,18 @@ describe("sidebar named sections", () => {
       row("alice", { createdByUser: "alice" }),
       row("mine"),
       row("archived", { sidebarCategory: "Paper", isArchived: true }),
+      row("harness-run", { apiClient: "learn-harness" }),
+      row("harness-bob", { apiClient: "learn-harness", createdByUser: "bob" }),
+      row("harness-filed", {
+        apiClient: "learn-harness",
+        sidebarCategory: "pii",
+      }),
     ];
-    // A categorized session beyond the recent page arrives through its feed.
+    // Named-section sessions beyond the recent page arrive through the
+    // categorized feed: a category's, and a limited user's.
     const categorized = [
       row("pii-old", { sidebarCategory: "pii", createdAt: old }),
+      row("carol-old", { createdByUser: "carol", createdAt: old }),
     ];
 
     const grouped = renderHook(() =>
@@ -186,11 +194,18 @@ describe("sidebar named sections", () => {
     expect(grouped.starred.map(({ id }) => id)).toEqual(["starred-filed"]);
     expect(names(grouped.categories)).toEqual([
       ["Paper", ["paper"]],
-      ["pii", ["pii-old"]],
+      ["pii", ["harness-filed", "pii-old"]],
     ]);
+    expect(
+      grouped.apiClients.map(({ name, rows }) => [
+        name,
+        rows.map(({ id }) => id).sort(),
+      ]),
+    ).toEqual([["learn-harness", ["harness-bob", "harness-run"]]]);
     expect(names(grouped.creators)).toEqual([
       ["alice", ["alice"]],
       ["bob", ["bob-new", "bob-old"]],
+      ["carol", ["carol-old"]],
     ]);
     expect(grouped.recent.map(({ id }) => id)).toEqual(["mine"]);
     expect(grouped.older).toEqual([]);
@@ -200,11 +215,16 @@ describe("sidebar named sections", () => {
       useSidebarSessionOrder(records, [starredFiled], categorized, false),
     ).result.current;
     expect(ungrouped.creators).toEqual([]);
+    // API-client sessions stay grouped either way.
+    expect(ungrouped.apiClients.map(({ name }) => name)).toEqual([
+      "learn-harness",
+    ]);
     expect(ungrouped.recent.map(({ id }) => id).sort()).toEqual([
       "alice",
       "bob-new",
       "mine",
     ]);
+    // A feed-only session waits for the recent pages to reach it.
     expect(ungrouped.older.map(({ id }) => id)).toEqual(["bob-old"]);
   });
 });

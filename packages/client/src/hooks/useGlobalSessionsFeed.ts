@@ -815,7 +815,8 @@ export function useGlobalSessionsFeed(
 
       if (projectId && event.session.projectId !== projectId) return;
       if (starred && !event.session.isStarred) return;
-      // A session is created without a category.
+      // The event carries no section fields; a new session is on the recent
+      // page, where its section is found, and the next read adds it here.
       if (categorized) return;
       if (includeArchived !== true && event.session.isArchived) return;
 

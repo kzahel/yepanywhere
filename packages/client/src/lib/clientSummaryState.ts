@@ -48,6 +48,7 @@ import {
   type SessionCollectionObservationSource,
   type SessionCollectionQueryDescriptor,
   type SessionCollectionRecord,
+  isNamedSidebarRecord,
   resolveSessionCollectionId,
 } from "./clientSummaryCollections";
 import {
@@ -1043,6 +1044,7 @@ function withMetadataFields(
     isStarred?: boolean;
     sidebarCategory?: string | null;
     createdByUser?: string;
+    apiClient?: string;
     autoResumeDisabled?: boolean;
     parentSessionId?: string | null;
     parentSessionKind?: "btw-aside" | null;
@@ -1094,6 +1096,8 @@ function withMetadataFields(
     )
       ? { createdByUser: fields.createdByUser }
       : {}),
+    // Fixed at creation, so any observation that carries it is current.
+    ...(fields.apiClient ? { apiClient: fields.apiClient } : {}),
     ...(canApplyObservedField(
       record.autoResumeDisabled,
       fields.autoResumeDisabled,
@@ -1333,6 +1337,7 @@ function snapshotRecord(
       // A list row is a whole row: no category here means none.
       sidebarCategory: row.sidebarCategory ?? null,
       createdByUser: row.createdByUser,
+      apiClient: row.apiClient,
       clearloop: row.clearloop,
       autoResumeDisabled: row.autoResumeDisabled,
       parentSessionId: row.parentSessionId,
@@ -1488,7 +1493,7 @@ function recordMatchesQuery(
   if (query.starred === true && record.isStarred !== true) {
     return false;
   }
-  if (query.categorized === true && !record.sidebarCategory) {
+  if (query.categorized === true && !isNamedSidebarRecord(record)) {
     return false;
   }
   return true;

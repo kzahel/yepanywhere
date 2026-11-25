@@ -143,7 +143,14 @@ not close restart, all-consumer memory or transcript-rendering targets.
 ## Sidebar snapshots
 
 `GET /api/sessions/sidebar` returns bounded recent, starred and categorized
-windows from the same retained SQL owner. Each limit defaults to 50 and accepts
+windows from the same retained SQL owner. The categorized window, like
+`GET /api/sessions?categorized=true`, holds every session a named sidebar
+section lists: one with a sidebar category, an `apiClient`, or a limited-user
+creator. It is how a section lists sessions older than the loaded recent page.
+Servers before 2026-11-25 select only sessions with a category; a client
+against one shows creator sections from the recent pages alone. The retained
+query checkpoint carries the selection rule in its signature, so a checkpoint
+saved under an older rule is rebuilt rather than reused. Each limit defaults to 50 and accepts
 integers 1–500. One synchronization precedes all three canonical selections;
 project grants and archive filters apply before limits. Rows are hydrated only
 after selection in batches of at most 256 and deduplicated across windows.

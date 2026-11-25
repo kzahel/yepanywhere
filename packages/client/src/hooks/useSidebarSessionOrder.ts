@@ -3,7 +3,7 @@ import { useClientSummarySourceKey } from "../lib/clientSummaryStore";
 import type { SessionCollectionRecord } from "../lib/clientSummaryCollections";
 import { getSessionInteractionStore } from "../lib/sessionInteractionOrder";
 
-/** One named sidebar section: a user-made category or a limited user. */
+/** One named sidebar section: a user-made category, an API client or a limited user. */
 export interface SidebarSessionGroup<T> {
   name: string;
   rows: readonly T[];
@@ -19,8 +19,9 @@ function compareGroupNames(a: string, b: string): number {
  * Sidebar chronology belongs to the user, independently of agent liveness.
  *
  * Sessions file under exactly one section, first match wins: Starred, then
- * their sidebar category, then (when `groupByCreator`) the limited user who
- * started them, then Last 24 Hours or Older.
+ * their sidebar category, then the API client that created them, then (when
+ * `groupByCreator`) the limited user who started them, then Last 24 Hours or
+ * Older.
  */
 export function useSidebarSessionOrder(
   records: readonly SessionCollectionRecord[],
@@ -56,20 +57,27 @@ export function useSidebarSessionOrder(
     for (const record of [...records, ...categorized]) {
       merged.set(record.id, record);
     }
+    // A feed-only session that files under no section here (a limited user's
+    // own, ungrouped) belongs to the recent pages, not ahead of their paging.
+    const paged = new Set(records.map(({ id }) => id));
     const categories = new Map<string, SessionCollectionRecord[]>();
+    const apiClients = new Map<string, SessionCollectionRecord[]>();
     const creators = new Map<string, SessionCollectionRecord[]>();
     const ordinary: SessionCollectionRecord[] = [];
     for (const record of merged.values()) {
       if (record.isStarred || record.isArchived) continue;
       const group = record.sidebarCategory
         ? categories
-        : groupByCreator && record.createdByUser
-          ? creators
-          : null;
-      const key = record.sidebarCategory || record.createdByUser;
+        : record.apiClient
+          ? apiClients
+          : groupByCreator && record.createdByUser
+            ? creators
+            : null;
+      const key =
+        record.sidebarCategory || record.apiClient || record.createdByUser;
       if (group && key) {
         group.set(key, [...(group.get(key) ?? []), record]);
-      } else {
+      } else if (paged.has(record.id)) {
         ordinary.push(record);
       }
     }
@@ -81,6 +89,7 @@ export function useSidebarSessionOrder(
       starred: order(starred),
       categories: groups(categories),
       recent: order(ordinary.filter((record) => time(record) >= cutoff)),
+      apiClients: groups(apiClients),
       creators: groups(creators),
       older: order(ordinary.filter((record) => time(record) < cutoff)),
     };

@@ -54,6 +54,7 @@ export function mergeCreationGlobalItems(
       projectName: projectName(fromUrlProjectId(summary.projectId)),
       initialPrompt: stored?.initialPrompt,
       createdByUser: stored?.createdByUser,
+      apiClient: stored?.apiClient,
       sidebarCategory: stored?.sidebarCategory,
       isArchived: stored?.isArchived ?? isSessionAutoArchived(summary, cutoff),
     });

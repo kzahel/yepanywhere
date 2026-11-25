@@ -41,6 +41,7 @@ export function ownedApiSessions(
         provider: process.provider,
         title: metadata?.customTitle ?? info.sessionTitle,
         createdByUser: metadata?.createdByUser,
+        apiClient: metadata?.apiClient,
         updatedAt: info.startedAt,
         state: apiSessionState(process),
       };

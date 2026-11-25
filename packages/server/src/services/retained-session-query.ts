@@ -25,6 +25,7 @@ import {
   type SessionCatalogRow,
 } from "../sessions/catalog-types.js";
 import { mergeCreationGlobalItems } from "../routes/creation-session-collections.js";
+import { NAMED_SIDEBAR_SESSION_RULE } from "./sidebar-named-section.js";
 import {
   compareProjectOptions,
   retainedNativeItem,
@@ -127,6 +128,7 @@ export class RetainedSessionQuery {
         this.checkpointSignature = JSON.stringify([
           Boolean(metadata),
           Boolean(seen),
+          NAMED_SIDEBAR_SESSION_RULE,
         ]);
         this.checkpoint = new SessionQueryCheckpoint(
           this.sql.db,

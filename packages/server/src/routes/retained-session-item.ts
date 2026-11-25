@@ -72,6 +72,7 @@ export function retainedNativeItem(
     isStarred: metadata?.isStarred ?? false,
     sidebarCategory: metadata?.sidebarCategory,
     createdByUser: metadata?.createdByUser,
+    apiClient: metadata?.apiClient,
     customTitle: metadata?.customTitle,
     initialPrompt: metadata?.initialPrompt ?? fullTitle,
     nonHumanUserTurn: pendingNonHumanUserTurn(metadata) ?? null,
