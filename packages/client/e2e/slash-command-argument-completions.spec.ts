@@ -520,10 +520,10 @@ test("inspects and explicitly changes the goal without consuming the draft", asy
   await composer.hover();
   await expect(page.getByRole("tooltip")).not.toBeVisible();
   await recordUiCapture(page, "goal-receipt-desktop");
+  await page.setViewportSize({ width: 375, height: 812 });
   await page.reload();
   await expect(flag).toHaveAttribute("data-goal-status", "paused");
   await expect(page.getByText("Goal paused", { exact: true })).toBeVisible();
-  await page.setViewportSize({ width: 375, height: 812 });
   await flag.click();
   await expect(panel).toBeVisible();
   await expect(panel).toContainText(objective);
