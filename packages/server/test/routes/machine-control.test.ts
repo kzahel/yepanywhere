@@ -1,3 +1,4 @@
+import { normalize } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createMachineControlRoutes } from "../../src/routes/machine-control.js";
 import { createMachineControlSettingRoutes } from "../../src/routes/machine-control-setting.js";
@@ -94,7 +95,7 @@ describe("installed MC readiness", () => {
     expect(verify.mock.calls).toEqual([
       ["/Applications/Machine Control.app", "VD7BYQ6ABM", "darwin"],
       [
-        "/Users/example/Applications/Machine Control.app",
+        normalize("/Users/example/Applications/Machine Control.app"),
         "VD7BYQ6ABM",
         "darwin",
       ],
