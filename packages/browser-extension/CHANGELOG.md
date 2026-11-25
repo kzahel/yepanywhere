@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [0.1.6] - 2026-11-25
+
+- Refresh the bundled client with Antigravity model, thinking and account
+  controls on supported servers.
+- Show rate-limited and stopped sessions in the Inbox and display question
+  ages in the question menu.
+- Preserve composer drafts during account binding, and keep the transcript
+  following when its layout changes.
+- Let users copy selected Markdown with public project links and improve
+  recovery from stale new-session requests.
+
 ## [0.1.5] - 2026-11-10
 
 - Refresh the bundled client for Yep Anywhere 0.12.0, including session
