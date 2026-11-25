@@ -106,6 +106,10 @@ should say so rather than introduce a second name for the same value.
 
 ## Instruction-scope options ("virgin" sessions)
 
+[Session boot instructions](session-boot-instructions.md) owns the selected
+contract: a v0 `bootInstructions` field whose empty form is a virgin session.
+The mechanism notes below are the earlier proposal it refines.
+
 A new-session option should let a launch skip the user-global
 instruction layer while keeping project instructions, auth, and provider
 configuration — a *virgin* session. *Vanilla* remains reserved for unchanged
