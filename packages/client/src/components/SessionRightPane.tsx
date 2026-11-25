@@ -147,6 +147,11 @@ function SessionRightPaneContent({
   const [maxWidth, setMaxWidth] = useState(1600);
   const visibleWidth = Math.min(width, maxWidth);
   const [dragging, setDragging] = useState(false);
+  // The project app frame loads only once revealed: loading it hidden would
+  // still raise the app's own credential prompt. After that it stays
+  // mounted so closing and reopening keeps its state.
+  const [projectAppRevealed, setProjectAppRevealed] = useState(projectAppOpen);
+  if (projectAppOpen && !projectAppRevealed) setProjectAppRevealed(true);
   const [blockedUrl, setBlockedUrl] = useState<string | null>(null);
   // Remounting the frame refetches it; artifacts and apps serve per request.
   const [reloadKey, setReloadKey] = useState(0);
@@ -361,7 +366,7 @@ function SessionRightPaneContent({
             )}
           </div>
         )}
-        {projectApp && (
+        {projectApp && projectAppRevealed && (
           <div className={styles.appContent} hidden={!projectAppOpen}>
             {projectApp}
           </div>

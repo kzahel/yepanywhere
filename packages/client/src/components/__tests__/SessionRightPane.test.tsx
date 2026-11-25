@@ -66,4 +66,26 @@ describe("session right pane", () => {
     );
     expect(screen.getByRole("button", { name: "Reload app" })).toBeTruthy();
   });
+
+  it("loads the project app only once revealed, then keeps it", () => {
+    const pane = { ...artifactPane(), selected: undefined } as Pane;
+    const projectApp = <iframe title="project app" src="about:blank" />;
+    const view = (projectAppOpen: boolean) => (
+      <I18nProvider>
+        <SessionRightPane
+          pane={pane}
+          wide
+          projectApp={projectApp}
+          projectAppOpen={projectAppOpen}
+        />
+      </I18nProvider>
+    );
+    const { rerender } = render(view(false));
+    // A hidden frame still loads, raising the app's own login prompt.
+    expect(screen.queryByTitle("project app")).toBeNull();
+    rerender(view(true));
+    const frame = screen.getByTitle("project app");
+    rerender(view(false));
+    expect(screen.getByTitle("project app")).toBe(frame);
+  });
 });
