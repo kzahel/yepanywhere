@@ -44,7 +44,9 @@ test("↑ in the emptied composer leaves a queued message queued", async ({
     (url) =>
       url.pathname === `/api/projects/${projectId}/sessions/${sessionId}`,
     async (route) => {
-      const response = await route.fetch();
+      if (route.request().method() !== "GET") return route.fallback();
+      // This fixture read hit ECONNRESET before the UI actions in CI 45682088384.
+      const response = await route.fetch({ maxRetries: 1 });
       const body = await response.json();
       await route.fulfill({
         response,
