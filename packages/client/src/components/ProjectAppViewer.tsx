@@ -36,6 +36,7 @@ import { ViewerWindowActions } from "./ViewerWindowActions";
 import { ComposerMicAction } from "./ComposerMicAction";
 import { AppViewerToolbar } from "./AppViewerToolbar";
 import { LastViewIcon } from "./LastViewIcon";
+import { ProjectAppDirectServing } from "./ProjectAppDirectServing";
 import { ProjectAppIcon } from "./ProjectAppIcon";
 import { Banner } from "./ui/Banner";
 import { Button, ButtonBase, IconButton } from "./ui/Button";
@@ -45,6 +46,7 @@ import { Field, Textarea, TextInput } from "./ui/Field";
 import actions from "./ViewerWindowActions.module.css";
 import styles from "./ProjectAppViewer.module.css";
 import { useI18n } from "../i18n";
+import { redirectReachable, redirectView } from "../lib/projectAppRedirect";
 
 /** What an app's page posts to name the page its frame is showing. */
 const APP_LOCATION_MESSAGE = "yep-anywhere:app-location";
@@ -224,6 +226,10 @@ export function ProjectAppViewer({
     version,
     SERVER_CAPABILITIES.projectAppStartCommand.name,
   );
+  const directServing = serverHasCapability(
+    version,
+    SERVER_CAPABILITIES.projectAppDirectServing.name,
+  );
   // The start command being edited, one argument per line; null when not editing.
   const [commandDraft, setCommandDraft] = useState<string | null>(null);
   const [target, setTarget] = useState<ProjectAppTarget | undefined>(
@@ -268,7 +274,7 @@ export function ProjectAppViewer({
         setTarget(
           (previous) =>
             previous ??
-            (next.declaration || next.activeDeclaration
+            (next.declaration || next.activeDeclaration || next.direct?.redirect
               ? { target: "app" }
               : next.latestArtifact
                 ? { target: "artifact", artifactId: next.latestArtifact.id }
@@ -293,11 +299,29 @@ export function ProjectAppViewer({
       // as newer content rather than going unnoticed.
       const before =
         targetKind === "app" ? await projectAppApi.info(projectId) : null;
-      const next = await projectAppApi.open(
-        projectId,
-        { target: targetKind, artifactId },
-        audience,
-      );
+      const redirect = before?.direct?.redirect;
+      // Opening still starts a declared process even when its redirect
+      // wins: that address reaches the same app through its host port.
+      const opened =
+        !redirect || before?.declaration
+          ? projectAppApi
+              .open(projectId, { target: targetKind, artifactId }, audience)
+              .then(
+                (view) => ({ view }),
+                (reason: Error) => ({ reason }),
+              )
+          : null;
+      let next: ProjectAppView;
+      if (redirect && (await redirectReachable(redirect)))
+        next = redirectView(projectId, redirect);
+      else if (opened) {
+        const result = await opened;
+        if ("reason" in result) throw result.reason;
+        next = result.view;
+      } else
+        throw new Error(
+          t("projectAppRedirectUnreachable", { redirect: redirect ?? "" }),
+        );
       if (!active) return;
       setShownStamp(before?.updatedAt);
       setView(next);
@@ -1107,6 +1131,15 @@ export function ProjectAppViewer({
                       </>
                     )}
                   </dl>
+                )}
+                {directServing && info && (
+                  <ProjectAppDirectServing
+                    projectId={projectId}
+                    info={info}
+                    busy={busy}
+                    perform={perform}
+                    onInfo={setInfo}
+                  />
                 )}
                 {presentation === "viewer" && info?.latestArtifact && (
                   <Button

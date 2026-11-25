@@ -10,6 +10,11 @@ export interface ProjectAppTarget {
   target: "app" | "artifact";
   artifactId?: string;
 }
+/** The editable `app.json` direct-serving fields; absent means unset. */
+export interface ProjectAppDirectFields {
+  redirect?: string;
+  hostPort?: number;
+}
 const path = (id: string) => `/projects/${encodeURIComponent(id)}/app`;
 export const projectAppApi = {
   inventory: () => fetchJSON<ProjectAppInventory>("/project-apps"),
@@ -36,6 +41,22 @@ export const projectAppApi = {
     fetchJSON<ProjectAppInfo>(`${path(id)}/start-command`, {
       method: "PUT",
       body: JSON.stringify({ expected, argv }),
+    }),
+  /** Requires `project-app-direct-serving`; 409 when the file changed meanwhile. */
+  setDirect: (
+    id: string,
+    expected: ProjectAppDirectFields,
+    next: ProjectAppDirectFields,
+  ) =>
+    fetchJSON<ProjectAppInfo>(`${path(id)}/direct`, {
+      method: "PUT",
+      body: JSON.stringify({ expected, next }),
+    }),
+  /** Requires `project-app-direct-serving`; administrators only. */
+  setFunnel: (id: string, httpsPort: number, on: boolean) =>
+    fetchJSON<ProjectAppInfo>(`${path(id)}/funnel`, {
+      method: "POST",
+      body: JSON.stringify({ httpsPort, on }),
     }),
   addresses: (id: string) =>
     fetchJSON<ProjectAppAddresses>(`${path(id)}/address`),

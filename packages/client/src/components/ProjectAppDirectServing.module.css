@@ -1,0 +1,69 @@
+.direct {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-block: 12px;
+}
+.summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.fields {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+  min-width: 0;
+}
+.fields dt {
+  color: var(--text-secondary);
+  margin: 0;
+}
+.fields dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.none {
+  color: var(--text-secondary);
+}
+/* The marker repeats the warning's title beside the port it applies to. */
+.public {
+  margin-inline-start: 8px;
+  color: var(--warning-color);
+  font-size: var(--font-size-sm);
+}
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+.state {
+  margin: 4px 0 0;
+}
+.funnel h4 {
+  margin: 0 0 4px;
+  font-size: var(--font-size-sm);
+}
+.funnel p {
+  margin: 0 0 4px;
+}
+.funnel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.funnel li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

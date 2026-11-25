@@ -944,3 +944,53 @@ it.each([true, false])(
     ).toContain("app-x.localhost");
   },
 );
+
+it.each([
+  [true, "https://reading.example.ts.net/"],
+  [false, "https://artifacts.example/a/token/index.html"],
+])(
+  "opens a reachable redirect and otherwise falls back to the YA-served app (reachable=%s)",
+  async (reachable, src) => {
+    mock.version = "0.14.1";
+    const original = mock.fetch.getMockImplementation()!;
+    mock.fetch.mockImplementation(async (...args) => {
+      const value = await original(...args);
+      if (String(args[0]).endsWith("/app"))
+        return {
+          ...value,
+          declaration: { where: { kind: "process", cwd: ".", entry: "/" } },
+          state: "running",
+          direct: { redirect: "https://reading.example.ts.net/" },
+        };
+      return value;
+    });
+    const probe = vi.fn(async () => {
+      if (!reachable) throw new TypeError("Failed to fetch");
+      return new Response(null);
+    });
+    vi.stubGlobal("fetch", probe);
+    try {
+      const { container } = render(
+        <I18nProvider>
+          <ProjectAppViewer projectId="test" />
+        </I18nProvider>,
+      );
+      await waitFor(() =>
+        expect(container.querySelector("iframe")?.getAttribute("src")).toBe(
+          src,
+        ),
+      );
+      // The probe never sends credentials, so it raises no login prompt.
+      expect(probe).toHaveBeenCalledWith(
+        "https://reading.example.ts.net/",
+        expect.objectContaining({ credentials: "omit", mode: "no-cors" }),
+      );
+      // Opening still starts the process the redirect reaches.
+      expect(
+        mock.fetch.mock.calls.some(([path]) => String(path).endsWith("/open")),
+      ).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  },
+);

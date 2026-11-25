@@ -10,7 +10,8 @@ type AppInfo = ProjectAppInfo & { updatedAt?: string };
  * newer build. A declared app whose build is missing is not there to show.
  */
 function appStamp(info: AppInfo): string | null {
-  if (!info.declaration && !info.activeDeclaration) return null;
+  if (!info.declaration && !info.activeDeclaration)
+    return info.direct?.redirect ? `redirect:${info.direct.redirect}` : null;
   if (info.state === "missing" || info.state === "unavailable") return null;
   return info.updatedAt ?? "declared";
 }
@@ -58,7 +59,12 @@ export function useProjectAppUpdates(
       .then((info) => {
         if (!active) return;
         const stamp = appStamp(info);
-        const declares = !!(info.declaration || info.activeDeclaration);
+        // A redirect alone is a complete app (§ Direct serving).
+        const declares = !!(
+          info.declaration ||
+          info.activeDeclaration ||
+          info.direct?.redirect
+        );
         setLastReading({ projectId, declares });
         setDeclared((current) =>
           declares
