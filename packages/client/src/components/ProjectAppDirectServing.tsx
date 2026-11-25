@@ -91,12 +91,8 @@ export function ProjectAppDirectServing({
                       {t("projectAppDirectNone")}
                     </span>
                   ) : (
-                    <>
-                      <code>127.0.0.1:{port}</code>
-                      <span className={styles.public}>
-                        {t("projectAppHostPortPublic")}
-                      </span>
-                    </>
+                    // The warning below, titled Public, marks this path.
+                    <code>127.0.0.1:{port}</code>
                   )}
                 </dd>
               </>
@@ -119,9 +115,20 @@ export function ProjectAppDirectServing({
           )}
         </div>
       ) : (
-        <form
+        // Not a form: Settings already wraps this panel in one, and the
+        // outer form's Enter submission must not reach this editor's fields.
+        // Not a fieldset either, which the viewer's details style as a box.
+        <div
+          role="group"
+          aria-label={t("projectAppRedirect")}
           className={styles.editor}
-          onSubmit={(event) => {
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.nativeEvent.isComposing ||
+              !(event.target instanceof HTMLInputElement)
+            )
+              return;
             event.preventDefault();
             save(draft);
           }}
@@ -144,7 +151,6 @@ export function ProjectAppDirectServing({
             <Field
               label={t("projectAppHostPort")}
               hint={t("projectAppHostPortHint")}
-              error={invalid ? t("projectAppDirectInvalid") : undefined}
             >
               <TextInput
                 inputMode="numeric"
@@ -156,15 +162,24 @@ export function ProjectAppDirectServing({
               />
             </Field>
           )}
+          {invalid && (
+            <p className={styles.state} role="alert">
+              {t("projectAppDirectInvalid")}
+            </p>
+          )}
           <div className={styles.actions}>
-            <Button variant="primary" type="submit" disabled={busy}>
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() => save(draft)}
+            >
               {t("projectAppCommandSave")}
             </Button>
             <Button disabled={busy} onClick={() => setDraft(null)}>
               {t("projectAppCommandCancel")}
             </Button>
           </div>
-        </form>
+        </div>
       )}
       {port !== undefined && (
         <Banner tone="warning" title={t("projectAppHostPortPublic")}>
@@ -210,7 +225,8 @@ function FunnelControls({
       <h4>{t("projectAppFunnel")}</h4>
       {funnel.setupCommand && (
         <p>
-          {t("projectAppFunnelSetup")} <code>{funnel.setupCommand}</code>
+          {t("projectAppFunnelSetup")}
+          <code className={styles.command}>{funnel.setupCommand}</code>
         </p>
       )}
       {funnel.ports.length === 0 && <p>{t("projectAppFunnelNoPorts")}</p>}

@@ -621,6 +621,7 @@ const BASE_CAPABILITIES: string[] = [
   SERVER_CAPABILITIES.projectFolderState.name,
   SERVER_CAPABILITIES.fileFolderListing.name,
   SERVER_CAPABILITIES.projectAppStartCommand.name,
+  SERVER_CAPABILITIES.projectAppDirectServing.name,
   SERVER_CAPABILITIES.sessionRelationships.name,
   PROJECT_QUEUE_ATTACHMENT_EDITING_CAPABILITY,
   PROJECT_QUEUE_READINESS_CHECK_CAPABILITY,

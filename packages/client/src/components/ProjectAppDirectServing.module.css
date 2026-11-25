@@ -4,9 +4,10 @@
   gap: 12px;
   margin-block: 12px;
 }
+/* Edit shares the first row's text baseline. */
 .summary {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: 8px;
 }
 .fields {
@@ -28,13 +29,8 @@
 .none {
   color: var(--text-secondary);
 }
-/* The marker repeats the warning's title beside the port it applies to. */
-.public {
-  margin-inline-start: 8px;
-  color: var(--warning-color);
-  font-size: var(--font-size-sm);
-}
 .editor {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -52,6 +48,12 @@
 }
 .funnel p {
   margin: 0 0 4px;
+}
+/* A command to copy whole: its own line, broken only where it must be. */
+.command {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
 }
 .funnel ul {
   list-style: none;
