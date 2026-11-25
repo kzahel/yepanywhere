@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readFile,
   rm,
+  stat,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -105,6 +106,12 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
                 ])
               : start([join(root, "scripts/dev.js")]);
           const host = await waitFor(descriptor);
+          const recordMode = process.platform === "linux" ? 0o1600 : 0o600;
+          for (const name of ["host.json", "host.lock", "token"]) {
+            expect((await stat(join(runtime, name))).mode & 0o7777).toBe(
+              recordMode,
+            );
+          }
           if (mode !== "source-owner")
             await waitFor(
               async () =>

@@ -72,14 +72,30 @@ remains useful for authenticated remote callers.
 On Linux and macOS Node source checkouts, `pnpm provider-host` starts
 `scripts/provider-runtime-host.mjs` in the foreground without Hono or Vite.
 The host publishes `host.json`, `token`, `host.lock`, and `control.sock` under
-`$YEP_PROVIDER_HOST_RUNTIME_DIR` when explicit. Linux otherwise uses
-`$XDG_RUNTIME_DIR` with a private per-user temporary-runtime fallback. macOS
-uses `~/.yep-anywhere/provider-host` so temporary-directory cleanup cannot
-remove discovery files while the host is running. This default is shared
-across YA profiles and independent of `YEP_DATA_DIR`. The directory is mode
-0700 and the descriptor, token, and socket are mode 0600. The descriptor
-records owner and worker process identities plus source/build identity without
-exposing the token value.
+`$YEP_PROVIDER_HOST_RUNTIME_DIR` when explicit. Linux uses
+`$XDG_RUNTIME_DIR/yep-anywhere/provider-host` when available. The home default,
+`~/.yep-anywhere/provider-host`, applies on macOS and on Linux without
+`XDG_RUNTIME_DIR` when Linux machine, boot and PID namespace identities are
+available. Minimal Linux environments without those identities still use
+the private per-user temp directory. These defaults are shared across YA
+profiles and independent of `YEP_DATA_DIR`. The directory is mode 0700. The
+descriptor, token, locks and sockets allow only owner access. On Linux the
+descriptor, token and locks also carry the sticky bit to protect them from
+XDG age-based cleanup. The descriptor records owner and worker process
+identities plus source/build identity without exposing the token value.
+
+Starting at the home default checks the previous location under the system
+temp directory. A live host there must be stopped first. An abandoned
+descriptor is recovered through verified ownership checks. Existing turn
+receipts and recent launch recipes stay in the previous directory. Confirm
+the outcome of any outstanding turn submission before retrying it after the
+switch. Use updated checkouts after switching, since old versions still pick
+the previous default.
+
+At the Linux home default, records are bound to the machine, boot and PID
+namespace. A record from an earlier boot on the same machine can be cleared
+without signaling any process. Missing or foreign ownership scope blocks
+recovery.
 
 The supported non-watch `scripts/dev.js` path probes that descriptor before
 starting Hono. It attaches to a compatible host, starts one when absent, or

@@ -3,11 +3,13 @@ import {
   chmodSync,
   closeSync,
   existsSync,
+  fchmodSync,
   fsyncSync,
   lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -36,6 +38,12 @@ export const PROVIDER_HOST_PROTOCOL_VERSION = 3;
 export const PROVIDER_HOST_DESCRIPTOR_VERSION = 1;
 
 const DEFAULT_STATUS_TIMEOUT_MS = 1_000;
+// XDG runtime-directory cleaners honor the sticky bit on live records.
+const LIVE_PROVIDER_HOST_FILE_MODE =
+  process.platform === "linux" ? 0o1600 : 0o600;
+const HOME_PROVIDER_HOST_DIRECTORY = join(".yep-anywhere", "provider-host");
+const LINUX_BOOT_ID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+const LINUX_PID_NAMESPACE = /^pid:\[\d+\]$/;
 const MAX_STATUS_RESPONSE_BYTES = 64 * 1024;
 const TERM_GRACE_MS = 1_500;
 const KILL_VERIFY_MS = 1_000;
@@ -80,29 +88,40 @@ function assertPrivateOwnedPath(path, expectedType) {
 
 export function resolveProviderHostPaths(
   env = process.env,
-  { platform = process.platform, uid = currentUid(), homeDir } = {},
+  {
+    platform = process.platform,
+    uid = currentUid(),
+    homeDir,
+    readLinuxScope = readLinuxHostScope,
+  } = {},
 ) {
   if (!providerHostCapability({ platform, probe: false }).supported)
     return null;
   const explicit = env.YEP_PROVIDER_HOST_RUNTIME_DIR?.trim();
   const xdgRuntimeDir = env.XDG_RUNTIME_DIR?.trim();
-  const macDefault = !explicit && platform === "darwin";
+  const tempRuntimeDir = () =>
+    join(
+      platform === "darwin" ? "/tmp" : tmpdir(),
+      `yep-anywhere-${uid ?? "user"}`,
+      "provider-host",
+    );
+  const useHome =
+    !explicit &&
+    (platform === "darwin" || (!xdgRuntimeDir && readLinuxScope()));
   const runtimeDir = explicit
     ? resolve(explicit)
-    : macDefault
-      ? resolve(homeDir ?? homedir(), ".yep-anywhere", "provider-host")
+    : useHome
+      ? resolve(homeDir ?? homedir(), HOME_PROVIDER_HOST_DIRECTORY)
       : xdgRuntimeDir
         ? join(resolve(xdgRuntimeDir), "yep-anywhere", "provider-host")
-        : join(tmpdir(), `yep-anywhere-${uid ?? "user"}`, "provider-host");
+        : tempRuntimeDir();
   assertProviderSocketPath(
     join(runtimeDir, "provider-0000000000000000.sock"),
     platform,
   );
   const paths = providerHostPathsIn(runtimeDir);
-  if (macDefault) {
-    paths.legacyPaths = providerHostPathsIn(
-      join("/tmp", `yep-anywhere-${uid ?? "user"}`, "provider-host"),
-    );
+  if (useHome) {
+    paths.legacyPaths = providerHostPathsIn(tempRuntimeDir());
   }
   return paths;
 }
@@ -120,25 +139,103 @@ function providerHostPathsIn(runtimeDir) {
   };
 }
 
+let linuxHostScope;
+
+function readLinuxHostScope() {
+  if (linuxHostScope === undefined) {
+    try {
+      const machineId = readFileSync("/etc/machine-id", "utf8").trim();
+      const bootId = readFileSync(
+        "/proc/sys/kernel/random/boot_id",
+        "utf8",
+      ).trim();
+      const pidNamespace = readlinkSync("/proc/self/ns/pid");
+      if (
+        !/^(?!0{32}$)[0-9a-f]{32}$/.test(machineId) ||
+        !LINUX_BOOT_ID.test(bootId) ||
+        !LINUX_PID_NAMESPACE.test(pidNamespace)
+      ) {
+        throw new Error("Invalid machine, boot or PID namespace identity");
+      }
+      linuxHostScope = {
+        machineId: createHash("sha256")
+          .update(`Yep Anywhere provider host\0${machineId}`)
+          .digest("hex"),
+        bootId,
+        pidNamespace,
+      };
+    } catch {
+      linuxHostScope = null;
+    }
+  }
+  return linuxHostScope;
+}
+
+function readLinuxHomeHostScope(paths) {
+  if (
+    process.platform !== "linux" ||
+    !paths.runtimeDir.endsWith(sep + HOME_PROVIDER_HOST_DIRECTORY) ||
+    paths.runtimeDir !== resolve(homedir(), HOME_PROVIDER_HOST_DIRECTORY)
+  ) {
+    return undefined;
+  }
+  const scope = readLinuxHostScope();
+  if (!scope) {
+    throw new Error(
+      "Cannot identify this Linux host for persistent provider-host recovery. Set YEP_PROVIDER_HOST_RUNTIME_DIR to a short private boot-scoped directory.",
+    );
+  }
+  return scope;
+}
+
+function withLinuxHomeHostScope(paths, record) {
+  const linuxHostScope = readLinuxHomeHostScope(paths);
+  return linuxHostScope ? { ...record, linuxHostScope } : record;
+}
+
+function fromPreviousLinuxBoot(current, recorded) {
+  if (!current && !recorded) return false;
+  if (
+    !current ||
+    !recorded ||
+    current.machineId !== recorded.machineId ||
+    typeof recorded.bootId !== "string" ||
+    !LINUX_BOOT_ID.test(recorded.bootId) ||
+    typeof recorded.pidNamespace !== "string" ||
+    !LINUX_PID_NAMESPACE.test(recorded.pidNamespace)
+  ) {
+    throw new Error(
+      "Provider host record has an unknown or different Linux machine identity",
+    );
+  }
+  if (current.bootId !== recorded.bootId) return true;
+  if (current.pidNamespace !== recorded.pidNamespace) {
+    throw new Error(
+      "Provider host record belongs to a different Linux PID namespace",
+    );
+  }
+  return false;
+}
+
 export function ensurePrivateProviderHostDirectory(runtimeDir) {
   mkdirSync(runtimeDir, { recursive: true, mode: 0o700 });
   assertPrivateOwnedPath(runtimeDir, "directory");
   chmodSync(runtimeDir, 0o700);
 }
 
-function writePrivateFileAtomic(path, value) {
+function writePrivateFileAtomic(path, value, mode = 0o600) {
   ensurePrivateProviderHostDirectory(dirname(path));
   const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
   try {
     const descriptor = openSync(temporaryPath, "wx", 0o600);
     try {
       writeSync(descriptor, value);
+      fchmodSync(descriptor, mode);
       fsyncSync(descriptor);
     } finally {
       closeSync(descriptor);
     }
     renameSync(temporaryPath, path);
-    chmodSync(path, 0o600);
   } catch (error) {
     removePathIfPresent(temporaryPath);
     throw error;
@@ -147,7 +244,7 @@ function writePrivateFileAtomic(path, value) {
 
 export function createProviderHostToken(tokenPath) {
   const token = randomBytes(32).toString("base64url");
-  writePrivateFileAtomic(tokenPath, `${token}\n`);
+  writePrivateFileAtomic(tokenPath, `${token}\n`, LIVE_PROVIDER_HOST_FILE_MODE);
   return token;
 }
 
@@ -237,8 +334,9 @@ export function writeProviderHostDescriptor(paths, descriptor) {
     paths.descriptorPath,
     `${JSON.stringify({
       descriptorVersion: PROVIDER_HOST_DESCRIPTOR_VERSION,
-      ...descriptor,
+      ...withLinuxHomeHostScope(paths, descriptor),
     })}\n`,
+    LIVE_PROVIDER_HOST_FILE_MODE,
   );
 }
 
@@ -516,9 +614,10 @@ function acquireExclusiveRecord(path, record, occupiedMessage) {
   ensurePrivateProviderHostDirectory(dirname(path));
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const descriptor = openSync(path, "wx", 0o600);
+      const descriptor = openSync(path, "wx", LIVE_PROVIDER_HOST_FILE_MODE);
       try {
         writeSync(descriptor, `${JSON.stringify(record)}\n`);
+        fchmodSync(descriptor, LIVE_PROVIDER_HOST_FILE_MODE);
         fsyncSync(descriptor);
       } finally {
         closeSync(descriptor);
@@ -544,7 +643,12 @@ function acquireExclusiveRecord(path, record, occupiedMessage) {
         throw new Error(`${occupiedMessage}: ${errorMessage(readError)}`);
       }
       const identity = parseIdentity(existing, "lock");
-      const state = processIdentityState(identity);
+      const state = fromPreviousLinuxBoot(
+        record.linuxHostScope,
+        existing.linuxHostScope,
+      )
+        ? "absent"
+        : processIdentityState(identity);
       if (state !== "absent") {
         throw new Error(
           state === "same"
@@ -564,7 +668,7 @@ function acquireExclusiveRecord(path, record, occupiedMessage) {
 export function acquireProviderHostLock(paths, owner) {
   return acquireExclusiveRecord(
     paths.lockPath,
-    owner,
+    withLinuxHomeHostScope(paths, owner),
     "A provider host is already starting or running",
   );
 }
@@ -620,7 +724,7 @@ function hasLegacyProviderHostListener(path) {
 function acquireProviderHostRecoveryLock(paths) {
   return acquireExclusiveRecord(
     paths.recoveryLockPath,
-    captureProcessIdentity(),
+    withLinuxHomeHostScope(paths, captureProcessIdentity()),
     "Provider host recovery is already in progress",
   );
 }
@@ -916,13 +1020,25 @@ export async function discoverProviderHost(
     );
   }
   let descriptor;
+  let previousBoot;
   try {
     if (existsSync(paths.runtimeDir))
       assertPrivateOwnedPath(paths.runtimeDir, "directory");
     if (!existsSync(paths.descriptorPath)) return { state: "absent" };
     descriptor = readProviderHostDescriptor(paths);
+    previousBoot = fromPreviousLinuxBoot(
+      readLinuxHomeHostScope(paths),
+      descriptor.linuxHostScope,
+    );
   } catch (error) {
     return { state: "ownership-unknown", error: errorMessage(error) };
+  }
+  if (previousBoot) {
+    return {
+      state: "unresponsive",
+      descriptor,
+      error: "Provider host descriptor is from an earlier Linux boot",
+    };
   }
   // Incompatibility protects a running host from a launcher built from other
   // sources. A descriptor whose owner process is gone describes no host, so it
@@ -985,15 +1101,22 @@ export async function recoverProviderHost(paths, expectedDescriptor) {
     if (current.descriptorId !== expectedDescriptor.descriptorId) {
       throw new Error("Provider host changed before recovery");
     }
-    const ownerState = processIdentityState(current.owner);
-    if (ownerState === "different") {
-      throw new Error("Provider host owner PID identity is ambiguous");
-    }
-    if (ownerState === "same") {
-      await terminateOwnedProcess(current.owner, "Provider host owner");
-    }
-    for (const target of current.processGroups) {
-      await terminateOwnedProcessGroup(target);
+    if (
+      !fromPreviousLinuxBoot(
+        readLinuxHomeHostScope(paths),
+        current.linuxHostScope,
+      )
+    ) {
+      const ownerState = processIdentityState(current.owner);
+      if (ownerState === "different") {
+        throw new Error("Provider host owner PID identity is ambiguous");
+      }
+      if (ownerState === "same") {
+        await terminateOwnedProcess(current.owner, "Provider host owner");
+      }
+      for (const target of current.processGroups) {
+        await terminateOwnedProcessGroup(target);
+      }
     }
     const recoveredAt = new Date().toISOString();
     const receipts = readProviderHostReceipts(paths);

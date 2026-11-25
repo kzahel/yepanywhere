@@ -1,6 +1,14 @@
 import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
-import { chmod, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -15,8 +23,11 @@ import {
   readProcessStartTime,
 } from "../../../../scripts/provider-process-identity.mjs";
 import {
+  acquireProviderHostLock,
+  discoverProviderHost,
   ensurePrivateProviderHostDirectory,
   finishLegacyProviderHostMigration,
+  recoverProviderHost,
   resolveProviderHostPaths,
   writeProviderHostDescriptor,
 } from "../../../../scripts/provider-runtime-discovery.mjs";
@@ -25,7 +36,10 @@ vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal();
   return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
 });
-afterEach(() => vi.mocked(execFileSync).mockClear());
+afterEach(() => {
+  vi.mocked(execFileSync).mockClear();
+  vi.unstubAllEnvs();
+});
 
 it("keeps unsupported platforms and Mac Bun on the ordinary provider path", () => {
   expect(
@@ -98,6 +112,127 @@ it("shares the Mac default across profiles and respects explicit directory overr
     ),
   ).toThrow("shorter private directory");
 });
+
+it("keeps the Linux XDG location and migrates only the old temp fallback", () => {
+  vi.stubEnv(process.platform === "win32" ? "TEMP" : "TMPDIR", "/tmp");
+  const linux = {
+    platform: "linux",
+    homeDir: "/home/test",
+    uid: 1000,
+    readLinuxScope: () => ({ bootId: "fixture" }),
+  };
+  const xdg = { XDG_RUNTIME_DIR: "/run/user/1000" };
+  const temp = join(tmpdir(), "yep-anywhere-1000", "provider-host");
+  const xdgPaths = resolveProviderHostPaths(xdg, linux);
+  expect(xdgPaths.runtimeDir).toBe(
+    resolve(xdg.XDG_RUNTIME_DIR, "yep-anywhere", "provider-host"),
+  );
+  expect(xdgPaths.legacyPaths).toBeUndefined();
+  expect(
+    resolveProviderHostPaths(
+      { YEP_PROFILE: "dev", YEP_DATA_DIR: "/other-data" },
+      linux,
+    ),
+  ).toMatchObject({
+    runtimeDir: resolve(linux.homeDir, ".yep-anywhere", "provider-host"),
+    legacyPaths: { runtimeDir: temp },
+  });
+  const unscoped = resolveProviderHostPaths(
+    {},
+    { ...linux, readLinuxScope: () => null },
+  );
+  expect(unscoped.runtimeDir).toBe(temp);
+  expect(unscoped.legacyPaths).toBeUndefined();
+  const explicit = resolveProviderHostPaths(
+    { ...xdg, YEP_PROVIDER_HOST_RUNTIME_DIR: "/local/host" },
+    linux,
+  );
+  expect(explicit.runtimeDir).toBe(resolve("/local/host"));
+  expect(explicit.legacyPaths).toBeUndefined();
+});
+
+it.skipIf(process.platform !== "linux")(
+  "recovers records from a previous Linux boot without signaling matching local processes",
+  async () => {
+    const home = await mkdtemp("/tmp/ya-host-scope-");
+    vi.stubEnv("HOME", home);
+    const paths = resolveProviderHostPaths({});
+    const child = spawn(
+      process.execPath,
+      ["-e", "setInterval(() => {}, 1000)"],
+      {
+        detached: true,
+        stdio: "ignore",
+      },
+    );
+    const exited = once(child, "exit");
+    try {
+      const owner = captureProcessIdentity(child.pid);
+      const identity = { sourceIdentity: {}, buildIdentity: "test" };
+      const release = acquireProviderHostLock(paths, owner);
+      const lock = JSON.parse(await readFile(paths.lockPath, "utf8"));
+      release();
+      writeProviderHostDescriptor(paths, {
+        ...identity,
+        descriptorId: "previous-boot",
+        hostProtocolVersion: 3,
+        features: [],
+        controlSocketPath: paths.controlSocketPath,
+        tokenFilePath: paths.tokenPath,
+        owner,
+        startedAt: new Date().toISOString(),
+        processGroups: [
+          { processGroupId: owner.pid, leaderStartTime: owner.startTime },
+        ],
+      });
+      const descriptor = JSON.parse(
+        await readFile(paths.descriptorPath, "utf8"),
+      );
+      const previousScope = {
+        ...descriptor.linuxHostScope,
+        bootId: "11111111-1111-4111-8111-111111111111",
+      };
+      const foreign = {
+        ...descriptor,
+        linuxHostScope: { ...previousScope, machineId: "f".repeat(64) },
+      };
+      await writeFile(paths.descriptorPath, JSON.stringify(foreign));
+      await expect(
+        discoverProviderHost(paths, { expectedIdentity: identity }),
+      ).resolves.toMatchObject({ state: "ownership-unknown" });
+
+      await writeFile(
+        paths.descriptorPath,
+        JSON.stringify({
+          ...descriptor,
+          linuxHostScope: previousScope,
+        }),
+      );
+      const previousLock =
+        JSON.stringify({
+          ...lock,
+          linuxHostScope: previousScope,
+        }) + "\n";
+      await writeFile(paths.lockPath, previousLock, { mode: 0o600 });
+      await writeFile(paths.recoveryLockPath, previousLock, { mode: 0o600 });
+      const discovery = await discoverProviderHost(paths, {
+        expectedIdentity: identity,
+      });
+      expect(discovery.state).toBe("unresponsive");
+      expect(discovery.error).toContain("earlier Linux boot");
+      await recoverProviderHost(paths, discovery.descriptor);
+      expect(processIdentityState(owner)).toBe("same");
+      await expect(
+        discoverProviderHost(paths, { expectedIdentity: identity }),
+      ).resolves.toEqual({ state: "absent" });
+    } finally {
+      if (child.exitCode === null && child.signalCode === null)
+        child.kill("SIGTERM");
+      await exited;
+      await rm(home, { recursive: true, force: true });
+    }
+  },
+);
 
 describe.skipIf(!["linux", "darwin"].includes(process.platform))(
   "native provider identity",
