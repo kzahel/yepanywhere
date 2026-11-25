@@ -13,6 +13,10 @@ import { assertClaudeCopyRoot } from "../../sessions/fork.js";
 import { resolveNativeSessionRef } from "../../sessions/SessionIdentityStore.js";
 import { routerModelSupportsThinking } from "@yep-anywhere/shared";
 import { claudeRouterEnvironment } from "./router-transport.js";
+import {
+  claudeRouterSettings,
+  claudeSessionToolOptions,
+} from "./claude-session-settings.js";
 import { startAgentSelfSession } from "./agent-self.js";
 import {
   type ChildProcess,
@@ -972,25 +976,12 @@ export class ClaudeProvider implements AgentProvider {
   private getSessionToolOptions(
     model: string | undefined,
     sandbox: SessionSandboxRuntime | undefined,
-  ): Pick<
-    Options,
-    "settings" | "disallowedTools" | "strictMcpConfig" | "mcpServers"
-  > {
-    const settings = this.getSettings(model);
-    if (!sandbox) {
-      return { settings, ...this.getDisallowedToolOptions(model) };
-    }
-    return {
-      settings: {
-        ...settings,
-        disableClaudeAiConnectors: true,
-        allowedMcpServers: [],
-        deniedMcpServers: [{ serverUrl: "*" }],
-      },
-      strictMcpConfig: true,
-      mcpServers: {},
-      disallowedTools: [...(this.getDisallowedTools(model) ?? []), "mcp__*"],
-    };
+  ): ReturnType<typeof claudeSessionToolOptions> {
+    return claudeSessionToolOptions(
+      this.getSettings(model),
+      this.getDisallowedTools(model),
+      sandbox,
+    );
   }
 
   /**
@@ -1989,17 +1980,11 @@ export class ClaudeProvider implements AgentProvider {
           ...this.getSessionToolOptions(options.model, sessionSandbox),
           ...(options.routerLaunch
             ? {
-                settings: {
-                  ...this.getSettings(options.model),
-                  apiKeyHelper: "",
-                  ...(options.routerLaunch.claudeAiConnectors
-                    ? {}
-                    : { disableClaudeAiConnectors: true }),
-                  env: claudeRouterEnvironment(
-                    options.routerLaunch,
-                    claudeEnv.ANTHROPIC_CUSTOM_HEADERS,
-                  ),
-                },
+                settings: claudeRouterSettings(
+                  this.getSettings(options.model),
+                  options.routerLaunch,
+                  claudeEnv.ANTHROPIC_CUSTOM_HEADERS,
+                ),
               }
             : {}),
           hooks: {

@@ -1,4 +1,5 @@
 import { resolveProviderLaunchModel } from "./providerLaunchModel.js";
+import { instructionLaunchOptions } from "./instruction-launch-options.js";
 import { assertProviderExecutable } from "../sdk/providers/retired-provider.js";
 import type { HarnessRelationshipObserver } from "../sessions/NestedHarnessRelationshipService.js";
 import { assertClaudeCopyRoot, cloneClaudeSession } from "../sessions/fork.js";
@@ -2871,7 +2872,8 @@ export class Supervisor {
       releaseMemory = await reserveLocalMemory(this.processes, activeProvider);
       const agentApiEpoch = this.agentApiEpoch;
       const peerApiEpoch = this.peerApiEpoch;
-      const instructions = await this.instructionLaunchOptions(
+      const instructions = await instructionLaunchOptions(
+        this.instructionOptions,
         activeProvider.name,
         resumeSessionId,
         projectId,
@@ -5599,32 +5601,6 @@ export class Supervisor {
       timestamp: new Date().toISOString(),
     };
     this.eventBus.emit(event);
-  }
-
-  private async instructionLaunchOptions(
-    provider: ProviderName,
-    sessionId: string | undefined,
-    projectId: UrlProjectId,
-    isolated: boolean,
-  ): Promise<
-    Pick<
-      import("../sdk/providers/types.js").StartSessionOptions,
-      "instructionRestoration" | "instructionReadHistory"
-    >
-  > {
-    const settings =
-      this.instructionOptions.getInstructionRestorationSettings?.();
-    if (!settings?.providers[provider] || isolated) return {};
-    return {
-      instructionRestoration: settings,
-      instructionReadHistory: sessionId
-        ? await this.instructionOptions.readInstructionHistory?.(
-            sessionId,
-            projectId,
-            provider,
-          )
-        : undefined,
-    };
   }
 
   async refreshInstructionRestoration(only?: Process): Promise<void> {
