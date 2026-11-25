@@ -35,6 +35,9 @@ test("header preserves identity, overflow actions and rename typing during live 
   baseURL,
   browser,
 }) => {
+  // CI runs 45639697433 and 45648807266 reached 15 s after loading Issues,
+  // before checking the mouse layout. Allow for the full viewport sequence.
+  test.setTimeout(40_000);
   const projectId = Buffer.from(join(e2ePaths.tempDir, "mockproject")).toString(
     "base64url",
   );
