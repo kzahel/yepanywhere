@@ -16,10 +16,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAgentAuthRouterRoutes } from "../src/routes/agent-auth-router.js";
 import { AntigravityProvider } from "../src/sdk/providers/antigravity.js";
-import {
-  prepareAntigravityBridgeProfile,
-  startAntigravityRouterBridge,
-} from "../src/sdk/providers/antigravity-router-bridge.js";
+import { prepareAntigravityRoutedProfile } from "../src/sdk/providers/antigravity-routed-profile.js";
+import { startRouterLoopbackProxy } from "../src/sdk/providers/router-loopback-proxy.js";
 import {
   antigravityAllSessionsDirs,
   setAntigravityRoutedHomeDir,
@@ -53,13 +51,13 @@ async function makeTempDir(prefix: string): Promise<string> {
   return dir;
 }
 
-describe("antigravity router bridge security and lifecycle", () => {
+describe("routed Antigravity profile and loopback proxy", () => {
   it("prepares a private profile marker, reuses it across concurrent sessions, and refuses real OAuth or insecure files", async () => {
     const root = await makeTempDir("ya-agy-profile-");
     const home = join(root, "antigravity-home");
 
-    const first = prepareAntigravityBridgeProfile(home);
-    const second = prepareAntigravityBridgeProfile(home);
+    const first = prepareAntigravityRoutedProfile(home);
+    const second = prepareAntigravityRoutedProfile(home);
     expect(first.marker).toMatch(/^aar_local_[A-Za-z0-9_-]{32,}$/);
     expect(second.marker).toBe(first.marker);
 
@@ -103,7 +101,7 @@ describe("antigravity router bridge security and lifecycle", () => {
       }),
       { mode: 0o600 },
     );
-    expect(() => prepareAntigravityBridgeProfile(realOauthHome)).toThrow(
+    expect(() => prepareAntigravityRoutedProfile(realOauthHome)).toThrow(
       /real Google OAuth/i,
     );
 
@@ -112,27 +110,26 @@ describe("antigravity router bridge security and lifecycle", () => {
       const looseHome = join(root, "loose");
       await mkdir(looseHome, { mode: 0o755 });
       await chmod(looseHome, 0o755);
-      expect(() => prepareAntigravityBridgeProfile(looseHome)).toThrow(
+      expect(() => prepareAntigravityRoutedProfile(looseHome)).toThrow(
         /permissive/i,
       );
 
       // Refuse symlinked profile root.
       const linkHome = join(root, "link-home");
       await symlink(home, linkHome);
-      expect(() => prepareAntigravityBridgeProfile(linkHome)).toThrow(
+      expect(() => prepareAntigravityRoutedProfile(linkHome)).toThrow(
         /regular directory/i,
       );
     }
   });
 
-  it("enforces Host, marker auth, RPC allowlist, header filtering, SSE streaming, and clean teardown", async () => {
+  it("requires its own Host and local token, keeps requests on the binding's route, swaps the credential, streams, and tears down", async () => {
     const received: Array<{
       url: string;
       method: string;
       headers: http.IncomingHttpHeaders;
       body: string;
     }> = [];
-    let upstreamAborted = false;
 
     const upstream = http.createServer(async (req, res) => {
       const chunks: Buffer[] = [];
@@ -151,9 +148,6 @@ describe("antigravity router bridge security and lifecycle", () => {
           "x-custom-ok": "1",
         });
         res.write('data: {"chunk":1}\n\n');
-        req.on("close", () => {
-          upstreamAborted = true;
-        });
         setTimeout(() => {
           if (!res.writableEnded) {
             res.write('data: {"chunk":2}\n\n');
@@ -185,59 +179,45 @@ describe("antigravity router bridge security and lifecycle", () => {
 
     const gatewayToken = "aar_session_secret_token_never_leaks";
     const marker = "aar_local_0123456789abcdef0123456789abcdef0123";
-    const bridge = await startAntigravityRouterBridge({
+    const bridge = await startRouterLoopbackProxy({
       baseUrl: `http://127.0.0.1:${addr.port}/antigravity`,
       token: gatewayToken,
-      marker,
+      localToken: marker,
     });
     cleanups.push(() => bridge.close());
 
-    // Wrong method -> 405
-    const getRes = await fetch(`${bridge.endpoint}/v1internal:loadCodeAssist`);
-    expect(getRes.status).toBe(405);
+    await expect(
+      startRouterLoopbackProxy({
+        baseUrl: `http://127.0.0.1:${addr.port}/antigravity`,
+        token: gatewayToken,
+        localToken: gatewayToken,
+      }),
+    ).rejects.toThrow(/refuses the binding token/);
+    // With no route, a target such as `/.//elsewhere.test/` would name
+    // another host, and the token would follow it there.
+    await expect(
+      startRouterLoopbackProxy({
+        baseUrl: `http://127.0.0.1:${addr.port}`,
+        token: gatewayToken,
+        localToken: marker,
+      }),
+    ).rejects.toThrow(/requires a route below the origin/);
 
-    // Wrong marker -> 401
-    const badAuth = await fetch(
-      `${bridge.endpoint}/v1internal:loadCodeAssist`,
-      {
-        method: "POST",
-        headers: { authorization: "Bearer wrong" },
-        body: "{}",
-      },
-    );
-    expect(badAuth.status).toBe(401);
-
-    // Disallowed path and traversal -> 404
-    const badPath = await fetch(`${bridge.endpoint}/v1/messages`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${marker}` },
-      body: "{}",
-    });
-    expect(badPath.status).toBe(404);
-    const traversal = await fetch(
-      `${bridge.endpoint}/v1internal:loadCodeAssist%2f..%2fclaude`,
-      {
-        method: "POST",
-        headers: { authorization: `Bearer ${marker}` },
-        body: "{}",
-      },
-    );
-    expect(traversal.status).toBe(404);
-
-    // Wrong Host header -> 403
+    // Sends the request line as written; fetch would resolve dot segments.
     const bridgeUrl = new URL(bridge.endpoint);
-    const wrongHostStatus = await new Promise<number>(
-      (resolveStatus, reject) => {
+    const raw = (
+      path: string,
+      headers: http.OutgoingHttpHeaders,
+      method = "POST",
+    ) =>
+      new Promise<number>((resolveStatus, reject) => {
         const req = http.request(
           {
             hostname: "127.0.0.1",
             port: Number(bridgeUrl.port),
-            method: "POST",
-            path: "/v1internal:loadCodeAssist",
-            headers: {
-              host: "evil.example:1234",
-              authorization: `Bearer ${marker}`,
-            },
+            method,
+            path,
+            headers,
           },
           (res) => {
             res.resume();
@@ -245,13 +225,51 @@ describe("antigravity router bridge security and lifecycle", () => {
           },
         );
         req.on("error", reject);
-        req.end("{}");
-      },
-    );
-    expect(wrongHostStatus).toBe(403);
+        req.end(
+          method === "POST" || headers["transfer-encoding"] ? "{}" : undefined,
+        );
+      });
+    const local = { authorization: `Bearer ${marker}` };
+
+    // No local token, the binding token itself, or another Host: refused here.
+    expect(await raw("/v1internal:loadCodeAssist", {})).toBe(401);
+    expect(
+      await raw("/v1internal:loadCodeAssist", {
+        authorization: `Bearer ${gatewayToken}`,
+      }),
+    ).toBe(401);
+    expect(
+      await raw("/v1internal:loadCodeAssist", {
+        ...local,
+        host: "evil.example:1234",
+      }),
+    ).toBe(403);
+    // Encoded traversal and a second origin are not request targets.
+    expect(await raw("/v1internal:x%2f..%2f..%2fclaude", local)).toBe(400);
+    expect(await raw("//evil.example/v1/messages", local)).toBe(400);
+    // Node sends a GET without body framing, so a forwarded body would reach
+    // the router as a second request that passed none of these checks.
+    expect(
+      await raw(
+        "/v1internal:loadCodeAssist",
+        { ...local, "transfer-encoding": "chunked" },
+        "GET",
+      ),
+    ).toBe(400);
     expect(received).toHaveLength(0);
 
-    // Allowed SSE RPC forwards with AAR gateway token, strips disallowed request/response headers
+    // Any other path and method is the router's to judge, and stays below
+    // the route even where its dot segments or a second `//` point elsewhere.
+    expect(await raw("/a/../../../claude/v1/messages", local, "GET")).toBe(200);
+    expect(await raw("/.//elsewhere.test/v1/messages", local)).toBe(200);
+    expect(received.map((r) => [r.method, r.url])).toEqual([
+      ["GET", "/antigravity/claude/v1/messages"],
+      ["POST", "/antigravity//elsewhere.test/v1/messages"],
+    ]);
+    received.length = 0;
+
+    // The binding token replaces the local one; nothing the program sends
+    // can name another credential or a forwarding chain to the router.
     const okRes = await fetch(
       `${bridge.endpoint}/v1internal:streamGenerateContent?alt=sse`,
       {
@@ -260,7 +278,11 @@ describe("antigravity router bridge security and lifecycle", () => {
           authorization: `Bearer ${marker}`,
           "content-type": "application/json",
           "user-agent": "antigravity/hub/2.24.0",
-          "x-evil-header": "drop-me",
+          "x-goog-api-client": "fixture-client",
+          cookie: "drop=me",
+          "x-aar-gateway-token": "drop-me",
+          "x-api-key": "drop-me",
+          "x-forwarded-for": "203.0.113.9",
         },
         body: '{"hello":"world"}',
       },
@@ -277,7 +299,17 @@ describe("antigravity router bridge security and lifecycle", () => {
       "/antigravity/v1internal:streamGenerateContent?alt=sse",
     );
     expect(received[0]?.headers.authorization).toBe(`Bearer ${gatewayToken}`);
-    expect(received[0]?.headers["x-evil-header"]).toBeUndefined();
+    expect(received[0]?.headers).toMatchObject({
+      "user-agent": "antigravity/hub/2.24.0",
+      "x-goog-api-client": "fixture-client",
+    });
+    for (const dropped of [
+      "cookie",
+      "x-aar-gateway-token",
+      "x-api-key",
+      "x-forwarded-for",
+    ])
+      expect(received[0]?.headers[dropped]).toBeUndefined();
     expect(received[0]?.body).toBe('{"hello":"world"}');
 
     // Close tears down listener cleanly
@@ -289,7 +321,6 @@ describe("antigravity router bridge security and lifecycle", () => {
         body: "{}",
       }),
     ).rejects.toThrow();
-    expect(typeof upstreamAborted).toBe("boolean");
   });
 });
 
@@ -315,6 +346,12 @@ describe("AgentAuthRouter Antigravity control and capability gating", () => {
     const f = await fixture(true, true, true, true);
     f.antigravityAccount(true);
     f.name("Personal AGY", "AGY Pool");
+    // A route YA could not have assembled from the provider name.
+    f.describeTransport({
+      kind: "http-gateway-v1",
+      basePath: "/antigravity/described",
+      authMethods: ["bearer"],
+    });
     await f.connector.connect(f.socketPath);
 
     const sel = await f.connector.selection("antigravity");
@@ -333,7 +370,7 @@ describe("AgentAuthRouter Antigravity control and capability gating", () => {
       "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
     );
     expect(launch).toBeDefined();
-    expect(launch?.baseUrl).toBe("http://127.0.0.1:8417/antigravity");
+    expect(launch?.baseUrl).toBe("http://127.0.0.1:8417/antigravity/described");
     expect(launch?.profileDir).toBe(
       join(f.root, "agent-auth-router", "antigravity-home"),
     );
@@ -483,7 +520,8 @@ const endpoint = epIdx >= 0 ? args[epIdx + 1] : null;
 const geminiDir = dirIdx >= 0 ? args[dirIdx + 1] : null;
 const tokenFile = geminiDir ? JSON.parse(readFileSync(join(geminiDir, "antigravity-cli", "antigravity-oauth-token"), "utf8")) : null;
 
-writeFileSync(${JSON.stringify(captureFile)}, JSON.stringify({
+if (endpoint) writeFileSync(${JSON.stringify(captureFile)}, JSON.stringify({
+  pid: process.pid,
   args,
   endpoint,
   geminiDir,
@@ -495,6 +533,8 @@ writeFileSync(${JSON.stringify(captureFile)}, JSON.stringify({
     RAW_ENV: JSON.stringify(process.env),
   },
 }));
+
+if (process.env.FAKE_AGY_EXITS_AT_STARTUP && endpoint) process.exit(1);
 
 const rl = readline.createInterface({ input: process.stdin });
 rl.on("line", async (line) => {
@@ -576,6 +616,7 @@ rl.on("line", async (line) => {
     });
 
     const captured = JSON.parse(await readFile(captureFile, "utf8")) as {
+      pid: number;
       args: string[];
       endpoint: string;
       geminiDir: string;
@@ -613,19 +654,67 @@ rl.on("line", async (line) => {
       { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash" },
     ]);
 
-    await session.abort();
-    await session.iterator.return?.();
-
-    // Bridge port is closed after session teardown.
-    await expect(
+    // agy exits on its own while the consumer reads nothing further: the
+    // port is released without waiting for the session to be torn down.
+    process.kill(captured.pid);
+    const refusesConnections = () =>
       fetch(`${captured.endpoint}/v1internal:loadCodeAssist`, {
         method: "POST",
         headers: {
           authorization: `Bearer ${captured.tokenFile.token.access_token}`,
         },
         body: "{}",
-      }),
-    ).rejects.toThrow();
+      }).then(
+        () => false,
+        () => true,
+      );
+    await expect.poll(refusesConnections, { timeout: 5_000 }).toBe(true);
+
+    await session.abort();
+    await session.iterator.return?.();
+
+    // agy dies before answering `initialize`. The consumer is handed the
+    // error and reads no further; the port is already released.
+    await rm(captureFile);
+    process.env.FAKE_AGY_EXITS_AT_STARTUP = "1";
+    cleanups.push(async () => {
+      delete process.env.FAKE_AGY_EXITS_AT_STARTUP;
+    });
+    const failed = await provider
+      .startSession({
+        cwd: projectDir,
+        model: "gemini-3.8-flash",
+        routerLaunch: {
+          bindingId: "binding-2",
+          accountId: "personal-antigravity",
+          baseUrl: `http://127.0.0.1:${aarAddr.port}/antigravity`,
+          token: aarToken,
+          profileDir: routedHome,
+          models: [],
+        },
+      })
+      .then(
+        (started) => started.iterator.next(),
+        (error: unknown) => error,
+      );
+    const died = JSON.parse(await readFile(captureFile, "utf8")) as {
+      endpoint: string;
+    };
+    expect(died.endpoint).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+    expect(died.endpoint).not.toBe(captured.endpoint);
+    expect(
+      await fetch(`${died.endpoint}/v1internal:loadCodeAssist`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${captured.tokenFile.token.access_token}`,
+        },
+        body: "{}",
+      }).then(
+        () => "open",
+        () => "refused",
+      ),
+      JSON.stringify(failed),
+    ).toBe("refused");
   });
 
   it("activates the routed Antigravity store watcher lazily once the routed directory is created", async () => {
@@ -691,10 +780,10 @@ rl.on("line", async (line) => {
     const addr = upstream.address();
     if (!addr || typeof addr === "string") return;
     const marker = "aar_local_0123456789abcdef0123456789abcdef0123";
-    const bridge = await startAntigravityRouterBridge({
+    const bridge = await startRouterLoopbackProxy({
       baseUrl: `http://[::1]:${addr.port}/antigravity`,
       token: "aar_ipv6_token",
-      marker,
+      localToken: marker,
     });
     cleanups.push(() => bridge.close());
 

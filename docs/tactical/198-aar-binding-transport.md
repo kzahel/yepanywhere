@@ -4,8 +4,10 @@ Status: steps 1 and 2 implemented and pushed, 2026-11-25. AAR commits
 `d5623a7` and `5a5039a` publish the transport and are unreleased. YA consumes
 it from `f4c106fb1` and keeps the legacy shim. Step 5 is partly done: AAR's
 cross-repository suite (AAR `a1e96cc`) runs that YA commit against the
-describing router over the local control socket. Steps 3 and 4 are open, as
-are the hosted and official-executable checks and the AAR release in step 5.
+describing router over the local control socket. Step 3 was redecided on
+2026-11-25: the listener stays in YA as a provider-neutral proxy and AAR
+describes the Antigravity route. Step 4 is open, as are the hosted and
+official-executable checks and the AAR release in step 5.
 The landed behavior is recorded in the
 [binding transport contract](../../topics/agent-auth-router.md#binding-transport-2026-11-25).
 
@@ -19,12 +21,13 @@ the provider subprocess and conversation. Direct login remains the default.
 Provider API-key accounts and pay-as-you-go API routing are outside AAR's scope.
 
 Claude and Codex are the first consumers of the new protocol. Experimental
-Antigravity routing is the reason the contract must also accommodate an
-endpoint that is prepared on the execution host. The protocol design and that
-adapter's authentication are separate decisions. Keep Direct and existing
-experimental behavior during this protocol work. The
+Antigravity routing needs an endpoint on the execution host, because `agy`
+cannot be handed the binding token. The protocol design and that adapter's
+authentication are separate decisions. Keep Direct and existing experimental
+behavior during this protocol work. The
 [Antigravity authentication decision](197-antigravity-credential-boundary.md)
-records the declined Gemini API-key proposal and the remaining boundary.
+records the declined Gemini API-key proposal. On 2026-11-25 the maintainer
+accepted the existing Antigravity authentication as the experimental mode.
 
 ## What exists today
 
@@ -46,19 +49,18 @@ there and keep the existing account-selection and ownership rules. See
 [YA binding and launch code](../../packages/server/src/services/AgentAuthRouter.ts)
 and [native launch adapters](../../packages/server/src/sdk/providers/router-transport.ts).
 
-The experimental Antigravity path goes further. YA owns an in-process loopback
-bridge and handles provider-specific authentication setup. Some bindings may
-need a host-local endpoint before YA can start the native process. AAR should
-own that endpoint and its lifecycle.
+The experimental Antigravity path goes further. Before step 3, YA owned an
+in-process loopback bridge that listed Google's private Cloud Code endpoint
+names, and its binding described no transport.
 See the [current Antigravity routing contract](../../topics/agent-auth-router.md#antigravity-per-session-routing-2026-11-23).
 
 ## Ownership
 
 | Owner | Responsibilities |
 | --- | --- |
-| AAR | Enroll subscription profiles through their official CLIs, own grants and pool policy, choose and pin the account, publish the inference route and supported auth methods, authorize and revoke bindings, and account for traffic. When a transport needs an endpoint on the execution host, an AAR component on that host owns its listener. |
+| AAR | Enroll subscription profiles through their official CLIs, own grants and pool policy, choose and pin the account, publish the inference route and supported auth methods, decide which paths and methods each route serves, authorize and revoke bindings, and account for traffic. |
 | YA server | Pair with the configured router, request and validate the binding for the user-selected account or pool, retain the binding identity, and keep the AAR-issued inference credential in server-private state. |
-| YA provider adapter and runtime owner | Translate the checked transport into supported native client settings. Own the working directory, subprocess, approvals, input delivery, stop, restart or reattach, and native history. |
+| YA provider adapter and runtime owner | Translate the checked transport into supported native client settings. When the native program cannot be handed the binding token, front the route with YA's provider-neutral loopback proxy. Own the working directory, subprocess, approvals, input delivery, stop, restart or reattach, and native history. |
 
 The paired YA installation is the AAR integration principal. The owner grants
 it use of accounts or pools. The control credential acts for that principal.
@@ -95,8 +97,9 @@ Illustrative committed Codex response fields:
 }
 ```
 
-`http-gateway-v1` describes a direct connection from the native client to AAR.
-Claude can offer `bearer` and `aar-gateway-header`. YA picks the latter only
+`http-gateway-v1` describes a route on AAR's inference origin and how a
+request presents the token there. Claude and Codex connect to it directly;
+`agy` reaches it through YA's loopback proxy. Claude can offer `bearer` and `aar-gateway-header`. YA picks the latter only
 for the existing explicit connector option when the local login is available.
 The native Claude adapter continues to own the CLI's header and environment
 configuration. AAR continues to discard the execution host's native bearer
@@ -118,44 +121,38 @@ descriptor accepts data fields only. Executables, arguments, environment
 overlays and headers remain locally authored by the native adapter. See
 [hosted AAR](../../topics/agent-auth-router.md#hosted-https-router-2026-11-15).
 
-### Transport prepared on the execution host
+### Endpoint on the execution host
 
-Reserve a separate transport kind, `local-http-v1`, for a route that needs a
-listener on the machine running the provider. The hosted AAR origin still
-uses the same HTTPS port for control and inference. Its binding response
-advertises the local transport kind and compatible auth methods. The local
-AAR component supplies the actual endpoint after it binds. Port allocation
-belongs to that component.
+`agy` presents the login stored in its profile, and sends that login to
+Google as well as to the endpoint it is pointed at. It therefore cannot be
+given the binding token. Something on the machine running `agy` must accept a
+stand-in credential and replace it with the token. That listener cannot live
+on a hosted router: the stand-in must be worthless anywhere but on the
+execution host's own loopback listeners.
 
-The operator configures the local AAR executable on that host. YA starts it as
-a supervised child with a private control pipe, scoped to one provider launch
-attempt. YA sends an `init` with the committed binding identity, the launch
-attempt ID and the existing AAR gateway credential over that pipe. The helper
-acquires its listener and reports readiness on the same pipe. An illustrative
-reply is:
+Decided 2026-11-25: YA hosts that listener as a provider-neutral proxy, and
+AAR describes the Antigravity route with the same `http-gateway-v1` transport
+as Claude and Codex (`/antigravity`, `bearer`). `bearer` states what the route
+accepts. That the native program may not hold the token is a fact about `agy`,
+so it lives in YA's Antigravity launch adapter beside the launch flags and
+the profile setup.
 
-```json
-{
-  "state": "ready",
-  "bindingId": "<binding-id>",
-  "attemptId": "<attempt-id>",
-  "baseUrl": "http://127.0.0.1:53117/inference"
-}
-```
+The proxy knows a local token, the binding token, and the checked route. It
+requires its own `Host` and the local token on every request, replaces the
+credential, and forwards plain HTTP exchanges below the route. It names no
+provider endpoint. AAR refuses any path or method outside the provider's
+registered routes before it checks the token, so a second list in YA would
+only repeat AAR's. The
+[routing contract](../../topics/agent-auth-router.md#antigravity-per-session-routing-2026-11-23)
+lists what the proxy refuses.
 
-The provider endpoint may include a URL path. YA checks both identities and
-requires a literal loopback address, an explicit port, and a URL free of
-credentials, query and fragment. Invalid readiness, timeout, or early helper
-exit fails startup. Helper exit during a session ends that native owner with
-a transport failure. The listener accepts traffic authenticated for its own
-binding. The helper owns listener cleanup on stop or control-pipe closure.
-The Provider Host retains the helper with its provider when the backend
-reattaches. Cold resume creates a fresh attempt and listener on the same
-account binding. Port numbers and readiness replies are process state.
-
-The first protocol tests can exercise `init` and `ready` with a local
-scripted HTTP peer and a synthetic AAR credential. Production enablement
-needs a concrete adapter with a qualified native authentication path.
+The earlier design reserved a `local-http-v1` kind: YA would start an `aar`
+executable as a supervised child, and that helper would own the listener and
+report its URL over a control pipe. It was set aside because a hosted router
+would then need an `aar` install on every execution host, kept compatible
+with the router, where today a hosted setup needs nothing beyond YA. The kind
+stays reserved and unimplemented. A router would offer a later kind only to a
+client that names it in its prepare request.
 
 ### Launch and recovery sequence
 
@@ -169,9 +166,10 @@ needs a concrete adapter with a qualified native authentication path.
    repeats the idempotent commit. A definitive grant or account refusal is
    surfaced with the existing error path. A new preflight failure releases its
    reservation through the existing cancellation logic.
-3. **Prepare transport and start the native provider.** A hosted URL can be
-   used immediately after commit. A local transport reaches `ready` first. YA
-   applies the checked URL and starts the native runtime in the local project.
+3. **Prepare transport and start the native provider.** The checked URL can
+   be used immediately after commit. An adapter whose program cannot hold the
+   token starts the loopback proxy first and points the program at it. YA
+   applies the URL and starts the native runtime in the local project.
    Its existing startup and first-input boundaries determine whether the
    launch succeeded. AAR commit confirms routing authorization. Native
    readiness stays with YA.
@@ -236,25 +234,35 @@ change preserves the current switch behavior and its stale-owner fence. The
 tracks non-inference calls that the native client can make using its local
 login. Qualify routed model traffic here and keep the separate gap visible.
 
-### 3 — Qualify the execution-host transport boundary
+### 3 — Describe the Antigravity route and make YA's listener generic
 
-Exercise the local transport contract with a scripted helper. Prove that the
-URL path and ephemeral port come from the child, that two concurrent starts
-keep their attempt identities separate, and that invalid readiness, stop and
-backend reattach leave the expected launch resources. Cover startup failure
-and cold resume under the same account pin. Keep the production helper and
-provider registration with the first adapter that qualifies for this path.
+Redecided 2026-11-25; see
+[endpoint on the execution host](#endpoint-on-the-execution-host).
 
-For an Antigravity cutover, first identify an authentication path that keeps
-Google's native sign-in intact and leaves YA with only the AAR binding and
-validated endpoint. Keep the original session store and pin available when
-qualifying resume. If that authentication path is unavailable, retain the
-existing behavior and record the unresolved cutover. The protocol tests can
-pass independently of the provider decision.
+- **AAR:** attach the `http-gateway-v1` transport to Antigravity bindings. A
+  YA that predates this ignores the field on those bindings, so AAR ships
+  first.
+- **YA:** check that transport like the others, with the legacy shim covering
+  a router that does not advertise `binding-transport-v1`, and any
+  Antigravity reply that omits `transport`, as unreleased AAR commits
+  `d5623a7` to `a1e96cc` do. Replace the
+  Antigravity bridge with a provider-neutral loopback proxy that carries no
+  endpoint list, and keep the `agy` profile setup and launch flags in the
+  Antigravity adapter.
+- **Cross-repository:** show that a request outside AAR's registered routes
+  passes YA's proxy and is refused by AAR, and that `agy` still never holds
+  the binding token.
+
+What stays specific to `agy` in YA is the launch flags and a stand-in login
+written in `agy`'s token-file format. It holds no real credential and no
+OAuth logic. Removing it too would need the AAR helper set aside above.
+
+All routed Antigravity sessions share one profile and so one local token; see
+[the gap](../../gaps/routed-antigravity-sessions-share-one-local-token.md).
 
 ### 4 — Put experimental provider opt-in in AAR Settings
 
-A qualified experimental adapter is off by default. In AAR Settings, the
+An experimental adapter is off by default. In AAR Settings, the
 router owner can check **Enable experimental Antigravity routing**. Show the
 warning next to the unchecked control, before the owner opts in:
 
@@ -275,7 +283,8 @@ semantics. Retain pins and conversation history. A cold resume reports that
 the router disabled the provider. Re-enabling uses the current grants and the
 existing pin. Test discovery, admission and revocation through both local and
 hosted AAR with a synthetic adapter before exposing the checkbox for a real
-provider. The toggle applies to the new adapter at cutover.
+provider. The toggle applies to the existing Antigravity path and does not
+wait for any transport change.
 
 ### 5 — Verify both repositories and ship AAR first
 

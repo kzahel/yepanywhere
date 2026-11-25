@@ -355,8 +355,15 @@ executable, argument, environment value and header itself.
   sessions therefore launch and resume in either upgrade order. This shim is
   temporary; [its gap](../gaps/aar-legacy-transport-shim.md) holds the removal
   condition, after which such a router gets an "Update AAR" launch error.
-- **Antigravity.** Its bindings describe no transport. The session bridge
-  keeps fronting the router's `/antigravity` route.
+- **Antigravity.** Its binding describes `/antigravity` with `bearer`, and
+  YA checks it like the others. `bearer` says how a request to the route
+  presents the token; `agy` itself may not hold the token, so its adapter
+  fronts the checked route with the
+  [loopback proxy](#antigravity-per-session-routing-2026-11-23). When an
+  Antigravity reply that otherwise checks out carries no `transport`, YA
+  assumes `/antigravity`, as it does for an older router. Unreleased AAR
+  commits `d5623a7` to `a1e96cc` advertise the capability and send such
+  replies. That allowance goes with the shim.
 
 AAR's [cross-repository suite](https://github.com/kzahel/agent-auth-router/tree/main/integration/yepanywhere)
 runs YA `f4c106fb1` against the describing router over the local control
@@ -886,17 +893,43 @@ server-wide `CLOUD_CODE_URL` or `GEMINI_HOME` environment variables
   (`v1internal:retrieveUserQuotaSummary`). Older routers without
   `antigravity-control-v1` return no Antigravity pools on discovery and fail
   closed on routed Antigravity launches with an upgrade message.
-- **Session-scoped loopback bridge.** `agy acp` cannot send a custom auth header
+- **Session-scoped loopback proxy.** `agy acp` cannot send a custom auth header
   and sends its own bearer token to Cloud Code and Google UserInfo. For each
   routed Antigravity session, YA prepares a private profile under
   `<dataDir>/agent-auth-router/antigravity-home` (`0700` dir, `0600` placeholder
   `aar_local_*` marker — refusing any real Google OAuth credential), starts a
-  session-scoped loopback HTTP bridge on `127.0.0.1:0` holding only that
+  session-scoped loopback HTTP proxy on `127.0.0.1:0` holding only that
   session's AAR gateway token in memory, and launches `agy acp` with
   `--cloud_code_endpoint http://127.0.0.1:<port>` and `--gemini-dir <profileDir>`.
-  The bridge enforces `Host`, constant-time marker verification, the 7-RPC
-  `/v1internal:*` POST allowlist, and request/response header filtering, and
-  closes when `agy acp` exits or aborts.
+- **The proxy is provider-neutral (2026-11-25).**
+  `sdk/providers/router-loopback-proxy.ts` knows a local token, the binding
+  token and the checked route, and names no Google endpoint.
+  - *Who may use it.* Every request needs the local token, compared in
+    constant time, which keeps out a web page and any program that cannot
+    read the profile. It also needs the proxy's exact `Host`, which keeps out
+    a page that reaches loopback through DNS rebinding. Connections are
+    capped at 64, and one that sends no request headers is dropped within
+    about 20 s.
+  - *Where a request can go.* The target is resolved to a path below the
+    route on the checked origin, and a request that would land anywhere else
+    is refused. So are encoded dots and slashes in the path, and a base URL
+    with no route. Other encodings pass to AAR, whose exact route match
+    refuses them.
+  - *What is forwarded.* The proxy replaces the credential and drops every
+    header AAR reads one from (`authorization`, `x-api-key`, `x-aar-*`),
+    cookies, forwarding headers a hosted router's reverse proxy sets, and
+    hop-by-hop headers including those `Connection` names. It relays plain
+    HTTP exchanges with any other method and path: no CONNECT, no upgrade,
+    and never a body on a method that defines none, which Node would forward
+    without framing. AAR decides which paths and methods its `/antigravity`
+    route serves, and refuses the rest before checking the token.
+  - *What stays with `agy`.* The profile and launch flags are in the
+    Antigravity adapter (`antigravity-routed-profile.ts`,
+    `antigravity-launch.ts`). The proxy closes when `agy` exits, when its
+    startup or a turn fails, and on abort.
+  - *Known limit.* All routed sessions share one profile, so
+    [one local token opens every running session's proxy](../gaps/routed-antigravity-sessions-share-one-local-token.md)
+    to a process of the same OS user.
 - **Dual-store native history (Plan 195).** Direct sessions keep `~/.gemini` and
   routed sessions use `<dataDir>/agent-auth-router/antigravity-home`. YA's
   catalog, watcher and merged reader observe both stores independently so direct

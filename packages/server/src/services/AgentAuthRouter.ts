@@ -849,26 +849,20 @@ export class AgentAuthRouter {
       );
     return models;
   }
-  /**
-   * The checked transport on a binding response. Antigravity bindings
-   * describe none: `agy` cannot authenticate to the router, so its session
-   * bridge fronts the route.
-   */
+  /** The checked transport on a binding response. */
   private bindingTransport(
     info: Info,
     c: Connection,
     allocation: Allocation,
     state: "prepared-or-committed" | "committed",
     response: unknown,
-  ): RouterTransport | undefined {
+  ): RouterTransport {
     const { id, accountId, provider } = allocation;
-    return provider === "antigravity"
-      ? undefined
-      : routerTransport(
-          info,
-          { id, routerId: c.routerId, accountId, provider, state },
-          response,
-        );
+    return routerTransport(
+      info,
+      { id, routerId: c.routerId, accountId, provider, state },
+      response,
+    );
   }
   /** Reserve an allocation in AAR; a pool reservation names its account. */
   private preparePin(
@@ -1324,7 +1318,7 @@ export class AgentAuthRouter {
         });
       }
       let accountModels: ModelInfo[] = [];
-      let transport: RouterTransport | undefined;
+      let transport: RouterTransport;
       try {
         const selected = await this.preparePin(c, info, allocation);
         const pinnedPoolId = allocation.poolId;
@@ -1408,11 +1402,11 @@ export class AgentAuthRouter {
       // to start, so such a launch keeps the token-only transport instead.
       const claudeAiConnectors =
         allocation.claudeAiConnectors === true &&
-        transport?.authMethods.includes("aar-gateway-header") === true &&
+        transport.authMethods.includes("aar-gateway-header") &&
         (await this.claudeAiLogin?.()) != null;
       return {
         models: accountModels,
-        ...(transport?.modelCatalogUrl
+        ...(transport.modelCatalogUrl
           ? { modelCatalogUrl: transport.modelCatalogUrl }
           : {}),
         ...(claudeAiConnectors ? { claudeAiConnectors } : {}),
@@ -1421,7 +1415,7 @@ export class AgentAuthRouter {
           : {}),
         bindingId: allocation.id,
         accountId: allocation.accountId,
-        baseUrl: transport?.baseUrl ?? `${info.inferenceOrigin}/antigravity`,
+        baseUrl: transport.baseUrl,
         token: allocation.token,
       };
     });

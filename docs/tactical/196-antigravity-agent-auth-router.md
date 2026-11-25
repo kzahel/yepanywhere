@@ -3,6 +3,11 @@
 Topic: agent-auth-router
 
 Status: implemented and live-verified, 2026-11-23. Approved by maintainer.
+Since 2026-11-25 the bridge described below is a provider-neutral proxy
+without the RPC allowlist, and AAR describes the route.
+`antigravity-router-bridge.ts`, named in the steps, is now
+`router-loopback-proxy.ts` and `antigravity-routed-profile.ts`; see
+[plan 198, step 3](198-aar-binding-transport.md#3--describe-the-antigravity-route-and-make-yas-listener-generic).
 
 ## Goal
 

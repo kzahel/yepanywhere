@@ -1437,9 +1437,10 @@ to Direct (no automatic failover). Since 2026-11-25
 ([plan 198](../tactical/198-aar-binding-transport.md)) routed Claude and Codex
 launches use the inference transport AAR describes on each binding, with a
 [temporary shim](../../gaps/aar-legacy-transport-shim.md) for routers that
-predate it; AAR's cross-repository suite covers the local control socket,
-and an AAR release, hosted qualification and the execution-host transport
-remain. YA respects router-owned pool grants and exposes read-only
+predate it. Routed Antigravity uses the same description behind a
+provider-neutral loopback proxy. AAR's cross-repository suite covers the
+local control socket, and an AAR release, hosted qualification and the
+experimental Antigravity opt-in in AAR Settings remain. YA respects router-owned pool grants and exposes read-only
 management guidance; legacy routers retain their scoped editor. Advanced
 balancing, clone/helper inheritance, Windows and constrained sandbox support
 remain later work. On 2026-10-03 the maintainer deferred the next

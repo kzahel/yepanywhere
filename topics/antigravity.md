@@ -126,7 +126,7 @@ switches accounts, or selects an API-billed method. A missing login fails with
 the native error; it does not start YA-managed sign-in.
 
 For per-session Agent Auth Router (AAR) routing without server-wide env vars,
-YA starts a session-scoped loopback bridge per routed `agy acp` process using a
+YA starts a session-scoped loopback proxy per routed `agy acp` process using a
 dedicated profile under `<dataDir>/agent-auth-router/antigravity-home` and
 passes `--cloud_code_endpoint` and `--gemini-dir` on that launch only; see
 [Agent Auth Router — Antigravity per-session routing](agent-auth-router.md#antigravity-per-session-routing-2026-11-23).

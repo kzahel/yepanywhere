@@ -589,6 +589,21 @@ describe("binding transport check", () => {
       routerTransport(info, expected, { ...committed, transport: later }),
     ).toThrow("Update Yep Anywhere");
   });
+  it("assumes the usual Antigravity route from a router that describes none, with or without the capability", () => {
+    const antigravity = { ...expected, provider: "antigravity" } as const;
+    const usual = {
+      baseUrl: "https://aar.example.test/antigravity",
+      authMethods: ["bearer"],
+    };
+    expect(
+      routerTransport({ ...info, capabilities: [] }, antigravity, {}),
+    ).toEqual(usual);
+    // AAR d5623a7 to a1e96cc: the capability, and no Antigravity transport.
+    expect(routerTransport(info, antigravity, antigravity)).toEqual(usual);
+    expect(() =>
+      routerTransport(info, antigravity, { ...antigravity, id: "other" }),
+    ).toThrow("invalid binding or inference transport");
+  });
   it("accepts a prepared binding only where a reservation is expected", () => {
     const prepared = { ...committed, state: "prepared" };
     expect(

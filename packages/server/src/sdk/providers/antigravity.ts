@@ -48,11 +48,11 @@ import {
   type AntigravitySessionSetup,
   type AntigravityUpdate,
 } from "./antigravity-runtime.js";
+import { prepareAntigravityRoutedProfile } from "./antigravity-routed-profile.js";
 import {
-  prepareAntigravityBridgeProfile,
-  startAntigravityRouterBridge,
-  type AntigravityRouterBridge,
-} from "./antigravity-router-bridge.js";
+  startRouterLoopbackProxy,
+  type RouterLoopbackProxy,
+} from "./router-loopback-proxy.js";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   buildAntigravityModels,
@@ -367,7 +367,7 @@ export class AntigravityProvider implements AgentProvider {
       );
     }
     const controls: AntigravityControls = { commands: [] };
-    const bridgeRef: { current?: AntigravityRouterBridge } = {};
+    const bridgeRef: { current?: RouterLoopbackProxy } = {};
     const queue = Object.assign(new MessageQueue(), {
       setConfigurationInputHeld(held: boolean) {
         controls.inputHeld = held;
@@ -571,7 +571,7 @@ export class AntigravityProvider implements AgentProvider {
     controls: AntigravityControls,
     resolveReady: () => void,
     rejectReady: (error: Error) => void,
-    bridgeRef: { current?: AntigravityRouterBridge },
+    bridgeRef: { current?: RouterLoopbackProxy },
   ): AsyncIterableIterator<SDKMessage> {
     let settledReady = false;
     const markReady = () => {
@@ -627,7 +627,7 @@ export class AntigravityProvider implements AgentProvider {
             "Antigravity routed profile directory is unavailable",
           );
         }
-        const prepared = prepareAntigravityBridgeProfile(profileDir);
+        const prepared = prepareAntigravityRoutedProfile(profileDir);
         namespace = {
           family: "antigravity" as const,
           storageScope: await nativeStorageScope(
@@ -641,10 +641,12 @@ export class AntigravityProvider implements AgentProvider {
             options.resumeSessionId,
             options.nativeOwnerHost,
           );
-        const bridge = await startAntigravityRouterBridge({
+        // agy sends its profile login to Google as well as to this endpoint,
+        // so it gets the profile's stand-in and the proxy holds the token.
+        const bridge = await startRouterLoopbackProxy({
           baseUrl: routerLaunch.baseUrl,
           token: routerLaunch.token,
-          marker: prepared.marker,
+          localToken: prepared.marker,
         });
         bridgeRef.current = bridge;
         pinned = buildAntigravityRoutedLaunch(
@@ -698,7 +700,11 @@ export class AntigravityProvider implements AgentProvider {
         ],
         pinned.env,
       );
-      void runtime.closed.then(stop);
+      void runtime.closed.then(() => {
+        // agy is gone: release its port now, not when the consumer next reads.
+        void bridgeRef.current?.close();
+        stop();
+      });
       if (options.agentApiInstructions && !runtime.canAppendSystemPrompt)
         throw new Error(
           "This agy runtime does not support native Agent API instructions",
@@ -1440,6 +1446,9 @@ export class AntigravityProvider implements AgentProvider {
       }
     } catch (error) {
       failReady(error);
+      // The session is over, and its consumer may hold this error without
+      // reading on: release the port before handing the error over.
+      await bridgeRef.current?.close().catch(() => {});
       if (!signal.aborted)
         yield {
           type: "error",

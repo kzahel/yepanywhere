@@ -1,7 +1,7 @@
 import type { RouterInfo } from "./agent-auth-router-connection.js";
 import { RouterUnavailable } from "./agent-auth-router-control.js";
 
-/** AAR describes each Claude and Codex binding's inference transport. */
+/** AAR describes each binding's inference transport. */
 const BINDING_TRANSPORT = "binding-transport-v1";
 
 const AUTH_METHODS = ["bearer", "aar-gateway-header"] as const;
@@ -22,7 +22,7 @@ export interface RouterTransport {
  */
 function legacyRouterTransport(
   info: RouterInfo,
-  provider: "claude" | "codex",
+  provider: "claude" | "codex" | "antigravity",
 ): unknown {
   return {
     kind: "http-gateway-v1",
@@ -87,7 +87,7 @@ export interface ExpectedBinding {
   id: string;
   routerId: string;
   accountId: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "antigravity";
   /** A retried prepare may find the binding already committed. */
   state: "prepared-or-committed" | "committed";
 }
@@ -95,7 +95,10 @@ export interface ExpectedBinding {
 /**
  * Check a binding response and resolve its transport against the validated
  * inference origin. The response carries data only: executables, arguments,
- * environment and headers stay authored by the native adapter.
+ * environment and headers stay authored by the native adapter. `bearer` says
+ * what the route accepts. Whether the native program may hold the token is
+ * the adapter's knowledge: Antigravity's fronts the route with a loopback
+ * proxy (sdk/providers/router-loopback-proxy.ts).
  */
 export function routerTransport(
   info: RouterInfo,
@@ -116,7 +119,12 @@ export function routerTransport(
         (binding.state !== "prepared" || expected.state === "committed"))
     )
       throw invalid();
-    transport = binding.transport;
+    // AAR commits d5623a7 to a1e96cc advertise the capability and describe no
+    // Antigravity route. Goes with the shim.
+    transport =
+      binding.transport === undefined && provider === "antigravity"
+        ? legacyRouterTransport(info, provider)
+        : binding.transport;
   } else transport = legacyRouterTransport(info, provider);
   const described = record(transport);
   if (
