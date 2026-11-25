@@ -46,7 +46,28 @@ export async function agentAuthRouterFixture(
     loginLapsed = false,
     accountProvider = "codex",
     gatewayTokenHeader = false,
-    antigravityControl = false;
+    antigravityControl = false,
+    /** Set once the router advertises `binding-transport-v1`. */
+    described:
+      | {
+          prepare: Record<string, unknown>;
+          commit: Record<string, unknown> | null;
+        }
+      | undefined;
+  /** What a described binding response reports, by binding id. */
+  const bound = new Map<string, { provider: unknown; state: string }>();
+  const binding = (id: string, phase: "prepare" | "commit") => {
+    if (!described) return {};
+    const fields = described[phase];
+    if (fields === null) return null;
+    return {
+      id,
+      routerId,
+      accountId: "account",
+      ...bound.get(id),
+      ...fields,
+    };
+  };
   const server = http.createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
@@ -74,6 +95,7 @@ export async function agentAuthRouterFixture(
             ...(cliModels ? ["catalog-cli-models-v1"] : []),
             ...(gatewayTokenHeader ? ["gateway-token-header-v1"] : []),
             ...(antigravityControl ? ["antigravity-control-v1"] : []),
+            ...(described ? ["binding-transport-v1"] : []),
           ],
           ...(policyList
             ? {
@@ -103,9 +125,20 @@ export async function agentAuthRouterFixture(
       res.statusCode = 409;
       return res.end(JSON.stringify({ error: rejectPrepare }));
     }
+    if (req.url?.endsWith("/prepare"))
+      bound.set(body.id, {
+        provider: body.provider,
+        state: bound.get(body.id)?.state ?? "prepared",
+      });
+    if (req.url === "/v1/bindings/commit") {
+      const known = bound.get(body.id);
+      if (known) known.state = "committed";
+      if (described?.commit === null) return res.end("null");
+    }
     if (req.url === "/v1/pools/prepare")
       return res.end(
         JSON.stringify({
+          ...binding(body.id, "prepare"),
           accountId: "account",
           poolId: body.poolId,
           policy: "round-robin",
@@ -148,6 +181,11 @@ export async function agentAuthRouterFixture(
     }
     return res.end(
       JSON.stringify({
+        ...(req.url === "/v1/bindings/prepare"
+          ? binding(body.id, "prepare")
+          : req.url === "/v1/bindings/commit"
+            ? binding(body.id, "commit")
+            : {}),
         models: [
           {
             id: "fixture-model",
@@ -231,6 +269,27 @@ export async function agentAuthRouterFixture(
     },
     gatewayTokenHeader: (supported = true) => {
       gatewayTokenHeader = supported;
+    },
+    /**
+     * Advertise `binding-transport-v1` and answer prepare and commit as a
+     * router that describes `transport`; `undefined` describes nothing.
+     * `commit` overrides fields of the commit response alone, and `null`
+     * makes that response a JSON null.
+     */
+    describeTransport: (
+      transport?: unknown,
+      commit?: Record<string, unknown> | null,
+    ) => {
+      const prepare = transport === undefined ? {} : { transport };
+      described = {
+        prepare,
+        commit:
+          commit === undefined
+            ? prepare
+            : commit === null
+              ? null
+              : { ...prepare, ...commit },
+      };
     },
     name: (account: string, pool?: string) => {
       accountName = account;

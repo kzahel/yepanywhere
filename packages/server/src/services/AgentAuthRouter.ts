@@ -14,6 +14,10 @@ import {
   defaultRouterSocket,
   routerRequest,
 } from "./agent-auth-router-control.js";
+import {
+  type RouterTransport,
+  routerTransport,
+} from "./agent-auth-router-transport.js";
 export {
   RouterUnavailable,
   RouterRefusedBeforeProvider,
@@ -56,7 +60,8 @@ const ANTIGRAVITY_CONTROL = "antigravity-control-v1";
 
 export interface RouterLaunch {
   models?: ModelInfo[];
-  serviceTierSelection?: boolean;
+  /** Codex's model catalog on the router, when the binding describes one. */
+  modelCatalogUrl?: string;
   /**
    * Present the gateway token in AAR's dedicated header so Claude Code keeps
    * this computer's claude.ai login, and with it claude.ai connectors.
@@ -844,6 +849,27 @@ export class AgentAuthRouter {
       );
     return models;
   }
+  /**
+   * The checked transport on a binding response. Antigravity bindings
+   * describe none: `agy` cannot authenticate to the router, so its session
+   * bridge fronts the route.
+   */
+  private bindingTransport(
+    info: Info,
+    c: Connection,
+    allocation: Allocation,
+    state: "prepared-or-committed" | "committed",
+    response: unknown,
+  ): RouterTransport | undefined {
+    const { id, accountId, provider } = allocation;
+    return provider === "antigravity"
+      ? undefined
+      : routerTransport(
+          info,
+          { id, routerId: c.routerId, accountId, provider, state },
+          response,
+        );
+  }
   /** Reserve an allocation in AAR; a pool reservation names its account. */
   private preparePin(
     c: Connection,
@@ -1066,13 +1092,25 @@ export class AgentAuthRouter {
             thinking,
             session.serviceTier,
           );
-          await routerRequest(
-            routerEndpoint(c),
-            "/v1/bindings/commit",
-            c.token,
-            {
-              id: allocation.id,
-            },
+          // A pin that could not launch must not replace one that is running.
+          this.bindingTransport(
+            info,
+            c,
+            allocation,
+            "prepared-or-committed",
+            selected,
+          );
+          this.bindingTransport(
+            info,
+            c,
+            allocation,
+            "committed",
+            await routerRequest<unknown>(
+              routerEndpoint(c),
+              "/v1/bindings/commit",
+              c.token,
+              { id: allocation.id },
+            ),
           );
           next = await this.poolBinding(c, info, allocation, selected, {
             account: accountName,
@@ -1286,6 +1324,7 @@ export class AgentAuthRouter {
         });
       }
       let accountModels: ModelInfo[] = [];
+      let transport: RouterTransport | undefined;
       try {
         const selected = await this.preparePin(c, info, allocation);
         const pinnedPoolId = allocation.poolId;
@@ -1328,9 +1367,27 @@ export class AgentAuthRouter {
           requestedThinking,
           settings?.serviceTier,
         );
-        await routerRequest(routerEndpoint(c), "/v1/bindings/commit", c.token, {
-          id: allocation.id,
-        });
+        // An unusable transport is refused before commit, while a fresh
+        // reservation has not yet taken its turn in the pool.
+        this.bindingTransport(
+          info,
+          c,
+          allocation,
+          "prepared-or-committed",
+          selected,
+        );
+        transport = this.bindingTransport(
+          info,
+          c,
+          allocation,
+          "committed",
+          await routerRequest<unknown>(
+            routerEndpoint(c),
+            "/v1/bindings/commit",
+            c.token,
+            { id: allocation.id },
+          ),
+        );
       } catch (error) {
         // Definitive rejection of a fresh launch must not leave a usable reservation.
         // Lost replies remain recoverable through the persisted allocation identity.
@@ -1351,18 +1408,20 @@ export class AgentAuthRouter {
       // to start, so such a launch keeps the token-only transport instead.
       const claudeAiConnectors =
         allocation.claudeAiConnectors === true &&
-        info.capabilities.includes(GATEWAY_TOKEN_HEADER) &&
+        transport?.authMethods.includes("aar-gateway-header") === true &&
         (await this.claudeAiLogin?.()) != null;
       return {
         models: accountModels,
-        serviceTierSelection: info.capabilities.includes("service-tiers-v1"),
+        ...(transport?.modelCatalogUrl
+          ? { modelCatalogUrl: transport.modelCatalogUrl }
+          : {}),
         ...(claudeAiConnectors ? { claudeAiConnectors } : {}),
         ...(provider === "antigravity"
           ? { profileDir: this.antigravityProfileDir }
           : {}),
         bindingId: allocation.id,
         accountId: allocation.accountId,
-        baseUrl: `${info.inferenceOrigin}/${provider}`,
+        baseUrl: transport?.baseUrl ?? `${info.inferenceOrigin}/antigravity`,
         token: allocation.token,
       };
     });

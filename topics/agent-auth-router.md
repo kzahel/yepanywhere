@@ -312,6 +312,56 @@ configuration files. Routed Claude spawn diagnostics omit arguments and stderr
 because SDK flag settings can contain the inference token. Control responses,
 REST payloads and public runtime metadata do not include tokens.
 
+### Binding transport (2026-11-25)
+
+A routed Claude or Codex launch takes its inference route from the binding,
+not from the provider name. AAR advertises `binding-transport-v1` and puts a
+`transport` on its prepare and commit responses
+([AAR control protocol](https://github.com/kzahel/agent-auth-router/blob/main/docs/control.md#binding-transport)).
+YA resolves the described paths against the validated inference origin and
+hands the native adapter a base URL, the usable auth methods and, when
+described, Codex's model catalog URL. The adapter still authors every
+executable, argument, environment value and header itself.
+
+- **What decides the launch.** The base URL and the catalog URL come from the
+  description. Codex gets a catalog URL only when one is described. Claude
+  uses the dedicated gateway header only when that binding lists
+  `aar-gateway-header`, the session opted in to connectors and a claude.ai
+  login exists. Discovery before a binding exists still reads the
+  `gateway-token-header-v1` capability.
+- **What YA refuses.** With `binding-transport-v1`, a prepare or commit
+  response must name this session's binding, router, account and provider, and
+  a commit response must report the binding committed. A described path must
+  be a plain absolute route whose first segment is the binding's provider, and
+  a catalog must lie below the base route. A hosted router sends only those
+  provider paths to inference, so this keeps a native request and its token
+  off the router's control API and dashboard and off another provider's
+  route. Any failure of these checks ends the launch with "The router returned
+  an invalid binding or inference transport". A transport kind YA does not
+  know, or one without `bearer`, ends it with "Update Yep Anywhere": the
+  router is the newer side. Unrecognized extra auth methods are ignored.
+- **When it is checked.** YA checks the prepared response before committing,
+  so an unusable fresh reservation is cancelled without taking its turn in the
+  pool, then checks the committed response it launches from and cancels a
+  fresh binding that fails there. A resumed session keeps its pin through
+  either refusal and launches again once the response is usable. An account
+  switch makes both checks before it installs the new pin, so a refusal
+  leaves the running process and its pin in place and cancels the
+  replacement. No refusal falls back to the direct login.
+- **Older routers.** For a router without `binding-transport-v1`, YA
+  synthesizes the description that router implies: `/<provider>` as the base,
+  the gateway header when `gateway-token-header-v1` is advertised, and Codex's
+  `/codex/models` catalog when `service-tiers-v1` is advertised. Routed
+  sessions therefore launch and resume in either upgrade order. This shim is
+  temporary; [its gap](../gaps/aar-legacy-transport-shim.md) holds the removal
+  condition, after which such a router gets an "Update AAR" launch error.
+- **Antigravity.** Its bindings describe no transport. The session bridge
+  keeps fronting the router's `/antigravity` route.
+
+[Plan 198](../docs/tactical/198-aar-binding-transport.md) covers the remaining
+work: cross-repository qualification against a released AAR, and a transport
+prepared on the execution host.
+
 Routed Claude sets `ENABLE_TOOL_SEARCH=true`. Claude Code otherwise disables
 tool search for any non-Anthropic `ANTHROPIC_BASE_URL` and sends every tool
 definition in full. AAR forwards the request body and `anthropic-*` headers, and
@@ -345,7 +395,8 @@ is still the pin. They can be different accounts.
   Continuation refuses it like the other router fields.
 - **Launch.** The allocation records the choice, so resume, restart and
   copies keep it, and the binding shows it in Process Info. At each launch,
-  if AAR still advertises the capability and a claude.ai login exists, the
+  if the [binding's transport](#binding-transport-2026-11-25) lists
+  `aar-gateway-header` and a claude.ai login exists, the
   gateway token travels in `ANTHROPIC_CUSTOM_HEADERS` as `x-aar-gateway-token`
   (after any custom headers the launch environment already sets),
   `ANTHROPIC_AUTH_TOKEN` is empty and the flag settings omit

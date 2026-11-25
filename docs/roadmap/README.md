@@ -1433,7 +1433,12 @@ refuse; none falls back to the direct login. Since 2026-11-23,
 also supports an explicit Direct choice. Since 2026-11-08
 ([plan 185](../tactical/185-switch-session-router-account.md)) the session
 header's account chip moves an existing session to another pool account or
-to Direct (no automatic failover). YA respects router-owned pool grants and exposes read-only
+to Direct (no automatic failover). Since 2026-11-25
+([plan 198](../tactical/198-aar-binding-transport.md)) routed Claude and Codex
+launches use the inference transport AAR describes on each binding, with a
+[temporary shim](../../gaps/aar-legacy-transport-shim.md) for routers that
+predate it; an AAR release, the cross-repository suite and the
+execution-host transport remain. YA respects router-owned pool grants and exposes read-only
 management guidance; legacy routers retain their scoped editor. Advanced
 balancing, clone/helper inheritance, Windows and constrained sandbox support
 remain later work. On 2026-10-03 the maintainer deferred the next

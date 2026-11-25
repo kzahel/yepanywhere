@@ -10,6 +10,7 @@ import { createProcessesRoutes } from "../src/routes/processes.js";
 import { createSessionsRoutes } from "../src/routes/sessions.js";
 import { createAgentAuthRouterRoutes } from "../src/routes/agent-auth-router.js";
 import { AgentAuthRouter } from "../src/services/AgentAuthRouter.js";
+import { routerTransport } from "../src/services/agent-auth-router-transport.js";
 import { structuredErrorHandler } from "../src/middleware/error-handler.js";
 import {
   codexRouterArguments,
@@ -514,6 +515,230 @@ it("native transport overrides carry no token in Codex arguments or ambient muta
     ENABLE_TOOL_SEARCH: "true",
   });
 });
+
+describe("binding transport check", () => {
+  const info = {
+    protocol: 1,
+    routerId: "router",
+    inferenceOrigin: "https://aar.example.test",
+    capabilities: ["binding-transport-v1"],
+  };
+  const expected = {
+    id: "binding",
+    routerId: "router",
+    accountId: "account",
+    provider: "codex",
+    state: "committed",
+  } as const;
+  const transport = {
+    kind: "http-gateway-v1",
+    basePath: "/codex",
+    authMethods: ["bearer"],
+  };
+  const committed = { ...expected, transport };
+  it("resolves described paths on the validated origin", () => {
+    expect(
+      routerTransport(info, expected, {
+        ...committed,
+        transport: { ...transport, modelCatalogPath: "/codex/models" },
+      }),
+    ).toEqual({
+      baseUrl: "https://aar.example.test/codex",
+      authMethods: ["bearer"],
+      modelCatalogUrl: "https://aar.example.test/codex/models",
+    });
+  });
+  it.each([
+    ["a JSON null", null],
+    ["no transport", { ...committed, transport: undefined }],
+    ["another binding", { ...committed, id: "other" }],
+    ["another router", { ...committed, routerId: "other" }],
+    ["another account", { ...committed, accountId: "other" }],
+    ["another provider", { ...committed, provider: "claude" }],
+    ["a binding that is not committed", { ...committed, state: "prepared" }],
+    ["a cancelled binding", { ...committed, state: "cancelled" }],
+    ["the control API", { ...transport, basePath: "/control/v1" }],
+    ["a dashboard path", { ...transport, basePath: "/auth" }],
+    ["the origin's root", { ...transport, basePath: "/" }],
+    ["another provider's route", { ...transport, basePath: "/claude" }],
+    ["another origin", { ...transport, basePath: "//elsewhere.test/codex" }],
+    ["a path that escapes its route", { ...transport, basePath: "/codex/.." }],
+    ["a query", { ...transport, basePath: "/codex?token=1" }],
+    [
+      "a catalog outside its route",
+      {
+        ...transport,
+        basePath: "/codex/v2",
+        modelCatalogPath: "/codex/models",
+      },
+    ],
+  ])("refuses %s as an invalid response", (_case, response) => {
+    const described =
+      response && "kind" in response
+        ? { ...committed, transport: response }
+        : response;
+    expect(() => routerTransport(info, expected, described)).toThrow(
+      "invalid binding or inference transport",
+    );
+  });
+  it.each([
+    ["a transport kind", { ...transport, kind: "local-http-v1" }],
+    ["only auth methods", { ...transport, authMethods: ["a-later-method"] }],
+  ])("asks for a Yep Anywhere update for %s it predates", (_case, later) => {
+    expect(() =>
+      routerTransport(info, expected, { ...committed, transport: later }),
+    ).toThrow("Update Yep Anywhere");
+  });
+  it("accepts a prepared binding only where a reservation is expected", () => {
+    const prepared = { ...committed, state: "prepared" };
+    expect(
+      routerTransport(
+        info,
+        { ...expected, state: "prepared-or-committed" },
+        prepared,
+      ).baseUrl,
+    ).toBe("https://aar.example.test/codex");
+  });
+});
+
+describe.skipIf(process.platform === "win32")(
+  "binding transport described by the router",
+  () => {
+    const pool = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const gateway = {
+      kind: "http-gateway-v1",
+      basePath: "/codex/v2",
+      authMethods: ["bearer", "a-later-method"],
+    };
+    const later = { ...gateway, kind: "local-http-v1" };
+    const paths = (f: { requests: { path: string }[] }) =>
+      f.requests.map((request) => request.path);
+    it("launches Codex and Claude from the described paths, not the provider name", async () => {
+      const f = await fixture(true);
+      // Capabilities that would shape a legacy launch decide nothing here.
+      f.serviceTiers();
+      f.gatewayTokenHeader();
+      f.describeTransport({
+        ...gateway,
+        modelCatalogPath: "/codex/v2/catalog",
+      });
+      await f.connector.connect(f.socketPath);
+      const codex = await f.connector.launch(
+        "described",
+        "codex",
+        "fixture-model",
+        undefined,
+        pool,
+      );
+      expect(codex).toMatchObject({
+        baseUrl: "http://127.0.0.1:8417/codex/v2",
+        modelCatalogUrl: "http://127.0.0.1:8417/codex/v2/catalog",
+      });
+      expect(codexRouterArguments(codex!)).toContain(
+        'model_providers.aar.model_catalog_url="http://127.0.0.1:8417/codex/v2/catalog"',
+      );
+      f.describeTransport(gateway);
+      const plain = await f.connector.launch(
+        "no-catalog",
+        "codex",
+        "fixture-model",
+        undefined,
+        pool,
+      );
+      expect(plain).not.toHaveProperty("modelCatalogUrl");
+      expect(codexRouterArguments(plain!).join(" ")).not.toContain(
+        "model_catalog_url",
+      );
+
+      // Without the dedicated header on this binding, a connector opt-in
+      // keeps the token-only transport even though the router supports it.
+      f.claudeAccount();
+      f.describeTransport({ ...gateway, basePath: "/claude/v2" });
+      const connector = new AgentAuthRouter(f.root, f.metadata, async () => ({
+        email: "me@example.test",
+      }));
+      const claude = await connector.launch(
+        "claude",
+        "claude",
+        "fixture-model",
+        undefined,
+        pool,
+        "round-robin",
+        { routerClaudeAiConnectors: true },
+      );
+      expect(claude?.baseUrl).toBe("http://127.0.0.1:8417/claude/v2");
+      expect(claude).not.toHaveProperty("claudeAiConnectors");
+      f.describeTransport({
+        ...gateway,
+        basePath: "/claude/v2",
+        authMethods: ["aar-gateway-header", "bearer"],
+      });
+      expect(
+        (await connector.launch("claude", "claude"))?.claudeAiConnectors,
+      ).toBe(true);
+    });
+    it("refuses an unusable reservation before commit and releases it", async () => {
+      const f = await fixture(true);
+      f.describeTransport(later);
+      await f.connector.connect(f.socketPath);
+      await expect(
+        f.connector.launch("fresh", "codex", "fixture-model", undefined, pool),
+      ).rejects.toThrow("Update Yep Anywhere");
+      expect(paths(f)).not.toContain("/v1/bindings/commit");
+      expect(paths(f)).toContain("/v1/bindings/cancel");
+    });
+    it.each([
+      ["describes a transport this server predates", { transport: later }],
+      ["reports the binding as still prepared", { state: "prepared" }],
+      ["names another binding", { id: "another-binding" }],
+      ["is a JSON null", null],
+    ])(
+      "cancels a fresh binding whose commit response %s",
+      async (_case, commit) => {
+        const f = await fixture(true);
+        f.describeTransport(gateway, commit);
+        await f.connector.connect(f.socketPath);
+        await expect(
+          f.connector.launch(
+            "fresh",
+            "codex",
+            "fixture-model",
+            undefined,
+            pool,
+          ),
+        ).rejects.toThrow(/Update Yep Anywhere|invalid binding/);
+        expect(paths(f).lastIndexOf("/v1/bindings/commit")).toBeLessThan(
+          paths(f).lastIndexOf("/v1/bindings/cancel"),
+        );
+      },
+    );
+    it("keeps a resumed session's pin through a refusal and a lost commit reply", async () => {
+      const f = await fixture(true);
+      await f.connector.connect(f.socketPath);
+      const first = await f.connector.launch(
+        "kept",
+        "codex",
+        "fixture-model",
+        undefined,
+        pool,
+      );
+      // The router is upgraded past this server while the session rests.
+      f.describeTransport(gateway, { transport: later });
+      await expect(f.connector.launch("kept", "codex")).rejects.toThrow(
+        "Update Yep Anywhere",
+      );
+      f.describeTransport(gateway);
+      f.loseCommit();
+      await expect(f.connector.launch("kept", "codex")).rejects.toThrow();
+      expect(paths(f)).not.toContain("/v1/bindings/cancel");
+      expect(await f.connector.launch("kept", "codex")).toMatchObject({
+        bindingId: first?.bindingId,
+        token: first?.token,
+        baseUrl: "http://127.0.0.1:8417/codex/v2",
+      });
+    });
+  },
+);
 
 it("router administration and metadata are denied to limited users", () => {
   for (const [method, path] of [

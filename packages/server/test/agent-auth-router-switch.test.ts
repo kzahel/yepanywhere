@@ -93,6 +93,34 @@ describe.skipIf(process.platform === "win32")("router account switch", () => {
     ).resolves.toMatchObject({ bindingId: routerBinding.id });
   });
 
+  it.each([
+    ["reservation", undefined],
+    ["commit response", { kind: "http-gateway-v1" }],
+  ])(
+    "keeps the running pin when the new binding's %s describes a transport this server predates",
+    async (_phase, prepared) => {
+      const { f, abort, switchTo, routed, cancelled } = await setup();
+      const old = await routed("s");
+      // The router was upgraded past this server while the session ran.
+      const later = {
+        kind: "local-http-v1",
+        basePath: "/codex",
+        authMethods: ["bearer"],
+      };
+      f.describeTransport({ ...later, ...prepared }, { transport: later });
+      const response = await switchTo("s", {
+        routerPoolId: POOL,
+        routerAccountId: "account",
+      });
+      expect(response.status).toBe(409);
+      expect(await response.text()).toContain("Update Yep Anywhere");
+      expect(f.metadata.getMetadata("s")?.routerBinding?.id).toBe(old.id);
+      expect(abort).not.toHaveBeenCalled();
+      expect(cancelled()).toHaveLength(1);
+      expect(cancelled()).not.toContain(old.id);
+    },
+  );
+
   it("leaves the pin and process alone when the router refuses", async () => {
     const { f, abort, switchTo, routed, cancelled } = await setup();
     const old = await routed("s");

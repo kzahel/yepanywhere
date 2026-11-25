@@ -520,3 +520,4 @@
 - antigravity-acp-reliability - Native upgrade qualification, transcript replay, detached work, patient delivery, and safe reload.
 - antigravity-native-history - Plan 195: Antigravity history from the native brain log, removal of the history size limit and the standalone 1.4.x runtime, bounded live memory, and the Provider Host move.
 - session-boot-instructions - v0 apiClient and bootInstructions creation fields: virgin sessions, client-supplied user-level instructions, per-client Codex boot homes and API-client sidebar sections.
+- aar-binding-transport - AAR describes each binding's inference transport; YA launches from it (plan 198).
