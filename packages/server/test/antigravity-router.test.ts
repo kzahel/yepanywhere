@@ -396,6 +396,20 @@ describe("AgentAuthRouter Antigravity control and capability gating", () => {
     );
     expect(switchRes.status).toBe(409);
 
+    // The router owner turns the experimental provider off: a resume says
+    // so, and the pin is there when it is turned back on.
+    f.turnProviderOff();
+    await expect(
+      f.connector.launch("sess-agy-1", "antigravity", "fixture-model"),
+    ).rejects.toThrow(
+      "Antigravity routing is turned off in AAR. The router owner can turn it on in AAR Settings; then retry. Routed sessions keep their pins.",
+    );
+    f.turnProviderOff(false);
+    expect(
+      (await f.connector.launch("sess-agy-1", "antigravity", "fixture-model"))
+        ?.token,
+    ).toBe(launch?.token);
+
     // Revocation fails closed with no direct fallback.
     f.revoke();
     await expect(

@@ -44,6 +44,7 @@ export async function agentAuthRouterFixture(
     cliModels = false,
     serviceTiers = false,
     loginLapsed = false,
+    providerOff = false,
     accountProvider = "codex",
     gatewayTokenHeader = false,
     antigravityControl = false,
@@ -118,6 +119,18 @@ export async function agentAuthRouterFixture(
           code: "login_required",
           accountId: "account",
           loginExpiresAt: "2026-11-03T04:11:58.985Z",
+        }),
+      );
+    }
+    // AAR keeps listing the pinned account and refuses each use of its provider.
+    if (providerOff && req.url?.startsWith("/v1/bindings/")) {
+      res.statusCode = 409;
+      return res.end(
+        JSON.stringify({
+          error:
+            "Antigravity routing is turned off; the router owner can turn it on in AAR Settings",
+          code: "provider_disabled",
+          provider: "antigravity",
         }),
       );
     }
@@ -259,6 +272,9 @@ export async function agentAuthRouterFixture(
     },
     lapseLogin: () => {
       loginLapsed = true;
+    },
+    turnProviderOff: (off = true) => {
+      providerOff = off;
     },
     claudeAccount: () => {
       accountProvider = "claude";

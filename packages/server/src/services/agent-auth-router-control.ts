@@ -35,6 +35,18 @@ export function routerLoginRequired(accountName?: string): RouterUnavailable {
     true,
   );
 }
+/**
+ * AAR's owner has left an experimental provider off. Only they can turn it on,
+ * and a routed session keeps its pin meanwhile.
+ */
+export function routerProviderDisabled(provider: string): RouterUnavailable {
+  const name = provider === "antigravity" ? "Antigravity" : "This provider's";
+  return new RouterUnavailable(
+    409,
+    `${name} routing is turned off in AAR. The router owner can turn it on in AAR Settings; then retry. Routed sessions keep their pins.`,
+    "unsupported",
+  );
+}
 /** AAR's own default control socket, used when the owner names none. */
 export function defaultRouterSocket(): string {
   return join(homedir(), ".agent-auth-router", "control.sock");
@@ -107,6 +119,24 @@ function rejectedForLogin(status: number | undefined, body: Buffer): boolean {
     return code === "login_required" || code === "not_enrolled";
   } catch {
     return false;
+  }
+}
+/** AAR 2026-11 refuses an experimental provider its owner left off with a 409 code. */
+function disabledProvider(
+  status: number | undefined,
+  body: Buffer,
+): string | undefined {
+  if (status !== 409) return undefined;
+  try {
+    const { code, provider } = JSON.parse(body.toString()) as {
+      code?: unknown;
+      provider?: unknown;
+    };
+    return code === "provider_disabled" && typeof provider === "string"
+      ? provider
+      : undefined;
+  } catch {
+    return undefined;
   }
 }
 export function hostedRouterOrigin(value: string): string {
@@ -203,6 +233,11 @@ export async function routerRequest<T>(
           if (response.statusCode !== 200) {
             if (rejectedForLogin(response.statusCode, Buffer.concat(chunks)))
               return reject(routerLoginRequired());
+            const turnedOff = disabledProvider(
+              response.statusCode,
+              Buffer.concat(chunks),
+            );
+            if (turnedOff) return reject(routerProviderDisabled(turnedOff));
             const reason = rejectionReason(
               response.statusCode,
               Buffer.concat(chunks),
