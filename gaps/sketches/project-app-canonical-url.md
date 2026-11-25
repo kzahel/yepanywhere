@@ -1,38 +1,25 @@
-# Project app with a canonical external address
+# Project app canonical address: remaining work
 
-An app that already runs outside YA at a stable address (read-me: a system
-service with `--basic-auth` behind a Tailscale Funnel) can be declared today
-only as a static stub whose `index.html` meta-refreshes to that address.
-YA then frames the stub from its own artifact origin. That causes three
-problems:
+Redirect, direct host port and Funnel controls are implemented; the
+contract is [project service § Direct serving](../../topics/project-service.md#direct-serving).
+What remains:
 
-- The app bar names the stub's localhost URL, not the real address.
-- The frame ends up at the canonical origin but embedded under YA's site.
-  Browser storage partitioning keys cookies and storage by the top-level
-  site, so the framed app's login and state are separate from the same app
-  opened in its own tab. HTTP auth cache partitioning probably behaves the
-  same way; this has not been verified per browser. Recording also needs the
-  microphone and the saved login, and both work only top-level.
-- YA cannot tell that the app is unreachable; the frame just fails.
+- **A hostname per app.** Funnel publishes this host's own Tailscale node
+  name, so apps on one host differ only by HTTPS port (443, 8443, 10000).
+  A distinct name needs another node (for example a `tsnet` or second
+  `tailscaled` joined with an auth key) or Tailscale Services, which
+  `tailscale funnel --service=svc:<name>` addresses and which are defined
+  tailnet-side, plausibly through the API key. Neither has been tried;
+  verify the current Tailscale mechanism before building on it.
+- **Framed state stays separate.** A redirect framed in the App pane is a
+  third-party frame under YA's site, so browsers keep its storage and
+  cookies apart from the same address opened in its own tab. Whether the
+  HTTP auth cache is partitioned the same way is unverified per browser.
+  Consider opening stateful redirect apps top-level by default, with
+  framing opt-in for client-stateless apps.
+- **Browser coverage of the probe.** The no-credential reachability probe
+  is unit-tested with a stubbed fetch only. Check in a real browser that a
+  Basic-auth redirect raises no prompt from the probe and that a refused
+  address falls back.
 
-## Intended shape (user-directed, 2026-11-25)
-
-- Declare the canonical address in `app.json`, for example
-  `where: { kind: "external", url: "https://…" }`, optionally with a
-  loopback fallback port. Today `where` rejects external entry URLs
-  ([project service](../../topics/project-service.md), `where` row), so this
-  changes that contract.
-- Prefer the canonical address. Fall back to the localhost port only when
-  the canonical address is unreachable (connection refused, DNS failure),
-  never just because it challenges for credentials. The fallback is
-  optional per app.
-- Reachability must be judged from the viewing browser, not the YA server:
-  a tailnet address can be reachable from one and not the other. Probe with
-  `credentials: "omit"`, so the probe itself cannot raise a login prompt.
-- When the app's state matters, open it top-level by default instead of
-  framing it, since partitioning makes framed state diverge from the tab.
-  An opt-in "frame anyway" suits client-stateless apps.
-- The app bar shows and copies the canonical address.
-
-Related: [app link access control](../app-artifact-access-control.md)
-(embedded-cookie restrictions).
+Found 2026-11-25 while moving read-me behind Tailscale Funnel.
