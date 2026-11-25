@@ -132,6 +132,13 @@ function stripAntigravityFlag(args: readonly string[], flag: string): string[] {
  * Build per-session `agy acp` arguments and environment for an AAR-routed
  * launch, pinned to the verified physical routed store and session loopback
  * bridge endpoint. Clears ambient routing overrides from the child env.
+ *
+ * The profile's stand-in login is a file, so `agy` must read its login from
+ * the profile and not from the operating system's credential store, which
+ * holds the user's own Google login and is shared by every profile.
+ * `AGY_CLI_FORCE_FILE_TOKEN_STORAGE` asks for that directly. `SSH_CONNECTION`
+ * stays for releases that chose file storage only for an SSH session; since
+ * `agy` 1.5.16 an SSH session on macOS uses an unlocked login Keychain.
  */
 export function buildAntigravityRoutedLaunch(
   command: Pick<AntigravityRuntimeCommand, "args">,
@@ -159,6 +166,7 @@ export function buildAntigravityRoutedLaunch(
     env: {
       ...launchEnvironment,
       GEMINI_HOME: physicalGeminiDir,
+      AGY_CLI_FORCE_FILE_TOKEN_STORAGE: "1",
       SSH_CONNECTION: "127.0.0.1 0 127.0.0.1 0",
       CLOUD_CODE_URL: undefined,
       AGY_LLM_GATEWAY_URL: undefined,

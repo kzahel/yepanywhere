@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
   chmod,
   lstat,
@@ -81,6 +82,55 @@ describe("routed Antigravity profile and loopback proxy", () => {
     expect(tokenJson.auth_method).toBe("consumer");
     expect(tokenJson.token?.access_token).toBe(first.marker);
     expect(tokenJson.token?.refresh_token).toBeUndefined();
+
+    // agy 1.5.16 and 1.5.17 on macOS took the login from the Keychain and
+    // deleted the stand-in. A profile whose settings are still this module's
+    // own gets a new one. `auth.type` is an ordinary agy setting, so a
+    // profile with anything else in its settings is not adopted.
+    const tokenFile = join(home, "antigravity-cli", "antigravity-oauth-token");
+    const settingsFile = join(home, "antigravity-cli", "settings.json");
+    const ownSettings = await readFile(settingsFile, "utf8");
+    await rm(tokenFile);
+    const restored = prepareAntigravityRoutedProfile(home);
+    expect(restored.marker).toMatch(/^aar_local_[A-Za-z0-9_-]{32,}$/);
+    expect(restored.marker).not.toBe(first.marker);
+    expect(prepareAntigravityRoutedProfile(home).marker).toBe(restored.marker);
+    await writeFile(
+      settingsFile,
+      JSON.stringify({ auth: { type: "oauth-personal" }, showThinking: true }),
+    );
+    expect(prepareAntigravityRoutedProfile(home).marker).toBe(restored.marker);
+    await rm(tokenFile);
+    expect(() => prepareAntigravityRoutedProfile(home)).toThrow(
+      /Refusing to adopt/,
+    );
+    expect(existsSync(tokenFile)).toBe(false);
+    await writeFile(settingsFile, ownSettings);
+    prepareAntigravityRoutedProfile(home);
+
+    // A settings path that is a dangling symlink is refused before a
+    // stand-in is written beside it.
+    if (process.platform !== "win32") {
+      const dangling = join(root, "dangling");
+      await mkdir(join(dangling, "antigravity-cli"), {
+        recursive: true,
+        mode: 0o700,
+      });
+      await chmod(dangling, 0o700);
+      await chmod(join(dangling, "antigravity-cli"), 0o700);
+      await symlink(
+        join(root, "nowhere"),
+        join(dangling, "antigravity-cli", "settings.json"),
+      );
+      expect(() => prepareAntigravityRoutedProfile(dangling)).toThrow(
+        /settings\.json is invalid/,
+      );
+      expect(
+        existsSync(
+          join(dangling, "antigravity-cli", "antigravity-oauth-token"),
+        ),
+      ).toBe(false);
+    }
 
     // Refuse a directory containing a real Google OAuth credential.
     const realOauthHome = join(root, "real-oauth");
@@ -648,6 +698,11 @@ rl.on("line", async (line) => {
     expect(captured.env.GEMINI_HOME).toBe(await realpath(routedHome));
     expect(captured.env.CLOUD_CODE_URL).toBeNull();
     expect(captured.env.SSH_CONNECTION).toBeTruthy();
+    // Without this, agy 1.5.16 and later read the macOS Keychain instead.
+    expect(
+      (JSON.parse(captured.env.RAW_ENV) as Record<string, string>)
+        .AGY_CLI_FORCE_FILE_TOKEN_STORAGE,
+    ).toBe("1");
     expect(captured.tokenFile.auth_method).toBe("consumer");
     expect(captured.tokenFile.token.access_token).toMatch(/^aar_local_/);
     // The real AAR token must NEVER appear in argv, env, or OAuth cache.

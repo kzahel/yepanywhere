@@ -1440,8 +1440,9 @@ launches use the inference transport AAR describes on each binding, with a
 [temporary shim](../../gaps/aar-legacy-transport-shim.md) for routers that
 predate it. Routed Antigravity uses the same description behind a
 provider-neutral loopback proxy, which one live run with `agy` 1.5.14
-exercised on 2026-11-25; a routed resume
-[failed with `agy` 1.5.17 on macOS](../../gaps/agy-1-5-17-ignores-routed-profile-login.md).
+exercised on 2026-11-25. `agy` 1.5.17 then read the macOS Keychain instead
+of the routed profile until YA
+[asked it for file-based login storage](../tactical/198-aar-binding-transport.md#agy-1517-and-the-macos-keychain-2026-11-25).
 Antigravity routing is off in AAR until its owner turns it on in AAR
 Settings. AAR's cross-repository suite covers the
 local control socket, and an AAR release and hosted qualification remain. YA respects router-owned pool grants and exposes read-only

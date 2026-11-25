@@ -390,8 +390,21 @@ Antigravity account or pool, and YA names the refusal on launch and resume:
 `b01a2335a`). A refused resume keeps its existing pin. An older YA quotes AAR's text
 inside its generic rejection. New Session
 [gives no reason](../gaps/router-disabled-provider-has-no-picker-hint.md)
-for the missing router choice. A routed Antigravity resume
-[failed with `agy` 1.5.17 on macOS](../gaps/agy-1-5-17-ignores-routed-profile-login.md).
+for the missing router choice.
+
+Routed `agy` must read its login from the routed profile's file, which holds
+the stand-in. Left to itself `agy` prefers the operating system's credential
+store, which holds the user's own Google login and is shared by every
+profile. Routed launches therefore set `AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1`
+(`buildAntigravityRoutedLaunch`), and `SSH_CONNECTION` for releases that
+chose file storage only for an SSH session. Since 1.5.16 `agy` uses the
+login Keychain for an SSH session on macOS when it is unlocked, which broke
+routed sessions until the first variable was added
+([record](../docs/tactical/198-aar-binding-transport.md#agy-1517-and-the-macos-keychain-2026-11-25)).
+An `agy` that takes the Keychain login also deletes the stand-in file.
+`prepareAntigravityRoutedProfile` writes a new one only into a profile whose
+`settings.json` is still byte for byte what it wrote, and refuses any other
+profile that has settings and no stand-in.
 
 Routed Claude sets `ENABLE_TOOL_SEARCH=true`. Claude Code otherwise disables
 tool search for any non-Anthropic `ANTHROPIC_BASE_URL` and sends every tool

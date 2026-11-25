@@ -14,6 +14,8 @@ import { join, resolve } from "node:path";
 
 const MARKER_PREFIX = "aar_local_";
 const MARKER_PATTERN = /^aar_local_[A-Za-z0-9_-]{32,128}$/;
+/** The routed profile's settings, exactly as this module writes them. */
+const ROUTED_SETTINGS = `${JSON.stringify({ auth: { type: "oauth-personal" } }, null, 2)}\n`;
 
 function assertPrivatePosix(stats: Stats, label: string): void {
   if (process.platform === "win32") return;
@@ -145,14 +147,47 @@ export function prepareAntigravityRoutedProfile(home: string): {
 
   const settingsPath = join(cliDir, "settings.json");
   const tokenPath = join(cliDir, "antigravity-oauth-token");
-  if (existsSync(settingsPath) && !existsSync(tokenPath)) {
+  // A dangling symlink is present too, and is refused below.
+  const present = (path: string) =>
+    lstatSync(path, { throwIfNoEntry: false }) !== undefined;
+  const readMarker = () => {
+    const stats = lstatSync(tokenPath);
+    if (stats.isSymbolicLink() || !stats.isFile()) {
+      throw new Error("Antigravity router profile token file is invalid");
+    }
+    assertPrivatePosix(stats, "Antigravity router profile token file");
+    return parseValidatedMarker(readFileSync(tokenPath, "utf8"));
+  };
+  const readSettings = () => {
+    const stats = lstatSync(settingsPath);
+    if (stats.isSymbolicLink() || !stats.isFile()) {
+      throw new Error("Antigravity router profile settings.json is invalid");
+    }
+    assertPrivatePosix(stats, "Antigravity router profile settings.json");
+    const raw = readFileSync(settingsPath, "utf8");
+    validateBridgeSettings(raw);
+    return raw;
+  };
+
+  // Everything already in the profile is checked before anything is written.
+  let marker = present(tokenPath) ? readMarker() : undefined;
+  // A concurrent session may write the settings first; they are read back.
+  const settings =
+    present(settingsPath) ||
+    !writeFileIfAbsentAtomically(cliDir, settingsPath, ROUTED_SETTINGS)
+      ? readSettings()
+      : ROUTED_SETTINGS;
+  // `agy` deletes the token file when it takes its login from the operating
+  // system's credential store, as 1.5.16 and 1.5.17 did on macOS. Only a
+  // profile whose settings are still exactly what this module wrote gets a
+  // new stand-in; `auth.type` alone is an ordinary `agy` setting.
+  if (!marker && settings !== ROUTED_SETTINGS) {
     throw new Error(
       "Refusing to adopt an existing Antigravity profile without a router marker",
     );
   }
 
-  let marker: string | undefined;
-  if (!existsSync(tokenPath)) {
+  if (!marker) {
     const generated = `${MARKER_PREFIX}${randomBytes(32).toString("base64url")}`;
     const payload = `${JSON.stringify({
       auth_method: "consumer",
@@ -162,32 +197,10 @@ export function prepareAntigravityRoutedProfile(home: string): {
         expiry: "9999-12-31T23:59:59Z",
       },
     })}\n`;
-    if (writeFileIfAbsentAtomically(cliDir, tokenPath, payload)) {
-      marker = generated;
-    }
-  }
-  if (!marker) {
-    const tokenStats = lstatSync(tokenPath);
-    if (tokenStats.isSymbolicLink() || !tokenStats.isFile()) {
-      throw new Error("Antigravity router profile token file is invalid");
-    }
-    assertPrivatePosix(tokenStats, "Antigravity router profile token file");
-    marker = parseValidatedMarker(readFileSync(tokenPath, "utf8"));
-  }
-
-  if (existsSync(settingsPath)) {
-    const stats = lstatSync(settingsPath);
-    if (stats.isSymbolicLink() || !stats.isFile()) {
-      throw new Error("Antigravity router profile settings.json is invalid");
-    }
-    assertPrivatePosix(stats, "Antigravity router profile settings.json");
-    validateBridgeSettings(readFileSync(settingsPath, "utf8"));
-  } else {
-    writeFileIfAbsentAtomically(
-      cliDir,
-      settingsPath,
-      `${JSON.stringify({ auth: { type: "oauth-personal" } }, null, 2)}\n`,
-    );
+    // A concurrent session may have written its own first; use that one.
+    marker = writeFileIfAbsentAtomically(cliDir, tokenPath, payload)
+      ? generated
+      : readMarker();
   }
 
   return { profileDir, marker };

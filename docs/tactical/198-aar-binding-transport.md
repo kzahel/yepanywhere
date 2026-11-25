@@ -10,8 +10,8 @@ provider-neutral proxy from `9793c4832`, and names the opt-in's refusal from
 control socket, and
 [one live Antigravity run](#live-antigravity-run-2026-11-25) is recorded.
 The hosted and official-executable checks and the AAR release in step 5 are
-open. A routed Antigravity resume
-[failed with `agy` 1.5.17 on macOS](../../gaps/agy-1-5-17-ignores-routed-profile-login.md).
+open. Routed Antigravity failed with `agy` 1.5.17 on macOS until YA
+[asked `agy` for file-based login storage](#agy-1517-and-the-macos-keychain-2026-11-25).
 The landed behavior is recorded in the
 [binding transport contract](../../topics/agent-auth-router.md#binding-transport-2026-11-25).
 
@@ -294,6 +294,41 @@ created through HTTP v0 with `routerAccountId` (an account grant, no pool) on
 This run did not exercise a pool grant, a hosted router, a second concurrent
 routed session, or a long-running turn.
 
+#### `agy` 1.5.17 and the macOS Keychain, 2026-11-25
+
+`agy` updated itself to 1.5.17 an hour after that run, and the next routed
+resume failed with "Provider session completed before reporting a session
+id".
+
+- **Cause.** The routed profile holds a stand-in login in a file, and `agy`
+  reads that file only when it uses file-based login storage. YA got that by
+  setting `SSH_CONNECTION`, which `agy` 1.5.14 logged as "Using file-based
+  token storage because SSH session detected". The notes for 1.5.16 in the
+  binary say an SSH session on macOS now uses the login Keychain when it is
+  unlocked. The Keychain held one `agy` login for the macOS user (service
+  `gemini`, account `antigravity`), whatever `--gemini-dir` named, so 1.5.17
+  presented the user's own Google login. YA's proxy answered 401 and
+  forwarded nothing. `agy` also deleted the stand-in file, which left a
+  profile that `prepareAntigravityRoutedProfile` refused to prepare again.
+- **Fix.** Routed launches set `AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1` as well.
+  `agy` 1.5.17 logs "Using file-based token storage because
+  AGY_CLI_FORCE_FILE_TOKEN_STORAGE is set". The release notes do not mention
+  the variable. A profile whose `settings.json` is still byte for byte what
+  YA wrote, and which has no stand-in, gets a new one. Any other profile
+  with settings and no stand-in is refused as before.
+- **Checked.** A probe launched `agy acp` 1.5.17 the way YA does against a
+  loopback listener that answered 401. Without the variable it presented ten
+  distinct values beginning `ya29.`, the stand-in file was gone afterwards,
+  and the Keychain item's modification time had changed. With it, all nine
+  requests carried the stand-in, the file stayed, and the Keychain item's
+  modification time did not change. With the fix, a new
+  routed session and a resume of the session from the run above both
+  answered through AAR, and a direct session answered from the user's own
+  login.
+
+Not checked: Linux with a desktop keyring, Windows, and `agy` releases
+before 1.5.14.
+
 ### 4 — Put experimental provider opt-in in AAR Settings
 
 An experimental adapter is off by default. In AAR Settings, the
@@ -350,9 +385,8 @@ refused with AAR's text, with no `agy` started and the pin kept. The YA
 build running then predated `b01a2335a`, so it quoted the text inside its
 generic rejection. With the setting on, the account and its eight models
 were offered again. The resume that followed failed for
-[a separate reason](../../gaps/agy-1-5-17-ignores-routed-profile-login.md):
-that launch logged `agy` language server version 1.5.17, where the earlier
-ones logged 1.5.14.
+[a separate reason](#agy-1517-and-the-macos-keychain-2026-11-25): `agy` had
+updated itself to 1.5.17.
 
 ### 5 — Verify both repositories and ship AAR first
 

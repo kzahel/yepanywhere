@@ -216,6 +216,7 @@ export async function nativeFixture(
             ANTIGRAVITY_ACP_PATH: executable,
             AGY_CLI_DISABLE_AUTO_UPDATE: "1",
             AGY_ACP_FORCE_FILE_STORAGE: "1",
+            AGY_CLI_FORCE_FILE_TOKEN_STORAGE: "1",
             SSH_CONNECTION: "127.0.0.1 0 127.0.0.1 0",
           }
         : {}),
