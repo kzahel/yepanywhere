@@ -109,11 +109,12 @@ and 100 ms locally. The observations come from changing revisions.
 | Durable creation, background typing during delayed acceptance with 200 saved sessions | 78 | 142.1 ms |
 | Antigravity history append and live-to-log move | November 24 CI samples | 332.0 / 221.9 ms |
 | Native WebView bridge under 20 Hz, 1 MiB frames | November 24 CI sample | 229.9 ms (desktop) |
+| Goal editor during live transcript updates | Three November 25 CI misses | 132.3 ms |
 
 The shared ceiling provides 1.5–3.8 times the observed maxima. The
 [retained finding](../gaps/browser-typing-ci-stall-attribution.md) has run IDs
 and browser timing evidence for settings search, creation, Antigravity,
-and the native bridge.
+the native bridge, and the goal editor.
 Every measured window exceeding 100 ms records a `typing-target-miss`
 annotation, including passing CI cases.
 The JSON diagnostics retain the original samples, target and active ceiling;

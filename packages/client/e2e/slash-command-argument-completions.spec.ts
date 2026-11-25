@@ -6,6 +6,10 @@ import {
   type RemoteClientMessage,
 } from "@yep-anywhere/shared";
 import { e2ePaths, expect, test } from "./fixtures.js";
+import {
+  startTypingDiagnostics,
+  typingAckLimitMs,
+} from "./support/typing-diagnostics.js";
 import { recordUiCapture } from "./support/ui-capture.js";
 
 const mockProjectPath = join(e2ePaths.tempDir, "mockproject");
@@ -351,7 +355,7 @@ test("restarts the provider only after verified stop and reloads saved turns", a
 test("inspects and explicitly changes the goal without consuming the draft", async ({
   page,
   baseURL,
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000);
   let objective =
     "Implement and qualify durable provider-neutral session relationships. " +
@@ -538,14 +542,14 @@ test("inspects and explicitly changes the goal without consuming the draft", asy
   await panel.getByRole("button", { name: "Edit goal", exact: true }).click();
   const editor = panel.getByRole("textbox", { name: "Objective" });
   await expect(editor).toHaveValue(objective);
+  await expect(editor).toBeFocused();
+  const recordTyping = await startTypingDiagnostics(editor);
+  type MeasuredEditor = HTMLTextAreaElement & {
+    acks: { value: string; latency: number; focused: boolean }[];
+  };
   await editor.evaluate((element) => {
-    const field = element as HTMLTextAreaElement;
+    const field = element as MeasuredEditor;
     field.setSelectionRange(field.value.length, field.value.length);
-  });
-  await editor.evaluate((element) => {
-    const field = element as HTMLTextAreaElement & {
-      acks: { value: string; latency: number }[];
-    };
     field.acks = [];
     field.addEventListener("keydown", (event) =>
       requestAnimationFrame(() =>
@@ -553,11 +557,14 @@ test("inspects and explicitly changes the goal without consuming the draft", asy
           field.acks.push({
             value: field.value,
             latency: performance.now() - event.timeStamp,
+            focused: document.activeElement === field,
           }),
         ),
       ),
     );
   });
+  const readAcks = () =>
+    editor.evaluate((element) => (element as MeasuredEditor).acks);
   let edited = objective;
   for (const char of " Keep every keystroke.") {
     publish?.("message", {
@@ -571,27 +578,15 @@ test("inspects and explicitly changes the goal without consuming the draft", asy
     await page.keyboard.type(char);
     edited += char;
     await expect
-      .poll(() =>
-        editor.evaluate(
-          (element) =>
-            (
-              element as HTMLTextAreaElement & { acks: { value: string }[] }
-            ).acks.at(-1)?.value,
-        ),
-      )
+      .poll(async () => (await readAcks())?.at(-1)?.value)
       .toBe(edited);
   }
-  const acks = await editor.evaluate(
-    (element) =>
-      (
-        element as HTMLTextAreaElement & {
-          acks: { value: string; latency: number }[];
-        }
-      ).acks,
-  );
-  expect(acks).toHaveLength(" Keep every keystroke.".length);
+  const acks = await readAcks();
   const maxTypingLatency = Math.max(...acks.map((ack) => ack.latency));
-  expect(maxTypingLatency).toBeLessThan(100);
+  await recordTyping(testInfo, "goal-editor", acks, maxTypingLatency);
+  expect(acks).toHaveLength(" Keep every keystroke.".length);
+  expect(acks.every((ack) => ack.focused)).toBe(true);
+  expect(maxTypingLatency).toBeLessThan(typingAckLimitMs);
   console.log(`Goal editor typing: ${maxTypingLatency.toFixed(1)} ms maximum`);
   await panel.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(panel).toContainText(objective);

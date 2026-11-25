@@ -78,7 +78,7 @@ it("lets explicit provider-host configuration override platform defaults", () =>
 });
 it("shares the Mac default across profiles and respects explicit directory overrides", () => {
   const mac = { platform: "darwin", homeDir: "/Users/test", uid: 501 };
-  const defaultDir = join(mac.homeDir, ".yep-anywhere", "provider-host");
+  const defaultDir = resolve(mac.homeDir, ".yep-anywhere", "provider-host");
   expect(resolveProviderHostPaths({}, mac)).toMatchObject({
     runtimeDir: defaultDir,
     legacyPaths: {

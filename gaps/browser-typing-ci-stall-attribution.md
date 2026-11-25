@@ -74,3 +74,14 @@ native-event timing and browser diagnostics on desktop and phone. It uses the
 same 500 ms shared-CI ceiling (2.2 times the observed sample) and keeps the
 100 ms controlled-host gate and target-miss annotations. The cause of the
 229.9 ms sample remains open.
+
+On November 25, the goal editor retained every typed prefix during live
+transcript updates but recorded 103, 132.3 and 127 ms native acknowledgements
+in [45635181470](https://github.com/kzahel/yepanywhere/actions/runs/45635181470),
+[45639697433](https://github.com/kzahel/yepanywhere/actions/runs/45639697433)
+and [45644168035](https://github.com/kzahel/yepanywhere/actions/runs/45644168035).
+The latest trace shows the failed timing assertion after every prefix check;
+these runs did not record dispatch, input or frame attribution. The probe now
+records those phases and checks focus on each acknowledgement. Its shared-CI
+ceiling is 500 ms (3.8 times the observed maximum), with 100 ms target-miss
+annotations and the 100 ms controlled-host gate.
