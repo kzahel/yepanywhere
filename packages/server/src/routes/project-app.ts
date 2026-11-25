@@ -2,7 +2,10 @@ import { basename, join } from "node:path";
 import { realpath, unlink } from "node:fs/promises";
 import {
   isUrlProjectId,
+  projectAppHostPortSchema,
+  projectAppRedirectSchema,
   type LimitedUserGrants,
+  type ProjectAppDirect,
   type ProjectAppInfo,
   type ProjectAppView,
   type ProjectAppAddresses,
@@ -25,9 +28,14 @@ import {
   readAppDeclaration,
   projectServiceStaticStamp,
   projectServiceStaticApp,
+  honoredHostPort,
+  writeProjectDirectServing,
   writeProjectStartCommand,
+  type DirectServing,
   type ProjectServices,
 } from "../projects/ProjectServiceManager.js";
+import type { ProjectAppHostPorts } from "../projects/ProjectAppHostPorts.js";
+import type { TailscaleFunnel } from "../projects/TailscaleFunnel.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import type { Principal } from "../auth/principal.js";
 import type { Project } from "../supervisor/types.js";
@@ -55,6 +63,8 @@ export function createProjectAppRoutes(deps: {
   onVisibilityChanged?: (projectId: string) => void;
   delivery?: ProjectAppDelivery;
   autoStart?: ProjectAppAutoStart;
+  hostPorts?: Pick<ProjectAppHostPorts, "reconcile" | "status">;
+  funnel?: Pick<TailscaleFunnel, "status" | "set">;
   openService: (
     projectId: string,
     audience: "local" | "public",
@@ -127,9 +137,19 @@ export function createProjectAppRoutes(deps: {
       removedFrom: [...visibility.values()],
     };
     let fileLinks: { enabled: boolean; pathTemplate: string } | undefined;
+    let direct: DirectServing = {};
     try {
-      fileLinks = (await readAppDeclaration(project.path))?.fileLinks;
+      const declared = await readAppDeclaration(project.path);
+      fileLinks = declared?.fileLinks;
+      direct = {
+        ...(declared?.redirect ? { redirect: declared.redirect } : {}),
+        ...(declared?.hostPort !== undefined
+          ? { hostPort: declared.hostPort }
+          : {}),
+      };
       info.declaration = await readProjectService(project.path);
+      // A redirect alone is a complete app: nothing to start or serve.
+      if (!info.declaration && direct.redirect) info.state = "ready";
       info.livePreview =
         (await readProjectService(project.path, "live-preview")) ?? undefined;
       if (info.declaration?.where.kind === "static") {
@@ -178,7 +198,39 @@ export function createProjectAppRoutes(deps: {
       if (url)
         info.fileLinks = { pathTemplate: fileLinks.pathTemplate, baseUrl: url };
     }
+    info.direct = await directInfo(project, principal, info, direct);
     return info;
+  };
+
+  /** Reading the declaration is also when YA takes or frees its host port. */
+  const directInfo = async (
+    project: Project,
+    principal: Principal,
+    info: ProjectAppInfo,
+    direct: DirectServing,
+  ): Promise<ProjectAppDirect> => {
+    const result: ProjectAppDirect = { ...direct };
+    const hostPort = honoredHostPort(project, info.declaration, direct);
+    if (direct.hostPort !== undefined && hostPort === undefined)
+      result.error = project.ownerUsername
+        ? "A limited user's project cannot serve a host port"
+        : "A host port forwards to a process app";
+    if (!deps.hostPorts || hostPort === undefined) {
+      await deps.hostPorts?.reconcile(project.id, undefined);
+      return result;
+    }
+    await deps.hostPorts.reconcile(project.id, hostPort);
+    Object.assign(result, deps.hostPorts.status(project.id));
+    // Funnel changes host networking, so only an administrator sees it.
+    if (principal.kind === "superuser" && deps.funnel) {
+      try {
+        const funnel = await deps.funnel.status(hostPort);
+        if (funnel) result.funnel = funnel;
+      } catch (error) {
+        console.warn("[project-app] Funnel status unavailable:", error);
+      }
+    }
+    return result;
   };
 
   const publicAddress = async (
@@ -359,6 +411,98 @@ export function createProjectAppRoutes(deps: {
         },
         409,
       );
+    return c.json(await appInfo(project, principalFor(c)));
+  });
+  const directFields = z.strictObject({
+    redirect: projectAppRedirectSchema.optional(),
+    hostPort: projectAppHostPortSchema.optional(),
+  });
+  routes.put("/projects/:projectId/app/direct", async (c) => {
+    const parsed = z
+      .strictObject({ expected: directFields, next: directFields })
+      .safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success)
+      return c.json(
+        {
+          error:
+            "Expected expected and next, each with an optional http(s) redirect and a host port from 1024 to 65535",
+        },
+        400,
+      );
+    const project = await authorize(c, "new-session");
+    // A host port serves the app with no YA access check.
+    if (parsed.data.next.hostPort !== parsed.data.expected.hostPort)
+      administrator(c);
+    const result = await writeProjectDirectServing(
+      project.path,
+      parsed.data.expected,
+      parsed.data.next,
+    );
+    if (result.kind === "invalid")
+      return c.json({ error: result.message }, 400);
+    if (result.kind === "conflict")
+      return c.json(
+        {
+          error: "The redirect or host port changed since it was loaded",
+          current: result.current,
+        },
+        409,
+      );
+    return c.json(await appInfo(project, principalFor(c)));
+  });
+  routes.post("/projects/:projectId/app/funnel", async (c) => {
+    administrator(c);
+    const parsed = z
+      .strictObject({
+        httpsPort: z.number().int().min(1).max(65535),
+        on: z.boolean(),
+      })
+      .safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success)
+      return c.json({ error: "Expected httpsPort and on" }, 400);
+    const project = await authorize(c, "new-session");
+    const declared = await readAppDeclaration(project.path);
+    const hostPort = honoredHostPort(
+      project,
+      await readProjectService(project.path),
+      { hostPort: declared?.hostPort },
+    );
+    if (!deps.funnel || hostPort === undefined)
+      return c.json({ error: "The app serves no host port" }, 409);
+    const status = await deps.funnel.status(hostPort);
+    if (!status)
+      return c.json({ error: "Tailscale is not installed or logged in" }, 409);
+    if (status.setupCommand)
+      return c.json(
+        { error: `YA may not change Funnel; run ${status.setupCommand}` },
+        409,
+      );
+    if (!status.ports.includes(parsed.data.httpsPort))
+      return c.json(
+        {
+          error: `Funnel allows HTTPS ports ${status.ports.join(", ") || "none"}`,
+        },
+        400,
+      );
+    // Never replace or remove what another target publishes on that port.
+    if (status.busy.includes(parsed.data.httpsPort))
+      return c.json(
+        {
+          error: `HTTPS port ${parsed.data.httpsPort} already serves something else on this node`,
+        },
+        409,
+      );
+    try {
+      await deps.funnel.set(parsed.data.httpsPort, hostPort, parsed.data.on);
+    } catch (error) {
+      const stderr = (error as { stderr?: string }).stderr?.trim();
+      return c.json(
+        {
+          error: `tailscale funnel failed: ${stderr || (error instanceof Error ? error.message : String(error))}`,
+        },
+        502,
+      );
+    }
     return c.json(await appInfo(project, principalFor(c)));
   });
   routes.post("/projects/:projectId/app/stop", async (c) => {

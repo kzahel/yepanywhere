@@ -9,6 +9,8 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
+  projectAppHostPortSchema,
+  projectAppRedirectSchema,
   projectServiceSchema,
   projectFileLinksSchema,
   type ProjectServiceDeclaration,
@@ -68,6 +70,10 @@ const appDeclarationSchema = z.object({
   // How a static app's reserved address opens. Top-level, not inside the
   // strict service schema, so older servers ignore it and keep redirecting.
   staticAddress: z.enum(["redirect", "frame"]).optional(),
+  // Direct serving (topics/project-service.md § Direct serving). Top-level
+  // for the same reason; an older server ignores both.
+  redirect: projectAppRedirectSchema.optional(),
+  hostPort: projectAppHostPortSchema.optional(),
 });
 
 /** How a static app's reserved address opens: redirect to its grant (default) or frame it. */
@@ -168,6 +174,92 @@ export async function writeProjectStartCommand(
     };
   await writeFileAtomically(file, `${JSON.stringify(raw, null, 2)}\n`, {
     mode: (await stat(file)).mode & 0o777,
+  });
+  return { kind: "written" };
+}
+
+export interface DirectServing {
+  redirect?: string;
+  hostPort?: number;
+}
+
+/**
+ * The host port YA serves for a project. A limited user's project, whose
+ * agents may write its declaration, never gets one: the port has no YA
+ * access check, and only an administrator may open such a path.
+ */
+export function honoredHostPort(
+  project: { ownerUsername?: string },
+  declaration: ProjectServiceDeclaration | null,
+  direct: DirectServing,
+): number | undefined {
+  return declaration?.where.kind === "process" && !project.ownerUsername
+    ? direct.hostPort
+    : undefined;
+}
+
+export type DirectServingEdit =
+  | { kind: "written" }
+  | { kind: "conflict"; current: DirectServing }
+  | { kind: "invalid"; message: string };
+
+/**
+ * Set or clear `redirect` and `hostPort` in the project's own declaration
+ * at a user's explicit request, keeping every other field, only while the
+ * file still declares `expected`. A redirect-only app needs no other
+ * field, so this creates the declaration when the project has none.
+ */
+export async function writeProjectDirectServing(
+  projectPath: string,
+  expected: DirectServing,
+  next: DirectServing,
+): Promise<DirectServingEdit> {
+  const declared = await readAppDeclaration(projectPath);
+  const current: DirectServing = {
+    ...(declared?.redirect ? { redirect: declared.redirect } : {}),
+    ...(declared?.hostPort !== undefined
+      ? { hostPort: declared.hostPort }
+      : {}),
+  };
+  if (
+    current.redirect !== expected.redirect ||
+    current.hostPort !== expected.hostPort
+  )
+    return { kind: "conflict", current };
+  if (
+    next.hostPort !== undefined &&
+    declared?.service?.where.kind !== "process"
+  )
+    return {
+      kind: "invalid",
+      message: "A host port forwards to a process app; declare one first",
+    };
+  const root = await realpath(projectPath);
+  const directory = join(root, ".project-template");
+  await mkdir(directory, { recursive: true });
+  if (!isPathInsideDirectory(await realpath(directory), root))
+    throw new Error("Service declaration escapes project");
+  // An existing declaration may be a symlink; reading it checked containment.
+  const file = declared
+    ? await realpath(join(directory, "app.json"))
+    : join(directory, "app.json");
+  // Edit the file's own JSON so fields this server does not know survive.
+  const raw: Record<string, unknown> = declared
+    ? JSON.parse(await readFile(file, "utf8"))
+    : {};
+  for (const key of ["redirect", "hostPort"] as const) {
+    if (next[key] === undefined) delete raw[key];
+    else raw[key] = next[key];
+  }
+  const parsed = appDeclarationSchema.safeParse(raw);
+  if (!parsed.success)
+    return {
+      kind: "invalid",
+      message: parsed.error.issues.map((issue) => issue.message).join("; "),
+    };
+  const mode = declared ? (await stat(file)).mode & 0o777 : 0o644;
+  await writeFileAtomically(file, `${JSON.stringify(raw, null, 2)}\n`, {
+    mode,
   });
   return { kind: "written" };
 }

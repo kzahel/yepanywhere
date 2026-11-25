@@ -147,9 +147,13 @@ import { createProjectTemplateRoutes } from "./routes/project-templates.js";
 import { TemplateSourceService } from "./projects/TemplateSourceService.js";
 import { TemplateCreationService } from "./projects/TemplateCreationService.js";
 import { ProjectAppAutoStart } from "./projects/ProjectAppAutoStart.js";
+import { ProjectAppHostPorts } from "./projects/ProjectAppHostPorts.js";
 import { ProjectAppStore } from "./projects/ProjectAppStore.js";
+import { TailscaleFunnel } from "./projects/TailscaleFunnel.js";
 import {
+  honoredHostPort,
   ProjectServiceManager,
+  readAppDeclaration,
   readProjectService,
   readStaticAddressMode,
   projectServiceStaticApp,
@@ -1382,6 +1386,30 @@ export function createApp(options: AppOptions): AppResult {
       );
     },
   });
+  const projectAppHostPorts = new ProjectAppHostPorts({
+    services: projectServices,
+    autoStart: projectAppAutoStart,
+  });
+  // A host proxy such as Tailscale Funnel needs the port held before anyone
+  // opens the app in YA; later declaration reads keep it current.
+  void (async () => {
+    for (const project of await scanner.listProjects()) {
+      if (project.ownerUsername) continue;
+      try {
+        const port = honoredHostPort(
+          project,
+          await readProjectService(project.path),
+          { hostPort: (await readAppDeclaration(project.path))?.hostPort },
+        );
+        if (port !== undefined)
+          await projectAppHostPorts.reconcile(project.id, port);
+      } catch {
+        // An unreadable declaration is reported when its app is viewed.
+      }
+    }
+  })().catch((error: unknown) =>
+    console.error("[ProjectAppHostPorts] Startup scan failed:", error),
+  );
   const projectAppDelivery = new ProjectAppDelivery(
     artifactServer,
     projectServices,
@@ -1422,6 +1450,8 @@ export function createApp(options: AppOptions): AppResult {
       activeGrants: getActiveLimitedGrants,
       delivery: projectAppDelivery,
       autoStart: projectAppAutoStart,
+      hostPorts: projectAppHostPorts,
+      funnel: new TailscaleFunnel(),
       onVisibilityChanged: (projectId) =>
         options.eventBus?.emit({
           type: "projects-changed",
@@ -1829,6 +1859,7 @@ export function createApp(options: AppOptions): AppResult {
       await projectServices.close();
       await projectAppStore.close();
       await projectAppAutoStart.close();
+      await projectAppHostPorts.close();
       await templateCreations.close();
       await legacyRetirement;
       conversationSubscriptions?.close();

@@ -610,6 +610,32 @@ export const SETTINGS_SERVER_CAPABILITIES = {
       reason: "Older servers do not report .rendez observer status.",
     },
   },
+  projectAppDirectServing: {
+    id: CAPABILITY_ID_ALLOCATIONS.projectAppDirectServing.id,
+    name: "project-app-direct-serving",
+    kind: "permanent",
+    area: "settings",
+    introducedIn: "0.14.1",
+    advertisement: { kind: "version-implied" },
+    description:
+      "Reports and edits an app's redirect address and direct host port in .project-template/app.json, forwards that host loopback port to the running process app without a YA access check, and turns Tailscale Funnel on or off for it.",
+    clientFallback:
+      "View through YA's own app addresses only, show no redirect, host-port or Funnel controls, and make no direct-serving request.",
+    serverContract: {
+      routes: [
+        "GET /api/projects/:projectId/app",
+        "PUT /api/projects/:projectId/app/direct",
+        "POST /api/projects/:projectId/app/funnel",
+      ],
+      requestFields: ["expected", "redirect", "hostPort", "httpsPort", "on"],
+      responseFields: ["direct"],
+    },
+    lifecycle: {
+      kind: "permanent",
+      reason:
+        "Older servers ignore redirect and hostPort, so a hosted client must not offer edits they would not apply.",
+    },
+  },
   projectAppStartCommand: {
     id: CAPABILITY_ID_ALLOCATIONS.projectAppStartCommand.id,
     name: "project-app-start-command",

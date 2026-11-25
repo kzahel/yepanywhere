@@ -176,7 +176,46 @@ export function projectFileLink(
   return url.href;
 }
 
+/** `app.json` `redirect`: the canonical address viewing tries first. */
+export const projectAppRedirectSchema = z
+  .url({ protocol: /^https?$/ })
+  .max(2048)
+  .refine((value) => !hasControlCharacters(value));
+
+/** `app.json` `hostPort`: host loopback port forwarded to the process app. */
+export const projectAppHostPortSchema = z.number().int().min(1024).max(65535);
+
+/**
+ * Serving outside YA's own app addresses, advertised by
+ * project-app-direct-serving. A direct path has no YA access check: the
+ * app's own login is its only gate.
+ */
+export interface ProjectAppDirect {
+  redirect?: string;
+  hostPort?: number;
+  /** Whether YA holds `hostPort` now; `error` says why it does not. */
+  listening?: boolean;
+  error?: string;
+  /** Present when `tailscale` is installed and this principal may manage it. */
+  funnel?: ProjectAppFunnel;
+}
+
+export interface ProjectAppFunnel {
+  /** `https://<node>/` of this host's Tailscale node. */
+  host: string;
+  /** HTTPS ports the tailnet lets this node funnel; empty when none. */
+  ports: number[];
+  /** Funnel URLs that currently proxy to `hostPort`. */
+  urls: string[];
+  /** HTTPS ports this node already serves with something else. */
+  busy: number[];
+  /** Set when YA's user may not change Funnel: the one-time fix to run. */
+  setupCommand?: string;
+}
+
 export interface ProjectAppInfo {
+  /** Advertised by project-app-direct-serving. */
+  direct?: ProjectAppDirect;
   fileLinks?: ProjectFileLinks;
   /** Explicit template dev service; gated by project-live-preview. */
   livePreview?: ProjectServiceDeclaration;

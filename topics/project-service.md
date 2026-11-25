@@ -632,6 +632,62 @@ explicit Reload renews the current target, without background replacement of
 an interacting iframe. A changed declaration is shown alongside the active
 launch; stopping that launch remains possible even if the new file is invalid.
 
+## Direct serving
+
+An app can also be reached without going through YA, at an address that its
+own login, not YA's link check, protects. Two optional top-level `app.json`
+fields declare it; older servers ignore both, and both are advertised by
+`project-app-direct-serving`:
+
+```json
+{
+  "redirect": "https://reading.example.ts.net/",
+  "hostPort": 3470,
+  "service": { "...": "a process app, as above" }
+}
+```
+
+- **`redirect`** is the app's canonical http(s) address. Viewing tries it
+  first, from the viewer's own browser, because a tailnet address can be
+  reachable from the YA host and not from the viewer, or the reverse. The
+  probe sends no credentials, so it cannot raise the app's login prompt.
+  Only an unreachable address (refused, unresolvable, timed out) falls back
+  to the declared `service` through YA's own delivery; a login challenge is
+  the app working. A redirect needs no `service`: alone it is a complete
+  app with nothing to start.
+- **`hostPort`** is a host loopback port, 1024–65535, that YA forwards to
+  the running process app, so a host-side proxy such as Tailscale Funnel
+  can reach an app whose own port lives in its sandbox's private network.
+  YA splices each connection through the sandbox broker as raw TCP
+  (`projects/ProjectAppHostPorts.ts`). The sandbox's filesystem and
+  outbound firewall stay as they are; the port adds an inbound path with
+  **no YA access check**, open to every local process and user on the host
+  and to whatever the host proxy publishes. YA takes the port when it reads
+  the declaration (at startup and on every app info read) and retries a
+  busy one, so stopping a previous holder needs no YA restart. A connection
+  that finds the app stopped starts it only when its
+  [auto-start on visit](#auto-start-on-visit) is on.
+
+Opening an ungated path is an administrator decision. Only an administrator
+may set or change `hostPort` through Settings, and YA never honors one in a
+project a limited user owns, whose agents can write its declaration
+directly. A `redirect` is editable with the project's execution right. Both
+edits apply only while the file still declares what the editor loaded, and
+keep every other field.
+
+**Funnel.** When `tailscale` is installed and the node is logged in, an
+administrator sees Funnel for a declared host port. Funnel publishes this
+node's own name, `https://<node>.<tailnet>.ts.net`, on the HTTPS ports the
+tailnet allows (443, 8443 and 10000 by default), so apps on one host differ
+by port, not hostname. YA runs `tailscale funnel --bg --https=<port>
+http://127.0.0.1:<hostPort>` and `tailscale funnel --https=<port> off`
+(`projects/TailscaleFunnel.ts`), and never replaces or removes a port that
+already serves another target. YA does not elevate: changing Funnel needs
+root or the node's operator user, and when YA's user is neither, Settings
+shows the one-time `sudo tailscale set --operator=<user>` instead. A
+distinct hostname per app would need its own node or Tailscale Services;
+see [the canonical-address gap](../gaps/sketches/project-app-canonical-url.md).
+
 ## App address in project Settings
 
 Administrators see **Project apps** immediately below manual Vhosts in

@@ -18,6 +18,12 @@ export interface CapabilityIdAllocation {
  * before the general 0.7.1 ID contract.
  */
 export const CAPABILITY_ID_ALLOCATIONS = {
+  projectAppDirectServing: {
+    id: 164,
+    direction: "server",
+    name: "project-app-direct-serving",
+    introducedIn: "0.14.1",
+  },
   cliInstallations: {
     id: 161,
     direction: "server",

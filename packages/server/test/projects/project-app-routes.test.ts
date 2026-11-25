@@ -605,6 +605,66 @@ it("edits only a process app's start command, with execution authority and again
   expect(written.viewAudience).toBe("public");
 });
 
+it("edits the redirect against the loaded value and keeps host ports to administrators of their own projects", async () => {
+  const file = join(projectPath, ".project-template/app.json");
+  const put = (body: unknown) =>
+    app.request(`/api/projects/${projectId}/app/direct`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  const redirect = "https://reading.example.ts.net/";
+  grants.newSessionProjects = [projectId];
+  expect(
+    (await put({ expected: {}, next: { redirect: "ftp://x.example/" } }))
+      .status,
+  ).toBe(400);
+  const saved = await put({ expected: {}, next: { redirect } });
+  expect(saved.status).toBe(200);
+  expect((await saved.json()).direct).toEqual({ redirect });
+  const written = JSON.parse(await readFile(file, "utf8"));
+  expect(written.redirect).toBe(redirect);
+  expect(written.service.where.kind).toBe("static");
+  // A stale editor never overwrites a concurrent change.
+  expect((await put({ expected: {}, next: {} })).status).toBe(409);
+  // A host port serves with no YA access check: administrators only.
+  expect(
+    (await put({ expected: { redirect }, next: { redirect, hostPort: 3470 } }))
+      .status,
+  ).toBe(403);
+  // Written by the project's own agent instead, it is still not served,
+  // because a limited user owns the project.
+  await writeFile(
+    file,
+    JSON.stringify({ ...written, hostPort: 3470, service: processService() }),
+  );
+  principal = { kind: "superuser" } as Principal;
+  const info = await (
+    await app.request(`/api/projects/${projectId}/app`)
+  ).json();
+  expect(info.direct).toEqual({
+    redirect,
+    hostPort: 3470,
+    error: "A limited user's project cannot serve a host port",
+  });
+});
+
+function processService() {
+  return {
+    version: 1,
+    where: { kind: "process", cwd: ".", entry: "/" },
+    start: { argv: ["python3", "serve.py"], portEnv: "PORT" },
+    status: {
+      probe: "http",
+      path: "/",
+      readyStatus: 200,
+      startupTimeoutMs: 1000,
+    },
+    stop: { signal: "SIGTERM", graceMs: 1000 },
+    serving: { target: "sandbox-loopback", protocol: "http" },
+  };
+}
+
 it("reports static entry changes and omits the stamp when the entry is missing", async () => {
   const entry = join(projectPath, "dist/index.html");
   const info = async () =>
