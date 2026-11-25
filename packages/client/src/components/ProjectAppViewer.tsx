@@ -1086,12 +1086,12 @@ export function ProjectAppViewer({
                               )}
                             </>
                           ) : (
-                            <form
+                            // Not a form: Settings > Apps wraps this panel in
+                            // its own, and HTML forms cannot nest.
+                            <div
+                              role="group"
+                              aria-label={t("projectAppCommand")}
                               className={styles.commandEditor}
-                              onSubmit={(event) => {
-                                event.preventDefault();
-                                void saveCommand(declaredArgv, commandDraft);
-                              }}
                             >
                               <Field
                                 label={t("projectAppCommandHint")}
@@ -1113,8 +1113,10 @@ export function ProjectAppViewer({
                               <div>
                                 <Button
                                   variant="primary"
-                                  type="submit"
                                   disabled={busy || !commandDraft.trim()}
+                                  onClick={() =>
+                                    void saveCommand(declaredArgv, commandDraft)
+                                  }
                                 >
                                   {t("projectAppCommandSave")}
                                 </Button>
@@ -1125,7 +1127,7 @@ export function ProjectAppViewer({
                                   {t("projectAppCommandCancel")}
                                 </Button>
                               </div>
-                            </form>
+                            </div>
                           )}
                         </dd>
                       </>
