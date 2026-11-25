@@ -6,12 +6,12 @@ import {
   serverHasCapability,
 } from "@yep-anywhere/shared";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { api } from "../../api/client";
 import {
-  api,
   DEFAULT_FILE_ACCESS,
   type FileAccessInfo,
   type FileAccessSettings,
-} from "../../api/client";
+} from "../../api/fileAccess";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Badge } from "../../components/ui/Badge";
 import { Banner } from "../../components/ui/Banner";

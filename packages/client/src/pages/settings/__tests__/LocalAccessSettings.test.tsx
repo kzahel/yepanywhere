@@ -18,11 +18,11 @@ import {
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ServerSettings } from "../../../api/client";
 import type {
   FileAccessInfo,
   FileAccessSettings,
-  ServerSettings,
-} from "../../../api/client";
+} from "../../../api/fileAccess";
 import { LocalAccessSettings } from "../LocalAccessSettings";
 import { SettingsSearchScopeProvider } from "../SettingsSearchContext";
 import {

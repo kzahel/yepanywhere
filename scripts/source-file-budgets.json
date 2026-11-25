@@ -3,7 +3,7 @@
   "updated": "2026-11-25",
   "files": {
     "packages/client/src/api/client.ts": {
-      "maxLines": 1913
+      "maxLines": 1876
     },
     "packages/client/src/components/blocks/ToolCallRow.tsx": {
       "maxLines": 1693
@@ -31,7 +31,7 @@
       "maxLines": 2661
     },
     "packages/client/src/components/Sidebar.tsx": {
-      "maxLines": 1590
+      "maxLines": 1536
     },
     "packages/client/src/components/UserTurnNavigator.tsx": {
       "maxLines": 1562
@@ -43,7 +43,7 @@
       "maxLines": 1769
     },
     "packages/client/src/lib/clientSummaryState.ts": {
-      "maxLines": 2198
+      "maxLines": 2075
     },
     "packages/client/src/lib/connection/RelayProtocol.ts": {
       "maxLines": 1620
