@@ -62,9 +62,10 @@ function freePort(): Promise<number> {
 }
 
 /** Like an HTTP client, never half-closes: the broker does not support it. */
-function exchange(port: number, text: string): Promise<string> {
+function exchange(port: number, text?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const socket = connect(port, "127.0.0.1", () => socket.write(text));
+    const socket = connect(port, "127.0.0.1");
+    if (text !== undefined) socket.once("connect", () => socket.write(text));
     let reply = "";
     socket.on("data", (chunk) => (reply += chunk));
     socket.on("close", () => resolve(reply));
@@ -127,5 +128,5 @@ it("reports a busy port and takes it once it is free", async () => {
   await hostPorts.reconcile("p", port);
   expect(hostPorts.status("p")).toEqual({ listening: true });
   // With no running app and no auto-start the connection just closes.
-  expect(await exchange(port, "x")).toBe("");
+  expect(await exchange(port)).toBe("");
 });
