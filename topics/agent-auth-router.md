@@ -366,19 +366,23 @@ executable, argument, environment value and header itself.
   replies. That allowance goes with the shim.
 
 AAR's [cross-repository suite](https://github.com/kzahel/agent-auth-router/tree/main/integration/yepanywhere)
-runs YA `f4c106fb1` against the describing router over the local control
-socket (2026-11-25). A session started while a relay hides the capability
+runs YA `9793c4832` against the describing router (AAR `d270e9c`) over the
+local control socket (2026-11-25). A session started while a relay hides the capability
 resumes on its pin through a described route YA could not have assembled.
 Both refusals start no provider and leave the router's binding cancelled. A
 resume whose commit reply is lost keeps its pin. One routed Antigravity
-session completes a turn through the bridge. The hosted origin is exercised
+session completes a turn through the loopback proxy on a described route,
+and a call outside AAR's registered routes passes the proxy and is refused
+by AAR. A [live run](../docs/tactical/198-aar-binding-transport.md#live-antigravity-run-2026-11-25)
+with the real `agy` and a personal subscription completed text and tool
+turns and a resume on 2026-11-25. The hosted origin is exercised
 only by each repository's own tests, and no released AAR carries the
 capability yet. A new session whose first commit reply is lost
 [leaves a committed binding behind](../gaps/new-routed-session-lost-commit-reply-orphans-binding.md).
 
 [Plan 198](../docs/tactical/198-aar-binding-transport.md) covers the remaining
-work: hosted and official-executable qualification, an AAR release, and a
-transport prepared on the execution host.
+work: hosted and official-executable qualification, an AAR release, and the
+experimental Antigravity opt-in in AAR Settings.
 
 Routed Claude sets `ENABLE_TOOL_SEARCH=true`. Claude Code otherwise disables
 tool search for any non-Anthropic `ANTHROPIC_BASE_URL` and sends every tool

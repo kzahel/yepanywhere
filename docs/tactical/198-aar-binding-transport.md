@@ -1,13 +1,14 @@
 # Separate AAR routing from Yep Anywhere provider launches
 
-Status: steps 1 and 2 implemented and pushed, 2026-11-25. AAR commits
-`d5623a7` and `5a5039a` publish the transport and are unreleased. YA consumes
-it from `f4c106fb1` and keeps the legacy shim. Step 5 is partly done: AAR's
-cross-repository suite (AAR `a1e96cc`) runs that YA commit against the
-describing router over the local control socket. Step 3 was redecided on
-2026-11-25: the listener stays in YA as a provider-neutral proxy and AAR
-describes the Antigravity route. Step 4 is open, as are the hosted and
-official-executable checks and the AAR release in step 5.
+Status: steps 1 to 3 implemented and pushed, 2026-11-25. AAR commits
+`d5623a7`, `5a5039a` and `1f56bb1` publish the transport and are unreleased.
+YA consumes it from `f4c106fb1` with the legacy shim, and from `9793c4832`
+fronts routed Antigravity with a provider-neutral proxy. Step 5 is partly
+done: AAR's cross-repository suite (AAR `d270e9c`) runs YA `9793c4832`
+against the describing router over the local control socket, and
+[one live Antigravity run](#live-antigravity-run-2026-11-25) is recorded.
+Step 4 is open, as are the hosted and official-executable checks and the AAR
+release in step 5.
 The landed behavior is recorded in the
 [binding transport contract](../../topics/agent-auth-router.md#binding-transport-2026-11-25).
 
@@ -236,7 +237,7 @@ login. Qualify routed model traffic here and keep the separate gap visible.
 
 ### 3 — Describe the Antigravity route and make YA's listener generic
 
-Redecided 2026-11-25; see
+Redecided and implemented 2026-11-25 (AAR `1f56bb1`, YA `9793c4832`); see
 [endpoint on the execution host](#endpoint-on-the-execution-host).
 
 - **AAR:** attach the `http-gateway-v1` transport to Antigravity bindings. A
@@ -259,6 +260,36 @@ OAuth logic. Removing it too would need the AAR helper set aside above.
 
 All routed Antigravity sessions share one profile and so one local token; see
 [the gap](../../gaps/routed-antigravity-sessions-share-one-local-token.md).
+
+#### Live Antigravity run, 2026-11-25
+
+One run on macOS arm64 with `agy` 1.5.14, a personal Google subscription
+enrolled in a local AAR at `d270e9c`, and YA at `9793c4832`. The session was
+created through HTTP v0 with `routerAccountId` (an account grant, no pool) on
+`gemini-3.8-flash`.
+
+- **Launch.** `agy acp` received a loopback `--cloud_code_endpoint` on an
+  ephemeral port and the routed profile as `--gemini-dir`. A search of its
+  arguments, its environment and the profile's files found no binding token.
+  The profile's token file held an `aar_local_` stand-in.
+- **Turns.** Two text turns and one turn with a file-read tool answered
+  correctly. AAR logged `loadCodeAssist`, `listExperiments`, `fetchUserInfo`,
+  `fetchAdminControls`, `fetchAvailableModels`, `retrieveUserQuotaSummary` and
+  six `streamGenerateContent` calls, all 200 on the granted account.
+- **A call AAR does not serve.** `agy` sent `writeTrajectoryAcls` once. The
+  proxy forwarded it, AAR answered 404 `unknown route`, and the session went
+  on.
+- **Who may use the proxy.** A request with no token or a wrong one got 401,
+  and one with another `Host` got 403.
+- **Exit and resume.** The port refused connections within 2 seconds of
+  killing `agy`. `POST /api/projects/:p/sessions/:s/resume` started a new
+  `agy` on a new port (v0 has no resume). YA's private state still held one
+  Antigravity binding, and the model recalled both earlier replies.
+- **Catalog and quota.** `aar owner accounts/refresh` returned eight models
+  and `aar account quotas` returned four windows.
+
+This run did not exercise a pool grant, a hosted router, a second concurrent
+routed session, or a long-running turn.
 
 ### 4 — Put experimental provider opt-in in AAR Settings
 
@@ -295,12 +326,13 @@ wait for any transport change.
   invalid descriptor case that refuses before provider spawn, and verify
   that Direct still launches when the router is unavailable. Assert the
   chosen upstream account, the conversation identity and credential isolation.
-  Done on 2026-11-25 for the local control socket (AAR `a1e96cc`, YA
-  `f4c106fb1`): the existing lifecycle cases pass on the described transport,
+  Done on 2026-11-25 for the local control socket (AAR `d270e9c`, YA
+  `9793c4832`): the existing lifecycle cases pass on the described transport,
   and new cases cover a described route YA could not have assembled, a router
-  reply without the capability, both refusals before provider spawn, a lost
-  commit reply on a resume, and one routed Antigravity session through the
-  bridge. Still open here: the hosted HTTPS launch, Direct launching while the
+  reply without the capability, both refusals before provider spawn, and a
+  lost commit reply on a resume. A synthetic Antigravity peer completes a
+  turn through the described route, and AAR refuses an unregistered call
+  that YA's proxy forwards. Still open here: the hosted HTTPS launch, Direct launching while the
   router is unavailable, and a new session's first commit reply being lost,
   which today
   [leaves a committed binding behind](../../gaps/new-routed-session-lost-commit-reply-orphans-binding.md).

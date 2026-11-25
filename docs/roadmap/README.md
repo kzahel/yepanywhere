@@ -1420,7 +1420,8 @@ public reverse-proxy/live-provider and other native-platform qualification
 remain pending. The local path and retained session pins keep their contracts.
 The authorized recovery follow-up adds on-demand reachability, disabled-account
 guidance and explicit cancellation/disconnect retry before automatic policies.
-AAR owns the SHA-pinned cross-repository regression suite for both providers.
+AAR owns the SHA-pinned cross-repository regression suite: Claude and Codex
+lifecycle cases and one synthetic Antigravity proxy case.
 Manual/Round robin allocation and a cached quota/eligibility overview are
 implemented. Since 2026-10-13, New Session remembers pool/account/policy per
 provider on the server, with silent fallback when unavailable or unsupported;
@@ -1438,7 +1439,8 @@ to Direct (no automatic failover). Since 2026-11-25
 launches use the inference transport AAR describes on each binding, with a
 [temporary shim](../../gaps/aar-legacy-transport-shim.md) for routers that
 predate it. Routed Antigravity uses the same description behind a
-provider-neutral loopback proxy. AAR's cross-repository suite covers the
+provider-neutral loopback proxy, which one live run with the real `agy`
+exercised on 2026-11-25. AAR's cross-repository suite covers the
 local control socket, and an AAR release, hosted qualification and the
 experimental Antigravity opt-in in AAR Settings remain. YA respects router-owned pool grants and exposes read-only
 management guidance; legacy routers retain their scoped editor. Advanced
