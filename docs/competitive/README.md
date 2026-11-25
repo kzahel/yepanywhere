@@ -40,6 +40,7 @@ Official apps from AI providers:
 | [AionUi](aionui.md) | Desktop + WebUI + Telegram | 17 (ACP) | Messaging platform bots, cron scheduling, Zed ACP bridges |
 | [emdash](emdash.md) | Desktop app | 20+ | Multi-agent orchestration, git worktrees |
 | [Conductor](conductor.md) | macOS app | Claude, Codex | Git worktree isolation |
+| [Paradev](paradev.md) | Desktop + native mobile + headless host | Any CLI; structured chat for Claude, Codex, OpenCode, Pi | Managed Git worktrees, integrated GitHub review, cloud workspaces and event-triggered runs |
 | [HAPI](hapi.md) | Web + CLI | Claude, Codex, Gemini, OpenCode | CLI-wrapper architecture, terminal page |
 | [Happy](happy.md) | Desktop + headless runtime + native mobile; legacy CLI | Claude, Codex, Grok | Unified harness, persistent bots, encrypted mobile sync, shared team sessions and collaborative documents |
 | [CosmoRemote](cosmoremote.md) | Native mobile + Mac bridge | Claude, Codex, Cursor, terminal | Multi-Mac mobile fleet and interactive simulator/emulator streaming |
@@ -160,5 +161,5 @@ See **[Ecosystem](../ecosystem/)** for adjacent projects — agent-to-agent coor
 
 ## Last Updated
 
-2026-10-18 (Android host references and Buddy/Shizuku/Termux source reviews;
-Happy/T3 follow-ups retain their October 17 dates and other snapshots their own dates)
+2026-11-25 ([Paradev source review](paradev.md)). Other reviews retain their
+own snapshot dates.
