@@ -1,8 +1,12 @@
 # Antigravity credential boundary between Yep Anywhere and AAR
 
-Status: closed without implementation, 2026-11-25. The maintainer chose to
-leave Antigravity out of scope for further AAR work. This is a documentation
-record.
+Status: Gemini API-key gateway declined, 2026-11-25. AAR focuses on metered
+subscriptions. The maintainer wants to retain experimental Antigravity
+routing and move its provider-specific transport out of YA where possible.
+
+The [AAR binding transport plan](198-aar-binding-transport.md) covers the
+protocol boundary for hosted URLs and execution-host listeners. It keeps the
+existing experimental path in place during the protocol work.
 
 ## Decision
 
@@ -15,13 +19,20 @@ See [Google’s ACP guide](https://antigravity.google/docs/cli/acp/) and the
 The proposed AAR rework considered a separate, opt-in Gemini API-key gateway
 on the router's existing HTTPS origin. Google's documented Gemini-compatible
 endpoint override applies to Gemini API-key mode. That mode uses a separate
-API credential and API billing. The experiment currently described in
+API credential and API billing. This documentation describes the Gemini
+endpoint specifically. The experiment currently described in
 [plan 196](196-antigravity-agent-auth-router.md) sends requests to a different
 Google backend and reuses a personal OAuth token. Moving that experiment into
 an AAR launcher would change which process owns it. Its authentication and
 upstream interface would be the same. See
 [Google’s authentication guide](https://antigravity.google/docs/cli-install?app=antigravity)
 and [Antigravity terms, section 6](https://antigravity.google/terms).
+
+The protocol can describe a loopback URL and readiness handshake independently
+of upstream API stability. A private interface may change across releases.
+Before moving Antigravity onto this transport, qualify its authentication
+separately. The required path preserves Google's native sign-in and
+credential boundary.
 
 ## Review and verification
 
