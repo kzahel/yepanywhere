@@ -14,7 +14,7 @@ import {
   writeSync,
 } from "node:fs";
 import { createConnection } from "node:net";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import ts from "typescript";
 import { parseBoundRuntimeIdentity } from "../packages/server/src/sdk/providers/bound-runtime-identity.mjs";
@@ -80,16 +80,17 @@ function assertPrivateOwnedPath(path, expectedType) {
 
 export function resolveProviderHostPaths(
   env = process.env,
-  { platform = process.platform, uid = currentUid() } = {},
+  { platform = process.platform, uid = currentUid(), homeDir } = {},
 ) {
   if (!providerHostCapability({ platform, probe: false }).supported)
     return null;
   const explicit = env.YEP_PROVIDER_HOST_RUNTIME_DIR?.trim();
   const xdgRuntimeDir = env.XDG_RUNTIME_DIR?.trim();
+  const macDefault = !explicit && platform === "darwin";
   const runtimeDir = explicit
     ? resolve(explicit)
-    : platform === "darwin"
-      ? join("/tmp", `yep-anywhere-${uid ?? "user"}`, "provider-host")
+    : macDefault
+      ? resolve(homeDir ?? homedir(), ".yep-anywhere", "provider-host")
       : xdgRuntimeDir
         ? join(resolve(xdgRuntimeDir), "yep-anywhere", "provider-host")
         : join(tmpdir(), `yep-anywhere-${uid ?? "user"}`, "provider-host");
@@ -97,6 +98,16 @@ export function resolveProviderHostPaths(
     join(runtimeDir, "provider-0000000000000000.sock"),
     platform,
   );
+  const paths = providerHostPathsIn(runtimeDir);
+  if (macDefault) {
+    paths.legacyPaths = providerHostPathsIn(
+      join("/tmp", `yep-anywhere-${uid ?? "user"}`, "provider-host"),
+    );
+  }
+  return paths;
+}
+
+function providerHostPathsIn(runtimeDir) {
   return {
     runtimeDir,
     controlSocketPath: join(runtimeDir, "control.sock"),
@@ -556,6 +567,54 @@ export function acquireProviderHostLock(paths, owner) {
     owner,
     "A provider host is already starting or running",
   );
+}
+
+export async function finishLegacyProviderHostMigration(legacyPaths) {
+  if (!legacyPaths || !existsSync(legacyPaths.runtimeDir)) return;
+  assertPrivateOwnedPath(legacyPaths.runtimeDir, "directory");
+
+  const running = () =>
+    new Error(
+      `Stop the provider host in ${legacyPaths.runtimeDir} before starting one at the new default location`,
+    );
+  if (existsSync(legacyPaths.lockPath)) {
+    assertPrivateOwnedPath(legacyPaths.lockPath, "file");
+    const owner = parseIdentity(
+      JSON.parse(readFileSync(legacyPaths.lockPath, "utf8")),
+      "legacy lock",
+    );
+    if (processIdentityState(owner) !== "absent") throw running();
+  }
+  if (existsSync(legacyPaths.descriptorPath)) {
+    const descriptor = readProviderHostDescriptor(legacyPaths);
+    if (processIdentityState(descriptor.owner) !== "absent") throw running();
+    await recoverProviderHost(legacyPaths, descriptor);
+  } else if (
+    existsSync(legacyPaths.controlSocketPath) &&
+    (await hasLegacyProviderHostListener(legacyPaths.controlSocketPath))
+  ) {
+    throw running();
+  }
+}
+
+function hasLegacyProviderHostListener(path) {
+  return new Promise((resolveListener, reject) => {
+    const socket = createConnection(path);
+    socket.once("connect", () => {
+      socket.destroy();
+      resolveListener(true);
+    });
+    socket.once("error", (error) => {
+      if (error.code === "ECONNREFUSED" || error.code === "ENOENT") {
+        resolveListener(false);
+      } else {
+        reject(error);
+      }
+    });
+    socket.setTimeout(DEFAULT_STATUS_TIMEOUT_MS, () => {
+      socket.destroy(new Error("Could not verify the legacy provider socket"));
+    });
+  });
 }
 
 function acquireProviderHostRecoveryLock(paths) {

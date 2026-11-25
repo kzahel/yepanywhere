@@ -15,6 +15,7 @@ import {
   createProviderHostToken,
   discoverProviderHost,
   ensurePrivateProviderHostDirectory,
+  finishLegacyProviderHostMigration,
   readProviderHostReceipts,
   recoverProviderHost,
   removeProviderHostArtifacts,
@@ -1986,6 +1987,9 @@ async function main() {
   let initialTurnReceipts;
   let initialRecentRuntimes = [];
   try {
+    if (runtimeDir === stablePaths.runtimeDir) {
+      await finishLegacyProviderHostMigration(stablePaths.legacyPaths);
+    }
     token = createProviderHostToken(paths.tokenPath);
     initialTurnReceipts = readProviderHostReceipts(paths);
     try {

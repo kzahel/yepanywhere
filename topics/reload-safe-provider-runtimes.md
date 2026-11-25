@@ -509,12 +509,19 @@ failed cleanup retains its registry/descriptor state. Original process groups
 remain cleanable after their leader exits because Unix retains the group ID
 while its descendants belong to it. Idle hosts add no identity polling loop.
 
-The default Mac directory is `/tmp/yep-anywhere-<uid>/provider-host`, avoiding
-macOS's long per-user temporary-directory names. An explicit
-`YEP_PROVIDER_HOST_RUNTIME_DIR` is authoritative. Control and worker socket
-paths exceeding 103 UTF-8 bytes fail with a short-directory instruction; they
-are never truncated or replaced with TCP. Private directory/file permissions,
-tokens, source fingerprints and exclusive launch reservations still apply.
+The default Mac directory is `~/.yep-anywhere/provider-host`. The wrapper,
+standalone host and local tools share this path across profiles. macOS
+temporary-directory cleanup can no longer remove an idle token or lock.
+Starting at the new default refuses a live host at the previous default
+under `/tmp` and recovers an abandoned descriptor with verified ownership.
+Stop the old wrapper or standalone host to switch and use updated checkouts
+afterward. Existing turn receipts and recent launch recipes stay in the
+previous directory. Confirm the outcome of any outstanding submission before
+retrying it after the switch. An explicit
+`YEP_PROVIDER_HOST_RUNTIME_DIR` is authoritative. If a long home path pushes
+a control or worker socket beyond 103 UTF-8 bytes, set that override to a
+shorter private directory. Private directory/file permissions, tokens,
+source fingerprints and exclusive launch reservations still apply.
 
 A wrapper-owned host survives API reload and wrapper HUP. Terminal INT/TERM
 or wrapper IPC loss shuts it down. A separately foreground-owned host survives

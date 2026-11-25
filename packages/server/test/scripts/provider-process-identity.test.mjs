@@ -1,6 +1,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { chmod, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -15,7 +16,9 @@ import {
 } from "../../../../scripts/provider-process-identity.mjs";
 import {
   ensurePrivateProviderHostDirectory,
+  finishLegacyProviderHostMigration,
   resolveProviderHostPaths,
+  writeProviderHostDescriptor,
 } from "../../../../scripts/provider-runtime-discovery.mjs";
 
 vi.mock("node:child_process", async (importOriginal) => {
@@ -59,19 +62,35 @@ it("lets explicit provider-host configuration override platform defaults", () =>
     }),
   ).toThrow("must be true or false");
 });
-it("uses a short private Mac default and respects explicit directory overrides", () => {
+it("shares the Mac default across profiles and respects explicit directory overrides", () => {
+  const mac = { platform: "darwin", homeDir: "/Users/test", uid: 501 };
+  const defaultDir = join(mac.homeDir, ".yep-anywhere", "provider-host");
+  expect(resolveProviderHostPaths({}, mac)).toMatchObject({
+    runtimeDir: defaultDir,
+    legacyPaths: {
+      runtimeDir: join("/tmp", "yep-anywhere-501", "provider-host"),
+    },
+  });
   expect(
     resolveProviderHostPaths(
-      { XDG_RUNTIME_DIR: "/ignored" },
-      { platform: "darwin", uid: 501 },
+      {
+        XDG_RUNTIME_DIR: "/ignored",
+        YEP_DATA_DIR: "/another-data-directory",
+        YEP_PROFILE: "dev",
+      },
+      mac,
     ).runtimeDir,
-  ).toBe(join("/tmp", "yep-anywhere-501", "provider-host"));
-  expect(
-    resolveProviderHostPaths(
-      { YEP_PROVIDER_HOST_RUNTIME_DIR: "/tmp/custom-host" },
-      { platform: "darwin" },
-    ).runtimeDir,
-  ).toBe(resolve("/tmp/custom-host"));
+  ).toBe(defaultDir);
+  const longHome = { ...mac, homeDir: join(mac.homeDir, "x".repeat(80)) };
+  expect(() => resolveProviderHostPaths({}, longHome)).toThrow(
+    "shorter private directory",
+  );
+  const explicit = resolveProviderHostPaths(
+    { YEP_PROVIDER_HOST_RUNTIME_DIR: "/tmp/custom-host" },
+    longHome,
+  );
+  expect(explicit.runtimeDir).toBe(resolve("/tmp/custom-host"));
+  expect(explicit.legacyPaths).toBeUndefined();
   expect(() =>
     resolveProviderHostPaths(
       { YEP_PROVIDER_HOST_RUNTIME_DIR: `/tmp/${"x".repeat(80)}` },
@@ -83,6 +102,45 @@ it("uses a short private Mac default and respects explicit directory overrides",
 describe.skipIf(!["linux", "darwin"].includes(process.platform))(
   "native provider identity",
   () => {
+    it("blocks migration while a legacy descriptor or socket still has a live owner", async () => {
+      const directory = await mkdtemp("/tmp/ya-legacy-host-");
+      const paths = resolveProviderHostPaths({
+        YEP_PROVIDER_HOST_RUNTIME_DIR: directory,
+      });
+      const server = createServer((socket) => socket.end());
+      try {
+        writeProviderHostDescriptor(paths, {
+          descriptorId: "legacy",
+          hostProtocolVersion: 3,
+          features: [],
+          controlSocketPath: paths.controlSocketPath,
+          tokenFilePath: paths.tokenPath,
+          owner: captureProcessIdentity(),
+          startedAt: new Date().toISOString(),
+          sourceIdentity: {},
+          buildIdentity: "test",
+        });
+        await expect(finishLegacyProviderHostMigration(paths)).rejects.toThrow(
+          "Stop the provider host",
+        );
+
+        await rm(paths.descriptorPath);
+        server.listen(paths.controlSocketPath);
+        await once(server, "listening");
+        await expect(finishLegacyProviderHostMigration(paths)).rejects.toThrow(
+          "Stop the provider host",
+        );
+        await new Promise((resolve) => server.close(resolve));
+        await expect(
+          finishLegacyProviderHostMigration(paths),
+        ).resolves.toBeUndefined();
+      } finally {
+        if (server.listening)
+          await new Promise((resolve) => server.close(resolve));
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
     it("distinguishes matching, reused and absent identities", async () => {
       const child = spawn(
         process.execPath,

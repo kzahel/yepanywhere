@@ -38,6 +38,7 @@ import {
   createProviderHostSourceIdentity,
   createProviderHostToken,
   discoverProviderHost,
+  finishLegacyProviderHostMigration,
   readProcessStartTime,
   readProviderHostReceipts,
   recoverProviderHost,
@@ -1414,7 +1415,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     }
   });
 
-  it("recovers a dead host's descriptor written by different sources", async () => {
+  it("recovers an abandoned legacy host descriptor written by different sources", async () => {
     const runtimeRoot = await mkdtemp(
       join(runtimeTmpDir, "provider-host-dead-incompatible-"),
     );
@@ -1453,7 +1454,7 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
     expect(discovery.state).toBe("unresponsive");
     if (discovery.state !== "unresponsive") return;
 
-    await recoverProviderHost(paths, discovery.descriptor);
+    await finishLegacyProviderHostMigration(paths);
     await expect(
       discoverProviderHost(paths, { expectedIdentity, timeoutMs: 50 }),
     ).resolves.toEqual({ state: "absent" });

@@ -57,7 +57,10 @@ describe.skipIf(!["linux", "darwin"].includes(process.platform))(
           PORT: "3498",
           YA_TEST_WRAPPER_EVENTS: events,
           YEP_PROVIDER_HOST_ENABLED: "true",
-          YEP_PROVIDER_HOST_RUNTIME_DIR: runtime,
+          YEP_PROVIDER_HOST_RUNTIME_DIR: mode === "source-owner" ? "" : runtime,
+          ...(mode === "source-owner"
+            ? { YEP_PROVIDER_RUNTIME_DIR: runtime }
+            : {}),
           YEP_PROVIDER_RUNTIME_WORKER_PATH: join(
             here,
             "../sdk/providers/fixtures/fake-provider-runtime-worker.mjs",

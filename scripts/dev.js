@@ -29,6 +29,7 @@ import {
 import {
   createProviderHostSourceIdentity,
   discoverProviderHost,
+  finishLegacyProviderHostMigration,
   recoverProviderHost,
   resolveProviderHostPaths,
 } from "./provider-runtime-discovery.mjs";
@@ -501,6 +502,7 @@ async function startProviderRuntimeHost() {
       `Provider runtime host is ${discovery.state}${discovery.error ? `: ${discovery.error}` : ""}`,
     );
   }
+  await finishLegacyProviderHostMigration(providerHostPaths.legacyPaths);
 
   const hostEnvironment = {
     ...env,

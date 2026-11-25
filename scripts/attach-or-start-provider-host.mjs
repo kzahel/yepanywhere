@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   createProviderHostSourceIdentity,
   discoverProviderHost,
+  finishLegacyProviderHostMigration,
   recoverProviderHost,
   resolveProviderHostPaths,
 } from "./provider-runtime-discovery.mjs";
@@ -58,7 +59,11 @@ export async function attachOrStartProviderHost({
   const capability = providerHostCapability();
   if (!capability.supported)
     return { state: "unsupported", error: capability.reason };
-  const paths = resolveProviderHostPaths(env);
+  const paths = resolveProviderHostPaths({
+    ...env,
+    YEP_PROVIDER_HOST_RUNTIME_DIR:
+      env.YEP_PROVIDER_HOST_RUNTIME_DIR?.trim() || env.YEP_PROVIDER_RUNTIME_DIR,
+  });
   if (!paths) return { state: "unsupported" };
 
   const identity = expectedIdentity(projectRoot, env);
@@ -87,6 +92,7 @@ export async function attachOrStartProviderHost({
       }`,
     };
   }
+  await finishLegacyProviderHostMigration(paths.legacyPaths);
 
   const hostEnvironment = {
     ...env,

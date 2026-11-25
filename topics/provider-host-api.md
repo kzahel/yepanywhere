@@ -73,11 +73,13 @@ On Linux and macOS Node source checkouts, `pnpm provider-host` starts
 `scripts/provider-runtime-host.mjs` in the foreground without Hono or Vite.
 The host publishes `host.json`, `token`, `host.lock`, and `control.sock` under
 `$YEP_PROVIDER_HOST_RUNTIME_DIR` when explicit. Linux otherwise uses
-`$XDG_RUNTIME_DIR` with a private per-user temporary-runtime fallback; macOS
-uses the short `/tmp/yep-anywhere-<uid>/provider-host` path. The directory is mode 0700 and the
-descriptor, token, and socket are mode 0600. The descriptor records owner and
-worker process identities plus source/build identity without exposing the
-token value.
+`$XDG_RUNTIME_DIR` with a private per-user temporary-runtime fallback. macOS
+uses `~/.yep-anywhere/provider-host` so temporary-directory cleanup cannot
+remove discovery files while the host is running. This default is shared
+across YA profiles and independent of `YEP_DATA_DIR`. The directory is mode
+0700 and the descriptor, token, and socket are mode 0600. The descriptor
+records owner and worker process identities plus source/build identity without
+exposing the token value.
 
 The supported non-watch `scripts/dev.js` path probes that descriptor before
 starting Hono. It attaches to a compatible host, starts one when absent, or
