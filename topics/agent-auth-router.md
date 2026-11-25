@@ -381,8 +381,17 @@ capability yet. A new session whose first commit reply is lost
 [leaves a committed binding behind](../gaps/new-routed-session-lost-commit-reply-orphans-binding.md).
 
 [Plan 198](../docs/tactical/198-aar-binding-transport.md) covers the remaining
-work: hosted and official-executable qualification, an AAR release, and the
-experimental Antigravity opt-in in AAR Settings.
+work: hosted and official-executable qualification and an AAR release.
+
+Antigravity routing is off in AAR until its owner turns it on in AAR
+Settings (AAR `819f342`, 2026-11-25). While it is off, selection lists no
+Antigravity account or pool, and YA names the refusal on launch and resume:
+"Antigravity routing is turned off in AAR…" (`routerProviderDisabled`, YA
+`b01a2335a`). A refused resume keeps its existing pin. An older YA quotes AAR's text
+inside its generic rejection. New Session
+[gives no reason](../gaps/router-disabled-provider-has-no-picker-hint.md)
+for the missing router choice. A routed Antigravity resume
+[failed with `agy` 1.5.17 on macOS](../gaps/agy-1-5-17-ignores-routed-profile-login.md).
 
 Routed Claude sets `ENABLE_TOOL_SEARCH=true`. Claude Code otherwise disables
 tool search for any non-Anthropic `ANTHROPIC_BASE_URL` and sends every tool

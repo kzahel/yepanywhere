@@ -1,14 +1,17 @@
 # Separate AAR routing from Yep Anywhere provider launches
 
-Status: steps 1 to 3 implemented and pushed, 2026-11-25. AAR commits
-`d5623a7`, `5a5039a` and `1f56bb1` publish the transport and are unreleased.
-YA consumes it from `f4c106fb1` with the legacy shim, and from `9793c4832`
-fronts routed Antigravity with a provider-neutral proxy. Step 5 is partly
-done: AAR's cross-repository suite (AAR `d270e9c`) runs YA `9793c4832`
-against the describing router over the local control socket, and
+Status: steps 1 to 4 implemented and pushed, 2026-11-25. AAR commits
+`d5623a7`, `5a5039a` and `1f56bb1` publish the transport, `819f342` adds the
+Antigravity opt-in, and none is released. YA consumes the transport from
+`f4c106fb1` with the legacy shim, fronts routed Antigravity with a
+provider-neutral proxy from `9793c4832`, and names the opt-in's refusal from
+`b01a2335a`. Step 5 is partly done: AAR's cross-repository suite (AAR
+`819f342`) runs YA `b01a2335a` against the describing router over the local
+control socket, and
 [one live Antigravity run](#live-antigravity-run-2026-11-25) is recorded.
-Step 4 is open, as are the hosted and official-executable checks and the AAR
-release in step 5.
+The hosted and official-executable checks and the AAR release in step 5 are
+open. A routed Antigravity resume
+[failed with `agy` 1.5.17 on macOS](../../gaps/agy-1-5-17-ignores-routed-profile-login.md).
 The landed behavior is recorded in the
 [binding transport contract](../../topics/agent-auth-router.md#binding-transport-2026-11-25).
 
@@ -316,6 +319,40 @@ existing pin. Test discovery, admission and revocation through both local and
 hosted AAR with a synthetic adapter before exposing the checkbox for a real
 provider. The toggle applies to the existing Antigravity path and does not
 wait for any transport change.
+
+Implemented 2026-11-25 (AAR `819f342`, YA `b01a2335a`). AAR's
+[Antigravity page](https://github.com/kzahel/agent-auth-router/blob/main/docs/antigravity.md#turning-it-on)
+owns the contract. What landed beyond the text above:
+
+- **Refusals.** Each control operation that would use the provider answers
+  409 with `code: "provider_disabled"`, and inference answers 403. The plain
+  grant listing still names the accounts, so YA's launch reaches that
+  refusal and does not report the pinned account as gone.
+- **The router's own use.** While the provider is off AAR sends no catalog
+  or quota read to Cloud Code and runs no renewal, and it skips retries
+  while routing is off.
+- **YA.** YA names the refusal on launch and resume: "Antigravity routing
+  is turned off in AAR…". A refused resume keeps its existing pin. New
+  Session offers no router choice for
+  the provider and
+  [does not yet say why](../../gaps/router-disabled-provider-has-no-picker-hint.md).
+
+Tested in AAR over the control socket and the public listener with a
+scripted upstream, and in the cross-repository suite for a refused new
+session, a live session refused through YA's proxy, and the same pin
+answering once the provider is back on. A cold resume while it is off is
+covered by YA's connector test only.
+
+On 2026-11-25 the running router was restarted on `819f342` with the real
+account from the live run. With the setting off, YA's selection offered
+nothing, and a new routed session and a resume of the earlier one were
+refused with AAR's text, with no `agy` started and the pin kept. The YA
+build running then predated `b01a2335a`, so it quoted the text inside its
+generic rejection. With the setting on, the account and its eight models
+were offered again. The resume that followed failed for
+[a separate reason](../../gaps/agy-1-5-17-ignores-routed-profile-login.md):
+that launch logged `agy` language server version 1.5.17, where the earlier
+ones logged 1.5.14.
 
 ### 5 — Verify both repositories and ship AAR first
 

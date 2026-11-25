@@ -1439,10 +1439,12 @@ to Direct (no automatic failover). Since 2026-11-25
 launches use the inference transport AAR describes on each binding, with a
 [temporary shim](../../gaps/aar-legacy-transport-shim.md) for routers that
 predate it. Routed Antigravity uses the same description behind a
-provider-neutral loopback proxy, which one live run with the real `agy`
-exercised on 2026-11-25. AAR's cross-repository suite covers the
-local control socket, and an AAR release, hosted qualification and the
-experimental Antigravity opt-in in AAR Settings remain. YA respects router-owned pool grants and exposes read-only
+provider-neutral loopback proxy, which one live run with `agy` 1.5.14
+exercised on 2026-11-25; a routed resume
+[failed with `agy` 1.5.17 on macOS](../../gaps/agy-1-5-17-ignores-routed-profile-login.md).
+Antigravity routing is off in AAR until its owner turns it on in AAR
+Settings. AAR's cross-repository suite covers the
+local control socket, and an AAR release and hosted qualification remain. YA respects router-owned pool grants and exposes read-only
 management guidance; legacy routers retain their scoped editor. Advanced
 balancing, clone/helper inheritance, Windows and constrained sandbox support
 remain later work. On 2026-10-03 the maintainer deferred the next
