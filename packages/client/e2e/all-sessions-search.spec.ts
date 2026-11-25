@@ -18,13 +18,14 @@ for (const viewport of [
     page,
     baseURL,
   }) => {
-    saveSession(
-      `csv-${viewport.name}-alpha`,
-      "alpha",
-      true,
-      Date.now() - 60000,
-    );
-    saveSession(`csv-${viewport.name}-beta`, "beta", true);
+    // CI 45678993471 hit the 15s case limit with one fixture missing.
+    // Allow the separate catalog wait and the full browser scenario.
+    test.setTimeout(60_000);
+    const alpha = `csv-${viewport.name}-alpha`;
+    const beta = `csv-${viewport.name}-beta`;
+    saveSession(alpha, "alpha", true, Date.now() - 60000);
+    saveSession(beta, "beta", true);
+    await awaitCatalogSessions(baseURL, [alpha, beta]);
     await page.setViewportSize(viewport);
     await page.addInitScript(() =>
       localStorage.setItem("yep-anywhere-session-right-pane-enabled", "true"),
@@ -53,10 +54,7 @@ for (const viewport of [
           .map((request) => request.sessionId),
       ),
     ];
-    expect(ownOrder).toEqual([
-      `csv-${viewport.name}-beta`,
-      `csv-${viewport.name}-alpha`,
-    ]);
+    expect(ownOrder).toEqual([beta, alpha]);
     await search.press("End");
     await search.pressSequentially(", alpha", { delay: 10 });
     await expect(search).toHaveValue("quasarneedle, alpha");
