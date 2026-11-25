@@ -147,11 +147,12 @@ chip stayed in the composer (reported 2026-10-13; reproduced in
 One tab saves a shared draft: the one being typed in. A tab that receives a
 sibling's keystrokes for a draft leaves its saves to that sibling until fifteen
 seconds after the last one, then takes over, so a sibling closed before saving
-still reaches the server. The tab holding window focus records that claim in
-shared storage, and a background tab never writes server text into shared
-storage while a sibling holds it; it keeps the update pending instead. Such a
-write lands in the focused tab's composer through its storage event, replacing
-the text with one merged from an older copy, dropping keys typed since and moving
+still reaches the server. The same rule applies when a tab receives the
+keystrokes while a draft read is in flight. The tab holding window focus
+records that claim in shared storage, and a background tab never writes server
+text into shared storage while a sibling holds it. It keeps the update pending
+because a storage event could replace the focused tab's composer text with a
+merge from an older copy, dropping keys typed since and moving
 the caret to the end (reported 2026-10-08 while typing in New session; the
 server's receipts showed two clients saving the new-session slot within a
 second of each other).

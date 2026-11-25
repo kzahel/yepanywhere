@@ -23,6 +23,7 @@ import {
   draftAccountOwners as owners,
   draftPhysicalStorageKey as physical,
 } from "./draftAccountStorage";
+import { deferSiblingDraftSave, SIBLING_EDIT_MS } from "./draftSiblingSave";
 import type { SourceTransport } from "./transport/types";
 import { generateUUID } from "./uuid";
 
@@ -64,12 +65,6 @@ interface Entry {
   /** When a sibling tab last wrote this draft's text. */
   siblingEditAt?: number;
 }
-/**
- * A sibling tab that typed into a draft this recently is the one saving it;
- * this tab only mirrors that text, and syncs it itself once the sibling has
- * gone quiet without saving (for example, it closed).
- */
-const SIBLING_EDIT_MS = 15_000;
 const FOREGROUND_KEY = "draft-sync-foreground";
 const TAB_ID = generateUUID();
 const clients = new Map<string, DraftSyncClient>();
@@ -781,15 +776,8 @@ export class DraftSyncClient {
       e.submissionTask
     )
       return;
-    // Two tabs saving one shared draft race each other's merges; leave it to
-    // the tab being typed in.
-    const siblingActive =
-      SIBLING_EDIT_MS - (Date.now() - (e.siblingEditAt ?? -Infinity));
-    if (siblingActive > 0) {
-      e.firstDirty = 0;
-      this.schedule(e, siblingActive);
-      return;
-    }
+    const schedule = (delay: number) => this.schedule(e, delay);
+    if (deferSiblingDraftSave(e, schedule)) return;
     e.running = true;
     const saved = e.saved;
     let finishSync!: () => void;
@@ -876,7 +864,8 @@ export class DraftSyncClient {
           read = result;
         }
       }
-      if (e.saved.submitted) return;
+      // A sibling may start typing while this tab awaits the server read.
+      if (e.saved.submitted || deferSiblingDraftSave(e, schedule)) return;
       e.remote = undefined;
       this.adoptSharedBase(e);
       // A read answered before a newer acknowledged revision (this tab's or a

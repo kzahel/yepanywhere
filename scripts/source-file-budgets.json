@@ -52,7 +52,7 @@
       "maxLines": 2095
     },
     "packages/client/src/lib/draftSyncStorage.ts": {
-      "maxLines": 1740
+      "maxLines": 1729
     },
     "packages/client/src/lib/speechProviders/YaServerProvider.ts": {
       "maxLines": 1940

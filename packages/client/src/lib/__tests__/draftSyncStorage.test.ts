@@ -1117,6 +1117,42 @@ describe("local-first snapshot synchronization", () => {
     expect(s.get().payload.fields.text).toBe("about hav");
     expect(mine.saved.raw).toBe(raw("about hav"));
   });
+  it("leaves saving to a sibling that starts typing during a draft read", async () => {
+    const s = server();
+    const background = client(s);
+    s.remote("Typed here.");
+    localStorage.setItem(key, raw("Typed here."));
+    background.start();
+    await background.refresh();
+    subscriptions.push(subscribeDraftStorage(key, () => {}));
+    const entry = background.register(key)!;
+    await background.sync(entry);
+    const respond = s.fetch.getMockImplementation()!;
+    let releaseRead!: () => void;
+    const readHeld = new Promise<void>((resolve) => {
+      releaseRead = resolve;
+    });
+    s.fetch.mockImplementationOnce(async (path, init) => {
+      const response = await respond(path, init);
+      await readHeld;
+      return response;
+    });
+
+    const syncing = background.sync(entry);
+    expect(s.fetch.mock.calls.at(-1)?.[0]).toBe("/drafts/read");
+    const typed = raw("Ttyped here.");
+    localStorage.setItem(key, typed);
+    window.dispatchEvent(new StorageEvent("storage", { key, newValue: typed }));
+    releaseRead();
+    await syncing;
+
+    expect(s.get().payload.fields.text).toBe("Typed here.");
+    expect(entry.saved.raw).toBe(typed);
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(s.get().payload.fields.text).toBe("Typed here.");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(s.get().payload.fields.text).toBe("Ttyped here.");
+  });
   it("lets a change notice wait for the typing debounce", async () => {
     const s = server(),
       c = client(s);
