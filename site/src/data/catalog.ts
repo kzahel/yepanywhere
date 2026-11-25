@@ -26,8 +26,11 @@ export function validateCatalog() {
     providers.flatMap((provider) => provider.runtimeIds),
   );
 
+  // Gemini history and external Copilot CLI sessions are read-only viewers,
+  // not runtimes YA starts, so they need no public provider entry.
+  const viewOnlyFamilies = new Set(["gemini", "copilot"]);
   const executableProviderIds = ALL_PROVIDERS.filter(
-    (provider) => nativeSessionFamily(provider) !== "gemini",
+    (provider) => !viewOnlyFamilies.has(nativeSessionFamily(provider)),
   );
   for (const runtimeProviderId of executableProviderIds) {
     if (!coveredRuntimeProviderIds.has(runtimeProviderId)) {
