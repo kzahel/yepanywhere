@@ -65,10 +65,9 @@ jobs:
       - run: pnpm --filter @yep-anywhere/shared build
       - run: >-
           pnpm --filter @yep-anywhere/server exec vitest run
-          test/computer-control.test.ts test/computer-control-releases.test.ts
-          test/computer-control-provider.test.ts test/computer-control-job.test.ts
-          test/computer-control-guardian.test.ts
-          test/computer-control-native.test.ts
+          test/routes/machine-control.test.ts
+          test/agent-tools/machine-control.test.ts
+          test/agent-tools/machine-control-retirement.test.ts
           test/scripts/e2e-process-lifecycle.test.ts
           test/scripts/e2e-process-lifecycle-windows.test.mjs
           test/scripts/wait-for-port-file.test.mjs
