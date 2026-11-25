@@ -31,7 +31,9 @@ test("rendez search exposes a persisted toggle without replacing project overrid
     expect(response.ok()).toBe(true);
     await page.setViewportSize({ width: 1200, height: 600 });
     await page.goto(`${baseURL}/settings`);
+    const categoryNav = page.locator("[data-settings-category-nav]");
     const search = page.getByRole("searchbox", { name: "Search settings" });
+    await expect(categoryNav).toBeVisible();
     let value = "";
     for (const character of "rendez") {
       value += character;
@@ -52,11 +54,16 @@ test("rendez search exposes a persisted toggle without replacing project overrid
     await expect(toggle).toBeChecked();
     await recordUiCapture(page, "rendez-desktop");
     await page.setViewportSize({ width: 375, height: 812 });
+    // The phone search field mounts when the measured layout drops the rail.
+    await expect(categoryNav).toHaveCount(0);
+    await expect(search).toHaveValue("rendez");
     await recordUiCapture(page, "rendez-phone");
     await search.fill("Wait for Claude");
+    await expect(search).toHaveValue("Wait for Claude");
     await expect(page.getByText(/Steer sends are unaffected/)).toBeVisible();
     await recordUiCapture(page, "patient-queue-phone");
     await page.setViewportSize({ width: 1200, height: 600 });
+    await expect(categoryNav).toBeVisible();
     await recordUiCapture(page, "patient-queue-desktop");
   } finally {
     const response = await page.request.put(`${baseURL}/api/settings`, {
