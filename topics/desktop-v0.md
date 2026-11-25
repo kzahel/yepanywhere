@@ -437,5 +437,100 @@ diagnostic when it is absent.
 - Automatic downgrade.
 - General Linux distribution polish.
 - Replacing the server with an in-process Rust implementation.
-- Moving the bundled dashboard to a native invoke/Channel transport and
-  disabling loopback HTTP when browser/mobile/remote access is off.
+- Moving the bundled dashboard to a native invoke/Channel transport. See
+  [Desktop IPC migration audit](#desktop-ipc-migration-audit) for the remaining
+  dependencies on the loopback listener.
+
+### Desktop IPC migration audit
+
+The proposed path is a bundled dashboard using Tauri `invoke` for requests and
+`Channel` for updates, with the Rust supervisor forwarding over private framed
+IPC to the bundled Bun server. JSTorrent uses the same WebView-to-Rust pattern
+and runs its Rust service in-process. Its remote adapter shares application
+operations, and its update streams acknowledge batches and reset when a cursor
+can no longer be replayed. [Desktop baseline](../docs/tactical/067-v0-desktop-baseline.md#explicitly-deferred)
+· [JSTorrent connection architecture](https://github.com/kzahel/jstorrent/blob/main/docs/topics/application-connection-architecture.md#tauri-ipc)
+
+Moving the dashboard off localhost would remove its startup dependency on a
+port, one-time navigation code, and browser session cookie. The shell could
+render startup and failure states immediately and reconnect the dashboard in
+place when Bun restarts. Most API calls already use `SourceTransport`. Android's
+native adapter exercises the same interface for requests, subscriptions,
+uploads, and cancellable response bodies. The relay already dispatches
+authenticated requests through the Hono app in-process. That is a precedent for
+sharing route behavior across transports while preserving the existing desktop
+owner principal and server-side access checks.
+[Transport interface](../packages/client/src/lib/transport/types.ts)
+· [Native adapter](../packages/client/src/lib/transport/NativeSourceTransport.ts)
+· [Relay dispatch](../packages/server/src/routes/ws-stream-policy.ts)
+· [Principal and grant model](principals-and-grants.md)
+
+#### Executable content and service workers
+
+- **Managed interactive HTML.** The service worker on the isolated viewer
+  origin intercepts document and asset requests. The trusted YA parent serves
+  bytes through its captured source transport using a scoped preview lease.
+  The existing byte broker can use a native transport. The fixed viewer shell,
+  worker registration, and parent-origin checks still need desktop
+  qualification. Current activation is limited to approved hosted or packaged
+  Android origins and Chromium-family engines. The configured artifact host
+  and scriptless `srcdoc` are the current desktop paths. Qualify the actual
+  WKWebView and WebView2 builds because Tauri uses different origin conventions
+  on those platforms and documents requirements for WKWebView service workers.
+  [Viewer selection](../packages/client/src/components/ArtifactPreview.tsx)
+  · [Managed previews](active-content-security.md#managed-first-party-relay-previews)
+  · [Localhost viewer experiment](../research/content-worker-localhost-spike/README.md)
+  · [Tauri WebView configuration](https://v2.tauri.app/reference/config/)
+- **Artifact links, running Project Apps, and MCP app cards.** Configured
+  artifact links and running apps load isolated URLs. Running apps can depend
+  on root-relative paths, cookies, WebSocket upgrades, and Vite hot reload.
+  Inline MCP app cards load an isolated proxy that checks its parent origin.
+  Preserve these browser-facing paths and the existing content isolation
+  boundary during a dashboard migration. Only the trusted dashboard should
+  receive native command authority.
+  [Project App delivery](project-service.md#two-delivery-paths-one-sandbox-target)
+  · [MCP app frame](../packages/client/src/components/McpAppView.tsx)
+  · [Executable content isolation](active-content-security.md#executable-application-origin-contract)
+- **The main YA service worker.** Browser push, share-target intake,
+  navigation behavior, and streamed file downloads use the main worker on a
+  separate scope from the artifact worker. When a source lacks a direct media
+  URL, the download path can hand a body to that worker through a one-use URL
+  or fall back to collecting a Blob. A desktop save operation could stream to
+  disk without depending on that worker or buffering the complete file.
+  [Main service worker](../packages/client/public/sw.js)
+  · [Download routing](media-rendering-and-routing.md#relay-transfer-size)
+
+#### Other browser URL dependencies
+
+- **Startup and native controls.** The server supplies the SPA entry and
+  history fallback. Early local route prefetch calls plain HTTP, and Settings
+  posts Check for Updates to `/desktop-bootstrap/check-updates`.
+  [Static routes](../packages/server/src/frontend/static.ts)
+  · [Route prefetch](../packages/client/src/lib/localRouteBootstrap.ts)
+  · [Settings updater action](../packages/client/src/pages/settings/AboutSettings.tsx)
+- **Media and PDF rendering.** Images already support transport-backed Blob
+  URLs. Direct audio and video need a browser-readable URL for range reads and
+  seeking. The optional PDF.js path imports a module and worker and loads
+  fonts, WASM, and other assets from `/api/pdfjs/…`.
+  [Media viewer](../packages/client/src/components/LocalMediaModal.tsx)
+  · [Streamed viewer media follow-up](../gaps/sketches/relay-streamed-viewer-media.md)
+  · [PDF.js loader](../packages/client/src/lib/pdfjsRenderer.ts)
+- **Speech and public sharing.** Server speech has a direct WebSocket path
+  and a native channel seam. Public share links are browser entry points with
+  their own authorization and file rules.
+  [Speech source selection](../packages/client/src/hooks/useSpeechSourceRuntime.ts)
+  · [Public shares](security.md#public-read-only-shares)
+
+#### Proposed qualification order
+
+First, keep isolated content serving available and route project and session
+reads and live activity through the bundled dashboard's native transport.
+Verify that the dashboard opens while Bun starts, that a real Bun restart
+reattaches the view and refreshes data in place, and that executable content
+cannot call the bridge. Run these checks in packaged WKWebView and WebView2.
+
+Next, verify a managed HTML preview with relative assets and a large
+cancellable download in those same WebViews. Verify direct media range reads
+and the remaining browser URL paths before retiring the dashboard's HTTP
+listener in a desktop-only configuration. Browser, mobile, remote, and
+isolated content serving retain their own reachability requirements.
