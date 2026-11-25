@@ -1,9 +1,12 @@
 # Separate AAR routing from Yep Anywhere provider launches
 
-Status: steps 1 and 2 implemented, 2026-11-25. AAR commits `d5623a7` and
-`5a5039a` publish the transport and are unreleased. YA consumes it and keeps the legacy shim.
-Steps 3 to 5 are open, including the AAR release and the cross-repository
-suite. The landed behavior is recorded in the
+Status: steps 1 and 2 implemented and pushed, 2026-11-25. AAR commits
+`d5623a7` and `5a5039a` publish the transport and are unreleased. YA consumes
+it from `f4c106fb1` and keeps the legacy shim. Step 5 is partly done: AAR's
+cross-repository suite (AAR `a1e96cc`) runs that YA commit against the
+describing router over the local control socket. Steps 3 and 4 are open, as
+are the hosted and official-executable checks and the AAR release in step 5.
+The landed behavior is recorded in the
 [binding transport contract](../../topics/agent-auth-router.md#binding-transport-2026-11-25).
 
 ## Goal
@@ -283,6 +286,15 @@ provider. The toggle applies to the new adapter at cutover.
   invalid descriptor case that refuses before provider spawn, and verify
   that Direct still launches when the router is unavailable. Assert the
   chosen upstream account, the conversation identity and credential isolation.
+  Done on 2026-11-25 for the local control socket (AAR `a1e96cc`, YA
+  `f4c106fb1`): the existing lifecycle cases pass on the described transport,
+  and new cases cover a described route YA could not have assembled, a router
+  reply without the capability, both refusals before provider spawn, a lost
+  commit reply on a resume, and one routed Antigravity session through the
+  bridge. Still open here: the hosted HTTPS launch, Direct launching while the
+  router is unavailable, and a new session's first commit reply being lost,
+  which today
+  [leaves a committed binding behind](../../gaps/new-routed-session-lost-commit-reply-orphans-binding.md).
 - Before cutover, use the pinned official Claude and Codex executables with
   scripted upstreams to check one streamed turn and cold resume per provider.
   Check connector and catalog behavior at the boundary they use. Prefer those
@@ -299,9 +311,9 @@ provider. The toggle applies to the new adapter at cutover.
   release date in the gap entry when it ships. The removal commit deletes the
   shim and the gap entry, checks the capability before persisting an
   allocation, and replaces the fallback with an "Update AAR" launch error.
-  Add a cross-repository case that runs new YA against a router without the
-  capability: it asserts the shim launch now and the upgrade error after
-  removal.
+  The cross-repository suite runs new YA against a router whose replies lack
+  the capability (a relay hides it on a current router): it asserts the shim
+  launch now and must assert the upgrade error after removal.
 - Record the shipped behavior in the AAR control docs and the
   [YA routing contract](../../topics/agent-auth-router.md). Finish when Claude
   and Codex can start and resume through one hosted HTTPS origin, and a paired
