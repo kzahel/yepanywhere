@@ -9,8 +9,8 @@ simulator and physical iPhone acceptance. The existing
 [mobile connection contract](../../topics/mobile-server-pairing.md) owns
 source demand, route ordering, retry bounds, credential protection and isolation.
 The [roadmap](../roadmap/README.md) keeps mobile publication the product goal.
-The separate [WebKit viewer/download gap](../../gaps/ios-webview-viewers-and-downloads.md)
-and common native push enrollment remain release work.
+The [iOS shell](../../packages/ios/README.md) now supports isolated artifact
+previews and Blob export. On-device push enrollment remains release acceptance work.
 
 ## Scope and compatibility
 

@@ -93,7 +93,7 @@ immediate. Upload acknowledgement follows native consumption. Replacement
 navigation, renderer termination and host changes retire the document lease.
 The privileged bundled document forbids embedded frames with a fail-closed
 CSP. Frame checks alone are not claimed to distinguish same-origin parent
-proxying. Self-contained HTML previews open in a separate nonpersistent WKWebView with no app bridge or network access. Interactive previews require an explicit Run action. Blob exports use WKDownload and the system share sheet. The simulator verifies the exported filename and bytes and checks that the isolated preview cannot access the bridge.
+proxying. HTML previews open in a separate nonpersistent WKWebView with no app bridge. A private URL scheme can read sibling files through the current server-issued artifact grant. Closing the sheet releases the grant. Interactive previews require an explicit Run action. Blob exports use WKDownload and the system share sheet. Simulator tests verify exported bytes and load a sibling stylesheet, script and JSON file over a live authenticated source.
 Speech and device-stream transports retain the native adapter's existing unsupported
 fallback, shared with the current Android foreground contract.
 

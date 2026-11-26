@@ -158,10 +158,10 @@ The privileged document forbids embedded frames. Its additional CSP is inserted
 before bundled scripts and fails closed if the entry HTML cannot be recognized.
 This policy excludes executing same-origin children that could proxy through
 parent functions; `isMainFrame` alone is not asserted to distinguish such calls.
-Embedded HTML/app viewers need a separately unprivileged surface before they
-can be enabled. Blob download navigation also awaits a native download adapter;
-these [viewer/export gaps](../gaps/ios-webview-viewers-and-downloads.md) remain
-release acceptance work. The existing native source adapter's speech/device-stream
+HTML previews run in a separate nonpersistent WebView without the app bridge.
+Its local resource handler reads sibling files through a single server-issued
+artifact grant. Closing the sheet cancels its readers and releases the grant.
+Blob exports use WKDownload and the system share sheet. The existing native source adapter's speech/device-stream
 unsupported fallbacks also remain in effect.
 
 Simulator acceptance covers the shipped React UI, source requests and events,

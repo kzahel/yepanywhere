@@ -14,6 +14,7 @@ import {
 import { useI18n } from "../i18n";
 import {
   type ArtifactPreviewLease,
+  artifactPreviewEntry,
   connectManagedArtifactViewer,
   managedArtifactUrl,
 } from "../lib/managedArtifactViewer";
@@ -65,14 +66,7 @@ export function ManagedArtifactPreview(props: ArtifactPreviewProps) {
     ? `/sessions/${encodeURIComponent(sessionId)}/artifact-previews`
     : "/artifact-previews";
   const path = props.documentPath ?? props.path;
-  const entry =
-    sessionId &&
-    !path.startsWith("/") &&
-    !/^[A-Za-z]:[\\/]/.test(path) &&
-    !path.startsWith("~") &&
-    projectPath
-      ? `${projectPath.replace(/\/+$/, "")}/${path}`
-      : path;
+  const entry = artifactPreviewEntry(path, sessionId, projectPath);
   const scriptless = useMemo(
     () => createScriptlessHtmlPreviewDocument(props.html, props.documentPath),
     [props.html, props.documentPath],

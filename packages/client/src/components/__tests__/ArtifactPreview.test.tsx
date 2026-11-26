@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { SourceTransport } from "../../lib/transport/types";
 import { I18nProvider } from "../../i18n";
 import { ManagedArtifactPreview } from "../ManagedArtifactPreview";
 import { ArtifactPreview } from "../ArtifactPreview";
@@ -23,6 +24,8 @@ const statusListeners = new Set<() => void>();
 let sourceSnapshot = { kind: "secure", state: "ready", channels: [] };
 const capabilities: {
   sameOriginUrls: boolean;
+  scopedPreviewFiles?: boolean;
+  openHtmlPreview?: SourceTransport["capabilities"]["openHtmlPreview"];
   packagedArtifactViewerVersion?: 1;
 } = { sameOriginUrls: true };
 const runtime = {
@@ -63,6 +66,8 @@ const SHARE_URL = `https://ya.example/remote/share/secret123/file?h=relayuser&pr
 
 beforeEach(() => {
   delete capabilities.packagedArtifactViewerVersion;
+  delete capabilities.scopedPreviewFiles;
+  delete capabilities.openHtmlPreview;
   sourceSnapshot = { kind: "secure", state: "ready", channels: [] };
   state.version = {
     current: "0.8.2",
@@ -494,5 +499,54 @@ it("selects the packaged viewer after native hello even when version data was al
   expect(state.fetch).toHaveBeenCalledWith(
     "/artifact-previews",
     expect.objectContaining({ method: "POST" }),
+  );
+});
+
+it("keeps the native preview file grant until the isolated sheet closes", async () => {
+  let dismiss!: () => void;
+  const open = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        dismiss = resolve;
+      }),
+  );
+  capabilities.openHtmlPreview = open;
+  capabilities.scopedPreviewFiles = true;
+  state.version = { capabilities: ["artifact-relay-preview"] };
+  state.fetch.mockResolvedValue({
+    id: "native-grant",
+    entry: "index.html",
+    expiresAt: Date.now() + 60_000,
+  });
+  mount(PROJECT_ID);
+  expect(state.fetch).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /run/i }));
+  await waitFor(() =>
+    expect(open).toHaveBeenCalledWith(
+      "<p>Static</p>",
+      "Mockup",
+      true,
+      { id: "native-grant", sessionId: undefined },
+      expect.any(AbortSignal),
+    ),
+  );
+  expect(state.fetch).toHaveBeenCalledTimes(1);
+  expect(state.fetch).toHaveBeenCalledWith(
+    "/artifact-previews",
+    expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        path: "mockup/index.html",
+        projectId: PROJECT_ID,
+      }),
+    }),
+  );
+  await act(async () => dismiss());
+  expect(state.fetch).toHaveBeenLastCalledWith(
+    "/artifact-previews/native-grant",
+    {
+      method: "DELETE",
+      signal: expect.any(AbortSignal),
+    },
   );
 });

@@ -450,9 +450,8 @@ Initial Apple notification tests establish broker registration/rotation bounds
 and protected opaque routing, not live APNs delivery or per-server enrollment.
 No real owner credentials, developer YA configuration or user projects are used
 by these fixtures. The consumer device target links unsigned; real-device,
-provisioning and store publication remain explicit release work. Embedded
-HTML/app viewers and Blob downloads remain bounded
-[WebKit adapter gaps](../../gaps/ios-webview-viewers-and-downloads.md).
+provisioning and store publication remain explicit release work. The subsequent [iOS shell](../../packages/ios/README.md) adds isolated
+HTML previews, scoped sibling resources and Blob export.
 
 ### Physical-phone acceptance — 2026-10-02
 

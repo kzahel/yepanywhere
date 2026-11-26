@@ -14,6 +14,48 @@ final class LiveTests: XCTestCase {
       data["port"] as! Int
     )
   }
+  func testIsolatedPreviewLoadsGrantedSiblingFiles() async throws {
+    let url = try XCTUnwrap(
+      Bundle(for: Self.self).url(forResource: "fixture", withExtension: "json"))
+    let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    let recovery = try XCTUnwrap(fixture["recovery"] as? [String: String])
+    let endpoint = try XCTUnwrap(recovery["direct"])
+    let path = try XCTUnwrap(recovery["previewPath"])
+    let options = SessionOptions(endpoint: endpoint, relayTarget: nil, username: "ios-fixture")
+    let session = try await nativeLogin(options: options, password: "native-fixture-password")
+    let profile = HostProfile(
+      id: UUID().uuidString, label: "Preview", endpoint: endpoint, username: options.username,
+      lastConnected: Date())
+    let source = RustSource(profile: profile, session: session)
+    defer { source.close() }
+    let client = SecurityClientCoordinator(store: HostStore(backend: MemoryProtectedStore()))
+    let admitted = try await client.request(
+      session, "POST", "/api/artifact-previews", ["path": path])
+    XCTAssertEqual(admitted.status, 200)
+    let id = try XCTUnwrap(admitted.body["id"] as? String)
+    let files = try PreviewFiles(grant: ["id": id], source: source)
+    let preview = HTMLPreview(
+      html: """
+        <link rel="stylesheet" href="report.css"><body>Report<script src="report.js"></script>
+        <script>fetch('values.json').then(r=>r.json()).then(x=>document.body.dataset.value=x.value).catch(e=>document.body.dataset.error=e.message)</script></body>
+        """, title: "Report", interactive: true, files: files)
+    preview.loadViewIfNeeded()
+    defer { preview.finish() }
+    let web = try XCTUnwrap(preview.viewer)
+    let deadline = Date().addingTimeInterval(12)
+    var evidence = ""
+    repeat {
+      evidence =
+        (try? await web.evaluateJavaScript(
+          "JSON.stringify([document.documentElement.dataset.script,document.body?.dataset.value,document.body?.dataset.error,getComputedStyle(document.body).color,!!window.yaNativeTransport])"
+        )) as? String ?? ""
+      if evidence == #"["loaded","42",null,"rgb(12, 34, 56)",false]"# { break }
+      try await Task.sleep(for: .milliseconds(80))
+    } while Date() < deadline
+    XCTAssertEqual(evidence, #"["loaded","42",null,"rgb(12, 34, 56)",false]"#)
+    let revoked = try await client.request(session, "DELETE", "/api/artifact-previews/" + id)
+    XCTAssertEqual(revoked.status, 200)
+  }
   func testRustLoginKeychainAndResumeOnSimulator() async throws {
     let (options, _) = try fixture()
     let store = HostStore(service: "com.yepanywhere.ios.tests." + UUID().uuidString)

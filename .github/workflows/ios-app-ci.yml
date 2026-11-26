@@ -108,7 +108,7 @@ jobs:
       - name: Verify native bridge and exhaustive reconnection behavior
         env:
           YA_RECOVERY_CONFORMANCE_DEPTH: 5
-        run: pnpm --filter @yep-anywhere/client exec vitest run nativeHost.test NativeSourceTransport.test recoveryConformance ReconnectSubscriptions
+        run: pnpm --filter @yep-anywhere/client exec vitest run nativeHost.test NativeSourceTransport.test recoveryConformance ReconnectSubscriptions ArtifactPreview.test
       - name: Build and test on an owned simulator
         run: node packages/ios/scripts/run.mjs test
       - name: Prepare the TestFlight app configuration

@@ -17,6 +17,20 @@ export interface ArtifactPreviewLease {
   expiresAt: number;
 }
 
+export function artifactPreviewEntry(
+  path: string,
+  sessionId?: string,
+  projectPath?: string | null,
+) {
+  return sessionId &&
+    !path.startsWith("/") &&
+    !/^[A-Za-z]:[\\/]/.test(path) &&
+    !path.startsWith("~") &&
+    projectPath
+    ? `${projectPath.replace(/\/+$/, "")}/${path}`
+    : path;
+}
+
 export function managedArtifactUrl(viewer: string, parentOrigin: string) {
   return `https://artifact-${viewer}.yepanywhere.com/__ya/1/bootstrap.html?${new URLSearchParams({ viewer, parent: parentOrigin })}`;
 }

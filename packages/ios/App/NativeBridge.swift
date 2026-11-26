@@ -31,7 +31,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
   private(set) var queuedHighWater = 0
   private let source: NativeSource
   private var committed = false
-  private weak var previewController: UINavigationController?
+  private weak var previewController: HTMLPreview?
+  private var previewRequest: String?
   private var activeDownload: DocumentDownload?
   private var sharing = false
   var shareFile: (URL, @escaping () -> Void) -> Void = { _, done in done() }
@@ -206,7 +207,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
         json([
           "type": "hello", "protocol": 1, "handle": handle, "profileId": source.profileID,
           "label": source.label, "binary": false, "stateQuery": true, "responseStreams": true,
-          "isolatedHtmlPreview": true,
+          "isolatedHtmlPreview": true, "scopedPreviewFiles": true,
         ]))
       try enqueue(Data(json(source.state).utf8))
       let monitor = NWPathMonitor()
@@ -252,6 +253,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     let params = command["params"] as? [String: Any] ?? [:]
     if method == "cancel" {
       if let target = params["id"] as? String {
+        if previewRequest == target {
+          previewController?.finish(); previewController?.dismiss(animated: true)
+        }
         operations[target]?.cancel(); responses.removeValue(forKey: target)?.cancel()
       }
       return
@@ -270,9 +274,16 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
             let presenter = self.webView?.window?.rootViewController,
             presenter.presentedViewController == nil
           else { throw BridgeFailure.invalidCommand }
-          let preview = HTMLPreview(html: html, title: title, interactive: interactive)
+          let files = try (params["resources"] as? [String: Any]).map {
+            try PreviewFiles(grant: $0, source: source)
+          }
+          let preview = HTMLPreview(
+            html: html, title: title, interactive: interactive, files: files)
           let navigation = UINavigationController(rootViewController: preview)
-          self.previewController = navigation; presenter.present(navigation, animated: true)
+          self.previewController = preview; self.previewRequest = id
+          presenter.present(navigation, animated: true)
+          await preview.waitForDismissal()
+          if self.previewRequest == id { self.previewController = nil; self.previewRequest = nil }
           result = [:]
         } else if method == "responseStart" {
           let stream = try await source.fetchResponse(params)
@@ -437,7 +448,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     closed = true
     pathMonitor?.cancel(); pathMonitor = nil
     activeDownload?.close(); activeDownload = nil
-    previewController?.dismiss(animated: false); previewController = nil
+    previewController?.finish(); previewController?.dismiss(animated: false);
+    previewController = nil
     events?.cancel(); events = nil
     for operation in operations.values { operation.cancel() }
     operations.removeAll()

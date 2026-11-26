@@ -126,7 +126,7 @@ async function upload() {
       `<?xml version="1.0"?><plist version="1.0"><dict>
 <key>method</key><string>app-store-connect</string><key>destination</key><string>export</string>
 <key>signingStyle</key><string>automatic</string><key>teamID</key><string>${team}</string>
-<key>manageAppVersionAndBuildNumber</key><false/><key>testFlightInternalTestingOnly</key><false/>
+<key>manageAppVersionAndBuildNumber</key><false/><key>testFlightInternalTestingOnly</key><true/>
 <key>uploadSymbols</key><true/></dict></plist>`,
     );
     // An archive built without signing has no executable entitlements. Xcode

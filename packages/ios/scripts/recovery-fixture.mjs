@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
@@ -41,6 +41,18 @@ export async function startRecoveryFixture() {
     });
     const host = `http://127.0.0.1:${fixture.port}`;
     const projects = await (await fetch(host + "/api/projects")).json();
+    const samples = join(projects.projects[0].path, "ios-preview");
+    await mkdir(samples);
+    const previewPath = join(samples, "report.html");
+    await Promise.all([
+      writeFile(previewPath, "<title>Report</title>"),
+      writeFile(
+        join(samples, "report.js"),
+        "document.documentElement.dataset.script = 'loaded'",
+      ),
+      writeFile(join(samples, "report.css"), "body { color: rgb(12, 34, 56) }"),
+      writeFile(join(samples, "values.json"), JSON.stringify({ value: 42 })),
+    ]);
     direct = await createNetworkGate(fixture.port);
     mux = await createNetworkGate(relayPort);
     const token = randomUUID();
@@ -92,6 +104,7 @@ export async function startRecoveryFixture() {
         control: `http://127.0.0.1:${control.address().port}/${token}`,
         direct: `ws://127.0.0.1:${direct.port}/api/ws`,
         mux: `ws://127.0.0.1:${mux.port}/ws`,
+        previewPath,
         sessionPath: `/projects/${projects.projects[0].id}/sessions/android-preview-session`,
       },
     };

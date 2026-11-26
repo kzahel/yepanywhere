@@ -5,7 +5,13 @@ import {
   type LocalResourceRef,
   type UrlProjectId,
 } from "@yep-anywhere/shared";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { ResourceContextMenu } from "./FileResourceActions";
 import { useSessionAppAnnouncer } from "./SessionAppLinks";
@@ -23,7 +29,18 @@ import type { ViewerFindSource } from "../lib/viewerFind";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import { usePublicShareContext } from "../contexts/PublicShareContext";
 import { useRetainedVersionInfo } from "../hooks/useVersion";
-import { MANAGED_ARTIFACT_PARENTS } from "../lib/managedArtifactViewer";
+import { useLocalFileScope } from "../hooks/useLocalFileScope";
+import { useOptionalSessionMetadata } from "../contexts/SessionMetadataContext";
+import {
+  reclaimArtifactPreviewLeases,
+  retainArtifactPreviewLease,
+} from "../lib/artifactPreviewLeaseCleanup";
+import type { SourceTransport } from "../lib/transport/types";
+import {
+  artifactPreviewEntry,
+  type ArtifactPreviewLease,
+  MANAGED_ARTIFACT_PARENTS,
+} from "../lib/managedArtifactViewer";
 import { ManagedArtifactPreview } from "./ManagedArtifactPreview";
 import { Button } from "./ui/Button";
 import { Banner } from "./ui/Banner";
@@ -98,7 +115,19 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
     !version?.artifactViewer?.publicOrigin &&
     serverHasCapability(version, SERVER_CAPABILITIES.artifactRelayPreview.name);
   if (nativePreview && share === null)
-    return <NativeArtifactPreview {...props} open={nativePreview} />;
+    return (
+      <NativeArtifactPreview
+        {...props}
+        open={nativePreview}
+        supportsFiles={
+          runtime.transport.capabilities.scopedPreviewFiles === true &&
+          serverHasCapability(
+            version,
+            SERVER_CAPABILITIES.artifactRelayPreview.name,
+          )
+        }
+      />
+    );
   return managed ? (
     <ManagedArtifactPreview {...props} />
   ) : (
@@ -108,26 +137,89 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
 
 function NativeArtifactPreview(
   props: ArtifactPreviewProps & {
-    open: (html: string, title: string, interactive: boolean) => Promise<void>;
+    open: NonNullable<SourceTransport["capabilities"]["openHtmlPreview"]>;
+    supportsFiles: boolean;
   },
 ) {
   const { t } = useI18n();
+  const runtime = useCurrentSourceRuntime();
+  const sessionId = useLocalFileScope()?.sessionId;
+  const projectPath = useOptionalSessionMetadata()?.projectPath;
+  const pending = useRef<AbortController | null>(null);
   const [failed, setFailed] = useState(false);
-  const show = (interactive: boolean) => {
+  const [busy, setBusy] = useState(false);
+  // A mounted viewer can change files or hosts while its native sheet is open.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: changing the file scope must retire its grant.
+  useEffect(
+    () => () => pending.current?.abort(),
+    [runtime, props.path, props.documentPath, props.projectId, sessionId],
+  );
+  const show = async (interactive: boolean) => {
+    if (pending.current) return;
+    const controller = new AbortController();
+    pending.current = controller;
+    setBusy(true);
     setFailed(false);
-    const html = interactive
-      ? props.html
-      : createScriptlessHtmlPreviewDocument(props.html, props.documentPath);
-    void props
-      .open(html, props.title, interactive)
-      .catch(() => setFailed(true));
+    let release: (() => Promise<void>) | undefined;
+    try {
+      let resources: { id: string; sessionId?: string } | undefined;
+      if (props.supportsFiles) {
+        const base = sessionId
+          ? `/sessions/${encodeURIComponent(sessionId)}/artifact-previews`
+          : "/artifact-previews";
+        await reclaimArtifactPreviewLeases(
+          runtime.sourceKey,
+          runtime.transport,
+        );
+        controller.signal.throwIfAborted();
+        const lease = await runtime.transport.fetch<ArtifactPreviewLease>(
+          base,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              path: artifactPreviewEntry(
+                props.documentPath ?? props.path,
+                sessionId,
+                projectPath,
+              ),
+              projectId: props.projectId,
+            }),
+          },
+        );
+        release = await retainArtifactPreviewLease(
+          runtime.sourceKey,
+          base,
+          lease,
+          runtime.transport,
+        );
+        resources = { id: lease.id, sessionId };
+      }
+      controller.signal.throwIfAborted();
+      const html =
+        interactive || resources
+          ? props.html
+          : createScriptlessHtmlPreviewDocument(props.html, props.documentPath);
+      await props.open(
+        html,
+        props.title,
+        interactive,
+        resources,
+        controller.signal,
+      );
+    } catch {
+      if (!controller.signal.aborted) setFailed(true);
+    } finally {
+      await release?.().catch(() => {});
+      pending.current = null;
+      setBusy(false);
+    }
   };
   return (
     <div className={styles.toolbar}>
-      <Button size="small" onClick={() => show(false)}>
+      <Button size="small" disabled={busy} onClick={() => void show(false)}>
         {t("artifactOpenIsolatedPreview")}
       </Button>
-      <Button size="small" onClick={() => show(true)}>
+      <Button size="small" disabled={busy} onClick={() => void show(true)}>
         {t("artifactRun")}
       </Button>
       {failed && <span role="alert">{t("artifactNativePreviewFailed")}</span>}
