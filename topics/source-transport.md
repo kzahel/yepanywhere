@@ -412,10 +412,34 @@ must not discard the context's connection or status subscription. While visible,
 the exhausted source probes every 60–78 seconds (jittered); hidden exhausted
 sources have no scheduled reconnect probe. Returning to visibility, focus,
 network-online, or keyboard/pointer/history-navigation activity may request one
-immediate probe. Signals coalesce with an in-flight attempt and are rate-limited
-to one signal-triggered probe per five seconds. A signal is a recovery opportunity,
+immediate probe. Signals coalesce with an in-flight attempt, and probe starts
+of any origin are at least five seconds apart. A signal inside that cooldown
+keeps one attempt for the cooldown's end rather than being lost until the slow
+probe. A signal is a recovery opportunity,
 not proof of network reachability. Healthy connections retain wake ping/pong;
 ordinary exponential backoff is not reset by every focus or key event.
+
+### One exhausted-recovery scheduler
+
+`RecoveryScheduler` (`packages/client/src/lib/connection/RecoveryScheduler.ts`)
+is the single implementation of the paragraph above. An owner arms it when its
+own retries are exhausted and disarms it when it connects, retries on its own,
+fails terminally or is disposed. Starting a probe disarms it; the owner re-arms
+when that attempt fails. Arming an armed scheduler does not postpone its slow
+probe. It has three owners, which differ only in these inputs:
+
+| | Browser source (`ConnectionManager`) | Bundled app (`NativeSourceTransport`) | First acquisition (`useResumeRecovery`) |
+| --- | --- | --- | --- |
+| Exhausted when | ten rapid attempts have failed | native reports a recoverable failure | a resume attempt failed retryably |
+| One probe is | one reconnect | one bounded native retry cycle | one resume attempt |
+| Slow probe | 60–78 s, jittered | 60 s, no jitter | 60–78 s, jittered |
+| Signals | visibility, focus, online, history, pointer, key | the same, plus native network-available and demand reads | visibility, focus, online, history |
+| Probe left unanswered | bounded by the connection's own timeouts | abandoned by the bridge after 30 s, then re-armed | bounded by the connection's own timeouts |
+
+Jitter is the one policy difference, held as `RECOVERY_POLICY` and
+`NATIVE_RECOVERY_POLICY` in that file; change a number there, not in an owner.
+First acquisition omits pointer and key signals because its screen shows action
+buttons that a retry would unmount before their click fires.
 
 The source transport remains the recovery owner after authentication. Before
 there is an attached connection, the context or relay route's failed acquisition
@@ -785,6 +809,14 @@ runtime's transport until callers migrate.
 - Reproduce the 050 divergence in simulation (fetch-driven recovery during
   manager backoff) and assert the bar/state converges and no destructive
   reconnect fires.
+- `recoveryConformance.test.ts` enumerates every sequence of waits, signals,
+  visibility changes, probe outcomes, out-of-band recovery and renewed
+  exhaustion up to a depth. It checks the recovery contract on the scheduler,
+  then replays each sequence against all three owners in one page and requires
+  the scheduler's probe times, no recovery timer while hidden and none after
+  disposal. Ordinary runs use a small depth. For an exhaustive run:
+  `YA_RECOVERY_CONFORMANCE_DEPTH=5 pnpm --filter @yep-anywhere/client exec vitest run recoveryConformance`.
+  A new owner of exhausted recovery joins that file.
 - Add hook tests with two fake source runtimes: reconnect/status changes in
   one runtime must not resubscribe or clear subscriptions in the other.
 - Preserve teardown behavior: closing a tab/component releases the session or

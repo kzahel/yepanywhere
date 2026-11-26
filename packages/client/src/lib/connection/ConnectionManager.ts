@@ -1,3 +1,4 @@
+import { RECOVERY_POLICY, RecoveryScheduler } from "./RecoveryScheduler";
 import { observeRecoverySignals } from "./recoverySignals";
 import { isNonRetryableError } from "./types";
 
@@ -77,8 +78,8 @@ const DEFAULT_CONFIG = {
   baseDelayMs: 1000,
   maxDelayMs: 30000,
   maxAttempts: 10,
-  recoveryDelayMs: 60000,
-  jitterFactor: 0.3,
+  recoveryDelayMs: RECOVERY_POLICY.slowProbeMs,
+  jitterFactor: RECOVERY_POLICY.slowProbeJitter,
   staleThresholdMs: 45000,
   staleCheckIntervalMs: 10000,
   pongTimeoutMs: 2000,
@@ -134,7 +135,7 @@ export class ConnectionManager {
   private _driveReconnect = true;
   private _started = false;
   private _waitingForRecovery = false;
-  private _lastRecoverySignal = -Infinity;
+  private readonly _recovery: RecoveryScheduler<number>;
   private _removeRecoveryListener: (() => void) | null = null;
 
   // Stale detection
@@ -192,6 +193,15 @@ export class ConnectionManager {
     };
     this.timers = config.timers ?? realTimers;
     this.visibility = config.visibility ?? realVisibility;
+    this._recovery = new RecoveryScheduler(() => this._executeReconnect(), {
+      clock: this.timers,
+      isVisible: () => this.visibility.isVisible(),
+      policy: {
+        slowProbeMs: this.config.recoveryDelayMs,
+        slowProbeJitter: this.config.jitterFactor,
+        cooldownMs: RECOVERY_POLICY.cooldownMs,
+      },
+    });
   }
 
   get state(): ConnectionState {
@@ -227,8 +237,7 @@ export class ConnectionManager {
     this._driveReconnect = options?.driveReconnect ?? true;
     if (this._started) return;
     this._started = true;
-    this._waitingForRecovery = false;
-    this._lastRecoverySignal = -Infinity;
+    this._leaveRecovery();
     this._setState("connected");
     this._startStaleCheck();
     this._startVisibilityListener();
@@ -239,7 +248,7 @@ export class ConnectionManager {
    */
   stop(): void {
     this._started = false;
-    this._waitingForRecovery = false;
+    this._leaveRecovery();
     this._reconnectFn = null;
     this._sendPing = null;
     this._label = null;
@@ -302,7 +311,7 @@ export class ConnectionManager {
   markConnected(): void {
     if (!this._started) return;
     this._reconnectAttempts = 0;
-    this._waitingForRecovery = false;
+    this._leaveRecovery();
     this._reconnectPromise = null;
     this._cancelBackoff();
     this._setState("connected");
@@ -366,7 +375,7 @@ export class ConnectionManager {
     this._log(`force reconnect${reason ? `: ${reason}` : ""}`);
     if (!this._started) return;
     this._reconnectAttempts = 0;
-    this._waitingForRecovery = false;
+    this._leaveRecovery();
     this._cancelBackoff();
     this._reconnectPromise = null;
     this._startReconnecting(reason ?? "force");
@@ -410,7 +419,7 @@ export class ConnectionManager {
   }
 
   private _emitReconnectFailed(error: Error): void {
-    this._waitingForRecovery = false;
+    this._leaveRecovery();
     this._cancelBackoff();
     this._reconnectPromise = null;
     for (const cb of this._listeners.reconnectFailed) {
@@ -447,15 +456,7 @@ export class ConnectionManager {
       }
       this._waitingForRecovery = true;
       this._cancelBackoff();
-      if (this.visibility.isVisible()) {
-        const delay =
-          this.config.recoveryDelayMs *
-          (1 + Math.random() * this.config.jitterFactor);
-        this._backoffTimerId = this.timers.setTimeout(() => {
-          this._backoffTimerId = null;
-          this._executeReconnect();
-        }, delay);
-      }
+      this._recovery.arm();
       return;
     }
 
@@ -512,6 +513,11 @@ export class ConnectionManager {
     return Math.min(this.config.maxDelayMs, base * jitter);
   }
 
+  private _leaveRecovery(): void {
+    this._waitingForRecovery = false;
+    this._recovery.disarm();
+  }
+
   private _cancelBackoff(): void {
     if (this._backoffTimerId !== null) {
       this.timers.clearTimeout(this._backoffTimerId);
@@ -555,15 +561,10 @@ export class ConnectionManager {
       !this._started ||
       !this._driveReconnect ||
       !this._waitingForRecovery ||
-      this._state !== "reconnecting" ||
-      this._reconnectPromise ||
-      !this.visibility.isVisible() ||
-      this.timers.now() - this._lastRecoverySignal < 5000
+      this._state !== "reconnecting"
     )
       return;
-    this._lastRecoverySignal = this.timers.now();
-    this._cancelBackoff();
-    this._executeReconnect();
+    this._recovery.signal();
   }
 
   private _startVisibilityListener(): void {
@@ -573,7 +574,7 @@ export class ConnectionManager {
     this._removeVisibilityListener = this.visibility.onVisibilityChange(
       (visible) => {
         if (!visible) {
-          if (this._waitingForRecovery) this._cancelBackoff();
+          this._recovery.visibilityChanged();
           this._hiddenSince = this.timers.now();
           this._log(`visibility hidden (${this._formatReconnectContext()})`);
         } else {
@@ -601,9 +602,7 @@ export class ConnectionManager {
 
     this._hiddenSince = null;
     if (this._waitingForRecovery) {
-      // Re-arm a probe even if a rapid visibility toggle is rate-limited.
-      this._scheduleReconnect();
-      this.requestRecovery();
+      this._recovery.visibilityChanged();
       return;
     }
     if (this._state !== "connected") {

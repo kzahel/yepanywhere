@@ -15,6 +15,13 @@ shared attachment-validation and native notification-routing escapes, now
 repaired under unit regressions and real-device-path emulator acceptance. The
 shared all-transport conformance factory remains open.
 
+On 2026-11-26 exhausted-retry recovery became one implementation shared by the
+browser manager, the native bridge adapter and first acquisition, with an
+exhaustive [conformance harness](../../topics/source-transport.md#one-exhausted-recovery-scheduler)
+that replays every bounded event sequence against all three. That covers when
+a waiting source probes. It does not cover the rest of this sketch: status
+sequences, request errors, subscription catch-up or credentials.
+
 ## Purpose
 
 Phone sleep, wake, network changes and server restarts are where clients go
@@ -58,6 +65,8 @@ The suite, not a transport switch, is what forces the lifecycle questions.
   operations.
 - `recovery.test.ts`: exhausted-budget probes, signal coalescing, rate limits,
   stop on rejection, resume evidence.
+- `recoveryConformance.test.ts`: the shared exhausted-recovery scheduler and
+  its three owners over every bounded event sequence.
 - `ReconnectSubscriptions.test.ts`, `SecureConnection.resume.test.ts`,
   `MultiplexSourceTransport.test.ts`, `ManagedStream.test.ts`, and
   `NativeSourceTransport.test.ts` over `nativeTransportFixture.ts`.

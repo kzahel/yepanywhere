@@ -9,7 +9,12 @@ import {
 import { generateUUID } from "../uuid";
 import { NativeResponseBodies } from "./nativeResponseBodies";
 import { RelayProtocol } from "../connection/RelayProtocol";
-import { observeRecoverySignals } from "../connection/recoverySignals";
+import {
+  NATIVE_RECOVERY_POLICY,
+  RecoveryScheduler,
+  observePageRecovery,
+  realRecoveryClock,
+} from "../connection/RecoveryScheduler";
 import {
   ConnectionReconnectingError,
   type Connection,
@@ -66,15 +71,17 @@ export class NativeSourceTransport implements SourceTransport, Connection {
   private leaseGeneration: number | undefined;
   private connectionEpoch: number | undefined;
   private recovery: Promise<void> | null = null;
-  private recoveryTimer: ReturnType<typeof setTimeout> | undefined;
-  private signalRecoveryTimer: ReturnType<typeof setTimeout> | undefined;
-  private lastRecovery = -Infinity;
+  // Native owns its short retry cycle. After exhaustion, only visible demand
+  // can request another cycle; no duplicate sockets or hidden polling.
+  private readonly recoveryScheduler = new RecoveryScheduler(
+    () => void this.reconnect().catch(() => {}),
+    {
+      clock: realRecoveryClock,
+      isVisible: () => !document.hidden,
+      policy: NATIVE_RECOVERY_POLICY,
+    },
+  );
   private removeRecoverySignals: () => void = () => {};
-  private readonly online = () => this.recoverIfNeeded();
-  private readonly visibility = () => {
-    this.scheduleRecovery();
-    this.recoverIfNeeded();
-  };
   onAuthenticationRequired: () => void = () => {};
   readonly status = {
     getSnapshot: () => this.snapshot,
@@ -114,7 +121,7 @@ export class NativeSourceTransport implements SourceTransport, Connection {
         return;
       }
       if (message.type === "networkAvailable") {
-        this.recoverIfNeeded();
+        this.recoveryScheduler.signal();
         return;
       }
       if (message.type === "subscriptionError") {
@@ -163,11 +170,7 @@ export class NativeSourceTransport implements SourceTransport, Connection {
       this.protocol.rejectAllPending(error);
       this.protocol.notifySubscriptionsClosed(error);
     };
-    this.removeRecoverySignals = observeRecoverySignals(() =>
-      this.recoverIfNeeded(),
-    );
-    window.addEventListener("online", this.online);
-    document.addEventListener("visibilitychange", this.visibility);
+    this.removeRecoverySignals = observePageRecovery(this.recoveryScheduler);
   }
 
   private observeNativeState(message: Record<string, unknown>): void {
@@ -256,47 +259,10 @@ export class NativeSourceTransport implements SourceTransport, Connection {
     );
   }
 
-  private recoverIfNeeded(): void {
-    if (
-      !this.canRecover() ||
-      document.hidden ||
-      !["FAILED", "EXHAUSTED", "OFFLINE"].includes(this.phase)
-    )
-      return;
-    const remaining = 5000 - (Date.now() - this.lastRecovery);
-    if (remaining > 0) {
-      // Keep one demand edge through the cooldown. Dropping the last network
-      // restoration edge here used to leave recovery to the 60-second backstop.
-      if (this.signalRecoveryTimer === undefined)
-        this.signalRecoveryTimer = setTimeout(() => {
-          this.signalRecoveryTimer = undefined;
-          this.recoverIfNeeded();
-        }, remaining);
-      return;
-    }
-    void this.reconnect().catch(() => {});
-  }
-
-  private scheduleRecovery(): void {
-    clearTimeout(this.recoveryTimer);
-    this.recoveryTimer = undefined;
-    if (
-      !this.canRecover() ||
-      document.hidden ||
-      !["FAILED", "EXHAUSTED", "OFFLINE"].includes(this.phase)
-    ) {
-      clearTimeout(this.signalRecoveryTimer);
-      this.signalRecoveryTimer = undefined;
-    }
-    if (
-      !this.canRecover() ||
-      document.hidden ||
-      !["FAILED", "EXHAUSTED"].includes(this.phase)
-    )
-      return;
-    // Native owns its short retry cycle. After exhaustion, only visible demand
-    // can request another cycle; no duplicate sockets or hidden polling.
-    this.recoveryTimer = setTimeout(() => this.recoverIfNeeded(), 60_000);
+  private syncRecovery(): void {
+    if (this.canRecover() && ["FAILED", "EXHAUSTED"].includes(this.phase))
+      this.recoveryScheduler.arm();
+    else this.recoveryScheduler.disarm();
   }
 
   private setPhase(phase: string): void {
@@ -313,7 +279,7 @@ export class NativeSourceTransport implements SourceTransport, Connection {
             : "connecting"
           : "disconnected";
     this.phase = phase;
-    this.scheduleRecovery();
+    this.syncRecovery();
     const previous = this.snapshot.state;
     if (state === previous) {
       if (
@@ -352,7 +318,7 @@ export class NativeSourceTransport implements SourceTransport, Connection {
     if (this.snapshot.state === "ready") return;
     if (this.phase === "SUSPENDED" && document.hidden)
       throw new ConnectionReconnectingError();
-    this.recoverIfNeeded();
+    this.recoveryScheduler.signal();
     if (this.snapshot.state === "disconnected")
       throw new SourceTransportDisconnectedError({ kind: "secure" });
     await new Promise<void>((resolve, reject) => {
@@ -717,7 +683,7 @@ export class NativeSourceTransport implements SourceTransport, Connection {
       return Promise.reject(
         new SourceTransportDisconnectedError({ kind: "secure" }),
       );
-    this.lastRecovery = Date.now();
+    this.recoveryScheduler.recordProbe();
     this.setPhase("RETRYING");
     const nativeStateRevision = this.nativeStateRevision;
     const recovery = this.bridge.request<void>("reconnect");
@@ -737,8 +703,7 @@ export class NativeSourceTransport implements SourceTransport, Connection {
           // observations supersede both success and failure of that old call.
           if (
             this.nativeStateRevision === nativeStateRevision &&
-            this.canRecover() &&
-            this.phase !== "OFFLINE"
+            this.canRecover()
           )
             this.setPhase(this.explicitRecovery ? "EXHAUSTED" : "FAILED");
         },
@@ -762,11 +727,8 @@ export class NativeSourceTransport implements SourceTransport, Connection {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    clearTimeout(this.recoveryTimer);
-    clearTimeout(this.signalRecoveryTimer);
+    this.recoveryScheduler.disarm();
     this.removeRecoverySignals();
-    window.removeEventListener("online", this.online);
-    document.removeEventListener("visibilitychange", this.visibility);
     this.protocol.close();
     this.responseBodies.cancelAll(new SourceTransportDisposedError("secure"));
     this.bridge.close();
