@@ -1,5 +1,9 @@
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { TurnEffort, UploadedFile } from "@yep-anywhere/shared";
+import type {
+  PermissionMode,
+  TurnEffort,
+  UploadedFile,
+} from "@yep-anywhere/shared";
 import type { UserMessage } from "./types.js";
 
 /** Internal server-stamped identities survive native interrupt concatenation. */
@@ -30,7 +34,11 @@ function mostUrgentPriority(messages: UserMessage[]): UserMessage["priority"] {
   return result;
 }
 
-export type QueuedSDKUserMessage = SDKUserMessage & { turnEffort?: TurnEffort };
+export type QueuedSDKUserMessage = SDKUserMessage & {
+  turnEffort?: TurnEffort;
+  /** The permission mode selected when the input was sent. */
+  mode?: PermissionMode;
+};
 
 type CancellableMessageIterator = AsyncIterator<QueuedSDKUserMessage> &
   AsyncIterable<QueuedSDKUserMessage> & {

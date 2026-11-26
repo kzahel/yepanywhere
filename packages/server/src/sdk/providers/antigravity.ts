@@ -81,6 +81,7 @@ import {
 } from "./antigravity-usage.js";
 import { compactAntigravity } from "./antigravity-compaction.js";
 import { AntigravityContextMeter } from "./antigravity-context-usage.js";
+import { AntigravityModeControl } from "./antigravity-permission-mode.js";
 import { AntigravitySubagentTracker } from "./antigravity-subagent-tracker.js";
 import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
 import type {
@@ -357,10 +358,6 @@ export class AntigravityProvider implements AgentProvider {
   ): Promise<AgentSession> {
     if (options.executor || options.sessionSandbox)
       throw new Error("Antigravity supports ordinary local sessions only");
-    if (options.permissionMode === "plan")
-      throw new Error(
-        "Use Antigravity's native /plan command with the default permission mode",
-      );
     if (options.nativeResumeSource) {
       await this.validateResumeSource(
         options,
@@ -937,23 +934,8 @@ export class AntigravityProvider implements AgentProvider {
             applyThinkingSelection(undefined, effort, true),
           );
       }
-      // Use only offered native modes. Bypass already launched with its flag.
-      const offered = new Set(
-        setup.modes?.availableModes.map((entry) => entry.id) ?? ["default"],
-      );
-      const wanted =
-        options.permissionMode === "acceptEdits"
-          ? "accept-edits"
-          : options.permissionMode === "auto"
-            ? "auto"
-            : "default";
-      const mode = offered.has(wanted) ? wanted : undefined;
-      if (!mode && options.permissionMode)
-        throw new Error(
-          `Antigravity does not offer the ${options.permissionMode} permission mode`,
-        );
-      if (mode && options.permissionMode && mode !== setup.modes?.currentModeId)
-        await runtime.call("session/set_mode", { sessionId: id, modeId: mode });
+      const modes = new AntigravityModeControl(runtime, id, setup);
+      await modes.launch(options.permissionMode);
       // Rows leave memory only past the soft budget, at a proven split
       // point; a log YA cannot read proves none, and the cap bounds them.
       const live = owner.open(
@@ -1116,6 +1098,7 @@ export class AntigravityProvider implements AgentProvider {
           resolvedModel = selected;
           return;
         }
+        modes.observe(update);
         if (contextMeter.observe(update, resolvedModel, updates)) changed();
         if (observeCommands(update))
           publish({
@@ -1373,6 +1356,10 @@ export class AntigravityProvider implements AgentProvider {
             });
           changed();
         };
+        const mode = await modes.prompt(
+          message.mode ?? options.permissionMode ?? "default",
+        );
+        options.onPermissionModeApplied?.(mode);
         prompt(text, uuid, undefined, initialStartPosition);
         controls.steer = (input) => {
           if (

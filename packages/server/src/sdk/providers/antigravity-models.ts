@@ -4,6 +4,7 @@ import {
   type ModelInfo,
   type ThinkingConfig,
 } from "@yep-anywhere/shared";
+import { antigravityOffersAuto } from "./antigravity-permission-mode.js";
 import type {
   AntigravityConfigOption,
   AntigravitySessionSetup,
@@ -87,6 +88,14 @@ function effortFields(
 export function buildAntigravityModels(
   setup: AntigravitySessionSetup,
 ): ModelInfo[] {
+  const models = catalogModels(setup);
+  // Native `auto` is a session mode, so every model offers it or none does.
+  return antigravityOffersAuto(setup)
+    ? models.map((model) => ({ ...model, supportsAutoMode: true }))
+    : models;
+}
+
+function catalogModels(setup: AntigravitySessionSetup): ModelInfo[] {
   const modelOption = findAntigravityConfigOption(setup.configOptions, "model");
   if (!modelOption?.options?.length)
     return [

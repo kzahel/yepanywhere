@@ -2129,7 +2129,7 @@ readline.createInterface({input:process.stdin}).on('line', line => {
           { modelId: 'gemini-pro-orchestrator-neon', name: 'Orchestrator (Neon)' },
         ],
       },
-      modes: { currentModeId: 'default', availableModes: [{ id: 'default' }] },
+      modes: { currentModeId: 'default', availableModes: [{ id: 'default' }, { id: 'auto' }] },
       configOptions: buildConfigOptions(),
     });
   }
@@ -2176,6 +2176,8 @@ readline.createInterface({input:process.stdin}).on('line', line => {
 
       const provider = new AntigravityProvider();
       const models = await provider.getAvailableModels({ forceRefresh: true });
+      // The runtime offers native `auto`, so every model offers YA's Auto.
+      expect(models.every((model) => model.supportsAutoMode)).toBe(true);
       expect(models).toEqual([
         expect.objectContaining({
           id: "default",

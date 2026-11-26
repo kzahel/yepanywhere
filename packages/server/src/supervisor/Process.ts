@@ -105,6 +105,7 @@ import {
   getModeBasedToolApproval,
   isAskUserQuestionTool,
 } from "./modeToolApproval.js";
+import { providerInput } from "./provider-input.js";
 import { isResumeDropsTurnRefusalText } from "./resume-truncation.js";
 import { PROCESS_REPLAY_BUCKET_MS } from "./replay-window.js";
 import type {
@@ -3907,9 +3908,8 @@ export class Process {
       return { success: false, error: this.configurationHold.reason };
     }
 
-    // Create user message with UUID - this UUID will be used by both SSE and SDK
-    const uuid = providerMessage.uuid ?? randomUUID();
-    const messageWithUuid: UserMessage = { ...providerMessage, uuid };
+    const messageWithUuid = providerInput(providerMessage, this.permissionMode);
+    const { uuid } = messageWithUuid;
 
     // Build content that matches what the SDK will write to JSONL.
     // This ensures SSE/history messages can be deduplicated against JSONL.

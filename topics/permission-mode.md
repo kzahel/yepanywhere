@@ -19,11 +19,12 @@ See also:
 
 `Auto` means provider-decided approval: the provider/model classifies each
 permission prompt and may approve it or ask the user. In current YA code this
-is exposed through model metadata, `ModelInfo.supportsAutoMode`; the only
-checked-in provider that populates that metadata today is Claude. Within Claude,
-support is still model-specific: live Claude SDK metadata or YA's fallback
-catalog must mark a model with `supportsAutoMode: true` before the UI offers
-`Auto` for that selected model.
+is exposed through model metadata, `ModelInfo.supportsAutoMode`, which Claude
+and Antigravity populate today. Within Claude, support is model-specific: live
+Claude SDK metadata or YA's fallback catalog must mark a model with
+`supportsAutoMode: true` before the UI offers `Auto` for that selected model.
+Antigravity marks every model when its runtime offers the native `auto` session
+mode (`agy` 1.5.18 does; see [Antigravity](antigravity.md)).
 
 This makes the user's observation accurate with one precise wording: choosing
 `Auto` is an all-provider standing preference, not a provider-scoped default,
@@ -58,7 +59,10 @@ equivalent is `Ask`, not `Bypass` and not a hidden provider-specific setting.
 - A live mode change has two application clocks. Provider-native policy changes
   use the provider's next-turn boundary and must not be forced into an active
   turn whose sandbox or approval policy cannot change in-flight. YA's approval
-  bridge follows the selected standing mode immediately.
+  bridge follows the selected standing mode immediately. Every input enters
+  the provider's queue carrying a mode: its own, or else the standing mode
+  when it was queued, so an adapter applying a mode per turn reads it from
+  the input rather than from its launch options.
 - While a turn is active, the UI must distinguish its current effective mode
   from a different mode selected for the next turn.
 - Selecting `Accept edits` immediately allows pending and newly arriving Edit,

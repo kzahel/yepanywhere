@@ -191,12 +191,25 @@ one fails explicitly before mutating active session state. A coalesced, short-li
 blank probe checks readiness without sending a model prompt, then removes only
 its proven scratch session files.
 
-YA default, accept-edits and auto select the native `default`, `accept-edits`
-and `auto` modes. A requested mode the runtime does not offer fails the start.
-Over ACP, `agy` 1.5.13 and 1.5.14 offer `default`, `accept-edits` and `plan`
-(observed 2026-11-22), so auto currently fails. `agy` offers no bypass mode, so
-bypass-permissions launches that session's server with
-`--dangerously-skip-permissions` and keeps the native `default` mode. YA's Plan permission mode is refused; use native `/plan`.
+YA's Ask, Edit, Auto and Plan select the native `default`, `accept-edits`,
+`auto` and `plan` modes. Over ACP, `agy` 1.5.13 and 1.5.14 offer `default`,
+`accept-edits` and `plan` (observed 2026-11-22); 1.5.18 adds `auto`, described
+as "Approve edits and safe commands; ask before irreversible actions"
+(observed 2026-11-26). The model catalog offers YA's Auto on every model
+exactly when the runtime's `session/new` offers `auto`. A launch in a mode the
+runtime does not offer fails the start. YA sets the native mode before every
+prompt from the mode that input carries, so a mode chosen mid-session,
+tighter or looser, applies from the next prompt; a mode the runtime does not
+offer runs that prompt as Ask, and steering joins the running prompt's mode.
+`agy` reports its mode on resume (1.5.18 resumes in `default`) and on each
+change. In native `plan` mode `agy` 1.5.18 still asks before each tool, writes
+its plan to `implementation_plan.md` in its own `brain/` directory, and asks
+for approval rather than changing the project; there is no plan-exit prompt,
+so the user leaves Plan by choosing another mode. `agy` offers no bypass mode,
+so bypass-permissions launches that session's server with
+`--dangerously-skip-permissions` and keeps the native `default` mode; a
+session launched that way cannot be tightened natively
+([gap](../gaps/antigravity-bypass-launch-cannot-tighten.md)).
 Permission replies use the actual offered option IDs and never promote Allow
 once to Allow always. Native fixed-choice questions require an offered answer.
 Missing handlers and interrupted requests cancel.

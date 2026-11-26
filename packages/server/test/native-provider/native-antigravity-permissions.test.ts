@@ -207,10 +207,41 @@ describe.skipIf(!providers.includes("antigravity"))(
       expect(f.errors).toEqual([]);
     }, 30_000);
 
-    it("refuses YA's Plan mode before starting agy", async () => {
-      await expect(
-        nativeFixture("antigravity", "gentle", { permissionMode: "plan" }),
-      ).rejects.toThrow("native /plan command");
+    it("a mode tightened mid-session applies from the next prompt", async () => {
+      const asked: string[] = [];
+      const f = await nativeFixture("antigravity", "gentle", {
+        permissionMode: "acceptEdits",
+        onToolApproval: async (tool, input) => {
+          asked.push(tool);
+          return { behavior: "allow", updatedInput: input };
+        },
+      });
+      fixture = f;
+      writeFile(await f.model.next(), join(f.project, "loose.txt"));
+      (await f.model.next()).finish("LOOSE_DONE");
+      await f.output("LOOSE_DONE");
+      await f.idle();
+      expect(asked).toEqual([]);
+
+      f.proc.setPermissionMode("default");
+      expect(f.proc.queueMessage({ text: "TIGHT_TURN" }).success).toBe(true);
+      writeFile(await f.model.next(), join(f.project, "tight.txt"));
+      (await f.model.next()).finish("TIGHT_DONE");
+      await f.output("TIGHT_DONE");
+      await f.idle();
+      expect(asked).toEqual(["File tight.txt"]);
+      expect(f.errors).toEqual([]);
+    }, 30_000);
+
+    it("runs YA's Plan mode as agy's native plan mode", async () => {
+      const f = await nativeFixture("antigravity", "gentle", {
+        permissionMode: "plan",
+      });
+      fixture = f;
+      (await f.model.next()).finish("PLAN_DONE");
+      await f.output("PLAN_DONE");
+      await f.idle();
+      expect(f.errors).toEqual([]);
     }, 30_000);
   },
 );
