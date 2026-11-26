@@ -7,6 +7,9 @@ use them as a current gap list.
 
 ## Newer source reviews
 
+- [Paseo — 2026-11-26](paseo.md): workspace and forge workflows, public
+  mobile apps, native-session import, history-attachment forks, relay trust,
+  daemon-local schedules, plugins, and team and event automation through Hub.
 - [Happy — 2026-10-17](happy.md): unified runtime replacing the mobile/CLI-only
   positioning, implemented human team mode and its authority limits, mobile
   functions, artifacts/documents, and Android health versus T3 Code.
