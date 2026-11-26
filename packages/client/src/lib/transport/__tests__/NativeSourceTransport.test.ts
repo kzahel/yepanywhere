@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { File as NodeFile } from "node:buffer";
+import { NATIVE_RECOVERY_POLICY } from "../../connection/RecoveryScheduler";
 import { NativeSourceTransport } from "../NativeSourceTransport";
 import { NativeTransportFixture } from "./nativeTransportFixture";
 
+const firstWaitMs = NATIVE_RECOVERY_POLICY.rampMs?.[0] ?? 0;
 const transports: NativeSourceTransport[] = [];
 async function setup(binary = true, responseStreams = false) {
   const host = new NativeTransportFixture(binary, "CONNECTED", responseStreams);
@@ -70,7 +72,7 @@ describe("native source transport", () => {
     vi.useFakeTimers();
     await host.emit({ type: "state", phase: "FAILED", recoverable: true });
     expect(transport.status.getSnapshot().state).toBe("reconnecting");
-    await vi.advanceTimersByTimeAsync(9_999);
+    await vi.advanceTimersByTimeAsync(firstWaitMs - 1);
     expect(host.commands).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(1);
     expect(
@@ -88,14 +90,14 @@ describe("native source transport", () => {
       throw new Error("offline");
     };
     await host.emit(exhausted);
-    // The first wait is 10 seconds and the second 20.
-    await vi.advanceTimersByTimeAsync(10_000);
+    // The second wait is longer than the first.
+    await vi.advanceTimersByTimeAsync(firstWaitMs);
     expect(host.commands).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(firstWaitMs);
     expect(host.commands).toHaveLength(1);
     await host.emit({ type: "state", phase: "SUSPENDED" });
     await host.emit(exhausted);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(firstWaitMs);
     expect(host.commands).toHaveLength(2);
   });
 

@@ -116,10 +116,11 @@ checks session, primed Inbox and sidebar catch-up using the real native lease.
 The larger matrix remains opt-in until its CI runtime budget is agreed.
 
 For a single case, add `--verify=true` to `run.mjs`. Verification observes up to
-180 seconds by default (about 3x the measured 49–65 second passive recovery),
-but stops after five consecutive healthy seconds. That spans one maximum
-managed-stream retry interval. It is an observation/cleanup bound, not a
-promise that recovery should take three minutes.
+180 seconds by default (about 3x the 49–65 second passive recovery measured
+before the native recovery ramp), but stops after five consecutive healthy
+seconds. That spans one maximum managed-stream retry interval. It is an
+observation/cleanup bound, not a promise that recovery should take three
+minutes.
 
 Acceptance requires automatic recovery within that window, the updated title
 and missed session message, an unchanged unsent draft, every sequentially typed

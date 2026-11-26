@@ -277,6 +277,14 @@ They do not claim to solve the legacy username-claim denial already possible
 through separate `/ws` sockets, although a silent claim now holds a server for
 at most the first-frame timeout.
 
+The native client treats any refused circuit open, `rate_limited` included, as
+a failed mux setup and connects that host through a legacy `/ws` socket in the
+same attempt. The bundled app's
+[exhausted recovery](source-transport.md#one-exhausted-recovery-scheduler) is
+paced against the six-a-minute pair limit and can exceed it by one open, or by
+more when the user keeps prompting retries; the cost is that connection's
+place on the shared socket until it next reconnects.
+
 ## Client Ownership And Fallback
 
 Introduce a narrow socket interface used by `SecureConnection`; native

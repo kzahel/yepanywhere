@@ -27,12 +27,14 @@ export const RECOVERY_POLICY: RecoveryPolicy = {
  * A bundled native source. Native gives up about four seconds after a loss,
  * where the browser keeps backing off for three minutes, so the ramp carries
  * on at the browser's cadence: these waits land within a few seconds of its
- * fourth to tenth attempts. The first two also keep one host inside the
- * relay's six circuit opens a minute, counting native's own four.
+ * third to tenth attempts. With the three resumes after a dropped connection
+ * they fill the relay's six circuit opens a minute; after the four attempts
+ * of a failed acquisition the third is one over, and an open the relay
+ * refuses falls back to a dedicated socket.
  */
 export const NATIVE_RECOVERY_POLICY: RecoveryPolicy = {
   ...RECOVERY_POLICY,
-  rampMs: [10_000, 20_000, 30_000, 30_000, 30_000, 30_000, 30_000],
+  rampMs: [5_000, 10_000, 15_000, 30_000, 30_000, 30_000, 30_000, 30_000],
 };
 
 /**
@@ -71,7 +73,9 @@ export interface RecoverySchedulerOptions<Handle> {
 export class RecoveryScheduler<Handle> {
   private armed = false;
   private slowProbe: Handle | undefined;
-  private deferredSignal: Handle | undefined;
+  private deferred: Handle | undefined;
+  /** A signal is waiting out the cooldown: the next probe is its answer. */
+  private signalDeferred = false;
   private lastProbeAt = Number.NEGATIVE_INFINITY;
   /** Waits begun since the last reset: the next wait's place in the ramp. */
   private waits = 0;
@@ -130,17 +134,20 @@ export class RecoveryScheduler<Handle> {
     const { clock, policy } = this.options;
     const remaining = policy.cooldownMs - (clock.now() - this.lastProbeAt);
     if (remaining > 0) {
+      this.signalDeferred ||= trigger === "signal";
       // Whole milliseconds: a fractional clock could otherwise fire this a
       // rounding error early and re-defer by a delay too small to advance it.
-      this.deferredSignal ??= clock.setTimeout(() => {
-        this.deferredSignal = undefined;
-        this.request(trigger);
+      this.deferred ??= clock.setTimeout(() => {
+        this.deferred = undefined;
+        this.request("backstop");
       }, Math.ceil(remaining));
       return;
     }
+    // The backstop's own timer can be the one that ends a signal's cooldown.
+    const answered = this.signalDeferred ? "signal" : trigger;
     this.disarm();
     this.lastProbeAt = clock.now();
-    this.probe(trigger);
+    this.probe(answered);
   }
 
   /** Call after the visibility reported by isVisible has changed. */
@@ -165,10 +172,10 @@ export class RecoveryScheduler<Handle> {
   private clearTimers(): void {
     const { clock } = this.options;
     if (this.slowProbe !== undefined) clock.clearTimeout(this.slowProbe);
-    if (this.deferredSignal !== undefined)
-      clock.clearTimeout(this.deferredSignal);
+    if (this.deferred !== undefined) clock.clearTimeout(this.deferred);
     this.slowProbe = undefined;
-    this.deferredSignal = undefined;
+    this.deferred = undefined;
+    this.signalDeferred = false;
   }
 }
 

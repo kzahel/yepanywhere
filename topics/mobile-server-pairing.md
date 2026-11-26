@@ -716,8 +716,8 @@ Android native reconnect retains lease owners and subscription intents, joins
 an existing acquisition/retry, and can replace a stale transport after network
 restoration. After exhaustion the WebView requests a new bounded native cycle
 on visible demand or network restoration, and a single native attempt on its
-visible timed backstop. That backstop waits 10 and 20 seconds after successive
-failures, 30 seconds for the next five, and 60 seconds from then on
+visible timed backstop. That backstop waits 5, 10 and 15 seconds after
+successive failures, 30 seconds for the next five, and 60 seconds from then on
 ([one exhausted-recovery scheduler](source-transport.md#one-exhausted-recovery-scheduler)).
 There is no hidden retry timer. Android explicitly marks exhausted network failures as
 recoverable; callers continue to see `reconnecting`, not terminal disconnect.

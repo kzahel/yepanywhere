@@ -323,6 +323,18 @@ mod tests {
         .unwrap()
     }
 
+    // Exhausted recovery can ask for more circuits than a relay admits in a
+    // minute (topics/source-transport.md). The refusal must cost the shared
+    // socket, not the connection.
+    #[tokio::test]
+    async fn refused_circuit_open_falls_back_to_a_dedicated_socket() {
+        let (endpoint, relay) =
+            fake_relay("rate_limited", json!({"type":"client_connected"})).await;
+        let wire = connect(&endpoint).await.unwrap();
+        assert!(wire.circuit.is_none() && wire.socket.is_some());
+        assert_eq!(relay.await.unwrap(), 1);
+    }
+
     // Callers end recovery on InvalidMessage, so a host that is merely away
     // from its relay must not produce it.
     #[tokio::test]
