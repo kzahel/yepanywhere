@@ -1,3 +1,4 @@
+import type { ProjectCardGroup } from "../services/project-card-counts.js";
 import { fromUrlProjectId, assertUrlProjectId } from "@yep-anywhere/shared";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import {
@@ -62,12 +63,6 @@ export function mergeCreationGlobalItems(
   return result;
 }
 
-export interface CreationNativeInventoryItem {
-  id: string;
-  projectId: string;
-  provider: import("@yep-anywhere/shared").ProviderName;
-}
-
 interface ProjectCard {
   id: string;
   path: string;
@@ -86,10 +81,8 @@ interface ProjectCard {
 /** Public cards only: a saved project is not a provider discovery input. */
 export function mergeCreationProjectCards<T extends ProjectCard>(
   native: T[],
-  metadata: SessionMetadataService | undefined,
+  groups: Map<string, ProjectCardGroup>,
   options: {
-    signal?: AbortSignal;
-    nativeInventory?: readonly CreationNativeInventoryItem[];
     projectMetadata?: import("../metadata/ProjectMetadataService.js").ProjectMetadataService;
     runtimeCounts: (projectId: import("@yep-anywhere/shared").UrlProjectId) => {
       activeOwnedCount: number;
@@ -98,62 +91,23 @@ export function mergeCreationProjectCards<T extends ProjectCard>(
     };
   },
 ): Array<T | ProjectCard> {
-  if (options.signal?.aborted) return [];
-  if (!metadata) return native;
-  const groups = new Map<
-    string,
-    {
-      provider: ProjectCard["provider"];
-      updatedAt: string;
-      sessions: Map<string, ProjectCard["provider"]>;
-    }
-  >();
-  const rows = creationCollectionRows(metadata, options.signal);
-  const control = new Map(rows.map((row) => [String(row.sessionId), row]));
-  for (const row of rows) {
-    const projectId =
-      metadata.getMetadata(row.sessionId)?.workingProjectId ?? row.projectId;
-    const path = fromUrlProjectId(projectId);
+  for (const id of groups.keys()) {
+    assertUrlProjectId(id);
+    const path = fromUrlProjectId(id);
     if (
       isDetachedProjectPath(path) ||
       options.projectMetadata?.isHiddenProjectPath(path)
     )
-      continue;
-    const group = groups.get(projectId) ?? {
-      provider: row.provider,
-      updatedAt: row.deleted ? "" : row.updatedAt,
-      sessions: new Map(),
-    };
-    if (!row.deleted) group.sessions.set(row.sessionId, row.provider);
-    if (
-      !row.deleted &&
-      (!group.updatedAt ||
-        Date.parse(row.updatedAt) > Date.parse(group.updatedAt))
-    )
-      group.updatedAt = row.updatedAt;
-    groups.set(projectId, group);
+      groups.delete(id);
   }
-  // One compact publication supplies both native count and overlap. Aggregate
-  // scanner counts cannot reveal whether a bound creation is represented yet.
-  for (const item of options.nativeInventory ?? []) {
-    const creation = control.get(item.id);
-    if (creation?.deleted || (creation && !creation.nativeBound)) continue;
-    groups.get(item.projectId)?.sessions.set(item.id, item.provider);
-  }
-  const countsFor = (sessions: Map<string, ProjectCard["provider"]>) => {
-    const counts: NonNullable<ProjectCard["sessionCountsByProvider"]> = {};
-    for (const provider of sessions.values())
-      counts[provider] = (counts[provider] ?? 0) + 1;
-    return counts;
-  };
   const result: Array<T | ProjectCard> = native.map((project) => {
     const group = groups.get(project.id);
     if (!group) return project;
     groups.delete(project.id);
     return {
       ...project,
-      sessionCountsByProvider: countsFor(group.sessions),
-      sessionCount: group.sessions.size,
+      sessionCountsByProvider: group.sessionCountsByProvider,
+      sessionCount: group.sessionCount,
       lastActivity:
         group.updatedAt &&
         (!project.lastActivity ||
@@ -163,7 +117,7 @@ export function mergeCreationProjectCards<T extends ProjectCard>(
     };
   });
   for (const [id, group] of groups) {
-    if (group.sessions.size === 0) continue;
+    if (group.sessionCount === 0) continue;
     assertUrlProjectId(id);
     const path = fromUrlProjectId(id),
       registration = options.projectMetadata?.getMetadata(id);
@@ -174,10 +128,10 @@ export function mergeCreationProjectCards<T extends ProjectCard>(
         options.projectMetadata?.getProjectDisplayName(path) ??
         getProjectName(path),
       provider: group.provider,
-      sessionCount: group.sessions.size,
-      sessionCountsByProvider: countsFor(group.sessions),
+      sessionCount: group.sessionCount,
+      sessionCountsByProvider: group.sessionCountsByProvider,
       ...options.runtimeCounts(id),
-      lastActivity: group.updatedAt,
+      lastActivity: group.updatedAt ?? "",
       ...(registration?.ownerUsername
         ? { ownerUsername: registration.ownerUsername }
         : {}),

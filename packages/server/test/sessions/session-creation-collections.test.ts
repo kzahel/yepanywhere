@@ -11,7 +11,13 @@ import {
 import { ProjectMetadataService } from "../../src/metadata/ProjectMetadataService.js";
 import { NotificationService } from "../../src/notifications/NotificationService.js";
 import { mergeCreationProjectCards } from "../../src/routes/creation-session-collections.js";
-import { projectCatalogIdentities } from "../../src/sessions/catalog-identity.js";
+import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import {
+  RetainedSessionQuery,
+  retainedSessionQuery,
+} from "../../src/services/retained-session-query.js";
+import { catalogAdaptersForRows } from "../../src/sessions/catalog-adapters/row.js";
+import { SessionCatalogSqliteStore } from "../../src/services/session-catalog-sqlite.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
@@ -83,6 +89,10 @@ it("projects retained global/inbox and project lists from creation state without
           },
         },
       });
+    const cardReads = vi.spyOn(RetainedSessionQuery.prototype, "projectCards");
+    await read("/api/projects?summaryMode=retained");
+    expect(cardReads).not.toHaveBeenCalled();
+    cardReads.mockRestore();
     const before = await read("/api/sessions");
     const generation = metadata.creations.generation;
     const saved = admit("collection_saved_01", "desktop");
@@ -179,6 +189,24 @@ it("projects retained global/inbox and project lists from creation state without
     expect(
       (await read(`/api/projects/${projectId}`)).project.sessionCount,
     ).toBe(2);
+    const fullRead = vi.spyOn(
+      SessionCatalogSqliteStore.prototype,
+      "readRowsWithHashes",
+    );
+    const controlList = vi.spyOn(metadata.creations, "listProjections");
+    await read("/api/projects?summaryMode=retained");
+    await read(`/api/projects/${projectId}`);
+    expect(fullRead).not.toHaveBeenCalled();
+    expect(controlList).not.toHaveBeenCalled();
+    vi.spyOn(
+      RetainedSessionQuery.prototype,
+      "projectCards",
+    ).mockRejectedValueOnce(new Error("catalog temporarily unavailable"));
+    expect(
+      (await read(`/api/projects/${projectId}`)).project.sessionCount,
+    ).toBe(2);
+    fullRead.mockRestore();
+    controlList.mockRestore();
     await projectMetadata.hideProject(projectId, project);
     for (const mode of ["", "?summaryMode=retained"]) {
       expect(
@@ -215,6 +243,7 @@ it("counts a bound creation before native publication and deduplicates its later
     dataDir: root,
     probeNetworkFilesystem: () => undefined,
   });
+  let collections: RetainedSessionCollections | undefined;
   try {
     const metadata = new SessionMetadataService({
       dataDir: root,
@@ -222,26 +251,28 @@ it("counts a bound creation before native publication and deduplicates its later
     });
     await metadata.initialize();
     const projectId = toUrlProjectId(root);
-    const saved = metadata.creations.admit({
-      requestId: "count_bound_01",
-      context: {
-        owner: { kind: "superuser" },
-        source: { kind: "request", provenance: { surface: "web" } },
-      },
-      request: {
-        provider: "claude",
-        projectId,
-        projectPath: root,
-        message: "bound without transcript",
-        settings: {
-          permissionMode: "default",
-          requestedModel: null,
-          thinking: null,
-          effort: null,
-          serviceTier: null,
+    const admit = (requestId: string, provider: "claude" | "codex") =>
+      metadata.creations.admit({
+        requestId,
+        context: {
+          owner: { kind: "superuser" },
+          source: { kind: "request", provenance: { surface: "web" } },
         },
-      },
-    });
+        request: {
+          provider,
+          projectId,
+          projectPath: root,
+          message: "bound without transcript",
+          settings: {
+            permissionMode: "default",
+            requestedModel: null,
+            thinking: null,
+            effort: null,
+            serviceTier: null,
+          },
+        },
+      });
+    const saved = admit("count_bound_01", "claude");
     const native = nativeSessionRef(
       "claude",
       root,
@@ -272,14 +303,20 @@ it("counts a bound creation before native publication and deduplicates its later
       activeExternalCount: 0,
       lastActivity: null,
     };
-    const cards = async (rows: SessionCatalogRow[]) => {
-      const projected = await projectCatalogIdentities(rows, metadata);
-      return mergeCreationProjectCards([card], metadata, {
-        nativeInventory: projected.map((row) => ({
-          id: row.sessionId,
-          projectId: row.projectId,
-          provider: row.provider ?? row.catalogFamily,
-        })),
+    let published: SessionCatalogRow[] = [unrelated];
+    const openCollections = () =>
+      new RetainedSessionCollections({
+        dataDir: root,
+        database: storage.getDatabase(),
+        adapters: async () => catalogAdaptersForRows(published),
+      });
+    collections = openCollections();
+    let query = retainedSessionQuery(collections, {
+      sessionMetadataService: metadata,
+    });
+    const cards = async () => {
+      const groups = await query.projectCards(projectId);
+      return mergeCreationProjectCards([card], groups, {
         runtimeCounts: () => ({
           activeOwnedCount: 0,
           activeExternalCount: 0,
@@ -287,23 +324,103 @@ it("counts a bound creation before native publication and deduplicates its later
         }),
       });
     };
-    expect((await cards([unrelated]))[0]).toMatchObject({
+    await collections.refresh();
+    expect((await cards())[0]).toMatchObject({
       sessionCount: 2,
       sessionCountsByProvider: { claude: 2 },
     });
     const attempt = metadata.creations.beginDispatch(saved.attempt, native);
     metadata.creations.bindNative(attempt, native);
-    expect((await cards([unrelated]))[0]).toMatchObject({
+    expect((await cards())[0]).toMatchObject({
       sessionCount: 2,
       sessionCountsByProvider: { claude: 2 },
     });
-    expect((await cards([unrelated, row(native.id)]))[0]).toMatchObject({
+    published.push(row(native.id));
+    await collections.refresh();
+    expect((await cards())[0]).toMatchObject({
       sessionCount: 2,
       sessionCountsByProvider: { claude: 2 },
     });
+    const otherProject = toUrlProjectId(join(root, "other"));
+    await metadata.setWorkingProject(saved.sessionId, otherProject, projectId);
+    expect(
+      (await query.projectCards(otherProject)).get(otherProject)?.sessionCount,
+    ).toBe(1);
+    await metadata.setWorkingProject(saved.sessionId, undefined, undefined);
+    const unrelatedProject = toUrlProjectId(join(root, "history"));
+    for (const population of [32, 512]) {
+      published = [
+        unrelated,
+        row(native.id),
+        ...Array.from({ length: population }, (_, i) => ({
+          ...row("history_" + i),
+          projectPath: join(root, "history"),
+          projectIdentityKey: join(root, "history"),
+          projectId: unrelatedProject,
+        })),
+      ];
+      await collections.refresh();
+      await cards();
+      const scans = vi.spyOn(
+        SessionCatalogSqliteStore.prototype,
+        "readRowsWithHashes",
+      );
+      const coldMetadata = vi.spyOn(metadata, "getMetadataBatch");
+      expect((await cards())[0]?.sessionCount).toBe(2);
+      expect((await query.projectCards()).get(projectId)?.sessionCount).toBe(2);
+      expect(scans).not.toHaveBeenCalled();
+      expect(coldMetadata.mock.calls.flatMap(([ids]) => ids)).toEqual([]);
+      scans.mockRestore();
+      coldMetadata.mockRestore();
+    }
+    const changed = published[published.length - 1]!;
+    published[published.length - 1] = {
+      ...changed,
+      sourceVersion: "2",
+      title: "updated",
+    };
+    await collections.refresh();
+    const batch = vi.spyOn(metadata, "getMetadataBatch");
+    expect((await cards())[0]?.sessionCount).toBe(2);
+    expect(batch.mock.calls.flatMap(([ids]) => ids).length).toBeLessThanOrEqual(
+      2,
+    );
+    batch.mockRestore();
+    await collections.dispose();
+    collections = openCollections();
+    const restoreRead = vi.spyOn(
+      SessionCatalogSqliteStore.prototype,
+      "readRowsWithHashes",
+    );
+    query = retainedSessionQuery(collections, {
+      sessionMetadataService: metadata,
+    });
+    expect((await cards())[0]?.sessionCount).toBe(2);
+    expect(restoreRead).not.toHaveBeenCalled();
+    restoreRead.mockRestore();
     metadata.creations.delete(attempt);
-    expect((await cards([unrelated, row(native.id)]))[0]?.sessionCount).toBe(1);
+    expect((await cards())[0]?.sessionCount).toBe(1);
+    const early = admit("publication_before_bind", "codex");
+    const earlyRef = nativeSessionRef(
+      "codex",
+      root,
+      parseNativeSessionId("early_native"),
+    );
+    const earlyAttempt = metadata.creations.beginDispatch(
+      early.attempt,
+      earlyRef,
+    );
+    published.push({ ...row(earlyRef.id), catalogFamily: "codex" });
+    await collections.refresh();
+    const mixed = {
+      sessionCount: 2,
+      sessionCountsByProvider: { claude: 1, codex: 1 },
+    };
+    expect((await cards())[0]).toMatchObject(mixed);
+    metadata.creations.bindNative(earlyAttempt, earlyRef);
+    expect((await cards())[0]).toMatchObject(mixed);
   } finally {
+    await collections?.dispose();
     storage.close();
     await rm(root, { recursive: true, force: true });
     vi.restoreAllMocks();

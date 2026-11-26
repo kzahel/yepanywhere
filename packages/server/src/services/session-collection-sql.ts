@@ -1,3 +1,4 @@
+import { ProjectCardCounts } from "./project-card-counts.js";
 import { fromUrlProjectId, isUrlProjectId } from "@yep-anywhere/shared";
 import { isDetachedProjectPath } from "../projects/paths.js";
 import { isNamedSidebarSession } from "./sidebar-named-section.js";
@@ -36,6 +37,7 @@ export interface CollectionStoredRow {
   parent_json: string | null;
 }
 export interface CollectionSource {
+  card_provider: import("@yep-anywhere/shared").ProviderName | null;
   key: string;
   public_id: string | null;
   project_id: string | null;
@@ -50,11 +52,12 @@ let nextOwner = 0;
  * Heavy row/search JSON is outside covering page indexes and decoded on-page.
  */
 export class SessionCollectionSql {
+  readonly cards: ProjectCardCounts;
   readonly prefix = `collection_query_${++nextOwner}`;
   private readonly statements = new Map<string, SqliteStatement>();
   constructor(readonly db: SqliteDatabase) {
     const p = this.prefix;
-    db.transaction(() =>
+    this.cards = db.transaction(() => {
       db.exec(`CREATE TEMP TABLE ${p}_rows (
       id TEXT PRIMARY KEY, project_id TEXT NOT NULL, updated_ms REAL NOT NULL,
       archived INTEGER NOT NULL, automatic INTEGER NOT NULL, starred INTEGER NOT NULL,
@@ -68,13 +71,14 @@ export class SessionCollectionSql {
         total INTEGER NOT NULL, archived INTEGER NOT NULL, starred INTEGER NOT NULL,
         unread INTEGER NOT NULL, PRIMARY KEY(project_id,provider,executor));
       CREATE TEMP TABLE ${p}_sources (key TEXT PRIMARY KEY,public_id TEXT,
-        project_id TEXT,project_path TEXT,ordinal INTEGER NOT NULL,unstable INTEGER NOT NULL);
+        project_id TEXT,project_path TEXT,ordinal INTEGER NOT NULL,unstable INTEGER NOT NULL,card_provider TEXT);
       CREATE INDEX ${p}_source_id ON ${p}_sources(public_id,ordinal);
       CREATE INDEX ${p}_source_project ON ${p}_sources(project_id,ordinal DESC);
       CREATE INDEX ${p}_unstable ON ${p}_sources(unstable);
       CREATE TEMP TABLE ${p}_dirty (id TEXT PRIMARY KEY);
-`),
-    );
+`);
+      return new ProjectCardCounts(p, db, (sql) => this.prepare(sql));
+    });
   }
   private building = false;
   beginReplacement() {
@@ -163,6 +167,13 @@ export class SessionCollectionSql {
         project_path: JSON.parse(row.project_path) as string,
       }));
   }
+  hasUnstableSources() {
+    return Boolean(
+      this.prepare(
+        `SELECT 1 FROM ${this.prefix}_sources WHERE unstable>0 LIMIT 1`,
+      ).get(),
+    );
+  }
   unstableSources() {
     return this.prepare(
       `SELECT key,unstable FROM ${this.prefix}_sources WHERE unstable>0`,
@@ -170,7 +181,7 @@ export class SessionCollectionSql {
   }
   putSource(row: CollectionSource) {
     this.prepare(
-      `INSERT INTO ${this.prefix}_sources VALUES(?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET public_id=excluded.public_id,project_id=excluded.project_id,project_path=excluded.project_path,unstable=excluded.unstable`,
+      `INSERT INTO ${this.prefix}_sources VALUES(?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET public_id=excluded.public_id,project_id=excluded.project_id,project_path=excluded.project_path,unstable=excluded.unstable,card_provider=excluded.card_provider`,
     ).run(
       row.key,
       row.public_id,
@@ -178,6 +189,7 @@ export class SessionCollectionSql {
       row.project_path === null ? null : JSON.stringify(row.project_path),
       row.ordinal,
       row.unstable,
+      row.card_provider,
     );
   }
   refreshProject(id: string) {
@@ -536,6 +548,7 @@ export class SessionCollectionSql {
       "dirty",
       "projects",
       "options",
+      "cards",
       "counts",
     ])
       this.prepare(`DELETE FROM ${this.prefix}_${table}`).run();
@@ -546,6 +559,8 @@ export class SessionCollectionSql {
     for (const suffix of [
       "rows",
       "sources",
+      "cards",
+      "card_totals",
       "counts",
       "dirty",
       "projects",

@@ -1,9 +1,7 @@
+import type { ProjectCardGroup } from "../services/project-card-counts.js";
 import { projectQueueCounts } from "./project-queue-counts.js";
 import type { ProviderChildRelationshipService } from "../sessions/ProviderChildRelationshipService.js";
-import {
-  mergeCreationProjectCards,
-  type CreationNativeInventoryItem,
-} from "./creation-session-collections.js";
+import { mergeCreationProjectCards } from "./creation-session-collections.js";
 import { mergeCreationSessionSummaries } from "../sessions/session-creation-view.js";
 import { homedir } from "node:os";
 import {
@@ -88,9 +86,9 @@ function normalizeAddedProjectPath(typed: string): string {
 export interface ProjectsDeps {
   providerChildRelationships?: ProviderChildRelationshipService;
   signal?: AbortSignal;
-  readNativeSessionInventory?: () => Promise<
-    readonly CreationNativeInventoryItem[]
-  >;
+  readProjectCardGroups?: (
+    projectId?: string,
+  ) => Promise<Map<string, ProjectCardGroup>>;
   scanner: ProjectScanner;
   readerFactory: (project: Project) => ISessionReader;
   supervisor?: Supervisor;
@@ -513,10 +511,8 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
 
     const projects = mergeCreationProjectCards(
       nativeProjects,
-      deps.sessionMetadataService,
+      (await deps.readProjectCardGroups?.()) ?? new Map(),
       {
-        signal: deps.signal,
-        nativeInventory: await deps.readNativeSessionInventory?.(),
         projectMetadata: deps.projectMetadataService,
         runtimeCounts: (projectId) =>
           getActivityCountsForProject(activityCounts, projectId),
@@ -604,10 +600,8 @@ export function createProjectsRoutes(deps: ProjectsDeps): Hono {
           projectQueueCount,
         },
       ],
-      deps.sessionMetadataService,
+      (await deps.readProjectCardGroups?.(project.id)) ?? new Map(),
       {
-        signal: deps.signal,
-        nativeInventory: await deps.readNativeSessionInventory?.(),
         projectMetadata: deps.projectMetadataService,
         runtimeCounts: (id) => getActivityCountsForProject(activityCounts, id),
       },

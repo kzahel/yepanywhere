@@ -1203,7 +1203,10 @@ list pipeline with no measured CPU change, and records four candidates that
 need a decision: statement reuse under the 64-statement ceiling, WAL for the
 discovery database (about 6% in an experiment), the
 [stall recorder's idle cost](../../gaps/stall-recorder-idle-cost-and-rotation-stall.md),
-and a project refetch on every Codex write.
+and a project refetch on every Codex write. That refetch remains open.
+[Project card counts with saved creations](../../gaps/active-session-tab-background-cost.md#project-card-counts-with-saved-creations--2026-11-26)
+now share the retained query; repeated reads no longer walk native history or
+enumerate creation records to count one project.
 The [shared transcript indexer](../tactical/192-transcript-indexer.md) has
 its second review and its first step, one append-source adapter under issue
 indexing and content search, verified against every local transcript. Its

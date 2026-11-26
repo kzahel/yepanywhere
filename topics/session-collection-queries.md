@@ -60,7 +60,7 @@ them through triggers in the row-update transaction.
   completeness false until resolved or removed. This adds no per-session timer
   or process-lifetime diagnostic map. Catalogue warnings do not stop All Sessions
   pagination through the remaining healthy rows.
-  Checkpoint format 3 records this derived source meaning. Older checkpoints
+  Checkpoint format 3 introduced this derived source meaning. Older checkpoints
   rebuild once; an older server also rejects the newer format rather than
   treating a withheld source as a definite missing session after rollback.
 
@@ -80,6 +80,26 @@ Checkpoints from before this attention rule rebuild from canonical facts.
 Active and queued selections use separate bounded queries before merging. Archive expiry visits indexed rows crossing the cutoff, in chunks without decoding response JSON, including
 clock reversal or disabling automatic archive; explicit metadata wins.
 Recaps advance display time, never provider unread time.
+
+### Project card counts
+
+The same query owner serves the project selector, project list and individual
+project cards. A saved creation can precede its transcript or outlive its
+publication. Each project counts their union by public ID, including archived
+sessions, and retains creation activity separately from native activity.
+An identity move updates both affected projects. Deleted creations contribute
+no member and still identify a project whose published counts govern the card.
+Detached and hidden projects retain the route's existing visibility rules.
+
+Checkpoint format 4 includes the native provider and compact membership facts.
+A valid restart restores the facts and derives grouped totals. Older checkpoints
+rebuild once. Repeated reads of stable, resolved identities fetch totals by
+project and provider. They do not enumerate creation records, load session
+metadata, or request provider discovery. Withheld and unstable identities
+retain the query owner's ordinary revalidation rule. A profile without creation
+records uses scanner counts immediately. If the count index is unavailable,
+cards use readable saved creation facts until the shared index recovers.
+Native membership is unknown for managed projects during this fallback.
 
 ## Bounded navigation enrichment
 

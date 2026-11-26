@@ -157,6 +157,50 @@ removed work, not as a measured speedup.
   write from several callers, one of them `measurePromptBlockSize`; the rest
   of the 36 to 38 ms is React reconciliation, as before.
 
+## Project card counts with saved creations — 2026-11-26
+
+The synthetic survey above omitted YA-owned creations. A production project
+card request with any saved creation used to read the entire published native
+catalog, resolve its identities, fetch metadata once per native row, and read
+the creation list twice. Both the retained project list and individual project
+route did this on every refresh. The retained Inbox query itself was bounded.
+
+Project cards now consume grouped membership from the retained SQL query.
+An isolated comparison used the repository's Codex rollout generator, ten
+projects with one saved creation each, and fresh temporary profiles for each
+population. After discovery and Inbox warmed, each run interleaved ten
+retained project-list reads with twenty single-project reads. Every response
+was checked against the fixture's expected project and provider counts.
+
+| Generated rollouts | Count per project | Catalog rows fetched before | Catalog rows fetched after |
+|---:|---:|---:|---:|
+| 50 | 6 | 1,500 | 0 |
+| 500 | 51 | 15,000 | 0 |
+| 2,000 | 201 | 60,000 | 0 |
+| 8,370 | 838 | unmeasured | 0 |
+
+Each baseline run enumerated saved creations 60 times. All four updated
+runs made zero request-scoped creation enumerations and zero session metadata
+lookups. Additional runs at 0, 3, and 17 rollouts verified saved-only
+projects, the empty catalog's home card, and uneven distribution, with the
+same zero work counts. In one run the 0- and 3-rollout profiles still took
+25 ms and 15 ms at p95. When a detail lookup misses the scanner's project
+snapshot, `getOrCreateProject` probes the directory and provider scanners.
+The time attributable to those probes has not been measured separately.
+The route and query regressions cover saved/bound/native overlap,
+moves, deletion, checkpoint restore and unrelated history growth.
+The Codex project refetch trigger above, issue-header activity reads and
+unknown-file discovery remain separate consumers. These work counts cover
+warm project requests. Repeat the generated profile scenario from the repository
+root with the desired rollout populations:
+
+```sh
+node scripts/run-with-safe-home.js --temporary-home tsx --conditions=source scripts/perf-repro/project-card-counts.mjs 50 500 2000 8370
+```
+
+The runner checks both project routes, reports request-scoped work and timings,
+and removes its temporary profile and provider history after each run.
+
 ## Transcript fact follow-up — 2026-11-12
 
 The [transcript outcome](../docs/research/190-transcript-fact-reuse.md) narrows

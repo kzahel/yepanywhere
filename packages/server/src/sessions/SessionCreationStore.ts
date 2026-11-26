@@ -92,6 +92,7 @@ export interface SavedCreationRequest {
 export type CreationState = SessionCreationStatus["state"];
 export type CreationDelivery = SessionCreationStatus["delivery"];
 export interface SessionCreationProjection {
+  order: number;
   sessionId: YaSessionId;
   projectId: UrlProjectId;
   provider: ProviderName;
@@ -484,6 +485,7 @@ export class SessionCreationStore {
     | "releaseNativeClaim"
     | "advanceGeneration"
     | "projections"
+    | "hasRecords"
     | "byId"
     | "byKey"
     | "publicByKey"
@@ -519,6 +521,7 @@ export class SessionCreationStore {
         "UPDATE session_creation_capacity SET generation = generation + 1 WHERE id = 1",
       ),
       projections: database.prepare(CREATION_PROJECTION_SQL),
+      hasRecords: database.prepare("SELECT 1 FROM session_creations LIMIT 1"),
       byId: database.prepare("SELECT * FROM session_creations WHERE id = ?"),
       publicByKey: database.prepare(
         "SELECT session_id FROM session_creations WHERE owner_key = ? AND request_key = ?",
@@ -619,6 +622,10 @@ export class SessionCreationStore {
         );
       }
     });
+  }
+
+  get hasRecords(): boolean {
+    return Boolean(this.statements.hasRecords.get());
   }
 
   /** At most 10,000 compact rows; never fetch/parse saved request payloads. */

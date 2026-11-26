@@ -1,3 +1,9 @@
+import { getLogger } from "../logging/logger.js";
+import {
+  projectCardMembership,
+  type ProjectCardGroup,
+  savedProjectCardGroups,
+} from "./project-card-counts.js";
 import {
   SIDEBAR_SESSION_FEEDS,
   type SidebarSessionLimits,
@@ -74,6 +80,24 @@ export function retainedSessionQuery(
   const index = new RetainedSessionQuery(service, deps);
   owners.set(service, { deps, index });
   return index;
+}
+
+export async function readProjectCardGroups(
+  service: RetainedSessionCollections | undefined,
+  deps: RetainedItemsDeps,
+  projectId?: string,
+): Promise<Map<string, ProjectCardGroup>> {
+  const metadata = deps.sessionMetadataService;
+  if (!service || deps.signal?.aborted || !metadata?.creations)
+    return new Map();
+  try {
+    if (!metadata.creations.hasRecords) return new Map();
+    return await retainedSessionQuery(service, deps).projectCards(projectId);
+  } catch (err) {
+    if (deps.signal?.aborted || service.querySignal.aborted) return new Map();
+    getLogger().debug({ err }, "Project card index unavailable");
+    return savedProjectCardGroups(metadata, projectId);
+  }
 }
 
 /** Private projection data is stripped before ordinary session lists leave. */
@@ -195,7 +219,7 @@ export class RetainedSessionQuery {
     )?.activeAfterMs;
     return value !== undefined && Number.isFinite(value) ? value : undefined;
   }
-  private async synchronize(now: number) {
+  private async synchronize(now: number, scheduleDiscovery = true) {
     if (this.needsRestoreIndexes) {
       this.needsRestoreIndexes = false;
       await this.sql.finishReplacement(this.service.querySignal);
@@ -205,6 +229,7 @@ export class RetainedSessionQuery {
       this.deps.sessionMetadataService?.collectionState?.().overlayRevision;
     const changes = await this.service.readChanges(
       this.overflow ? undefined : this.token,
+      scheduleDiscovery,
     );
     this.service.querySignal.throwIfAborted();
     const full = changes.full;
@@ -276,6 +301,9 @@ export class RetainedSessionQuery {
           this.sql.putSource({
             key,
             public_id: publicRow?.sessionId ?? null,
+            card_provider: publicRow
+              ? (publicRow.provider ?? publicRow.catalogFamily)
+              : null,
             project_id: publicRow?.projectId ?? null,
             project_path: publicRow?.projectPath ?? null,
             ordinal: previous?.ordinal ?? ++this.nextOrdinal,
@@ -319,6 +347,7 @@ export class RetainedSessionQuery {
           affected.add(sessionId);
     this.names = names;
     const updates: Array<{
+      cards: ReturnType<typeof projectCardMembership>;
       item?: StoredCollectionItem;
       id: string;
       key: string | null;
@@ -345,9 +374,10 @@ export class RetainedSessionQuery {
       const stored = metadataBatch.has(id)
         ? metadataBatch.get(id)
         : metadata?.getMetadata(id);
-      const source = this.sql
+      const sources = this.sql
         .sourcesFor(id)
-        .sort((a, b) => this.service.compareRowOrder(a.key, b.key))[0];
+        .sort((a, b) => this.service.compareRowOrder(a.key, b.key));
+      const source = sources[0];
       const control = metadata?.creations?.projectionForSession(id);
       let item: StoredCollectionItem | undefined,
         parent: NativeSessionRef | undefined;
@@ -403,6 +433,11 @@ export class RetainedSessionQuery {
         };
       const old = this.sql.get(id);
       updates.push({
+        cards: projectCardMembership(
+          sources,
+          control,
+          stored?.workingProjectId,
+        ),
         id,
         item,
         key: source?.key ?? null,
@@ -421,6 +456,7 @@ export class RetainedSessionQuery {
       this.service.querySignal.throwIfAborted();
       this.sql.db.transaction(() => {
         for (const update of updates.slice(offset, offset + 256)) {
+          this.sql.cards.replace(update.id, update.cards);
           if (update.item)
             this.sql.put(
               update.item,
@@ -450,7 +486,7 @@ export class RetainedSessionQuery {
     if (this.checkpoint && revision !== undefined)
       this.checkpoint.save(
         {
-          format: 3,
+          format: 4,
           signature: this.checkpointSignature,
           revision,
           token: this.token,
@@ -465,6 +501,24 @@ export class RetainedSessionQuery {
           !this.sql.hasDirty() &&
           !metadata?.collectionState?.().pending.size,
       );
+  }
+  projectCards(projectId?: string) {
+    return this.run(async () => {
+      // Card membership has no live-process, unread or archive-clock overlay.
+      const token = this.token;
+      if (
+        !token ||
+        this.needsRestoreIndexes ||
+        this.overflow ||
+        this.pendingIds.size ||
+        this.service.getVersion() !==
+          `${token.catalogEpoch}:${token.catalogGeneration}` ||
+        this.sql.hasDirty() ||
+        this.sql.hasUnstableSources()
+      )
+        await this.synchronize(Date.now(), false);
+      return this.sql.cards.read(projectId);
+    });
   }
   private hydrate(
     row: CollectionStoredRow,

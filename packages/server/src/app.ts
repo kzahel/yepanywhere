@@ -1,3 +1,4 @@
+import { readProjectCardGroups } from "./services/retained-session-query.js";
 import { appProviderRuntime } from "./sdk/app-provider-runtime.js";
 import { ownedApiSessions } from "./core-api/owned-sessions.js";
 import type { ProviderObservationCallbacks } from "./watcher/ProviderSessionWatcherRegistry.js";
@@ -3026,25 +3027,21 @@ export function createApp(options: AppOptions): AppResult {
     "/api/projects",
     createProjectsRoutes({
       providerChildRelationships,
-      readNativeSessionInventory: async () => {
-        if (
-          sessionReadLifetime.signal.aborted ||
-          !options.sessionMetadataService?.creations?.listProjections().length
-        )
-          return [];
-        const rows = await projectCatalogIdentities(
-          (await retainedCollections?.readPublishedRows())?.rows ?? [],
-          options.sessionMetadataService,
-          sessionReadLifetime.signal,
-        );
-        return rows.map((row) => ({
-          id: row.sessionId,
-          projectId:
-            options.sessionMetadataService?.getMetadata(row.sessionId)
-              ?.workingProjectId ?? row.projectId,
-          provider: row.provider ?? row.catalogFamily,
-        }));
-      },
+      readProjectCardGroups: (id) =>
+        readProjectCardGroups(
+          retainedCollections,
+          {
+            signal: sessionReadLifetime.signal,
+            sessionMetadataService: options.sessionMetadataService,
+            supervisor,
+            externalTracker,
+            notificationService: options.notificationService,
+            sessionAutoArchiveDays: options.sessionAutoArchiveDays,
+            projectDisplayName,
+            providerChildRelationships,
+          },
+          id,
+        ),
       signal: sessionReadLifetime.signal,
       scanner,
       projectAppStore,

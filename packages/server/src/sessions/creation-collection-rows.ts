@@ -6,6 +6,7 @@ import {
 } from "@yep-anywhere/shared";
 import type { SessionCreationProjection } from "./SessionCreationStore.js";
 export interface ProjectionRow {
+  control_order: number;
   creation_id: string;
   generation: number;
   session_id: string;
@@ -22,7 +23,7 @@ export interface ProjectionRow {
   detail_json: string;
 }
 export const CREATION_PROJECTION_SQL =
-  "SELECT c.id AS creation_id, a.generation, i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, c.input_expected, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt";
+  "SELECT c.rowid AS control_order, c.id AS creation_id, a.generation, i.session_id, i.project_id, i.provider, i.created_at, a.updated_at, i.native_id IS NOT NULL AS native_bound, c.deleted, c.input_expected, a.id AS attempt_id, a.state, a.delivery, a.detail_json FROM session_creations c JOIN session_identities i ON i.session_id = c.session_id JOIN session_creation_attempts a ON a.id = c.current_attempt";
 export function creationProjection(
   row: ProjectionRow,
 ): SessionCreationProjection {
@@ -32,6 +33,7 @@ export function creationProjection(
     "failure" | "failureDetail" | "kind"
   > = JSON.parse(row.detail_json);
   return {
+    order: row.control_order,
     sessionId: parseYaSessionId(row.session_id),
     projectId: row.project_id,
     provider: row.provider,

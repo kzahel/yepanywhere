@@ -317,10 +317,11 @@ export class RetainedSessionCollections {
   /** Rows written and keys removed since `since`; see `SessionCatalogService.readChanges`. */
   async readChanges(
     since?: SessionCatalogToken,
+    scheduleDiscovery = true,
   ): Promise<SessionCatalogChanges> {
     await this.initialize();
     this.controller.signal.throwIfAborted();
-    this.schedule();
+    if (scheduleDiscovery) this.schedule();
     return this.catalog.readChanges(since);
   }
 

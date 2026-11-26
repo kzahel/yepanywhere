@@ -1358,9 +1358,14 @@ before the control merge, so notification state cannot turn a control timestamp
 into unread provider content. Deletion removes the control projection.
 
 For projects containing creation records, card counts are the identity union of
-control records and one already-published compact native catalogue snapshot.
-Both the native baseline and overlap come from that snapshot; aggregate scanner
-counts cannot prove whether a bound session is already represented. Counts may
+control records and the accepted native catalogue. Counts include archived
+sessions and use the effective working project. The retained session query
+maintains membership by public identity as each source, creation or working
+project changes. Native-only projects keep their scanner counts. A project
+containing deleted creations still excludes their identities.
+A warm card refresh reads project/provider totals and indexed creation facts;
+an individual project reads its own group. The project list and detail share
+this projection with Inbox. Counts may
 follow catalogue publication while discovery warms, and no card request starts
 or refreshes native discovery. Binding before a transcript exists neither drops
 its count nor doubles it when the transcript publishes. Global hidden-project
