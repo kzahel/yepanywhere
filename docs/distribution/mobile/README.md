@@ -59,7 +59,7 @@ fixes passed isolated-host physical-device regressions and browser checks.
 Acceptance on the tester's updated Play installation remains open.
 iOS 0.1.0 / build 1 uploaded through Xcode's TestFlight Internal Only flow and
 now shows **Ready to Test** after saving the encryption questionnaire with
-France excluded. iOS tester enrollment remains open.
+France excluded. The existing account holder is enrolled in the Internal group.
 Google Play's Tools category and public support contact are saved; Developer
 Tools is saved on Apple. Console links and account-specific inventory live in
 private dotfiles.
@@ -186,36 +186,19 @@ commit, version code and SHA-256 alongside the artifact. Upload the signed AAB
 to the internal track; subsequent uploads need increasing version codes.
 See [Google's signing guide](https://developer.android.com/studio/publish/app-signing).
 
-For iOS, prepare the generated project and device Rust library, then archive
-locally using the existing Apple Development identity and automatic
-provisioning. Set the team through ignored `Config/Signing.xcconfig` or the
-command environment. The archive is an input to distribution; the existing
-unsigned CI device build is not an uploadable IPA.
+### iOS CI internal delivery
+
+Run the iOS workflow on main with the TestFlight input enabled:
 
 ```sh
-node packages/ios/scripts/run.mjs prepare
-node packages/mobile-core/scripts/run.mjs build
-cd packages/ios
-xcodebuild -project YepAnywhere.xcodeproj -scheme YepAnywhere \
-  -configuration Release -destination generic/platform=iOS \
-  -archivePath build/YepAnywhere.xcarchive \
-  -onlyUsePackageVersionsFromResolvedFile -allowProvisioningUpdates \
-  "DEVELOPMENT_TEAM=$YA_APPLE_TEAM" archive
-open build/YepAnywhere.xcarchive
+gh workflow run ios-app-ci.yml --ref main -f testflight=true
 ```
 
-Use Xcode Organizer's **Distribute App → TestFlight Internal Only** for the first
-internal upload, or **App Store Connect** for a build intended for later review.
-Use automatic distribution signing and Apple's cloud-managed certificate. An
-App Store Connect API key authenticates uploads; it is not an app signing key.
-Do not copy JSTorrent's manual certificate/profile or its AltStore notarization
-pipeline for this path. See [Apple's cloud signing guidance](https://developer.apple.com/help/account/certificates/cloud-managed-certificates).
+The workflow tests the Rust core, live routes, exhaustive web recovery model and bundled app on an owned iPhone simulator. A passing run archives the device Release with the same revision, bundled Firebase configuration and a unique build number. The protected `ios-testflight` job downloads that archive and uses Xcode automatic distribution signing with App Store Connect API authentication. It verifies the signed IPA’s production APNs entitlement, application identifier, build number and disabled debugging entitlement before upload. Pushes, pull requests and scheduled checks run verification only.
 
-Prepare signed production-channel artifacts with matching application IDs,
-increasing build numbers, bundled Firebase configuration and reviewed export
-compliance. Android CI can sign and publish after the one-time setup below. iOS CI
-still verifies without uploading signed mobile artifacts. Production APNs configuration is separate from the proven sandbox
-key; Debug delivery cannot prove TestFlight delivery.
+The GitHub environment is restricted to main. Configure `IOS_ASC_APP_ID` and `IOS_TEAM_ID` as environment variables, the matching `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID`, and `ASC_API_KEY_P8_BASE64` as secrets, and `IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64` for the verified archive. Enable automatic distribution on the existing Internal group and add internal testers through App Store Connect.
+
+CI waits for Apple processing and verifies the exact build's membership in Internal. Its receipt identifies the source commit, IPA SHA-256, Apple build ID, version and group. Once the upload job succeeds, retrying the processing check reuses that upload. If Apple requests the encryption questionnaire, use the previously reviewed answers in the [encryption declaration](#apple-encryption-declaration). Check the uploaded build before starting another release. Production push also requires production APNs configuration in Firebase and a notification tap on a TestFlight device.
 
 Before broader distribution, finish real screenshots, privacy/data-safety
 disclosures (including optional native Firebase/broker push), age/content

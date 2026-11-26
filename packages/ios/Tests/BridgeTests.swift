@@ -191,3 +191,63 @@ private final class HeldUploadSource: NativeSource {
   func release() { pending?.resume(); pending = nil }
   func close() { pending?.resume(throwing: BridgeFailure.closed); pending = nil }
 }
+
+@MainActor
+final class DocumentDeliveryTests: XCTestCase {
+  func testIsolatedPreviewRunsWithoutAppBridgeOrPersistentStore() async throws {
+    let preview = HTMLPreview(
+      html: "<title>Preview</title><script>window.ran = true</script>",
+      title: "Report", interactive: true)
+    preview.loadViewIfNeeded()
+    let web = try XCTUnwrap(preview.viewer)
+    let end = Date().addingTimeInterval(10)
+    var ran = false
+    while !ran && Date() < end {
+      ran = (try? await web.evaluateJavaScript("window.ran === true")) as? Bool == true
+      if !ran { try await Task.sleep(for: .milliseconds(50)) }
+    }
+    XCTAssertTrue(ran)
+    XCTAssertFalse(web.configuration.websiteDataStore.isPersistent)
+    let isolated = try await web.evaluateJavaScript(
+      "!window.yaNative && !window.yaNativeTransport && !window.webkit?.messageHandlers?.ya && !window.opener"
+    )
+    XCTAssertEqual(isolated as? Bool, true)
+  }
+
+  func testBundledBlobDownloadDeliversOriginalNamedFile() async throws {
+    let bridge = NativeBridge(source: FixtureSource())
+    let view = bridge.makeWebView(
+      root: try XCTUnwrap(Bundle.main.url(forResource: "web", withExtension: nil)))
+    let scene = try XCTUnwrap(
+      UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+    let window = UIWindow(windowScene: scene)
+    let controller = UIViewController(); controller.view = view
+    window.rootViewController = controller; window.makeKeyAndVisible()
+    defer { bridge.close(); window.isHidden = true }
+    let exported = expectation(description: "Export offers original file")
+    var shared: (URL, () -> Void)?
+    bridge.shareFile = { file, done in
+      shared = (file, done); exported.fulfill()
+    }
+    view.load(URLRequest(url: URL(string: BundledAssets.origin)!))
+    let end = Date().addingTimeInterval(10)
+    while view.url == nil || view.isLoading {
+      guard Date() < end else { XCTFail("Bundled app did not load"); return }
+      try await Task.sleep(for: .milliseconds(50))
+    }
+    _ = try await view.evaluateJavaScript(
+      """
+      const link = document.createElement('a');
+      link.download = 'conversation.txt'; link.href = URL.createObjectURL(new Blob(['test export']));
+      document.body.append(link); link.click(); link.remove(); true;
+      """)
+    await fulfillment(of: [exported], timeout: 10)
+    let (file, done) = try XCTUnwrap(shared)
+    XCTAssertFalse(bridge.closed)
+    bridge.close()
+    XCTAssertEqual(file.lastPathComponent, "conversation.txt")
+    XCTAssertEqual(try Data(contentsOf: file), Data("test export".utf8))
+    done()
+    XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+  }
+}

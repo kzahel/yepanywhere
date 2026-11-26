@@ -112,6 +112,11 @@ export interface SourceTransportCapabilities {
   readonly sameOriginUrls: boolean;
   /** Fixed isolated shell supplied by the native app; never a fetch grant. */
   readonly packagedArtifactViewerVersion?: 1;
+  readonly openHtmlPreview?: (
+    html: string,
+    title: string,
+    interactive: boolean,
+  ) => Promise<void>;
   readonly device?: DeviceSignalingChannel;
   readonly speech?: SpeechChannelFactory;
 }

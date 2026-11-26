@@ -475,6 +475,7 @@ impl NativeSourceLease {
             let wake = self.owner.wake.notified();
             tokio::pin!(wake);
             wake.as_mut().enable();
+            let ended = self.owner.cancel.is_cancelled() || self.source.cancel.is_cancelled();
             if let Some(event) = self
                 .owner
                 .events
@@ -484,7 +485,7 @@ impl NativeSourceLease {
             {
                 return Ok(event.text.clone());
             }
-            if self.owner.cancel.is_cancelled() || self.source.cancel.is_cancelled() {
+            if ended {
                 return Err(if self.owner.overflow.load(Ordering::Acquire) {
                     Error::Overflow
                 } else {
@@ -600,6 +601,20 @@ impl NativeRuntime {
         credential: Vec<u8>,
         storage: Arc<dyn CredentialPersistence>,
     ) -> Result<Arc<NativeSourceLease>> {
+        self.acquire_foreground(profile_id, routes, username, credential, storage, false)
+            .await
+    }
+    /// A visible foreground's signal may request the quick cycle. A scheduled
+    /// backstop requests one attempt, respecting the relay admission budget.
+    pub async fn acquire_foreground(
+        &self,
+        profile_id: String,
+        routes: Vec<NativeRoute>,
+        username: String,
+        credential: Vec<u8>,
+        storage: Arc<dyn CredentialPersistence>,
+        quick_retries: bool,
+    ) -> Result<Arc<NativeSourceLease>> {
         check(
             credential.len() <= 4096
                 && !routes.is_empty()
@@ -624,7 +639,7 @@ impl NativeRuntime {
             )?;
             return source.lease();
         }
-        let session = tokio::select! { _ = slot.cancel.cancelled() => return Err(Error::Closed), result = crate::session::resume_routes_gated(routes, username, &credential, storage, slot.credential_gate.clone()) => result? };
+        let session = tokio::select! { _ = slot.cancel.cancelled() => return Err(Error::Closed), result = crate::session::resume_routes_gated(routes, username, &credential, storage, slot.credential_gate.clone(), quick_retries) => result? };
         let source = Source::start(session, String::new(), slot.cancel.child_token());
         let lease = source.lease()?;
         *held = Arc::downgrade(&source);

@@ -1,18 +1,7 @@
-# Initial iOS WebView lacks embedded viewers and Blob download delivery
+# iOS HTML previews cannot load sibling files
 
-The consumer shell in `packages/ios/App/NativeBridge.swift` forbids child
-frames with entry-page CSP to prevent same-origin children from proxying a
-privileged parent bridge. Existing embedded HTML/application previews therefore
-cannot run in that document. A separate unprivileged viewer with no source
-handle is needed before enabling them. Blob download navigation is currently
-cancelled by the same navigation policy and lacks a native download/share
-adapter; export actions must gain actual delivery rather than silent failure.
+The native viewer runs self-contained HTML in a separate nonpersistent WebView. Its CSP blocks all network requests. A report that needs a sibling stylesheet, image or script therefore renders incompletely. The Android managed viewer can resolve resources inside a granted artifact. Supporting those resources on iOS requires a grant-scoped WebKit resource handler and tests of directory bounds, expiry and navigation.
 
-These adapters were deferred from the native connection/build/lifecycle slice,
-which proves projects, conversations, typing, uploads and media metadata. They
-remain mobile release acceptance work and preclude a full feature-parity claim.
-Use isolated WebKit content for previews and a bounded WKDownload/native share
-adapter for exports, preserving document ownership and URL policy. Verify the
-actual delivered file and viewer's inability to call the native source bridge.
+The original Blob-export and self-contained-preview gaps have simulator coverage in `DocumentDeliveryTests`.
 
-Found 2026-10-01 while implementing the iOS native-login/bundled-web shell.
+Found 2026-10-01 while implementing the iOS shell. Narrowed 2026-11-26 after adding the WebKit viewer and share adapter.

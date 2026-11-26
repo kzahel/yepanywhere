@@ -8,6 +8,7 @@ extension NativeSession {
 
 protocol NativeAuthenticatedSession: AnyObject {
   func dispatch(method: String, params: String) async throws -> String
+  func fetchResponse(params: String) async throws -> NativeResponseStream
   func uploadChunk(payload: Data) async throws
   func nextEvent() async throws -> String
   func securityBinding() throws -> NativeSecurityBinding
@@ -16,4 +17,10 @@ protocol NativeAuthenticatedSession: AnyObject {
 extension NativeSession: NativeAuthenticatedSession {}
 extension NativeSourceLease: NativeAuthenticatedSession {
   func close() { release() }
+}
+
+extension NativeAuthenticatedSession {
+  func fetchResponse(params: String) async throws -> NativeResponseStream {
+    throw CoreError.InvalidMessage
+  }
 }

@@ -481,6 +481,8 @@
   "acliCommentaryOutput": "Open tool output",
   "acliCommentaryCloseContext": "Close commentary context",
   "acliCommentaryUnavailable": "Commentary could not be rendered. Original output is available.",
+  "artifactOpenIsolatedPreview": "Preview HTML",
+  "artifactNativePreviewFailed": "Could not open the preview.",
   "artifactRun": "Run full HTML/CSS/JavaScript preview (current view is sanitized)",
   "artifactFrameBlocked": "This YA tab’s browser policy blocked the embedded preview. Open it in a separate tab, or reload YA after its frontend has restarted. Switching back to source closes this preview and revokes its link.",
   "artifactOpenTab": "Open interactive preview in a new tab",

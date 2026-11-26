@@ -335,7 +335,15 @@ pub async fn resume_routes(
     data: &[u8],
     storage: Arc<dyn crate::CredentialPersistence>,
 ) -> Result<Arc<NativeSession>> {
-    resume_routes_gated(routes, username, data, storage, Arc::new(Mutex::new(()))).await
+    resume_routes_gated(
+        routes,
+        username,
+        data,
+        storage,
+        Arc::new(Mutex::new(())),
+        false,
+    )
+    .await
 }
 pub(crate) async fn resume_routes_gated(
     mut routes: Vec<NativeRoute>,
@@ -343,6 +351,7 @@ pub(crate) async fn resume_routes_gated(
     data: &[u8],
     storage: Arc<dyn crate::CredentialPersistence>,
     credential_gate: Arc<Mutex<()>>,
+    quick_retries: bool,
 ) -> Result<Arc<NativeSession>> {
     let _settled = credential_gate.lock().await;
     check(data.len() <= 4096)?;
@@ -357,7 +366,16 @@ pub(crate) async fn resume_routes_gated(
     )?;
     let storage = Some(storage);
     routes[1..].sort_by_key(|route| route.relay_target.is_some());
-    let secure = resume_candidates(&mut routes, &mut credential, &storage).await?;
+    let mut delays = QUICK_RETRY_MS.into_iter();
+    let secure = loop {
+        match resume_candidates(&mut routes, &mut credential, &storage).await {
+            Err(Error::Unavailable) if quick_retries => {
+                let delay = delays.next().ok_or(Error::Unavailable)?;
+                tokio::time::sleep(Duration::from_millis(delay)).await;
+            }
+            result => break result?,
+        }
+    };
     let options = routes[0].options(&username);
     Ok(NativeSession::start(
         options,
@@ -402,6 +420,8 @@ async fn resume_candidates(
         Err(Error::Unavailable)
     }
 }
+const QUICK_RETRY_MS: [u64; 3] = [250, 1000, 3000];
+
 enum Command {
     Dispatch(String, Value, oneshot::Sender<Result<String>>),
     Upload(Vec<u8>, oneshot::Sender<Result<()>>),
@@ -564,6 +584,9 @@ impl NativeSession {
             let wake = self.lease.wake.notified();
             tokio::pin!(wake);
             wake.as_mut().enable();
+            // The actor queues its terminal verdict before cancelling. Sample
+            // cancellation first so that the following drain observes that verdict.
+            let cancelled = self.lease.cancel.is_cancelled();
             {
                 let mut lagged = self.lease.lagged.lock().map_err(|_| Error::Closed)?;
                 if let Some(id) = lagged.keys().next().cloned() {
@@ -573,10 +596,12 @@ impl NativeSession {
             if let Some(value) = self.lease.events.lock().map_err(|_| Error::Closed)?.pop() {
                 return Ok(value);
             }
-            if self.lease.cancel.is_cancelled() {
+            if cancelled {
                 return Err(Error::Closed);
             }
-            tokio::select! { _ = self.lease.cancel.cancelled() => return Err(Error::Closed), _ = wake => continue }
+            // A terminal state and cancellation can wake the same parked reader.
+            // Drain the queued verdict before reporting that the actor ended.
+            tokio::select! { _ = self.lease.cancel.cancelled() => {}, _ = wake => {} }
         }
     }
 }
@@ -772,7 +797,7 @@ impl Actor {
             )?;
         }
         self.event(json!({"type":"state","phase":"RETRYING"}))?;
-        for delay in [250, 1000, 3000] {
+        for delay in QUICK_RETRY_MS {
             tokio::select! { _ = self.lease.cancel.cancelled() => return Err(Error::Closed), _ = tokio::time::sleep(Duration::from_millis(delay)) => {} }
             let gate = self.credential_gate.clone();
             let cancel = self.lease.cancel.clone();

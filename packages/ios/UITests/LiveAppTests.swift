@@ -28,10 +28,10 @@ final class LiveAppTests: XCTestCase {
     let externalProducer = data["externalProducer"] as? Bool ?? false
     let app = XCUIApplication(); app.launchArguments = ["-qa-input-metrics", "-qa-reset-hosts"]
     app.launch(); app.launchArguments = ["-qa-input-metrics"]
-    let label = app.textFields["host-label"]
-    XCTAssertTrue(label.waitForExistence(timeout: 10))
+    let advanced = app.buttons["host-advanced"]
+    XCTAssertTrue(advanced.waitForExistence(timeout: 10))
     capture(app, "ios-native-login")
-    label.tap(); label.typeText("Simulator host")
+    advanced.tap(); app.buttons["Direct"].tap()
     let endpoint = app.textFields["host-url"]; endpoint.tap();
     endpoint.typeText(data["endpoint"] as! String)
     let username = app.textFields["host-username"]; username.tap(); username.typeText("ios-fixture")
@@ -42,6 +42,8 @@ final class LiveAppTests: XCTestCase {
     capture(app, "ios-live-projects")
     let skip = app.buttons["Skip all"]
     if skip.waitForExistence(timeout: 2) { skip.tap() }
+    let reminder = app.buttons["Remind me later"]
+    if reminder.exists { reminder.tap() }
     let project = app.links.matching(NSPredicate(format: "label CONTAINS %@", "preview-project"))
       .firstMatch
     XCTAssertTrue(project.waitForExistence(timeout: 10), app.debugDescription);
@@ -64,21 +66,24 @@ final class LiveAppTests: XCTestCase {
     let keyboardReady = app.staticTexts["QA keyboard ready"]
     XCTAssertTrue(keyboardReady.waitForExistence(timeout: 10), app.debugDescription)
     let control = AppendControl()
-    let updater: Task<Int, Never>? = externalProducer ? nil : Task.detached {
-      var successes = 0
-      for _ in 0..<1200 {
-        if control.stopped || Task.isCancelled { break }
-        var request = URLRequest(url: appendURL)
-        request.httpMethod = "POST"
-        if let (_, response) = try? await URLSession.shared.data(for: request),
-          (response as? HTTPURLResponse)?.statusCode == 200
-        {
-          successes += 1
+    let updater: Task<Int, Never>? =
+      externalProducer
+      ? nil
+      : Task.detached {
+        var successes = 0
+        for _ in 0..<1200 {
+          if control.stopped || Task.isCancelled { break }
+          var request = URLRequest(url: appendURL)
+          request.httpMethod = "POST"
+          if let (_, response) = try? await URLSession.shared.data(for: request),
+            (response as? HTTPURLResponse)?.statusCode == 200
+          {
+            successes += 1
+          }
+          try? await Task.sleep(nanoseconds: 50_000_000)
         }
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        return successes
       }
-      return successes
-    }
     defer { control.stop(); updater?.cancel() }
     let text = "Simulator typing while updates stream"
     // Each call synthesizes one literal keyboard input. Individual calls
@@ -127,24 +132,26 @@ final class LiveAppTests: XCTestCase {
     let relaunched = app.webViews.textViews.firstMatch
     XCTAssertTrue(relaunched.waitForExistence(timeout: 15), app.debugDescription)
     XCTAssertEqual(relaunched.value as? String, text)
-    let sidebarOpener = app.buttons["Open sidebar"]
-    XCTAssertTrue(sidebarOpener.isHittable, app.debugDescription)
-    // Use the current WebKit element frame, as with the project/session links.
-    // On iOS 18 the default tap after relaunch left the drawer closed.
-    sidebarOpener.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-    // AX existence/hittability can precede WebKit's painted drawer. The QA
-    // marker requires its Switch Host button to win DOM hit testing for two
-    // frames; all host-picker and draft/input assertions stay unchanged.
+    let tabs = app.buttons["host-tabs"]
+    XCTAssertTrue(tabs.isHittable); tabs.tap()
+    app.buttons["New tab"].tap()
+    XCTAssertTrue(project.waitForExistence(timeout: 15), app.debugDescription)
+    XCTAssertFalse(app.webViews.textViews.firstMatch.exists)
+    tabs.tap()
+    let sessionTab = app.buttons.matching(
+      NSPredicate(format: "label CONTAINS %@", "android-preview-session")
+    ).firstMatch
+    XCTAssertTrue(sessionTab.waitForExistence(timeout: 5), app.debugDescription)
+    sessionTab.tap()
+    XCTAssertTrue(relaunched.waitForExistence(timeout: 15), app.debugDescription)
+    XCTAssertEqual(relaunched.value as? String, text)
+    let switchHost = app.buttons["host-switcher"]
+    XCTAssertTrue(switchHost.isHittable); switchHost.tap()
+    capture(app, "ios-host-switcher")
+    app.buttons["Manage hosts"].tap()
     XCTAssertTrue(
-      app.staticTexts["QA host switch ready"].waitForExistence(timeout: 5), app.debugDescription)
-    capture(app, "ios-host-sidebar")
-    let switchHost = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Switch host'"))
-      .firstMatch
-    XCTAssertTrue(switchHost.waitForExistence(timeout: 5), app.debugDescription)
-    XCTAssertTrue(switchHost.isHittable, app.debugDescription)
-    switchHost.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-    XCTAssertTrue(
-      app.descendants(matching: .any)["host-add"].waitForExistence(timeout: 10), app.debugDescription)
+      app.descendants(matching: .any)["host-add"].waitForExistence(timeout: 10),
+      app.debugDescription)
     XCTAssertFalse(app.webViews.firstMatch.exists)
   }
 }

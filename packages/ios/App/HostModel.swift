@@ -50,6 +50,48 @@ final class HostModel: ObservableObject {
       self.open(profile, pushSessionID: sessionID)
     }
   }
+  var activeProfile: HostProfile? { catalog.profiles.first { $0.id == catalog.selected } }
+  var activeTab: HostTab? { activeProfile.flatMap { catalog.lastTab($0.id) } }
+
+  func newTab(_ profile: HostProfile, path: String = "/projects", foreground: Bool = true) {
+    do {
+      var updated = try store.catalog()
+      var tabs = updated.tabs ?? []
+      guard tabs.count < 32 else { error = "Close a tab before opening another."; return }
+      var tab = HostTab(profileID: profile.id, path: HostTab.savedPath(path))
+      if !foreground { tab.selected = .distantPast }
+      tabs.append(tab); updated.tabs = tabs
+      try store.save(updated); catalog = updated
+      if foreground { open(profile) }
+    } catch { self.error = "Could not save the new tab." }
+  }
+  func selectTab(_ tab: HostTab) {
+    guard let profile = catalog.profiles.first(where: { $0.id == tab.profileID }) else { return }
+    if activeTab?.id == tab.id, webView != nil { return }
+    do {
+      var updated = try store.catalog()
+      guard let i = updated.tabs?.firstIndex(where: { $0.id == tab.id }) else { return }
+      updated.tabs?[i].selected = Date()
+      try store.save(updated); catalog = updated; open(profile)
+    } catch { self.error = "Could not select the tab." }
+  }
+  func closeTab(_ tab: HostTab) {
+    let active = activeTab?.id == tab.id
+    do {
+      var updated = try store.catalog()
+      updated.tabs?.removeAll { $0.id == tab.id }
+      let next = updated.lastTab(tab.profileID) ?? updated.tabs?.last
+      if active { updated.selected = next?.profileID }
+      try store.save(updated); catalog = updated
+      if active {
+        if let next, let profile = catalog.profiles.first(where: { $0.id == next.profileID }) {
+          open(profile)
+        } else {
+          switchHost()
+        }
+      }
+    } catch { self.error = "Could not close the tab." }
+  }
   func switchHost() {
     let retiring = webView
     Task {
@@ -105,18 +147,21 @@ final class HostModel: ObservableObject {
   func open(_ profile: HostProfile, pushSessionID: String? = nil) {
     guard catalogAvailable else { return }
     if profile.forgetting == true { forget(profile); return }
+    adding = false; reauthenticate = nil
     switchHost(); error = nil; busy = true
     let token = generation
     work = Task {
       do {
         try security.requireUnrevoked(profile)
+        try await connections.settleCredential(profileId: profile.id)
+        guard generation == token else { return }
         guard let credential = try store.credential(profile.id) else {
           reauthenticate = profile; busy = false; return
         }
-        let session = try await connections.acquire(
+        let session = try await connections.acquireForeground(
           profileId: profile.id, routes: [profile.nativeRoute], username: profile.username,
           credential: credential,
-          storage: SavedCredential(store: store, profile: profile))
+          storage: SavedCredential(store: store, profile: profile), quickRetries: true)
         guard generation == token, !Task.isCancelled else { session.close(); return }
         do {
           try await security.ensure(profile, session: session)
@@ -125,7 +170,14 @@ final class HostModel: ObservableObject {
             let route = try await notifications.destination(
               profile.id, sessionID: pushSessionID, session: session, security: security)
           {
-            try store.write("route." + profile.id, Data(route.utf8))
+            var updated = try store.catalog()
+            if let tab = updated.lastTab(profile.id),
+              let i = updated.tabs?.firstIndex(where: { $0.id == tab.id })
+            {
+              updated.tabs?[i].path = route; try store.save(updated); catalog = updated
+            } else {
+              try store.write("route." + profile.id, Data(route.utf8))
+            }
           }
           guard generation == token, !Task.isCancelled else { session.close(); return }
           try show(profile, session: session)
@@ -138,26 +190,72 @@ final class HostModel: ObservableObject {
           self.error = "This host requires you to sign in again."
         } else if case NativeSecurityFailure.revoked = error {
           self.error = "This installation was revoked. Forget this host before pairing again."
+        } else if error as? CoreError == .Unavailable || error as? CoreError == .Timeout {
+          do { try show(profile, session: nil, pendingPush: pushSessionID) } catch {
+            self.error = "Could not open the saved host."
+          }
         } else {
-          self.error = "Could not connect. Your saved host is still available."
+          self.error = "Could not verify this host."
         }
       }
       if generation == token { busy = false; work = nil }
     }
   }
-  private func show(_ profile: HostProfile, session: NativeSourceLease) throws {
+  private func show(_ profile: HostProfile, session: NativeSourceLease?, pendingPush: String? = nil)
+    throws
+  {
     guard let root = Bundle.main.url(forResource: "web", withExtension: nil) else {
       throw BridgeFailure.closed
     }
     let saved = try store.read("route." + profile.id).flatMap { String(data: $0, encoding: .utf8) }
-    let route =
+    let legacyRoute =
       saved.flatMap { $0.utf8.count <= 4096 && $0.hasPrefix("/") && !$0.hasPrefix("//") ? $0 : nil }
       ?? "/"
+    var updated = try store.catalog()
+    var tabs = updated.tabs ?? []
+    let tab: HostTab
+    if let existing = updated.lastTab(profile.id) {
+      tab = existing
+    } else {
+      guard tabs.count < 32 else { throw BridgeFailure.overflow }
+      tab = HostTab(profileID: profile.id, path: HostTab.savedPath(legacyRoute))
+      tabs.append(tab); updated.tabs = tabs
+    }
+    updated.selected = profile.id; try store.save(updated); catalog = updated
+    let route = HostTab.savedPath(tab.path)
     guard let url = URL(string: BundledAssets.origin + route), url.scheme == BundledAssets.scheme,
       url.host == BundledAssets.host
     else { throw BridgeFailure.invalidCommand }
     let source = RustSource(profile: profile, session: session)
-    source.checkIn = { [security] in try await security.ensure(profile, session: session) }
+    let token = generation
+    source.acquire = { [weak self] retry in
+      guard let self, self.generation == token else { throw CancellationError() }
+      try await self.connections.settleCredential(profileId: profile.id)
+      try Task.checkCancellation()
+      try self.security.requireUnrevoked(profile)
+      guard let credential = try self.store.credential(profile.id) else {
+        throw CoreError.ReauthenticationRequired
+      }
+      return try await self.connections.acquireForeground(
+        profileId: profile.id, routes: [profile.nativeRoute], username: profile.username,
+        credential: credential, storage: SavedCredential(store: self.store, profile: profile),
+        quickRetries: retry)
+    }
+    var pending = pendingPush
+    source.checkIn = { [weak self] lease in
+      guard let self, self.generation == token else { throw CancellationError() }
+      try await self.security.ensure(profile, session: lease)
+      if let id = pending,
+        let path = try await self.notifications.destination(
+          profile.id, sessionID: id, session: lease, security: self.security),
+        self.generation == token
+      {
+        pending = nil
+        _ = try await self.webView?.callAsyncJavaScript(
+          "history.pushState({}, '', path); dispatchEvent(new PopStateEvent('popstate'))",
+          arguments: ["path": path], in: nil, contentWorld: .page)
+      }
+    }
     let bridge = NativeBridge(source: source)
     bridge.reauthenticationRequired = { [weak self] revoked in
       guard let self else { return }
@@ -168,8 +266,31 @@ final class HostModel: ObservableObject {
         self.reauthenticate = profile; self.error = "This host requires you to sign in again."
       }
     }
-    bridge.routeChanged = { [store] route in
-      try? store.write("route." + profile.id, Data(route.utf8))
+    bridge.showError = { [weak self] message in self?.error = message }
+    bridge.shareFile = { [weak self] file, done in
+      guard let presenter = self?.webView?.window?.rootViewController,
+        presenter.presentedViewController == nil
+      else { done(); return }
+      let controller = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+      controller.completionWithItemsHandler = { _, _, _, _ in done() }
+      controller.popoverPresentationController?.sourceView = presenter.view
+      controller.popoverPresentationController?.sourceRect = CGRect(
+        x: presenter.view.bounds.midX, y: presenter.view.bounds.maxY, width: 1, height: 1)
+      presenter.present(controller, animated: true)
+    }
+    bridge.routeChanged = { [weak self] route in
+      guard let self, self.generation == token, var updated = try? self.store.catalog(),
+        let i = updated.tabs?.firstIndex(where: { $0.id == tab.id })
+      else { return }
+      let path = HostTab.savedPath(route)
+      guard updated.tabs?[i].path != path else { return }
+      updated.tabs?[i].path = path
+      do { try self.store.save(updated); self.catalog = updated } catch {
+        self.error = "Could not save the tab location."
+      }
+    }
+    bridge.openTab = { [weak self] path, foreground in
+      self?.newTab(profile, path: path, foreground: foreground)
     }
     bridge.switchHost = { [weak self] in self?.switchHost() }
     bridge.notificationStatus = { [weak self] in await self?.notifications.status() ?? [:] }
@@ -273,11 +394,12 @@ final class HostModel: ObservableObject {
     // Flush React's existing draft owner before discarding its document.
     // Closing native transport is immediate; pending source operations stop.
     bridge?.close(); notifications.background()
-    connections.shutdown(); connections = NativeRuntime()
+    for host in catalog.profiles { connections.retireProfile(profileId: host.id) }
     let view = webView
+    generation = UUID()
     let token = generation
     work?.cancel(); work = nil; busy = false
-    suspendedProfile = profile
+    suspendedProfile = profile ?? suspendedProfile
     Task { [weak self] in
       _ = try? await view?.evaluateJavaScript("window.dispatchEvent(new Event('pagehide'))")
       guard let self, self.generation == token else { return }

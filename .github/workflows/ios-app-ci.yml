@@ -9,6 +9,8 @@ on:
       - 'packages/mobile-core/**'
       - 'packages/mobile-core-proof/test-vectors/**'
       - 'packages/client/src/lib/nativeHost.ts'
+      - 'packages/client/src/lib/transport/NativeSourceTransport.ts'
+      - 'packages/client/src/lib/nativeTransportBridge.ts'
       - 'packages/client/src/lib/__tests__/nativeHost.test.ts'
       - 'packages/server/src/crypto/**'
       - 'packages/shared/src/binary-framing.ts'
@@ -27,6 +29,8 @@ on:
       - 'packages/mobile-core/**'
       - 'packages/mobile-core-proof/test-vectors/**'
       - 'packages/client/src/lib/nativeHost.ts'
+      - 'packages/client/src/lib/transport/NativeSourceTransport.ts'
+      - 'packages/client/src/lib/nativeTransportBridge.ts'
       - 'packages/client/src/lib/__tests__/nativeHost.test.ts'
       - 'packages/server/src/crypto/**'
       - 'packages/shared/src/binary-framing.ts'
@@ -41,6 +45,11 @@ on:
   schedule:
     - cron: '47 4 * * *'
   workflow_dispatch:
+    inputs:
+      testflight:
+        description: Cloud-sign and deliver this passing main build to the Internal group
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,11 +58,14 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
-  group: ios-app-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ios-app-${{ github.workflow }}-${{ github.ref }}-${{ inputs.testflight && 'publish' || 'verify' }}
+  cancel-in-progress: ${{ !inputs.testflight }}
 
 jobs:
   verify-ios-app:
+    outputs:
+      attempt: ${{ steps.archive.outputs.attempt }}
+      build_number: ${{ steps.archive.outputs.build_number }}
     name: Rust, simulator, and device archive
     # The older runtime settled on arm64; its prior memory rejection measured
     # free pages rather than availability. Intel remained CPU-bound without video.
@@ -93,10 +105,20 @@ jobs:
         run: |
           node packages/mobile-core/scripts/live.mjs
           pnpm exec tsx --conditions source packages/mobile-core/scripts/live-relay.ts
-      - name: Verify native web host descriptor
-        run: pnpm --filter @yep-anywhere/client exec vitest run src/lib/__tests__/nativeHost.test.ts
+      - name: Verify native bridge and exhaustive reconnection behavior
+        env:
+          YA_RECOVERY_CONFORMANCE_DEPTH: 5
+        run: pnpm --filter @yep-anywhere/client exec vitest run nativeHost.test NativeSourceTransport.test recoveryConformance ReconnectSubscriptions
       - name: Build and test on an owned simulator
         run: node packages/ios/scripts/run.mjs test
+      - name: Prepare the TestFlight app configuration
+        if: inputs.testflight && github.ref == 'refs/heads/main'
+        env:
+          FIREBASE_PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+        run: |
+          test -n "$FIREBASE_PLIST"
+          mkdir -p packages/ios/Config
+          printf %s "$FIREBASE_PLIST" | base64 -D > packages/ios/Config/GoogleService-Info.plist
       - name: Link an unsigned physical-device build
         run: node packages/ios/scripts/run.mjs build
       - name: Upload simulator evidence and unsigned app
@@ -109,3 +131,78 @@ jobs:
             packages/ios/build/*.xcresult
             packages/ios/build/host-*.json
             packages/ios/build/DerivedData/Build/Products/Release-iphoneos/YepAnywhere.app
+
+      - name: Archive the verified device release
+        id: archive
+        if: inputs.testflight && github.ref == 'refs/heads/main'
+        working-directory: packages/ios
+        run: |
+          echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "build_number=$((GITHUB_RUN_NUMBER + 1)).$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          xcodebuild -project YepAnywhere.xcodeproj -scheme YepAnywhere \
+            -configuration Release -destination generic/platform=iOS \
+            -derivedDataPath build/DerivedData -archivePath "$RUNNER_TEMP/YepAnywhere.xcarchive" \
+            -onlyUsePackageVersionsFromResolvedFile CODE_SIGNING_ALLOWED=NO \
+            CURRENT_PROJECT_VERSION="$((GITHUB_RUN_NUMBER + 1)).$GITHUB_RUN_ATTEMPT" archive
+          ditto -c -k --keepParent "$RUNNER_TEMP/YepAnywhere.xcarchive" "$RUNNER_TEMP/ios-candidate.zip"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: inputs.testflight && github.ref == 'refs/heads/main'
+        with:
+          name: ios-testflight-candidate-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ios-candidate.zip
+          retention-days: 3
+
+  testflight:
+    outputs:
+      version: ${{ steps.upload.outputs.version }}
+      sha256: ${{ steps.upload.outputs.sha256 }}
+    name: Sign and upload the tested archive
+    if: inputs.testflight && github.ref == 'refs/heads/main'
+    needs: verify-ios-app
+    runs-on: macos-15
+    environment: ios-testflight
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ios-testflight-candidate-${{ needs.verify-ios-app.outputs.attempt }}
+          path: ${{ runner.temp }}
+      - name: Cloud-sign, verify production push entitlements and upload
+        id: upload
+        env:
+          IOS_ASC_APP_ID: ${{ vars.IOS_ASC_APP_ID }}
+          IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          IOS_ARCHIVE_PATH: ${{ runner.temp }}/YepAnywhere.xcarchive
+          IOS_BUILD_NUMBER: ${{ needs.verify-ios-app.outputs.build_number }}
+        run: |
+          ditto -x -k "$RUNNER_TEMP/ios-candidate.zip" "$RUNNER_TEMP"
+          node packages/ios/scripts/testflight.mjs upload
+
+  verify-internal:
+    name: Verify Apple processing and tester group
+    needs: [verify-ios-app, testflight]
+    runs-on: ubuntu-latest
+    environment: ios-testflight
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Verify delivery
+        env:
+          IOS_ASC_APP_ID: ${{ vars.IOS_ASC_APP_ID }}
+          IOS_TEAM_ID: ${{ vars.IOS_TEAM_ID }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          IOS_BUILD_NUMBER: ${{ needs.verify-ios-app.outputs.build_number }}
+          IOS_VERSION: ${{ needs.testflight.outputs.version }}
+          IOS_IPA_SHA256: ${{ needs.testflight.outputs.sha256 }}
+          IOS_DELIVERY_RECEIPT: ${{ runner.temp }}/ios-delivery.json
+        run: node packages/ios/scripts/testflight.mjs verify
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ios-testflight-receipt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ios-delivery.json

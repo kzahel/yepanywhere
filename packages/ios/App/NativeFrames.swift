@@ -28,13 +28,15 @@ struct NativeFrame {
     else { throw BridgeFailure.invalidFrame }
   }
 
-  static func encode(id: UInt32, offset: Int, total: Int, data: Data) throws -> Data {
+  static func encode(kind: UInt8 = 1, id: UInt32, offset: Int, total: Int, data: Data) throws
+    -> Data
+  {
     guard id > 0, offset >= 0, total > 0, total <= messageLimit,
       !data.isEmpty, data.count <= chunkLimit, offset <= total - data.count
     else {
       throw BridgeFailure.invalidFrame
     }
-    var bytes = Data([0x59, 0x41, 1, 1])
+    var bytes = Data([0x59, 0x41, 1, kind])
     for value in [id, UInt32(offset), UInt32(total)] {
       bytes.append(contentsOf: [
         UInt8(truncatingIfNeeded: value >> 24), UInt8(truncatingIfNeeded: value >> 16),

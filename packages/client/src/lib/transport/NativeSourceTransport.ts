@@ -43,6 +43,11 @@ export class NativeSourceTransport implements SourceTransport, Connection {
   readonly capabilities: {
     sameOriginUrls: boolean;
     packagedArtifactViewerVersion?: 1;
+    openHtmlPreview?: (
+      html: string,
+      title: string,
+      interactive: boolean,
+    ) => Promise<void>;
   } = { sameOriginUrls: false };
   readonly bridge: NativeTransportBridge;
   private readonly responseBodies: NativeResponseBodies;
@@ -100,6 +105,10 @@ export class NativeSourceTransport implements SourceTransport, Connection {
     this.ready = this.bridge.ready.then((descriptor) => {
       if (descriptor.packagedArtifactViewerVersion === 1)
         this.capabilities.packagedArtifactViewerVersion = 1;
+      if (descriptor.isolatedHtmlPreview) {
+        this.capabilities.openHtmlPreview = (html, title, interactive) =>
+          this.bridge.request("previewHtml", { html, title, interactive });
+      }
       return descriptor;
     });
     this.protocol = new RelayProtocol(

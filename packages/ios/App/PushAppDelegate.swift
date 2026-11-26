@@ -11,7 +11,11 @@ final class PushAppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate 
       let options = FirebaseOptions(contentsOfFile: path)
     {
       FirebaseApp.configure(options: options)
-      Messaging.messaging().delegate = self
+      let messaging = Messaging.messaging()
+      messaging.delegate = self
+      // Firebase persists opt-in. Ask APNs for the current token again on
+      // launch, including on a development-to-TestFlight installation update.
+      if messaging.isAutoInitEnabled { application.registerForRemoteNotifications() }
     }
     return true
   }

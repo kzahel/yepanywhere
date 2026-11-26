@@ -1,6 +1,6 @@
 # Yep Anywhere iOS
 
-Consumer SwiftUI shell with native owner SRP login and protected saved hosts.
+The native shell opens with server name and password. Advanced connection exposes the direct endpoint and custom relay. The host and tab pickers restore each host’s selected page from protected storage. Only the active tab mounts a WebView.
 The foreground application is the existing bundled React UI in WKWebView.
 The shared [Rust core](../mobile-core/README.md) owns authentication, encryption,
 requests, subscriptions, uploads and reconnect. JavaScript receives a
@@ -47,12 +47,16 @@ warning above 100 ms. Zero dropped keys and the exact draft remain mandatory.
 it does not install, sign for distribution or publish it. Generated projects,
 bindings, archives, fixture data and xcresults remain ignored under build/.
 
+A document retains its source across a foreground outage. Rust handles the bounded quick retries. After exhaustion the bundled web client schedules further probes, while native reports network availability and rechecks saved installation continuity before returning to connected. Simulator tests drive this path against real direct and mux servers, checking passive catch-up, route and draft retention through disconnect, refusal, silent sockets, relay restart, wake and offline relaunch.
+
+For an internal phone build see [TestFlight delivery](../../docs/distribution/mobile/README.md#ios-ci-internal-delivery).
+
 The [iOS CI workflow](../../.github/workflows/ios-app-ci.yml) runs Rust checks,
 direct/mux/legacy live probes, simulator acceptance and unsigned device linking.
 It pins XcodeGen by version and archive SHA-256, Cargo through its lockfile,
 libsodium by source hash/signature, and Firebase Messaging through the exact
 SPM version and checked-in Package.resolved. It uses the standard arm64
-[macOS 26 runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners);
+[macOS 15 runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners);
 the ambient Apple SDK/runtime is recorded by the build rather than bundled.
 
 ## Native storage and lifecycle
@@ -89,9 +93,7 @@ immediate. Upload acknowledgement follows native consumption. Replacement
 navigation, renderer termination and host changes retire the document lease.
 The privileged bundled document forbids embedded frames with a fail-closed
 CSP. Frame checks alone are not claimed to distinguish same-origin parent
-proxying. Embedded HTML/app frames therefore remain unavailable in this
-initial shell; a later unprivileged viewer needs its own boundary. Blob download
-navigation also needs a native download adapter before that action is supported.
+proxying. Self-contained HTML previews open in a separate nonpersistent WKWebView with no app bridge or network access. Interactive previews require an explicit Run action. Blob exports use WKDownload and the system share sheet. The simulator verifies the exported filename and bytes and checks that the isolated preview cannot access the bridge.
 Speech and device-stream transports retain the native adapter's existing unsupported
 fallback, shared with the current Android foreground contract.
 

@@ -1,18 +1,28 @@
 import Foundation
+import Network
 import WebKit
 
 @MainActor
 protocol NativeSource: AnyObject {
   var profileID: String { get }
   var label: String { get }
+  var state: [String: Any] { get }
   func dispatch(method: String, params: Data) async throws -> Data
+  func fetchResponse(_ params: [String: Any]) async throws -> NativeResponseStream
   func upload(_ payload: Data) async throws
   func nextEvent() async throws -> Data
   func close()
 }
 
+extension NativeSource {
+  func fetchResponse(_ params: [String: Any]) async throws -> NativeResponseStream {
+    throw CoreError.InvalidMessage
+  }
+  var state: [String: Any] { ["type": "state", "phase": "CONNECTED"] }
+}
+
 @MainActor
-final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
   private(set) var handle = UUID().uuidString
   private(set) var document = UUID().uuidString
   private(set) var closed = false
@@ -21,13 +31,21 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
   private(set) var queuedHighWater = 0
   private let source: NativeSource
   private var committed = false
+  private weak var previewController: UINavigationController?
+  private var activeDownload: DocumentDownload?
+  private var sharing = false
+  var shareFile: (URL, @escaping () -> Void) -> Void = { _, done in done() }
+  var showError: (String) -> Void = { _ in }
+  private var pathMonitor: NWPathMonitor?
+  private var lastPath: NWPath?
   #if DEBUG
     private var keyboardObserver: NSObjectProtocol?
   #endif
   private var inboundJobs = 0
   private var receiver = NativeFrameReceiver()
   private var operations: [String: Task<Void, Never>] = [:]
-  private var queue: [Data] = []
+  private var queue: [(kind: UInt8, bytes: Data)] = []
+  private var responses: [String: NativeResponseStream] = [:]
   private var queuedBytes = 0
   private var nextID: UInt32 = 1
   private var drain: Task<Void, Never>?
@@ -37,6 +55,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
   private var ackTimeout: Task<Void, Never>?
   weak var webView: WKWebView?
   var routeChanged: (String) -> Void = { _ in }
+  var openTab: (String, Bool) -> Void = { _, _ in }
   var switchHost: () -> Void = {}
   var openExternal: (URL) -> Void = { UIApplication.shared.open($0) }
   var reauthenticationRequired: (Bool) -> Void = { _ in }
@@ -99,7 +118,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     configuration.userContentController.addUserScript(
       WKUserScript(source: bootstrap, injectionTime: .atDocumentStart, forMainFrameOnly: true))
     let view = WKWebView(frame: .zero, configuration: configuration)
-    view.navigationDelegate = self
+    view.navigationDelegate = self; view.uiDelegate = self
     if #available(iOS 16.4, *) { view.isInspectable = false }
     webView = view
     #if DEBUG
@@ -161,7 +180,20 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
       let completed = try receiver.accept(frame)
       framesReceived += 1
       if let (kind, data) = completed {
-        if kind == 2 { try await source.upload(data) } else { try dispatch(data) }
+        if kind == 2 {
+          guard data.count >= 24 else { throw BridgeFailure.invalidFrame }
+          do { try await source.upload(data) } catch {
+            let id = data.withUnsafeBytes { UUID(uuid: $0.loadUnaligned(as: uuid_t.self)) }
+            let event = Data(
+              json([
+                "type": "upload_error", "uploadId": id.uuidString.lowercased(),
+                "error": "Upload interrupted",
+              ]).utf8)
+            try await waitForQueueRoom(event.count, limit: 24); try enqueue(event)
+          }
+        } else {
+          try dispatch(data)
+        }
       }
       try await deliver("ack:\(handle):\(frame.id):\(frame.offset + frame.data.count)")
     } else {
@@ -173,9 +205,22 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
       try await deliver(
         json([
           "type": "hello", "protocol": 1, "handle": handle, "profileId": source.profileID,
-          "label": source.label, "binary": false,
+          "label": source.label, "binary": false, "stateQuery": true, "responseStreams": true,
+          "isolatedHtmlPreview": true,
         ]))
-      try enqueue(Data(json(["type": "state", "phase": "CONNECTED"]).utf8))
+      try enqueue(Data(json(source.state).utf8))
+      let monitor = NWPathMonitor()
+      pathMonitor = monitor
+      monitor.pathUpdateHandler = { [weak self] path in
+        Task { @MainActor [weak self] in
+          guard let self, !self.closed else { return }
+          defer { self.lastPath = path }
+          if let previous = self.lastPath, path.status == .satisfied, previous != path {
+            try? self.enqueue(Data(self.json(["type": "networkAvailable"]).utf8))
+          }
+        }
+      }
+      monitor.start(queue: .main)
       events = Task { [weak self, source] in
         do {
           while !Task.isCancelled {
@@ -206,7 +251,9 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     else { throw BridgeFailure.staleDocument }
     let params = command["params"] as? [String: Any] ?? [:]
     if method == "cancel" {
-      if let target = params["id"] as? String { operations.removeValue(forKey: target)?.cancel() }
+      if let target = params["id"] as? String {
+        operations[target]?.cancel(); responses.removeValue(forKey: target)?.cancel()
+      }
       return
     }
     guard operations.count < 32, operations[id] == nil else { throw BridgeFailure.overflow }
@@ -216,7 +263,43 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
       defer { self.operations.removeValue(forKey: id) }
       do {
         let result: Any
-        if method == "switchHost" {
+        if method == "previewHtml" {
+          guard let html = params["html"] as? String, html.utf8.count <= NativeFrame.messageLimit,
+            let title = params["title"] as? String,
+            let interactive = params["interactive"] as? Bool,
+            let presenter = self.webView?.window?.rootViewController,
+            presenter.presentedViewController == nil
+          else { throw BridgeFailure.invalidCommand }
+          let preview = HTMLPreview(html: html, title: title, interactive: interactive)
+          let navigation = UINavigationController(rootViewController: preview)
+          self.previewController = navigation; presenter.present(navigation, animated: true)
+          result = [:]
+        } else if method == "responseStart" {
+          let stream = try await source.fetchResponse(params)
+          var keep = false
+          defer { if !keep { stream.cancel() } }
+          guard !self.closed, !Task.isCancelled, self.responses.count < 8,
+            var metadata = try JSONSerialization.jsonObject(with: Data(stream.metadata().utf8))
+              as? [String: Any]
+          else { throw BridgeFailure.closed }
+          if metadata["streaming"] as? Bool == true {
+            self.responses[id] = stream; metadata["responseId"] = id; keep = true
+          }
+          result = metadata
+        } else if method == "responseRead" {
+          guard let owner = params["responseId"] as? String, let stream = self.responses[owner],
+            var uuid = UUID(uuidString: id)?.uuid
+          else { throw BridgeFailure.invalidCommand }
+          do {
+            if let bytes = try await stream.nextChunk() {
+              var message = withUnsafeBytes(of: &uuid) { Data($0) }; message.append(bytes)
+              try await self.waitForQueueRoom(message.count, limit: 32)
+              try self.enqueue(message, kind: 3)
+              return
+            }
+          } catch { self.responses.removeValue(forKey: owner)?.cancel(); throw error }
+          self.responses.removeValue(forKey: owner)?.cancel(); result = ["done": true]
+        } else if method == "switchHost" {
           self.switchHost(); result = [:]
         } else {
           result = try JSONSerialization.jsonObject(
@@ -229,10 +312,14 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
       } catch {
         if !Task.isCancelled, !self.closed {
           try? await self.waitForQueueRoom(2048, limit: 32)
-          try? self.enqueue(
-            Data(
-              self.json(["type": "reply", "id": id, "error": "Native source operation failed"]).utf8
-            ))
+          var reply: [String: Any] = [
+            "type": "reply", "id": id, "error": "Native source operation failed",
+          ]
+          if let failure = error as? CoreError, [.Unavailable, .Timeout, .Closed].contains(failure)
+          {
+            reply["errorCode"] = "CONNECTION_UNAVAILABLE"
+          }
+          try? self.enqueue(Data(self.json(reply).utf8))
         }
       }
     }
@@ -250,7 +337,10 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
       result = [
         "protocol": 1, "platform": "ios",
         "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-          ?? "0.1.0", "buildVersion": 1,
+          ?? "0.1.0",
+        "buildVersion": Int(
+          (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "").split(separator: ".")
+            .first ?? "") ?? 1,
         "features": ["notifications.status", "notifications.requestPermission"],
       ]
     case "notifications.status": result = await notificationStatus()
@@ -288,11 +378,11 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     let waiting = queueWaiters.values; queueWaiters.removeAll()
     for ready in waiting { ready.resume() }
   }
-  func enqueue(_ message: Data) throws {
+  func enqueue(_ message: Data, kind: UInt8 = 1) throws {
     guard !closed, !message.isEmpty, message.count <= NativeFrame.messageLimit,
       queue.count < 32, queuedBytes <= 64 * 1024 * 1024 - message.count
     else { throw BridgeFailure.overflow }
-    queue.append(message); queuedBytes += message.count
+    queue.append((kind, message)); queuedBytes += message.count
     queuedHighWater = max(queuedHighWater, queuedBytes)
     guard drain == nil else { return }
     drain = Task { [weak self] in
@@ -300,7 +390,7 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
       defer { self.drain = nil }
       do {
         while !self.queue.isEmpty, !self.closed {
-          let bytes = self.queue.removeFirst()
+          let (kind, bytes) = self.queue.removeFirst()
           defer {
             self.queuedBytes = max(0, self.queuedBytes - bytes.count); self.queueRoomChanged()
           }
@@ -310,7 +400,8 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
           for start in stride(from: 0, to: bytes.count, by: NativeFrame.chunkLimit) {
             let end = min(bytes.count, start + NativeFrame.chunkLimit)
             let frame = try NativeFrame.encode(
-              id: id, offset: start, total: bytes.count, data: bytes.subdata(in: start..<end))
+              kind: kind, id: id, offset: start, total: bytes.count,
+              data: bytes.subdata(in: start..<end))
             try await withCheckedThrowingContinuation {
               (continuation: CheckedContinuation<Void, Error>) in
               self.ack = ("ack:\(self.handle):\(id):\(end)", continuation)
@@ -344,9 +435,13 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
   func close() {
     guard !closed else { return }
     closed = true
+    pathMonitor?.cancel(); pathMonitor = nil
+    activeDownload?.close(); activeDownload = nil
+    previewController?.dismiss(animated: false); previewController = nil
     events?.cancel(); events = nil
     for operation in operations.values { operation.cancel() }
     operations.removeAll()
+    for stream in responses.values { stream.cancel() }; responses.removeAll()
     ackTimeout?.cancel(); ackTimeout = nil
     ack?.1.resume(throwing: BridgeFailure.closed); ack = nil
     drain?.cancel(); drain = nil
@@ -368,6 +463,15 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
   ) {
     guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
+    if navigationAction.shouldPerformDownload, navigationAction.sourceFrame.isMainFrame,
+      tabPath(navigationAction.sourceFrame.request.url) != nil, url.scheme == "blob"
+    {
+      guard activeDownload == nil, !sharing else {
+        showError("Finish the current export first."); decisionHandler(.cancel); return
+      }
+      decisionHandler(.download); return
+    }
+    if navigationAction.targetFrame == nil { decisionHandler(.allow); return }
     if navigationAction.targetFrame?.isMainFrame != false {
       if url.scheme != BundledAssets.scheme || url.host != BundledAssets.host {
         if navigationAction.navigationType == .linkActivated,
@@ -380,6 +484,67 @@ final class NativeBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate
       if committed { close(); decisionHandler(.cancel); switchHost(); return }
     }
     decisionHandler(.allow)
+  }
+
+  func webView(
+    _ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload
+  ) {
+    guard activeDownload == nil, !closed else { download.cancel { _ in }; return }
+    do {
+      activeDownload = try DocumentDownload(
+        download,
+        delivered: { [weak self] url in
+          guard let self, let export = self.activeDownload else { return }
+          // The share extension can keep reading after the app backgrounds.
+          self.activeDownload = nil; self.sharing = true
+          self.shareFile(url) { [weak self] in
+            export.close(); self?.sharing = false
+          }
+        },
+        failed: { [weak self] in
+          self?.finishDownload(); self?.showError("Could not export the file.")
+        })
+    } catch { download.cancel { _ in }; showError("Could not prepare the file.") }
+  }
+  private func finishDownload() { activeDownload?.close(); activeDownload = nil }
+
+  private func tabPath(_ url: URL?) -> String? {
+    guard let url, url.scheme == BundledAssets.scheme, url.host == BundledAssets.host,
+      url.user == nil, url.password == nil, url.port == nil
+    else { return nil }
+    return HostTab.savedPath(url.path)
+  }
+
+  func webView(
+    _ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+    for action: WKNavigationAction, windowFeatures: WKWindowFeatures
+  ) -> WKWebView? {
+    guard !closed, action.sourceFrame.isMainFrame, tabPath(action.sourceFrame.request.url) != nil
+    else { return nil }
+    if let path = tabPath(action.request.url) {
+      openTab(path, true)
+    } else if action.navigationType == .linkActivated, let url = action.request.url,
+      url.scheme == "https", url.user == nil, url.password == nil
+    {
+      openExternal(url)
+    }
+    return nil
+  }
+
+  func webView(
+    _ webView: WKWebView, contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
+    completionHandler: @escaping (UIContextMenuConfiguration?) -> Void
+  ) {
+    guard !closed, let path = tabPath(elementInfo.linkURL) else { completionHandler(nil); return }
+    completionHandler(
+      UIContextMenuConfiguration(actionProvider: { [weak self] _ in
+        UIMenu(children: [
+          UIAction(title: "Open in new tab", image: UIImage(systemName: "plus.square")) { _ in
+            guard let self, !self.closed else { return }
+            self.openTab(path, false)
+          }
+        ])
+      }))
   }
 
   func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) { committed = true }

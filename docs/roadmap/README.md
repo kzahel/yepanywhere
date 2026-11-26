@@ -284,8 +284,7 @@ UI tests on iPhone SE (3rd generation), iOS 26.6.1, with development signing and
 Typing peaks at 33 ms over 37 keys, with zero drops and 226 concurrent transcript
 mutations; foreground/relaunch and Switch Host pass. Store signing/publication,
 tablet acceptance and the broader device/network matrix remain release work.
-Embedded viewers/downloads need the
-[remaining WebKit adapters](../../gaps/ios-webview-viewers-and-downloads.md).
+Self-contained HTML previews and Blob exports now have tested WebKit adapters. Multi-file previews still need [scoped resource loading](../../gaps/ios-webview-viewers-and-downloads.md).
 Native per-host push enrollment and presentation are implemented. The updated
 broker is deployed; physical Android acceptance proves foreground/background
 FCM, two-host isolation, authenticated session taps and headless presentation.
@@ -353,8 +352,7 @@ the viewer/download gap remain the next mobile release work.
   Passive service-restoration latency was repaired on 2026-11-26: after
   native's quick retries the WebView probes at the
   [browser's cadence](../../topics/source-transport.md#one-exhausted-recovery-scheduler)
-  instead of waiting 60 seconds. iOS has
-  [no such recovery](../../gaps/ios-native-outage-recovery.md) yet.
+  instead of waiting 60 seconds. The iOS document now uses that scheduler after Rust exhausts its quick retries. Simulator fault injection covers passive restoration over direct and mux relay routes, wake and cold launch.
   The shared transport-unit conformance factory remains follow-up work;
   physical update, modem, overnight and keyboard checks are the next acceptance
   step using the available internal build.
@@ -418,9 +416,7 @@ the viewer/download gap remain the next mobile release work.
   resume and WebView inset fixes; the Play password association is verified.
   Retesting the updated Google Play-signed install remains open.
   French classification/filing is deferred before enabling that market; iOS
-  tester enrollment and production iOS push remain open. Android internal
-  release delivery is available on explicit request; iOS release automation
-  remains open. See [mobile store preparation](../distribution/mobile/README.md).
+  the existing account holder is enrolled in Internal. Production iOS push and TestFlight phone acceptance remain open. Both mobile workflows support explicit internal delivery. See [mobile store preparation](../distribution/mobile/README.md).
   October 5 public Android setup saves category/contact, app-access instructions
   and all 11 app-setup tasks, including content ratings and Data safety.
   An isolated synthetic reviewer VM passes
@@ -549,7 +545,7 @@ tap acceptance, and release-device/network checks for both mobile apps. The
 [Android offline recovery repair](../testing/android-offline-recovery-investigation.md)
 keeps cold pages navigable and recovers in place; physical Pixel/public-relay
 radio-loss and launcher-reopening checks pass locally. Complete
-the iOS embedded-viewer/download adapters before claiming full UI parity; a new
+multi-file iOS preview resource loading before claiming full viewer parity; a new
 SwiftUI transcript/composer design is not required. Desktop release and
 continuous-delivery work continue independently.
 

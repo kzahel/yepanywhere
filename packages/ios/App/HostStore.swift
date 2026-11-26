@@ -19,6 +19,7 @@ struct HostProfile: Codable, Identifiable, Equatable {
 struct HostCatalog: Codable {
   var profiles: [HostProfile] = []
   var selected: String?
+  var tabs: [HostTab]?
 }
 private struct HostState: Codable {
   var catalog = HostCatalog()
@@ -141,6 +142,7 @@ final class HostStore: ProtectedStore {
   func remove(_ id: String) throws -> HostCatalog {
     var value = try state(); value.credentials.removeValue(forKey: id);
     value.catalog.profiles.removeAll { $0.id == id }
+    value.catalog.tabs?.removeAll { $0.profileID == id }
     if value.catalog.selected == id { value.catalog.selected = nil }
     try persist(value); return value.catalog
   }

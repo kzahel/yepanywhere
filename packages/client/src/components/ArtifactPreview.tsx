@@ -25,6 +25,7 @@ import { usePublicShareContext } from "../contexts/PublicShareContext";
 import { useRetainedVersionInfo } from "../hooks/useVersion";
 import { MANAGED_ARTIFACT_PARENTS } from "../lib/managedArtifactViewer";
 import { ManagedArtifactPreview } from "./ManagedArtifactPreview";
+import { Button } from "./ui/Button";
 import { Banner } from "./ui/Banner";
 import styles from "./ArtifactPreview.module.css";
 
@@ -74,7 +75,9 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
       subscribe: (listener: () => void) =>
         runtime.transport.status.subscribe(listener),
       getSnapshot: () =>
-        runtime.transport.capabilities.packagedArtifactViewerVersion ?? 0,
+        runtime.transport.capabilities.openHtmlPreview
+          ? 2
+          : (runtime.transport.capabilities.packagedArtifactViewerVersion ?? 0),
     }),
     [runtime.transport],
   );
@@ -83,6 +86,7 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
     statusStore.getSnapshot,
     statusStore.getSnapshot,
   );
+  const nativePreview = runtime.transport.capabilities.openHtmlPreview;
   const version = useRetainedVersionInfo(runtime.sourceKey);
   const share = usePublicShareContext();
   const managed =
@@ -93,10 +97,41 @@ export function ArtifactPreview(props: ArtifactPreviewProps) {
     /Chrome|Chromium|Edg\//.test(navigator.userAgent) &&
     !version?.artifactViewer?.publicOrigin &&
     serverHasCapability(version, SERVER_CAPABILITIES.artifactRelayPreview.name);
+  if (nativePreview && share === null)
+    return <NativeArtifactPreview {...props} open={nativePreview} />;
   return managed ? (
     <ManagedArtifactPreview {...props} />
   ) : (
     <ConfiguredArtifactPreview {...props} />
+  );
+}
+
+function NativeArtifactPreview(
+  props: ArtifactPreviewProps & {
+    open: (html: string, title: string, interactive: boolean) => Promise<void>;
+  },
+) {
+  const { t } = useI18n();
+  const [failed, setFailed] = useState(false);
+  const show = (interactive: boolean) => {
+    setFailed(false);
+    const html = interactive
+      ? props.html
+      : createScriptlessHtmlPreviewDocument(props.html, props.documentPath);
+    void props
+      .open(html, props.title, interactive)
+      .catch(() => setFailed(true));
+  };
+  return (
+    <div className={styles.toolbar}>
+      <Button size="small" onClick={() => show(false)}>
+        {t("artifactOpenIsolatedPreview")}
+      </Button>
+      <Button size="small" onClick={() => show(true)}>
+        {t("artifactRun")}
+      </Button>
+      {failed && <span role="alert">{t("artifactNativePreviewFailed")}</span>}
+    </div>
   );
 }
 

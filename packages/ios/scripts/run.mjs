@@ -144,7 +144,7 @@ if (phase === "build") {
   );
   const fixture = await startFixture();
   const { startTLSFixture } = await import("./tls-fixture.mjs");
-  let simulator, tls, simulatorApp;
+  let simulator, tls, recovery, simulatorApp;
   const capacity = await readHostCapacity();
   const host = { capacity, start: null, readiness: [], during: [], end: null };
   let sampleTimer, sampling;
@@ -186,6 +186,8 @@ if (phase === "build") {
   process.once("SIGINT", interrupt);
   process.once("SIGTERM", interrupt);
   try {
+    const { startRecoveryFixture } = await import("./recovery-fixture.mjs");
+    recovery = await startRecoveryFixture();
     tls = await startTLSFixture(fixture.endpoint, join(ios, "build/tls"));
     await writeFile(
       join(ios, "build/fixture.json"),
@@ -193,6 +195,7 @@ if (phase === "build") {
         endpoint: fixture.endpoint,
         port: fixture.port,
         tls: tls.addresses,
+        recovery: recovery.config,
         // Shared hosted runners get a regression ceiling from CI history; the
         // 100 ms target still applies elsewhere and misses are reported. Since
         // Nov 1 two of about 40 hosted arm64 runs missed it, at 108 ms
@@ -381,7 +384,7 @@ if (phase === "build") {
         }
       }
       try {
-        await tls?.stop();
+        await Promise.all([tls?.stop(), recovery?.stop()]);
       } finally {
         await fixture.stop();
       }
