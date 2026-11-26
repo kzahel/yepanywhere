@@ -246,9 +246,9 @@ invalidation from the issue indexer, double publication) are recorded in
       cover individual and retained-list requests.
     - The experimental conversation source does a full read to resolve one
       session (`app.ts:3573`).
-    - `GET /api/issues` and `GET /api/issues/sessions` project the whole
-      catalog per request (`app.ts:3794-3799`, `routes/issues.ts:262`,
-      `:290`).
+    - Sorted issue lists without a session filter and `GET /api/issues/sessions`
+      still project the complete catalog. Session-filtered issue lists now
+      project only the indexed native candidates for that public session.
 
     These should be per-project or SQL point reads.
 16. Retained walks removed 2026-11-10 by item 11's shared SQL query owner.

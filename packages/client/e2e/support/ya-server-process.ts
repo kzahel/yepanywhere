@@ -58,6 +58,8 @@ export interface StartYaServerProcessOptions {
   standalone?: { providerHostEnabled?: boolean };
   /** Select Node or Bun for the server; the coordinator retains native cleanup. */
   serverExecutable?: string;
+  /** Optional fixture instrumentation loaded after the TypeScript loader. */
+  serverPreload?: string;
   /** Serve this invocation's immutable bundle from the private YA listener. */
   serveBuiltClient?: boolean;
   tempPrefix?: string;
@@ -71,6 +73,7 @@ export interface StartYaServerProcessOptions {
 
 export interface YaServerProcess {
   serverExecutable: string;
+  serverPreload?: string;
   baseUrl: string;
   claudeSessionsDir: string;
   codexSessionsDir: string;
@@ -390,6 +393,7 @@ export async function startYaServerProcess(
         tsxLoader,
         "--import",
         fixtureRuntimePreload,
+        ...(options.serverPreload ? ["--import", options.serverPreload] : []),
         "--conditions",
         "source",
         "src/index.ts",
@@ -413,6 +417,7 @@ export async function startYaServerProcess(
 
   const pending: YaServerProcess = {
     serverExecutable,
+    serverPreload: options.serverPreload,
     baseUrl: "",
     claudeSessionsDir,
     codexSessionsDir,
@@ -493,6 +498,7 @@ export async function restartYaServerProcess(
         tsxLoader,
         "--import",
         fixtureRuntimePreload,
+        ...(server.serverPreload ? ["--import", server.serverPreload] : []),
         "--conditions",
         "source",
         "src/index.ts",

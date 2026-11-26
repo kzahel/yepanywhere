@@ -4,8 +4,38 @@ import {
   type SessionCatalogRow,
   sessionCatalogRowKey,
 } from "../../sessions/catalog-types.js";
-import type { RetainedSessionCollections } from "../RetainedSessionCollections.js";
+import {
+  catalogNativeSessionId,
+  type RetainedSessionCollections,
+} from "../RetainedSessionCollections.js";
 import type { IssueCatalogRow, IssueIndexerDeps } from "./IssueIndexer.js";
+
+/** The session filter names a public id, while the catalog indexes native ids. */
+export function issueRouteCatalog(
+  catalog: Pick<RetainedSessionCollections, "read" | "readNativeRows">,
+  metadata?: SessionMetadataService,
+  signal?: AbortSignal,
+) {
+  const nativeId = catalogNativeSessionId(metadata?.identities);
+  return async (sessionId?: string) => {
+    if (!sessionId)
+      return projectCatalogIdentities(
+        (await catalog.read()).rows,
+        metadata,
+        signal,
+      );
+
+    // Old rows without a native scope can still project under their original
+    // spelling. Project both candidates before deciding which public id matches.
+    const bound = nativeId(sessionId);
+    const rows = await catalog.readNativeRows(
+      bound && bound !== sessionId ? [bound, sessionId] : [sessionId],
+    );
+    return (await projectCatalogIdentities(rows, metadata, signal)).filter(
+      (row) => row.sessionId === sessionId,
+    );
+  };
+}
 
 /**
  * The issue indexer's view of the catalog (plan 189 step 4): the rows

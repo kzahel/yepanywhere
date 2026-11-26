@@ -66,7 +66,7 @@ export function createIssueRoutes(
   ) => Promise<{ available: boolean } & Partial<IssueSession>>,
   credentials?: IssueCredentials,
   confirmer?: IssueConfirmer,
-  sessionCatalog: () => Promise<
+  sessionCatalog: (sessionId?: string) => Promise<
     readonly {
       sessionId: string;
       updatedAt: string;
@@ -250,16 +250,18 @@ export function createIssueRoutes(
       (sort !== "key" && !supportedSorts.includes(sort as IssueSort))
     )
       return c.json({ error: "Invalid search or pagination" }, 400);
+    const sessionId = c.req.query("sessionId") ?? "";
     const listed = indexer.store.list(
       issueUrl(query)?.url ?? query,
       c.req.query("projectId") ?? "",
-      c.req.query("sessionId") ?? "",
+      sessionId,
       c.req.query("dismissed") === "1",
       p.size,
       p.start,
       {
         sort: sort as IssueSort | "key",
-        sessionActivity: sort === "key" ? [] : await sessionCatalog(),
+        sessionActivity:
+          sort === "key" ? [] : await sessionCatalog(sessionId || undefined),
         identity: ref,
       },
     );

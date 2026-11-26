@@ -201,6 +201,40 @@ node scripts/run-with-safe-home.js --temporary-home tsx --conditions=source scri
 The runner checks both project routes, reports request-scoped work and timings,
 and removes its temporary profile and provider history after each run.
 
+
+## Session header issue reads during Inbox navigation — 2026-11-26
+
+Each cell used a new profile with ten Claude sessions and a separate project
+of generated Codex rollouts. Chromium clicked each session in Inbox, checked
+its latest answer in the viewport, returned to Inbox and let the last header
+recheck for 18 seconds. With Issues enabled each header had to show the
+newly discovered reference from its own transcript. The image fixture added
+four inline PNGs (1,163,340 decoded bytes) after a short first record.
+
+| Unrelated rollouts | Issues | Content | Browser API requests | Badge requests | Catalog rows for badge | First open ms | Median of ten opens ms |
+|---:|---|---|---:|---:|---:|---:|---:|
+| 50 | on | text | 244 | 23 | 13 | 848 | 320.5 |
+| 50 | on | images | 245 | 23 | 13 | 1,327 | 323 |
+| 50 | off | text | 184 | 0 | 0 | 1,327 | 314 |
+| 50 | off | images | 181 | 0 | 0 | 818 | 318.5 |
+| 8,370 | on | text | 251 | 23 | 13 | 1,335 | 317.5 |
+| 8,370 | on | images | 251 | 23 | 13 | 1,328 | 322 |
+| 8,370 | off | text | 186 | 0 | 0 | 3,358 | 321.5 |
+| 8,370 | off | images | 192 | 0 | 0 | 2,837 | 314 |
+
+Every enabled run made ten key-ordered requests and thirteen mention-ordered
+requests. Each mention-ordered request fetched the one matching catalog row.
+There were zero request-scoped full reads. The prior handler projected every
+row for each mention-ordered request. All 80 opens displayed the latest
+answer. Times include browser-driver action and viewport checks on shared
+macOS hardware; the slower first opens occurred even with Issues disabled.
+Total API requests include the whole browser, including activity during
+indexing and dwell. Only badge work is attributed to the badge.
+
+The [isolated runner](../scripts/perf-repro/issue-navigation.mjs) documents
+the build and invocation. A [separate Claude discovery gap](claude-discovery-large-first-record.md)
+covers an image-heavy first record before any short cwd-bearing record.
+
 ## Transcript fact follow-up — 2026-11-12
 
 The [transcript outcome](../docs/research/190-transcript-fact-reuse.md) narrows

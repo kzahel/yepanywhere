@@ -5,7 +5,10 @@ import type { UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, expect, it } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { SessionCatalogService } from "../../src/services/SessionCatalogService.js";
-import { issueCatalogSource } from "../../src/services/issues/issue-catalog-source.js";
+import {
+  issueCatalogSource,
+  issueRouteCatalog,
+} from "../../src/services/issues/issue-catalog-source.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import {
   DISCOVERY_MIGRATIONS,
@@ -71,6 +74,20 @@ it("keys a public row as the catalog and migration 029 do", async () => {
     metadata,
   );
 
+  const routeCatalog = issueRouteCatalog(
+    {
+      read: () => {
+        throw new Error("scoped issue lookup read the full catalog");
+      },
+      readNativeRows: async (ids) =>
+        ids.flatMap((id) => catalog.readNativeRows(id)),
+    },
+    metadata,
+  );
+  expect(await routeCatalog("public-1")).toMatchObject([
+    { sessionId: "public-1", updatedAt: row.updatedAt },
+  ]);
+  expect(await routeCatalog("native-1")).toEqual([]);
   const first = await source.changes(undefined, new Set());
   expect(first.rows).toHaveLength(1);
   const [projected] = first.rows;
@@ -111,5 +128,16 @@ it("keys a public row as the catalog and migration 029 do", async () => {
     rows: [],
     removed: [projected!.catalogKey],
   });
+  const legacy = {
+    ...row,
+    sessionId: "public-1",
+    nativeStorageScope: undefined,
+    updatedAt: "2026-11-10T00:00:00.000Z",
+  };
+  await catalog.reconcile([adapter([row, legacy])]);
+  expect(await routeCatalog("public-1")).toMatchObject([
+    { nativeSessionId: "native-1", updatedAt: row.updatedAt },
+    { nativeSessionId: "public-1", updatedAt: legacy.updatedAt },
+  ]);
   catalog.stop();
 });

@@ -180,6 +180,9 @@ how many more the full list holds, and a final row opens that list filtered to
 this session. The header first asks without a sort; a server advertising
 **Recently mentioned** is asked in that order from then on, immediately when
 the key-ordered page was full, so the page it reads holds the latest mentions.
+Session-filtered reads look up activity only for that public session, including
+when its provider uses a different native ID. Rechecking an open header costs
+no full catalog read.
 Each row links at its tracker URL when one is known and at the same filtered
 list otherwise, so a left click follows the reference and a middle or
 modifier click opens it in a new tab. Only the navigating click closes the

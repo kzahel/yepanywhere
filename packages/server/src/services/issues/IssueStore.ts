@@ -954,7 +954,7 @@ export class IssueStore {
       FROM session_issue_evidence e LEFT JOIN session_issue_links l ON l.id=e.link_id LEFT JOIN issue_index_jobs j ON j.session_id=e.session_id
       LEFT JOIN activity a ON a.session_id=e.session_id
       WHERE ${this.visibleEvidence()} AND (?=1 OR (e.suppressed=0 AND COALESCE(l.state,'discovered')!='dismissed'))
-      AND (?='' OR COALESCE(j.project_id,e.project_id)=?) AND (?='' OR e.session_id=?)
+      AND (?='' OR COALESCE(j.project_id,e.project_id)=?) ${session ? "AND e.session_id=?" : ""}
     ), items AS (
       SELECT i.id,i.ref_key,COALESCE(i.manual_title,i.title) AS title,i.url,i.provider,i.kind,COUNT(DISTINCT e.session_id) AS count,NULL AS context,MAX(e.activity) AS last_activity,MAX(julianday(e.source_time)) AS last_mention,i.manual_title IS NOT NULL AS manual
       FROM external_issues i JOIN observations e ON e.issue_id=i.id GROUP BY i.id
@@ -988,8 +988,7 @@ export class IssueStore {
       dismissed ? 1 : 0,
       project,
       project,
-      session,
-      session,
+      ...(session ? [session] : []),
       options.identity ?? "",
       options.identity ?? "",
       escaped(query),

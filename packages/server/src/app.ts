@@ -64,7 +64,10 @@ import { createExperimentalConversationRoutes } from "./routes/experimental-conv
 import { IssueStore } from "./services/issues/IssueStore.js";
 import { IssueContentRefresher } from "./services/issues/content.js";
 import { IssueIndexer } from "./services/issues/IssueIndexer.js";
-import { issueCatalogSource } from "./services/issues/issue-catalog-source.js";
+import {
+  issueCatalogSource,
+  issueRouteCatalog,
+} from "./services/issues/issue-catalog-source.js";
 import { createIssueRoutes } from "./routes/issues.js";
 import { IssueCredentials } from "./services/issues/credentials.js";
 import { IssueConfirmer } from "./services/issues/confirm.js";
@@ -3427,6 +3430,8 @@ export function createApp(options: AppOptions): AppResult {
   const issueDatabase = discoverySqlite.getDatabase();
   if (options.serverSettingsService) {
     const catalog = retainedCollections;
+    const metadataService = options.sessionMetadataService;
+    const signal = sessionReadLifetime.signal;
     const settings = options.serverSettingsService;
     const readerFor = async (
       projectId: string,
@@ -3473,13 +3478,9 @@ export function createApp(options: AppOptions): AppResult {
     const indexer = new IssueIndexer(issueStore, {
       settings: issueSettings,
       confirm: () => confirmer.schedule(),
-      ...issueCatalogSource(
-        catalog,
-        options.sessionMetadataService,
-        sessionReadLifetime.signal,
-      ),
+      ...issueCatalogSource(catalog, metadataService, signal),
       projectForSession: (id) =>
-        options.sessionMetadataService?.getMetadata(id)?.workingProjectId,
+        metadataService?.getMetadata(id)?.workingProjectId,
       read: async (row, readOptions) => {
         const resolved = await readerFor(
           row.projectId,
@@ -3517,8 +3518,7 @@ export function createApp(options: AppOptions): AppResult {
           const process = supervisor.getProcessForSession(sessionId);
           const canonical = process?.sessionId ?? sessionId;
           if (canonical !== sessionId) return { available: false };
-          const metadata =
-            options.sessionMetadataService?.getMetadata(sessionId);
+          const metadata = metadataService?.getMetadata(sessionId);
           if (
             metadata?.workingProjectId &&
             metadata.workingProjectId !== projectId
@@ -3557,12 +3557,7 @@ export function createApp(options: AppOptions): AppResult {
         },
         issueCredentials,
         confirmer,
-        async () =>
-          projectCatalogIdentities(
-            (await catalog.read()).rows,
-            options.sessionMetadataService,
-            sessionReadLifetime.signal,
-          ),
+        issueRouteCatalog(catalog, metadataService, signal),
         statuses,
         content,
       ),

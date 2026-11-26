@@ -11,7 +11,10 @@ import {
   projectCatalogIdentityResult,
 } from "../../src/sessions/catalog-identity.js";
 import { retainedSessionQuery } from "../../src/services/retained-session-query.js";
-import { issueCatalogSource } from "../../src/services/issues/issue-catalog-source.js";
+import {
+  issueCatalogSource,
+  issueRouteCatalog,
+} from "../../src/services/issues/issue-catalog-source.js";
 import { sessionCatalogRowKey } from "../../src/sessions/catalog-types.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import {
@@ -259,6 +262,8 @@ it("withholds an OpenCode row whose bound project link changed and rechecks it",
     healthy.sessionId,
   ]);
   expect(restored.catalog.complete).toBe(false);
+  const routeCatalog = issueRouteCatalog(collection, metadata);
+  expect(await routeCatalog(id)).toEqual([]);
   const issues = issueCatalogSource(collection, metadata);
   const issueChanges = await issues.changes(undefined, new Set());
   expect(issueChanges.rows.map((row) => row.sessionId)).toEqual([
@@ -280,6 +285,9 @@ it("withholds an OpenCode row whose bound project link changed and rechecks it",
   expect(
     (await readRetainedSessionItems(reopened, deps)).catalog.complete,
   ).toBe(true);
+  expect(await routeCatalog(id)).toMatchObject([
+    { sessionId: id, projectId: toUrlProjectId(alias) },
+  ]);
   const issueRecovery = await issues.changes(
     issueChanges.mark,
     new Set([sessionCatalogRowKey(native)]),
