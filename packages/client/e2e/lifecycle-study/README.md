@@ -51,10 +51,12 @@ Options use `--name=value`:
   production relay limits remain enabled. The browser fixture's exact local
   origin is explicitly allowed by its private relay, without changing defaults.
 - `surface`: `session` or `inbox`.
-- `fault`: `control`, `disconnect`, `in-flight`, `outage`, `wake-outage`, `silent`.
+- `fault`: `control`, `disconnect`, `in-flight`, `outage`, `relay-restart`,
+  `wake-outage`, `silent`.
 - `observe-ms`: passive post-restoration observation, default 90000, at most 180000.
   This is an experiment duration, **not an accepted product recovery deadline**.
-- `outage-ms`: outage/silent duration, default 16000, at most 120000.
+- `outage-ms`: outage, relay restart, or silent stall duration, default 16000,
+  at most 120000.
 - `activity`: `none` (default) or `typing` (session only). Typing deliberately
   signals recovery after network restoration and must be compared separately.
 - `out`: new, nonexistent output directory. Defaults under ignored
@@ -66,6 +68,12 @@ before disconnecting. `outage` also refuses new connections. `silent` stalls
 both byte streams without announcing closure, preserving order and bounded
 stream backpressure. It is an application-path stall, not a packet-level radio
 simulator: each half's OS TCP connection remains locally established.
+
+`relay-restart` requires `--route=mux`. It closes the local relay, waits at
+least `--outage-ms`, and starts a new relay instance on the same port using
+the same on-disk registry. The YA fixture stays up and must re-register on
+its own. The timeline records when the relay stops, starts listening and
+accepts the fresh YA registration.
 
 `wake-outage` sleeps the emulator (freezes the browser page) for eight seconds,
 then wakes it while connections remain refused for another eight seconds.
@@ -90,6 +98,10 @@ ANDROID_SERIAL=emulator-5554 pnpm exec node \
 ```
 
 `YA_LIFECYCLE_CASES` can select comma-separated case names from that script.
+`YA_LIFECYCLE_SUITE=relay-comparison` runs the mux session `wake-outage` and
+`relay-restart` cases on both the native app and stock Chrome, sequentially on
+the same emulator. Use a Google APIs image with stock Chrome installed and
+complete Chrome onboarding before measuring.
 `YA_LIFECYCLE_SUITE=hardening` selects fourteen matched Android/stock-Chrome
 cases: cold restart offline, direct/mux silent stalls, session/Inbox cycles,
 three-minute Doze and attachment wake. `YA_LIFECYCLE_SUITE=push` selects three

@@ -28,3 +28,47 @@ and `--verify=true`. See the
 for the final build and comparison evidence.
 
 Observed again 2026-10-08; the existing 60-second policy was retained deliberately.
+
+## Matched Android and Chrome relay reproduction
+
+On 2026-11-25, the minified Android probe and stock Chrome used the same
+Android 15 emulator, Chromium 124 WebView/browser generation and bundled web
+build. In the mux wake-outage case, the native app caught up 56.6 seconds after
+the path reopened, versus 17.1 seconds in Chrome. With service restored before
+wake, the native app caught up in 0.6 seconds. After a foreground relay restart,
+the app took 48.4 seconds versus 23.2 seconds in Chrome. The fixture took about
+14.6 seconds to re-register on both runs. Both slow native traces recorded about
+60 seconds from recoverable `FAILED` to the next connection attempt.
+
+The bundled app releases its foreground connection lease when it sleeps.
+On wake, native acquisition retries briefly and can exhaust that budget while
+the route is still unavailable. After native exhaustion, the WebView's
+[`NativeSourceTransport`](../packages/client/src/lib/transport/NativeSourceTransport.ts)
+schedules the visible 60-second backstop. Restoring the relay path leaves
+Android's default network up, so it supplies no new network-available signal
+to advance that retry. Chrome uses its own WebSocket backoff and was still
+retrying when the path reopened. The foreground restart reproduces the native
+wait without a sleep/wake transition.
+
+The session route and draft survived and the missed message appeared once.
+The page observer saw a continuous reconnect indicator in the slow native runs.
+Frame-level flicker on a physical phone still needs a capture. Pre-outage
+typing exceeded 100 ms once in the native wake-outage run (129 ms) and once
+in the matched Chrome run (103 ms), with every character retained.
+
+Prepare the APKs and an owned API 35 emulator with stock Chrome as described in
+the [lifecycle runner](../packages/client/e2e/lifecycle-study/README.md), then
+run from the repository root with that emulator's serial.
+
+```bash
+ANDROID_SERIAL=emulator-5554 YA_LIFECYCLE_SUITE=relay-comparison \
+  pnpm exec node packages/client/e2e/lifecycle-study/verify-android.mjs
+```
+
+`wake-outage` wakes the emulator before reopening the gated path.
+`relay-restart` replaces the listening relay and retains its username registry
+and the YA fixture. The suite sends no user activity during the passive
+observation window. Compare `firstHealthyAt - restoredAt` in each
+`result.json`, `relayRegisteredAt` for the restart, and the native phase
+interval from `FAILED` to `CONNECTING` in `native-phases.json`. The capture
+directory and `matrix.json` location are printed at the end of the run.

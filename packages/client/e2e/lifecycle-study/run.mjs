@@ -34,6 +34,7 @@ const webBuild = resolve(
 const route = options.route ?? "direct";
 const surface = options.surface ?? "session";
 const fault = options.fault ?? "disconnect";
+const restartRelay = fault === "relay-restart";
 const verify = options.verify === "true";
 // Passive recovery measured 49–65 s. Three minutes is ~3x the observed
 // maximum; verification exits after five healthy seconds (one stream retry cap).
@@ -64,6 +65,7 @@ if (
     "disconnect",
     "in-flight",
     "outage",
+    "relay-restart",
     "wake-outage",
     "silent",
     "sleep",
@@ -75,6 +77,7 @@ if (
     "notification-offline",
     "upload-interruption",
   ].includes(fault) ||
+  (restartRelay && route !== "mux") ||
   !(observationMs >= 1000 && observationMs <= 180_000) ||
   !["automated", "stock"].includes(chromeMode) ||
   !(Number.isInteger(cycles) && cycles >= 1 && cycles <= 20) ||
@@ -355,6 +358,19 @@ async function updateWhileDisconnected(force = false) {
     throw new Error(`Study metadata update: ${response.status}`);
   record({ type: "server-updated", message: result.expectedMessage });
 }
+function startRelay(port = 0) {
+  return createRelayServer({
+    port,
+    inMemoryDb: !restartRelay,
+    ...(restartRelay ? { dataDir: join(out, "relay-data") } : {}),
+    logLevel: "warn",
+    disablePrettyPrint: true,
+    allowedOrigins: staticServer
+      ? new URL(staticServer.resolvedUrls.local[0]).origin
+      : undefined,
+    disableTelemetry: true,
+  });
+}
 try {
   process.env.YEP_PROVIDER_HOST_ENABLED = "false";
   const username = `study-${randomUUID().slice(0, 8)}`;
@@ -378,17 +394,7 @@ try {
       ],
     });
   }
-  if (route === "mux")
-    relay = await createRelayServer({
-      port: 0,
-      inMemoryDb: true,
-      logLevel: "warn",
-      disablePrettyPrint: true,
-      allowedOrigins: staticServer
-        ? new URL(staticServer.resolvedUrls.local[0]).origin
-        : undefined,
-      disableTelemetry: true,
-    });
+  if (route === "mux") relay = await startRelay();
   fixture = await startFixture({
     username,
     relayURL: relay ? `ws://127.0.0.1:${relay.port}/ws` : undefined,
@@ -908,6 +914,13 @@ try {
     } else await cdp.send("Page.setWebLifecycleState", { state: "active" });
     record({ type: "wake" });
     await pause(8000);
+  } else if (restartRelay) {
+    result.relayPort = relay.port;
+    await relay.close();
+    relay = undefined;
+    record({ type: "relay-stopped", port: result.relayPort });
+    await updateWhileDisconnected();
+    await pause(outageMs);
   } else if (fault === "outage") {
     gate.setMode("refuse");
     await updateWhileDisconnected();
@@ -999,6 +1012,10 @@ try {
   await updateWhileDisconnected();
   await snapshot("interrupted");
   await capture("interrupted");
+  if (restartRelay) {
+    relay = await startRelay(result.relayPort);
+    record({ type: "relay-listening", port: relay.port });
+  }
   gate.setMode("pass");
   result.restoredAt = Date.now();
   record({ type: "network-restored" });
@@ -1017,6 +1034,16 @@ try {
   let captured = false;
   let healthySince;
   while (Date.now() < deadline) {
+    if (restartRelay && result.relayRegisteredAt === undefined) {
+      const [registration] = relay.connectionManager.getActiveServers();
+      if (registration) {
+        result.relayRegisteredAt = Date.parse(registration.connectedAt);
+        record({
+          type: "relay-server-registered",
+          registeredAt: result.relayRegisteredAt,
+        });
+      }
+    }
     const state = await snapshot("observe");
     if (
       !state.connection &&

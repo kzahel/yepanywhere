@@ -66,6 +66,16 @@ const hardening = ["android", "android-chrome"].flatMap((client) =>
     [...extra, ...(client === "android-chrome" ? ["--chrome=stock"] : [])],
   ]),
 );
+const relayComparison = ["wake-outage", "relay-restart"].flatMap((fault) =>
+  ["android", "android-chrome"].map((client) => [
+    `${client}-${fault}`,
+    client,
+    "mux",
+    "session",
+    fault,
+    client === "android-chrome" ? ["--chrome=stock"] : [],
+  ]),
+);
 const push = ["notification", "notification-offline"].map((fault) => [
   fault,
   "android",
@@ -83,9 +93,13 @@ push.push([
   ["--restart-after-tap=true"],
 ]);
 const suite = process.env.YA_LIFECYCLE_SUITE ?? "smoke";
-const cases = { smoke, hardening, push }[suite];
+const cases = { smoke, hardening, "relay-comparison": relayComparison, push }[
+  suite
+];
 if (!cases)
-  throw new Error("Unknown YA_LIFECYCLE_SUITE; use smoke, hardening or push");
+  throw new Error(
+    "Unknown YA_LIFECYCLE_SUITE; use smoke, hardening, relay-comparison or push",
+  );
 const selected = process.env.YA_LIFECYCLE_CASES?.split(",");
 if (selected?.some((name) => !cases.some(([id]) => id === name)))
   throw new Error("Unknown YA_LIFECYCLE_CASES name");
