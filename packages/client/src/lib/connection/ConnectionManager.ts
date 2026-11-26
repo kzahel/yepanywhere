@@ -14,7 +14,7 @@ export interface ConnectionManagerConfig {
   /** Rapid retry budget before visible-only slow probes (default: 10) */
   maxAttempts?: number;
   recoveryDelayMs?: number;
-  /** Jitter factor for backoff randomization (default: 0.3) */
+  /** Jitter factor for rapid-retry backoff randomization (default: 0.3) */
   jitterFactor?: number;
   /** Time without events before connection is considered stale (default: 45000ms) */
   staleThresholdMs?: number;
@@ -79,7 +79,7 @@ const DEFAULT_CONFIG = {
   maxDelayMs: 30000,
   maxAttempts: 10,
   recoveryDelayMs: RECOVERY_POLICY.slowProbeMs,
-  jitterFactor: RECOVERY_POLICY.slowProbeJitter,
+  jitterFactor: 0.3,
   staleThresholdMs: 45000,
   staleCheckIntervalMs: 10000,
   pongTimeoutMs: 2000,
@@ -198,7 +198,6 @@ export class ConnectionManager {
       isVisible: () => this.visibility.isVisible(),
       policy: {
         slowProbeMs: this.config.recoveryDelayMs,
-        slowProbeJitter: this.config.jitterFactor,
         cooldownMs: RECOVERY_POLICY.cooldownMs,
       },
     });

@@ -3,27 +3,18 @@ import { observeRecoverySignals } from "./recoverySignals";
 export interface RecoveryPolicy {
   /** Visible slow-probe interval once the owner's own retries are exhausted. */
   slowProbeMs: number;
-  /** Random fraction added to slowProbeMs, spreading clients that failed together. */
-  slowProbeJitter: number;
   /** Minimum spacing between probe starts, whatever triggered them. */
   cooldownMs: number;
 }
 
-/** Browser sources and initial acquisition. */
+/**
+ * One policy for every owner. The slow probe is not jittered: it is the only
+ * passive recovery left by then, and owners that failed together were already
+ * spread by the retries that preceded it.
+ */
 export const RECOVERY_POLICY: RecoveryPolicy = {
   slowProbeMs: 60_000,
-  slowProbeJitter: 0.3,
   cooldownMs: 5_000,
-};
-
-/**
- * The bundled app's one deliberate difference: no jitter. Its slow probe is
- * the only passive recovery after native's short retry cycle, and one app
- * holds one connection per host.
- */
-export const NATIVE_RECOVERY_POLICY: RecoveryPolicy = {
-  ...RECOVERY_POLICY,
-  slowProbeJitter: 0,
 };
 
 export interface RecoveryClock<Handle> {
@@ -120,13 +111,10 @@ export class RecoveryScheduler<Handle> {
   private scheduleSlowProbe(): void {
     if (this.slowProbe !== undefined || !this.options.isVisible()) return;
     const { clock, policy } = this.options;
-    this.slowProbe = clock.setTimeout(
-      () => {
-        this.slowProbe = undefined;
-        this.signal();
-      },
-      policy.slowProbeMs * (1 + Math.random() * policy.slowProbeJitter),
-    );
+    this.slowProbe = clock.setTimeout(() => {
+      this.slowProbe = undefined;
+      this.signal();
+    }, policy.slowProbeMs);
   }
 
   private clearTimers(): void {

@@ -76,12 +76,13 @@ directory and `matrix.json` location are printed at the end of the run.
 ## Where the policy now lives
 
 Since 2026-11-26 the 60-second backstop and five-second signal cooldown are
-`NATIVE_RECOVERY_POLICY` in
+`RECOVERY_POLICY` in
 [`RecoveryScheduler.ts`](../packages/client/src/lib/connection/RecoveryScheduler.ts),
-shared with the browser's scheduler; see
+the one policy the browser also uses; see
 [one exhausted-recovery scheduler](../topics/source-transport.md#one-exhausted-recovery-scheduler).
-That change kept the native timings. Its conformance test is where an agreed
-policy change gets its unit timing regression.
+That change kept the native timings and removed the browser's slow-probe
+jitter. Its conformance test is where an agreed policy change gets its unit
+timing regression.
 
 The shared scheduler only decides when the WebView asks native for another
 cycle. This gap's cause is upstream of it: native's cycle is four attempts in

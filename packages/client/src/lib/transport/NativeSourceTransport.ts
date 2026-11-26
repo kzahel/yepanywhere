@@ -10,7 +10,7 @@ import { generateUUID } from "../uuid";
 import { NativeResponseBodies } from "./nativeResponseBodies";
 import { RelayProtocol } from "../connection/RelayProtocol";
 import {
-  NATIVE_RECOVERY_POLICY,
+  RECOVERY_POLICY,
   RecoveryScheduler,
   observePageRecovery,
   realRecoveryClock,
@@ -78,7 +78,7 @@ export class NativeSourceTransport implements SourceTransport, Connection {
     {
       clock: realRecoveryClock,
       isVisible: () => !document.hidden,
-      policy: NATIVE_RECOVERY_POLICY,
+      policy: RECOVERY_POLICY,
     },
   );
   private removeRecoverySignals: () => void = () => {};

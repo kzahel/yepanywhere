@@ -62,6 +62,27 @@ describe("exhausted recovery", () => {
     manager.stop();
   });
 
+  it("does not jitter the slow probe, unlike rapid backoff", async () => {
+    const timers = new MockTimers();
+    const reconnect = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValue(new Error("offline"));
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const manager = new ConnectionManager({
+      timers,
+      visibility: new MockVisibility(),
+      maxAttempts: 0,
+    });
+    manager.start(reconnect);
+    manager.handleClose();
+    timers.advance(59999);
+    expect(reconnect).not.toHaveBeenCalled();
+    timers.advance(1);
+    expect(reconnect).toHaveBeenCalledTimes(1);
+    manager.stop();
+    vi.restoreAllMocks();
+  });
+
   it("coalesces signals during an in-flight probe", async () => {
     const { manager, timers, reconnect } = setup();
     timers.advance(1);

@@ -409,7 +409,7 @@ principal, credential, grant or server protocol.
 A retained source remains `reconnecting` after its ten-attempt rapid retry
 budget is exhausted. Budget exhaustion is not an authentication verdict and
 must not discard the context's connection or status subscription. While visible,
-the exhausted source probes every 60–78 seconds (jittered); hidden exhausted
+the exhausted source probes every 60 seconds, without jitter; hidden exhausted
 sources have no scheduled reconnect probe. Returning to visibility, focus,
 network-online, or keyboard/pointer/history-navigation activity may request one
 immediate probe. Signals coalesce with an in-flight attempt, and probe starts
@@ -432,12 +432,14 @@ probe. It has three owners, which differ only in these inputs:
 | --- | --- | --- | --- |
 | Exhausted when | ten rapid attempts have failed | native reports a recoverable failure | a resume attempt failed retryably |
 | One probe is | one reconnect | one bounded native retry cycle | one resume attempt |
-| Slow probe | 60–78 s, jittered | 60 s, no jitter | 60–78 s, jittered |
 | Signals | visibility, focus, online, history, pointer, key | the same, plus native network-available and demand reads | visibility, focus, online, history |
 | Probe left unanswered | bounded by the connection's own timeouts | abandoned by the bridge after 30 s, then re-armed | bounded by the connection's own timeouts |
 
-Jitter is the one policy difference, held as `RECOVERY_POLICY` and
-`NATIVE_RECOVERY_POLICY` in that file; change a number there, not in an owner.
+All three use the one `RECOVERY_POLICY` in that file: a 60-second slow probe
+and a five-second cooldown. Change a number there, not in an owner. The slow
+probe is deliberately not jittered: it is the only passive recovery left once
+an owner is exhausted, so jitter there only delays it, and browser sources
+that failed together were already spread by their jittered rapid backoff.
 First acquisition omits pointer and key signals because its screen shows action
 buttons that a retry would unmount before their click fires.
 

@@ -17,10 +17,6 @@ export type RecoveryOwnerEvent = "fail" | "succeed" | "recover" | "exhaust";
 /** Probe start times, in milliseconds since exhaustion, grouped by event. */
 export type RecoveryTrace = number[][];
 
-export function slowProbeMaxMs(policy: RecoveryPolicy): number {
-  return policy.slowProbeMs * (1 + policy.slowProbeJitter);
-}
-
 /**
  * The smallest owner of a RecoveryScheduler: exhausted at time zero, probes
  * stay in flight until an event settles them or, for an owner that bounds its
@@ -119,24 +115,12 @@ export function runRecoveryModel(
   return { model, trace };
 }
 
-/**
- * Waits that land inside the cooldown, complete it, and reach the slow probe;
- * with jitter in play, one more reaches the jittered maximum.
- */
-export function recoveryAlphabet(
-  policies: readonly RecoveryPolicy[],
-  jittered: boolean,
-): RecoveryEvent[] {
-  const waits = new Set<number>();
-  for (const policy of policies) {
-    waits.add(1_000);
-    waits.add(policy.cooldownMs - 1_000);
-    waits.add(policy.slowProbeMs);
-    if (jittered && policy.slowProbeJitter > 0)
-      waits.add(policy.slowProbeMs * policy.slowProbeJitter);
-  }
+/** Waits that land inside the cooldown, complete it, and reach the slow probe. */
+export function recoveryAlphabet(policy: RecoveryPolicy): RecoveryEvent[] {
   return [
-    ...waits,
+    1_000,
+    policy.cooldownMs - 1_000,
+    policy.slowProbeMs,
     "signal",
     "hide",
     "show",
@@ -148,10 +132,9 @@ export function recoveryAlphabet(
 }
 
 /**
- * Every event sequence of the given length. Sequences do not depend on a
- * policy, so one sequence can drive owners with different policies at once.
- * Only repeated hide or show is skipped; owner events that do not apply to
- * the current state stay in, since an owner must ignore them too.
+ * Every event sequence of the given length. Only repeated hide or show is
+ * skipped; owner events that do not apply to the current state stay in, since
+ * an owner must ignore them too.
  */
 export function* recoverySequences(
   alphabet: readonly RecoveryEvent[],
@@ -176,8 +159,7 @@ export function* recoverySequences(
 
 /**
  * The recovery contract of topics/source-transport.md, checked at the state
- * one event sequence reaches. Returns violations; empty means it holds. It
- * replays the sequence, so the caller must pin Math.random.
+ * one event sequence reaches. Returns violations; empty means it holds.
  */
 export function checkRecoveryContract(
   policy: RecoveryPolicy,
@@ -185,7 +167,7 @@ export function checkRecoveryContract(
 ): string[] {
   const { model } = runRecoveryModel(policy, events);
   const problems = [...model.violations];
-  const slowMax = slowProbeMaxMs(policy);
+  const slowMax = policy.slowProbeMs;
   const probesAfter = (...continuation: RecoveryEvent[]) => {
     const next = runRecoveryModel(policy, [...events, ...continuation]);
     problems.push(...next.model.violations.slice(model.violations.length));

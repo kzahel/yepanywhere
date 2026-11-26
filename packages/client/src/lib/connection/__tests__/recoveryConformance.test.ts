@@ -16,12 +16,7 @@ import { useResumeRecovery } from "../../../hooks/useResumeRecovery";
 import { NativeSourceTransport } from "../../transport/NativeSourceTransport";
 import { NativeTransportFixture } from "../../transport/__tests__/nativeTransportFixture";
 import { ConnectionManager } from "../ConnectionManager";
-import {
-  NATIVE_RECOVERY_POLICY,
-  RECOVERY_POLICY,
-  type RecoveryPolicy,
-  RecoveryScheduler,
-} from "../RecoveryScheduler";
+import { RECOVERY_POLICY, RecoveryScheduler } from "../RecoveryScheduler";
 import {
   type RecoveryEvent,
   type RecoveryOwnerEvent,
@@ -34,18 +29,10 @@ import {
 const requestedDepth = Number(process.env.YA_RECOVERY_CONFORMANCE_DEPTH) || 0;
 const MODEL_DEPTH = requestedDepth || 5;
 const OWNER_DEPTH = requestedDepth || 3;
-// Measured 2026-11-26 on a 14-core Mac. Default depths: 0.4 s per policy for
-// the model, 0.4-0.5 s per jitter draw for the owners. Depth 5: 26 s and 43 s
-// for the two owner replays, about 159,000 sequences.
+// Measured 2026-11-26 on a 14-core Mac. Default depths: under 0.1 s for the
+// model and about 0.3 s for the owners. Depth 5: 21 s for the owner replay of
+// 59,049 sequences.
 const TIMEOUT_MS = requestedDepth ? 60 * 60_000 : 30_000;
-
-const POLICIES = [RECOVERY_POLICY, NATIVE_RECOVERY_POLICY];
-/**
- * Math.random results. 0 and 1 give the shortest and longest slow probe; the
- * model also takes one that leaves the clock on a fraction of a millisecond.
- */
-const OWNER_JITTER_DRAWS = [0, 1];
-const MODEL_JITTER_DRAWS = [0, 0.123456789, 1];
 
 /** Paths the default owner depth is too short to reach. */
 const DEEPER_SEQUENCES: RecoveryEvent[][] = [
@@ -66,7 +53,6 @@ const drain = () => new Promise<void>((resolve) => realSetImmediate(resolve));
 
 interface Owner {
   name: string;
-  policy: RecoveryPolicy;
   /** How long the owner itself lets a probe stay in flight, if it bounds it. */
   probeTimeoutMs?: number;
   probes: number[];
@@ -85,7 +71,8 @@ interface Owner {
 function managerOwner(now: () => number): Owner {
   const probes: number[] = [];
   let pending: { resolve(): void; reject(error: Error): void } | undefined;
-  // No rapid attempts: the first close already exhausts the budget.
+  // No rapid attempts: the first close already exhausts the budget. Its
+  // backoff jitter stays at the default, which must not reach the slow probe.
   const manager = new ConnectionManager({ maxAttempts: 0 });
   manager.start(() => {
     probes.push(now());
@@ -96,7 +83,6 @@ function managerOwner(now: () => number): Owner {
   manager.handleClose();
   return {
     name: "ConnectionManager",
-    policy: RECOVERY_POLICY,
     probes,
     apply(event) {
       const attempt = pending;
@@ -152,7 +138,6 @@ async function nativeOwner(now: () => number): Promise<Owner> {
   await host.emit(exhausted);
   return {
     name: "NativeSourceTransport",
-    policy: NATIVE_RECOVERY_POLICY,
     // NativeTransportBridge abandons a command without a reply.
     probeTimeoutMs: 30_000,
     probes,
@@ -207,7 +192,6 @@ function acquisitionOwner(now: () => number): Owner {
   };
   return {
     name: "useResumeRecovery",
-    policy: RECOVERY_POLICY,
     probes,
     // Its callers disable the hook for the duration of an attempt.
     afterEvent: () => {
@@ -268,7 +252,7 @@ async function divergence(
   }
   owners.forEach((owner, index) => {
     const { model, trace } = runRecoveryModel(
-      owner.policy,
+      RECOVERY_POLICY,
       events,
       owner.probeTimeoutMs,
     );
@@ -313,48 +297,39 @@ describe("recovery conformance", () => {
         clearTimeout: () => {},
       },
       isVisible: () => true,
-      policy: NATIVE_RECOVERY_POLICY,
+      policy: RECOVERY_POLICY,
     });
     scheduler.arm();
+    expect(delays).toEqual([RECOVERY_POLICY.slowProbeMs]);
     scheduler.signal();
     scheduler.arm();
-    now += NATIVE_RECOVERY_POLICY.cooldownMs - 1e-7;
+    now += RECOVERY_POLICY.cooldownMs - 1e-7;
     scheduler.signal();
     // A sub-millisecond delay can round to no delay at all, and the deferred
     // signal would then re-arm itself at the same instant forever.
     expect(delays.at(-1)).toBe(1);
   });
 
-  it.each([
-    ["browser", RECOVERY_POLICY],
-    ["native", NATIVE_RECOVERY_POLICY],
-  ])(
-    `the %s policy keeps the recovery contract to depth ${MODEL_DEPTH}`,
-    (_name, policy) => {
-      const random = vi.spyOn(Math, "random");
-      for (const draw of MODEL_JITTER_DRAWS) {
-        random.mockReturnValue(draw);
-        const alphabet = recoveryAlphabet(POLICIES, draw > 0);
-        for (let depth = 0; depth <= MODEL_DEPTH; depth++)
-          for (const events of recoverySequences(alphabet, depth)) {
-            const problems = checkRecoveryContract(policy, events);
-            if (problems.length > 0)
-              throw new Error(
-                `[${events.join(", ")}] at jitter draw ${draw}: ${problems.join("; ")}`,
-              );
-          }
-      }
+  const alphabet = recoveryAlphabet(RECOVERY_POLICY);
+
+  it(
+    `the scheduler keeps the recovery contract to depth ${MODEL_DEPTH}`,
+    () => {
+      for (let depth = 0; depth <= MODEL_DEPTH; depth++)
+        for (const events of recoverySequences(alphabet, depth)) {
+          const problems = checkRecoveryContract(RECOVERY_POLICY, events);
+          if (problems.length > 0)
+            throw new Error(`[${events.join(", ")}]: ${problems.join("; ")}`);
+        }
     },
     TIMEOUT_MS,
   );
 
-  it.each(OWNER_JITTER_DRAWS)(
-    `every owner follows the shared scheduler to depth ${OWNER_DEPTH} at jitter draw %d`,
-    async (draw) => {
-      vi.spyOn(Math, "random").mockReturnValue(draw);
+  it(
+    `every owner follows the shared scheduler to depth ${OWNER_DEPTH}`,
+    async () => {
       vi.useFakeTimers();
       const hidden = vi.spyOn(document, "hidden", "get");
-      const alphabet = recoveryAlphabet(POLICIES, draw > 0);
       const check = async (events: RecoveryEvent[]) => {
         const problem = await divergence(events, hidden);
         if (problem) throw new Error(`[${events.join(", ")}]: ${problem}`);
