@@ -410,7 +410,11 @@ A retained source remains `reconnecting` after its ten-attempt rapid retry
 budget is exhausted. Budget exhaustion is not an authentication verdict and
 must not discard the context's connection or status subscription. While visible,
 the exhausted source probes every 60 seconds, without jitter; hidden exhausted
-sources have no scheduled reconnect probe. Returning to visibility, focus,
+sources have no scheduled reconnect probe. A bundled native source, whose own
+retries end after about four seconds, first probes 10 and 20 seconds after
+successive failures and then every 30 seconds for five more, before settling
+at 60 seconds. Its attempts then fall within five seconds of the browser's
+from the fourth on. Returning to visibility, focus,
 network-online, or keyboard/pointer/history-navigation activity may request one
 immediate probe. Signals coalesce with an in-flight attempt, and probe starts
 of any origin are at least five seconds apart. A signal inside that cooldown
@@ -423,25 +427,42 @@ ordinary exponential backoff is not reset by every focus or key event.
 
 `RecoveryScheduler` (`packages/client/src/lib/connection/RecoveryScheduler.ts`)
 is the single implementation of the paragraph above. An owner arms it when its
-own retries are exhausted and disarms it when it connects, retries on its own,
-fails terminally or is disposed. Starting a probe disarms it; the owner re-arms
+own retries are exhausted and disarms it when it retries on its own, fails
+terminally or is disposed. Starting a probe disarms it; the owner re-arms
 when that attempt fails. Arming an armed scheduler does not postpone its slow
-probe. It has three owners, which differ only in these inputs:
+probe. It tells the owner whether a probe is its own timed backstop or the
+answer to a signal. It has three owners, which differ only in these inputs:
 
 | | Browser source (`ConnectionManager`) | Bundled app (`NativeSourceTransport`) | First acquisition (`useResumeRecovery`) |
 | --- | --- | --- | --- |
 | Exhausted when | ten rapid attempts have failed | native reports a recoverable failure | a resume attempt failed retryably |
-| One probe is | one reconnect | one bounded native retry cycle | one resume attempt |
+| Waits before a backstop | 60 s | 10 s, 20 s, five of 30 s, then 60 s | 60 s |
+| A backstop probe is | one reconnect | one native attempt | one resume attempt |
+| A signal probe is | one reconnect | one bounded native retry cycle | one resume attempt |
 | Signals | visibility, focus, online, history, pointer, key | the same, plus native network-available and demand reads | visibility, focus, online, history |
 | Probe left unanswered | bounded by the connection's own timeouts | abandoned by the bridge after 30 s, then re-armed | bounded by the connection's own timeouts |
 
-All three use the one `RECOVERY_POLICY` in that file: a 60-second slow probe
-and a five-second cooldown. Change a number there, not in an owner. The slow
-probe is deliberately not jittered: it is the only passive recovery left once
-an owner is exhausted, so jitter there only delays it, and browser sources
+All three end on the one `RECOVERY_POLICY` in that file: a 60-second slow
+probe and a five-second cooldown. Change a number there, not in an owner. The
+slow probe is deliberately not jittered: it is the only passive recovery left
+once an owner is exhausted, so jitter there only delays it, and browser sources
 that failed together were already spread by their jittered rapid backoff.
 First acquisition omits pointer and key signals because its screen shows action
 buttons that a retry would unmount before their click fires.
+
+`NATIVE_RECOVERY_POLICY` adds the bundled app's shorter first waits. The
+browser's own retries run for three minutes before it is exhausted; native's
+run for four seconds, so without the ramp an outage of five seconds to a
+minute waited for the 60-second probe. Each wait runs from the failure before
+it, and the ramp advances with every failure of one outage, whatever started
+the probe. It starts over once the source is ready again or its document is
+suspended. A timed backstop asks native for a single attempt because nothing
+suggests the path changed, and because a relay admits six circuit opens a
+minute for one address and host, rejected ones included
+([relay limits](relay-client-mux.md)): native's four quick attempts and the
+first two backstops fill that minute exactly. A signal still gets native's
+quick retries, which exist for a path that has just changed. The conformance
+test holds the ramp to both the browser's attempt times and that budget.
 
 The source transport remains the recovery owner after authentication. Before
 there is an attached connection, the context or relay route's failed acquisition
@@ -474,7 +495,7 @@ current unavailable operation against native state before retrying; delayed
 operation errors cannot regress a newer native observation. Exhausted recovery
 signals coalesce for five seconds, including native network-available events. A visible demand
 signal arriving within that cooldown retains one attempt for its boundary,
-rather than being lost until the 60-second backstop. Returning ready, beginning
+rather than being lost until the next backstop. Returning ready, beginning
 a retry, hiding, disposal and terminal failure cancel that deferred demand.
 
 Native bridge catch-up waits in a bounded event lane. Small lifecycle state and
@@ -814,9 +835,10 @@ runtime's transport until callers migrate.
 - `recoveryConformance.test.ts` enumerates every sequence of waits, signals,
   visibility changes, probe outcomes, out-of-band recovery and renewed
   exhaustion up to a depth. It checks the recovery contract on the scheduler,
-  then replays each sequence against all three owners in one page and requires
-  the scheduler's probe times, no recovery timer while hidden and none after
-  disposal. Ordinary runs use a small depth. For an exhaustive run:
+  then replays each sequence against all three owners in one page, each under
+  its own policy, and requires the scheduler's probe times, the native owner's
+  backstop and signal probes delivered as such, no recovery timer while hidden
+  and none after disposal. Ordinary runs use a small depth. For an exhaustive run:
   `YA_RECOVERY_CONFORMANCE_DEPTH=5 pnpm --filter @yep-anywhere/client exec vitest run recoveryConformance`.
   A new owner of exhausted recovery joins that file.
 - Add hook tests with two fake source runtimes: reconnect/status changes in

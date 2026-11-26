@@ -208,10 +208,15 @@ class YaServerConnectionManagerTest {
             assertTrue(failed.recoverable)
             assertEquals(2, fixture.connector.resumeCalls)
             assertFalse(fixture.repository.credentialCleared)
+            // A timed probe is one attempt; demand gets the retry cycle back.
+            repeat(2) { fixture.connector.results.send(Result.failure(java.io.IOException("offline"))) }
+            assertTrue(runCatching { lease.reconnect(retry = false) }.isFailure)
+            assertTrue(manager.state.value.recoverable)
+            assertEquals(3, fixture.connector.resumeCalls)
             fixture.connector.results.send(Result.success(FakeTransport(fixture.credential)))
             lease.reconnect()
             assertEquals(YaConnectionPhase.CONNECTED, manager.state.value.phase)
-            assertEquals(3, fixture.connector.resumeCalls)
+            assertEquals(5, fixture.connector.resumeCalls)
         } finally { lease.releaseAndAwait(); manager.shutdownAndAwait() }
     }
 

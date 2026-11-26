@@ -350,8 +350,11 @@ the viewer/download gap remain the next mobile release work.
   budget; it does not establish the physical typing requirement. The separate
   [CI ADB connection loss](../../gaps/android-ci-live-adb-connection-loss.md)
   remains an infrastructure diagnosis follow-up.
-  [Passive service-restoration latency](../../gaps/android-passive-service-restoration-slow-probe.md)
-  remains a measured UX follow-up under the retained 60-second probe policy.
+  Passive service-restoration latency was repaired on 2026-11-26: after
+  native's quick retries the WebView probes at the
+  [browser's cadence](../../topics/source-transport.md#one-exhausted-recovery-scheduler)
+  instead of waiting 60 seconds. iOS has
+  [no such recovery](../../gaps/ios-native-outage-recovery.md) yet.
   The shared transport-unit conformance factory remains follow-up work;
   physical update, modem, overnight and keyboard checks are the next acceptance
   step using the available internal build.

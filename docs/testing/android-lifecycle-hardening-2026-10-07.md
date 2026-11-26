@@ -120,9 +120,9 @@ absent and the file stays present. The final minified Android APK
 passes validation interrupted in flight and attachment wake into outage; stock
 emulator Chrome also passes the matched attachment wake. The Android wake
 needed about 57 seconds of passive recovery in this run, so this is evidence
-of eventual recovery, not instant reconnection. That
-[latency follow-up](../../gaps/android-passive-service-restoration-slow-probe.md)
-records the approved backstop and the limits on simply probing more often.
+of eventual recovery, not instant reconnection. That latency was repaired on
+2026-11-26 by the
+[native recovery ramp](../../topics/source-transport.md#one-exhausted-recovery-scheduler).
 
 ### Android discards an offline notification tap
 

@@ -106,9 +106,10 @@ class YaConnectionLease internal constructor(
 ) : Closeable {
     private val released = AtomicBoolean(false)
 
-    suspend fun reconnect() {
+    /** [retry] false asks an exhausted connection for one attempt, not a cycle. */
+    suspend fun reconnect(retry: Boolean = true) {
         check(!released.get()) { "Connection lease is released" }
-        manager.reconnect(id)
+        manager.reconnect(id, retry)
     }
     suspend fun state(): YaConnectionState {
         check(!released.get()) { "Connection lease is released" }
@@ -505,7 +506,7 @@ class YaServerConnectionManager(
     }
 
     /** A foreground recovery signal replaces a stale socket, never its owners. */
-    internal suspend fun reconnect(leaseId: String) {
+    internal suspend fun reconnect(leaseId: String, retry: Boolean = true) {
         val ready = mutex.withLock {
             check(leases.containsKey(leaseId)) { "Connection lease is released" }
             check(mutableState.value.phase !in setOf(YaConnectionPhase.REAUTHENTICATION_REQUIRED, YaConnectionPhase.REVOKED)) {
@@ -518,6 +519,10 @@ class YaServerConnectionManager(
             if (connectionJob != null && mutableState.value.phase in setOf(YaConnectionPhase.CONNECTING, YaConnectionPhase.RETRYING)) {
                 return@withLock connectionReady
             }
+            // Quick retries serve a path that just changed. A timed probe of an
+            // exhausted one has no such evidence, and repeating the cycle
+            // would overrun the relay's per-host open budget.
+            val single = !retry && mutableState.value.phase == YaConnectionPhase.FAILED
             connectionGeneration += 1
             connectionJob?.cancel()
             connection?.transport?.cancel()
@@ -530,7 +535,7 @@ class YaServerConnectionManager(
             failConversationsLocked(error)
             connectionReady.completeExceptionally(error)
             mutableState.value = YaConnectionState(YaConnectionPhase.CONNECTING)
-            startConnectionIfNeededLocked()
+            startConnectionIfNeededLocked(if (single) emptyList() else retryDelaysMs)
             connectionReady
         }
         ready.await()
@@ -540,19 +545,20 @@ class YaServerConnectionManager(
         check(settled.phase == YaConnectionPhase.CONNECTED) { "Native connection is unavailable" }
     }
 
-    private fun startConnectionIfNeededLocked() {
+    private fun startConnectionIfNeededLocked(delaysMs: List<Long> = retryDelaysMs) {
         if (leases.isEmpty() || connection != null || connectionJob != null) return
         if (mutableState.value.phase in setOf(YaConnectionPhase.REAUTHENTICATION_REQUIRED, YaConnectionPhase.REVOKED) ||
             (mutableState.value.phase == YaConnectionPhase.FAILED && !mutableState.value.recoverable)) return
         connectionGeneration += 1
         val generation = connectionGeneration
         connectionReady = CompletableDeferred()
-        connectionJob = scope.launch { runConnectionLoop(generation, connectionReady) }
+        connectionJob = scope.launch { runConnectionLoop(generation, connectionReady, delaysMs) }
     }
 
     private suspend fun runConnectionLoop(
         generation: Long,
         ready: CompletableDeferred<Unit>,
+        delaysMs: List<Long>,
     ) {
         var failureCount = 0
         try {
@@ -631,7 +637,7 @@ class YaServerConnectionManager(
                 } catch (error: Throwable) {
                     clearConnection(generation, routed?.transport, error)
                     if (!hasDemand(generation)) return
-                    if (failureCount >= retryDelaysMs.size) {
+                    if (failureCount >= delaysMs.size) {
                         failTerminal(
                             generation,
                             ready,
@@ -642,7 +648,7 @@ class YaServerConnectionManager(
                         )
                         return
                     }
-                    val delayMs = retryDelaysMs[failureCount]
+                    val delayMs = delaysMs[failureCount]
                     failureCount += 1
                     setState(
                         generation,

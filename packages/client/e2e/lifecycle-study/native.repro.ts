@@ -18,19 +18,6 @@ async function setup() {
 }
 
 describe("native lifecycle: observed recovery contract", () => {
-  it("does retry a failed source on its 60-second visible backstop", async () => {
-    const { host, source } = await setup();
-    vi.useFakeTimers();
-    await host.emit({ type: "state", phase: "FAILED", recoverable: true });
-    await vi.advanceTimersByTimeAsync(59_999);
-    expect(host.commands).toHaveLength(0);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(host.commands.map((command) => command.method)).toEqual([
-      "reconnect",
-    ]);
-    expect(source.status.getSnapshot().state).toBe("ready");
-  });
-
   it("keeps exhausted network recovery visibly reconnecting", async () => {
     const { host, source } = await setup();
     await host.emit({ type: "state", phase: "FAILED", recoverable: true });

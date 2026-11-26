@@ -353,6 +353,8 @@ While a lease exists, an unexpected disconnect gets three bounded retries
 after 250 ms, 1 second, and 3 seconds. The manager has no recurring retry or
 heartbeat of its own. A new explicit request after a terminal failure may
 start a new bounded cycle; no work restarts after the final lease is gone.
+A lease owner may instead ask an exhausted connection for a single attempt
+with no retries; it ends in the same recoverable failure or a connection.
 
 Routes are tried in deterministic order: the last successful/preferred route,
 then remaining direct routes, then remaining legacy relay routes. Every
@@ -712,9 +714,12 @@ The first successful activity subscription revalidates reads from cold entry.
 
 Android native reconnect retains lease owners and subscription intents, joins
 an existing acquisition/retry, and can replace a stale transport after network
-restoration. The WebView requests a new bounded native cycle on visible demand,
-network restoration or a visible 60-second backstop after exhaustion. There is
-no hidden retry timer. Android explicitly marks exhausted network failures as
+restoration. After exhaustion the WebView requests a new bounded native cycle
+on visible demand or network restoration, and a single native attempt on its
+visible timed backstop. That backstop waits 10 and 20 seconds after successive
+failures, 30 seconds for the next five, and 60 seconds from then on
+([one exhausted-recovery scheduler](source-transport.md#one-exhausted-recovery-scheduler)).
+There is no hidden retry timer. Android explicitly marks exhausted network failures as
 recoverable; callers continue to see `reconnecting`, not terminal disconnect.
 Android manager state events include `recoverable`: on `FAILED`, true denotes
 network exhaustion and false denotes terminal failure. Its presence advertises
@@ -724,7 +729,8 @@ within its existing bound. Legacy native hosts without this field retain their
 existing mapping. An Android default-network-available callback joins the same WebView recovery
 scheduler as visibility, activity and online signals; it creates no second
 retry timer and does nothing for hidden or suspended documents. Service
-restoration without a network event can still wait for the 60-second backstop.
+restoration without a network event waits for the next backstop: at most 30
+seconds in the first three minutes of an outage, and 60 seconds after that.
 Authentication rejection/revocation, failed message/proof verification and a
 broken local bridge do not enter that recovery loop. Verification failure does
 not itself request sign-in. Native route fallback still tries another saved

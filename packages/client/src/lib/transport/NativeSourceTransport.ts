@@ -10,8 +10,9 @@ import { generateUUID } from "../uuid";
 import { NativeResponseBodies } from "./nativeResponseBodies";
 import { RelayProtocol } from "../connection/RelayProtocol";
 import {
-  RECOVERY_POLICY,
+  NATIVE_RECOVERY_POLICY,
   RecoveryScheduler,
+  type RecoveryTrigger,
   observePageRecovery,
   realRecoveryClock,
 } from "../connection/RecoveryScheduler";
@@ -72,13 +73,13 @@ export class NativeSourceTransport implements SourceTransport, Connection {
   private connectionEpoch: number | undefined;
   private recovery: Promise<void> | null = null;
   // Native owns its short retry cycle. After exhaustion, only visible demand
-  // can request another cycle; no duplicate sockets or hidden polling.
+  // can request more attempts; no duplicate sockets or hidden polling.
   private readonly recoveryScheduler = new RecoveryScheduler(
-    () => void this.reconnect().catch(() => {}),
+    (trigger) => void this.reconnect(trigger).catch(() => {}),
     {
       clock: realRecoveryClock,
       isVisible: () => !document.hidden,
-      policy: RECOVERY_POLICY,
+      policy: NATIVE_RECOVERY_POLICY,
     },
   );
   private removeRecoverySignals: () => void = () => {};
@@ -262,6 +263,10 @@ export class NativeSourceTransport implements SourceTransport, Connection {
   private syncRecovery(): void {
     if (this.canRecover() && ["FAILED", "EXHAUSTED"].includes(this.phase))
       this.recoveryScheduler.arm();
+    // Ready ends the outage. So does suspension: native starts its own quick
+    // cycle again when the document returns.
+    else if (["CONNECTED", "SUSPENDED"].includes(this.phase))
+      this.recoveryScheduler.reset();
     else this.recoveryScheduler.disarm();
   }
 
@@ -677,7 +682,11 @@ export class NativeSourceTransport implements SourceTransport, Connection {
       this.uploads.delete(uploadId);
     }
   }
-  reconnect(): Promise<void> {
+  /**
+   * A backstop asks native for one attempt. Anything else may mean the path
+   * just changed, which is what native's quick retries are for.
+   */
+  reconnect(trigger: RecoveryTrigger = "signal"): Promise<void> {
     if (this.recovery) return this.recovery;
     if (!this.canRecover())
       return Promise.reject(
@@ -686,7 +695,10 @@ export class NativeSourceTransport implements SourceTransport, Connection {
     this.recoveryScheduler.recordProbe();
     this.setPhase("RETRYING");
     const nativeStateRevision = this.nativeStateRevision;
-    const recovery = this.bridge.request<void>("reconnect");
+    const recovery = this.bridge.request<void>(
+      "reconnect",
+      trigger === "backstop" ? { retry: false } : {},
+    );
     this.recovery = recovery;
     void recovery
       .then(

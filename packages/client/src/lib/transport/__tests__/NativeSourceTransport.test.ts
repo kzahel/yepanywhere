@@ -65,18 +65,38 @@ describe("native source transport", () => {
     expect(transport.status.getSnapshot().state).toBe("ready");
   });
 
-  it("keeps Android retry exhaustion recoverable without changing the backstop", async () => {
+  it("keeps Android retry exhaustion recoverable and soon asks for one more attempt", async () => {
     const { host, transport } = await setup();
     vi.useFakeTimers();
     await host.emit({ type: "state", phase: "FAILED", recoverable: true });
     expect(transport.status.getSnapshot().state).toBe("reconnecting");
-    await vi.advanceTimersByTimeAsync(59_999);
+    await vi.advanceTimersByTimeAsync(9_999);
     expect(host.commands).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(1);
-    expect(host.commands.map((command) => command.method)).toEqual([
-      "reconnect",
-    ]);
+    expect(
+      host.commands.map(({ method, params }) => ({ method, params })),
+    ).toEqual([{ method: "reconnect", params: { retry: false } }]);
     expect(transport.status.getSnapshot().state).toBe("ready");
+  });
+
+  it("starts the recovery ramp over when the document returns from suspension", async () => {
+    const { host } = await setup();
+    vi.useFakeTimers();
+    const exhausted = { type: "state", phase: "FAILED", recoverable: true };
+    host.handler = async () => {
+      await host.emit(exhausted);
+      throw new Error("offline");
+    };
+    await host.emit(exhausted);
+    // The first wait is 10 seconds and the second 20.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(host.commands).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(host.commands).toHaveLength(1);
+    await host.emit({ type: "state", phase: "SUSPENDED" });
+    await host.emit(exhausted);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(host.commands).toHaveLength(2);
   });
 
   it("uses native network restoration once and ignores it while suspended", async () => {

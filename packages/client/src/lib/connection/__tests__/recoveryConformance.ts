@@ -1,4 +1,8 @@
-import { RecoveryScheduler, type RecoveryPolicy } from "../RecoveryScheduler";
+import {
+  type RecoveryPolicy,
+  RecoveryScheduler,
+  type RecoveryTrigger,
+} from "../RecoveryScheduler";
 import { MockTimers } from "./ConnectionSimulator";
 
 /**
@@ -26,6 +30,7 @@ export type RecoveryTrace = number[][];
 export class RecoveryModel {
   readonly timers = new MockTimers();
   readonly probes: number[] = [];
+  readonly triggers: RecoveryTrigger[] = [];
   readonly violations: string[] = [];
   visible = true;
   inFlight = false;
@@ -37,7 +42,7 @@ export class RecoveryModel {
     private readonly policy: RecoveryPolicy,
     private readonly probeTimeoutMs?: number,
   ) {
-    this.scheduler = new RecoveryScheduler(() => this.probe(), {
+    this.scheduler = new RecoveryScheduler((trigger) => this.probe(trigger), {
       clock: {
         // A timer that keeps re-arming at the current instant would spin
         // MockTimers forever; fail instead.
@@ -59,7 +64,7 @@ export class RecoveryModel {
     return !this.inFlight && !this.done;
   }
 
-  private probe(): void {
+  private probe(trigger: RecoveryTrigger): void {
     const now = this.timers.now();
     const previous = this.probes.at(-1);
     if (!this.visible) this.violations.push(`probe while hidden at ${now}`);
@@ -68,6 +73,7 @@ export class RecoveryModel {
     if (previous !== undefined && now - previous < this.policy.cooldownMs)
       this.violations.push(`probes at ${previous} and ${now} inside cooldown`);
     this.probes.push(now);
+    this.triggers.push(trigger);
     this.inFlight = true;
     if (this.probeTimeoutMs === undefined) return;
     const attempt = this.probes.length;
@@ -81,7 +87,7 @@ export class RecoveryModel {
     if (outcome === "fail") this.scheduler.arm();
     else {
       this.done = true;
-      this.scheduler.disarm();
+      this.scheduler.reset();
     }
   }
 
@@ -168,16 +174,32 @@ export function checkRecoveryContract(
   const { model } = runRecoveryModel(policy, events);
   const problems = [...model.violations];
   const slowMax = policy.slowProbeMs;
+  let first: { at: number; trigger?: string } | undefined;
   const probesAfter = (...continuation: RecoveryEvent[]) => {
     const next = runRecoveryModel(policy, [...events, ...continuation]);
     problems.push(...next.model.violations.slice(model.violations.length));
+    const at = next.model.probes[model.probes.length];
+    first =
+      at === undefined
+        ? undefined
+        : { at, trigger: next.model.triggers[model.triggers.length] };
     return next.model.probes.length - model.probes.length;
   };
   if (model.visible && model.waiting) {
+    const now = model.timers.now();
     if (probesAfter(slowMax) < 1)
       problems.push("visible wait has no slow probe");
+    // An earlier signal can only still be pending inside the cooldown.
+    else if (
+      first &&
+      first.at - now > policy.cooldownMs &&
+      first.trigger !== "backstop"
+    )
+      problems.push("slow probe not reported as a backstop");
     if (probesAfter("signal", policy.cooldownMs) < 1)
       problems.push("signal not honoured within the cooldown");
+    else if (first?.trigger !== "signal")
+      problems.push("honoured signal not reported as a signal");
     return problems;
   }
   if (model.timers.pendingCount !== 0)
