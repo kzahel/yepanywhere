@@ -80,6 +80,7 @@ import {
   probeAntigravityUsage,
 } from "./antigravity-usage.js";
 import { compactAntigravity } from "./antigravity-compaction.js";
+import { AntigravityContextMeter } from "./antigravity-context-usage.js";
 import { AntigravitySubagentTracker } from "./antigravity-subagent-tracker.js";
 import { readAntigravityMetadata } from "../../sessions/antigravity-metadata.js";
 import type {
@@ -998,6 +999,7 @@ export class AntigravityProvider implements AgentProvider {
       };
       let foregroundUpdate: ((update: AntigravityUpdate) => void) | undefined;
       let passiveTranscript: AntigravityTranscript | undefined;
+      const contextMeter = new AntigravityContextMeter(id);
       let compacting = false;
       subagents = new AntigravitySubagentTracker({
         sessionId: id,
@@ -1114,6 +1116,7 @@ export class AntigravityProvider implements AgentProvider {
           resolvedModel = selected;
           return;
         }
+        if (contextMeter.observe(update, resolvedModel, updates)) changed();
         if (observeCommands(update))
           publish({
             type: "system",
@@ -1442,7 +1445,12 @@ export class AntigravityProvider implements AgentProvider {
         if (failure) throw failure;
         runtime.endingTurn();
         sampler.settle();
-        yield { type: "result", session_id: id, usage };
+        yield {
+          type: "result",
+          session_id: id,
+          usage,
+          ...contextMeter.result(),
+        };
       }
     } catch (error) {
       failReady(error);

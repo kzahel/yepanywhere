@@ -99,6 +99,8 @@ export type AntigravityLogRecord = {
       thinking?: string;
       calls: ToolCall[];
       error?: string;
+      /** The model call's tokens, in the nested message's usage shape. */
+      usage?: AntigravityStepUsage;
       /** Its calls are unknown; the results after it are not shown. */
       opaque?: true;
     }
@@ -124,6 +126,35 @@ interface Shape {
 }
 
 const TOKEN_KEYS = ["input_tokens", "cache_read_tokens", "output_tokens"];
+
+/**
+ * A step's tokens as Claude's API names them: `input_tokens` is the input
+ * not read from cache, so the context the call filled is the sum of the two
+ * input counts.
+ */
+export interface AntigravityStepUsage {
+  input_tokens: number;
+  cache_read_input_tokens: number;
+  output_tokens: number;
+}
+
+function stepUsage(
+  field: (key: string) => unknown,
+): { usage: AntigravityStepUsage } | Record<string, never> {
+  const input = field("input_tokens");
+  if (typeof input !== "number") return {};
+  const count = (key: string) => {
+    const value = field(key);
+    return typeof value === "number" ? value : 0;
+  };
+  return {
+    usage: {
+      input_tokens: input,
+      cache_read_input_tokens: count("cache_read_tokens"),
+      output_tokens: count("output_tokens"),
+    },
+  };
+}
 const COMMON_KEYS = ["step_index", "source", "type", "status", "created_at"];
 /** As observed on 1.5.13 and 1.5.14. */
 const SHAPES = new Map<string, Shape>([
@@ -400,6 +431,7 @@ function parseRecord(line: string): AntigravityLogRecord | { unknown: string } {
         ...optional("content"),
         ...optional("thinking"),
         ...optional("error"),
+        ...stepUsage(field),
       };
     }
     case "GENERIC":
@@ -822,6 +854,7 @@ export class AntigravityLogProjection {
         const assistant = (content: Message["message"]) => ({
           role: "assistant",
           ...(record.model ? { model: record.model } : {}),
+          ...(record.usage ? { usage: record.usage } : {}),
           ...content,
         });
         if (record.thinking)

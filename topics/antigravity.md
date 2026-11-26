@@ -298,7 +298,15 @@ existing authority and receipt contracts. Eligible bypass-permissions CLI
 launches receive their own private v0 connection when Agent API discovery is
 enabled. See [HTTP API v0](http-api-v0.md#local-agent-bootstrap).
 The shared subscription usage surface can show quota buckets from the CLI
-status line on supported hosts. Rewind, fork and general YA instruction
+status line on supported hosts; a window with no usage yet shows no reset
+time (`agy` reports the Unix epoch for it). The context meter, which also
+opens those quota windows, follows ACP `usage_update`: each changed `used`
+of `size` reaches clients as a `system`/`token_usage` frame, and the turn's
+result reports `size` as the observed context window. A history read reports
+the latest page's last logged model step, its `input_tokens` plus
+`cache_read_tokens`, against the model's default window; a step that logged
+no tokens leaves the one before it. Checked on `agy` 1.5.18 with
+Gemini 4 Neon. Rewind, fork and general YA instruction
 injection remain outside the current provider scope.
 Native skills, hooks, MCP configuration and provider-created workspace files
 remain Google's behavior; YA creates no project-local cache or Git exclusions.

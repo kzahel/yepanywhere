@@ -3,8 +3,14 @@ import type {
   AntigravityLogBoundary,
   AntigravityOwnerView,
 } from "../sdk/providers/antigravity-owners.js";
-import type { Message, SessionSummary } from "../supervisor/types.js";
+import { getModelContextWindow } from "@yep-anywhere/shared";
+import type {
+  ContextUsage,
+  Message,
+  SessionSummary,
+} from "../supervisor/types.js";
 import { antigravityHistoryNotice } from "./antigravity-history-notice.js";
+import type { AntigravityStepUsage } from "./antigravity-log-projection.js";
 import {
   type AntigravityLogWindow,
   type AntigravityLogWindowRequest,
@@ -223,6 +229,36 @@ function firstUserText(messages: readonly Message[]): string | undefined {
   return undefined;
 }
 
+/**
+ * The context the last logged model call filled, from its step's tokens.
+ * An owner's live rows carry none: its clients follow `usage_update`.
+ */
+function lastContextUsage(
+  messages: readonly Message[],
+): ContextUsage | undefined {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index]?.message;
+    const usage = message?.usage as AntigravityStepUsage | undefined;
+    if (!usage) continue;
+    const inputTokens = usage.input_tokens + usage.cache_read_input_tokens;
+    const model = typeof message?.model === "string" ? message.model : "";
+    const contextWindow = getModelContextWindow(model, "antigravity");
+    return {
+      inputTokens,
+      percentage: Math.min(
+        100,
+        Math.round((inputTokens / contextWindow) * 100),
+      ),
+      contextWindow,
+      ...(usage.output_tokens ? { outputTokens: usage.output_tokens } : {}),
+      ...(usage.cache_read_input_tokens
+        ? { cacheReadTokens: usage.cache_read_input_tokens }
+        : {}),
+    };
+  }
+  return undefined;
+}
+
 function lastModel(messages: readonly Message[]): string | undefined {
   const model = [...messages]
     .reverse()
@@ -294,6 +330,8 @@ export function antigravityJoinedSession(
   }
   summary.messageCount = messages.length;
   summary.model = lastModel(messages) ?? read.model;
+  const contextUsage = lastContextUsage(messages);
+  if (contextUsage) summary.contextUsage = contextUsage;
   return {
     summary,
     ...(read.incomplete || gap ? { transcriptComplete: false as const } : {}),

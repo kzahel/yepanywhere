@@ -205,14 +205,13 @@ export function normalizeAntigravityUsage(
       .filter(({ id }) => bucket.model.test(id))
       .map(({ id }) => id);
     if (modelIds.length === 0) continue;
+    // A window with no usage yet reports the Unix epoch as its reset time.
     const reset = Date.parse(quota.reset_time ?? "");
     windows.push({
       id: `antigravity:${bucket.id}`,
       usedPercent: (1 - quota.remaining_fraction) * 100,
       windowDurationMinutes: bucket.minutes,
-      resetsAt: Number.isFinite(reset)
-        ? new Date(reset).toISOString()
-        : undefined,
+      resetsAt: reset > 0 ? new Date(reset).toISOString() : undefined,
       scope: { type: "models", label: bucket.label, modelIds },
     });
   }

@@ -307,6 +307,16 @@ describe("Antigravity native process boundary", () => {
       expect(active.getMessageHistory().some((m) => m.type === "result")).toBe(
         true,
       );
+      // `usage_update` drives the context meter and the observed window.
+      expect(
+        active
+          .getMessageHistory()
+          .find((m) => m.type === "system" && m.subtype === "token_usage"),
+      ).toMatchObject({
+        usage: { input_tokens: 123 },
+        model_context_window: 1_048_576,
+      });
+      expect(active.contextWindow).toBe(1_048_576);
       expect(metadata.identities.resolveYa(receipt.sessionId)?.native?.id).toBe(
         nativeId,
       );

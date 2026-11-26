@@ -91,6 +91,45 @@ const texts = (
   );
 
 describe("Antigravity reader over the log", () => {
+  it("reports the context the last logged model call filled", async () => {
+    const tokens = (step: number, input: number, cached: number) =>
+      line({
+        step_index: step,
+        source: "MODEL",
+        type: "PLANNER_RESPONSE",
+        status: "DONE",
+        created_at: at,
+        model: "gemini-4-neon-low",
+        content: `REPLY_${step}`,
+        input_tokens: input,
+        cache_read_tokens: cached,
+        output_tokens: 7,
+      });
+    const read = async (name: string, log: string) =>
+      (
+        await reader(await store(name, log)).getSession(
+          ID,
+          toUrlProjectId(project),
+          undefined,
+          { tailCompactions: 2 },
+        )
+      )?.summary.contextUsage;
+    expect(await read("a", prompt("Ask") + reply(1, "NO"))).toBeUndefined();
+    // A step that logged no tokens (a cancelled reply) leaves the last one.
+    const log =
+      prompt("Ask") +
+      tokens(1, 11_177, 0) +
+      tokens(2, 2_153, 113_019) +
+      reply(3, "CANCELLED");
+    expect(await read("b", log)).toEqual({
+      inputTokens: 115_172,
+      percentage: 12,
+      contextWindow: 1_000_000,
+      outputTokens: 7,
+      cacheReadTokens: 113_019,
+    });
+  });
+
   it("never returns the old store's messages after its binding moves mid-read", async () => {
     const a = await store("a", prompt("Ask") + reply(1, "REPLY_FROM_A"));
     const b = await store("b", prompt("Ask") + reply(1, "REPLY_FROM_B"));
