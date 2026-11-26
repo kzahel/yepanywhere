@@ -89,7 +89,13 @@ impl Wire {
             let mut wire = Self::open(&url).await?;
             wire.plain_send(&json!({"type":"client_connect","username":target}))
                 .await?;
-            check(wire.plain_receive().await?["type"] == "client_connected")?;
+            let reply = wire.plain_receive().await?;
+            // The relay knows the host, which is not connected to it right
+            // now: an outage to retry, not a peer that failed verification.
+            if reply["type"] == "client_error" && reply["reason"] == "server_offline" {
+                return Err(Error::Unavailable);
+            }
+            check(reply["type"] == "client_connected")?;
             Ok(wire)
         } else {
             Self::open(&url).await
@@ -241,4 +247,96 @@ pub(crate) async fn open_socket(url: &Url, budget: usize) -> Result<Socket> {
     .map_err(|_| Error::Timeout)?
     .map_err(|_| Error::Unavailable)?;
     Ok(socket)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+        task::JoinHandle,
+    };
+    use tokio_tungstenite::accept_async;
+
+    /// A relay that advertises the shared socket, refuses every circuit open
+    /// with `refusal`, and answers the first dedicated-socket claim with
+    /// `reply`. Yields the number of circuits it refused before that claim.
+    async fn fake_relay(refusal: &'static str, reply: Value) -> (String, JoinHandle<u32>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("ws://{}/ws", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            let mut refused = 0;
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut head = [0u8; 11];
+                while stream.peek(&mut head).await.unwrap() < head.len() {
+                    tokio::task::yield_now().await;
+                }
+                if &head == b"GET /health" {
+                    let mut request = Vec::new();
+                    while !request.ends_with(b"\r\n\r\n") {
+                        request.push(stream.read_u8().await.unwrap());
+                    }
+                    let body = r#"{"relayCapabilities":["client-mux-v1"]}"#;
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                        body.len()
+                    );
+                    stream.write_all(response.as_bytes()).await.unwrap();
+                    continue;
+                }
+                let mut socket = accept_async(stream).await.unwrap();
+                if head.starts_with(b"GET /ws ") {
+                    let Some(Ok(Message::Text(text))) = socket.next().await else {
+                        panic!("dedicated socket sent no claim");
+                    };
+                    let claim: Value = serde_json::from_str(&text).unwrap();
+                    assert_eq!(claim, json!({"type":"client_connect","username":"host"}));
+                    socket.send(Message::text(reply.to_string())).await.unwrap();
+                    return refused;
+                }
+                assert!(head.starts_with(b"GET /mux "));
+                let ready = json!({"type":"mux_ready","protocolVersion":1,"maxCircuits":5,"maxFrameBytes":65536});
+                socket.send(Message::text(ready.to_string())).await.unwrap();
+                let Some(Ok(Message::Text(text))) = socket.next().await else {
+                    panic!("shared socket sent no open");
+                };
+                let open: Value = serde_json::from_str(&text).unwrap();
+                assert_eq!(open["type"], "mux_open");
+                let error =
+                    json!({"type":"mux_error","circuitId":open["circuitId"],"reason":refusal});
+                socket.send(Message::text(error.to_string())).await.unwrap();
+                refused += 1;
+                // Keep the shared socket open, as a relay does for its peers.
+                tokio::spawn(async move { while socket.next().await.is_some() {} });
+            }
+        });
+        (endpoint, task)
+    }
+    async fn connect(endpoint: &str) -> Result<Wire> {
+        timeout(
+            Duration::from_secs(5),
+            Wire::connect(endpoint, Some("host")),
+        )
+        .await
+        .unwrap()
+    }
+
+    // Callers end recovery on InvalidMessage, so a host that is merely away
+    // from its relay must not produce it.
+    #[tokio::test]
+    async fn host_away_from_its_relay_is_an_outage_and_an_unknown_host_is_not() {
+        let offline = json!({"type":"client_error","reason":"server_offline"});
+        let (endpoint, relay) = fake_relay("server_offline", offline).await;
+        assert!(matches!(connect(&endpoint).await, Err(Error::Unavailable)));
+        assert_eq!(relay.await.unwrap(), 1);
+
+        let unknown = json!({"type":"client_error","reason":"unknown_username"});
+        let (endpoint, _relay) = fake_relay("unknown_username", unknown).await;
+        assert!(matches!(
+            connect(&endpoint).await,
+            Err(Error::InvalidMessage)
+        ));
+    }
 }

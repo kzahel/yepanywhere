@@ -735,7 +735,11 @@ Authentication rejection/revocation, failed message/proof verification and a
 broken local bridge do not enter that recovery loop. Verification failure does
 not itself request sign-in. Native route fallback still tries another saved
 route, but an unverified response cannot become mere retry exhaustion when no
-route authenticates. These changes retain the existing owner identity,
+route authenticates. A relay's `server_offline` reply is not such a response:
+the host is registered but away from its relay, as it is for some seconds after
+a relay or server restart, so native retries it and reports exhaustion as
+recoverable, as the browser does. `unknown_username` stays terminal. These
+changes retain the existing owner identity,
 credentials and server authority; no new principal or grant is introduced.
 Recovery updates the mounted page without a document reload.
 For a retained session or Inbox view, recovery catches up messages and session
