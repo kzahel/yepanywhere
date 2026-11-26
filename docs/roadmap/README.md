@@ -282,9 +282,12 @@ target, but Intel UI remained CPU-bound. The 18 tests and 100 ms typing ceiling
 remain intact. Initial physical-phone acceptance also passes: 15 native and both
 UI tests on iPhone SE (3rd generation), iOS 26.6.1, with development signing and installation.
 Typing peaks at 33 ms over 37 keys, with zero drops and 226 concurrent transcript
-mutations; foreground/relaunch and Switch Host pass. Store signing/publication,
-tablet acceptance and the broader device/network matrix remain release work.
-Self-contained HTML previews and Blob exports now have tested WebKit adapters. Multi-file previews still need [scoped resource loading](../../gaps/ios-webview-viewers-and-downloads.md).
+mutations. Foreground, relaunch and Switch Host pass. CI now signs and delivers
+internal TestFlight builds. Tablet acceptance and the broader device/network
+matrix remain release work.
+[CI delivered iOS 0.1.0 (167.1) to Internal](https://github.com/kzahel/yepanywhere/actions/runs/45877362715).
+The simulator verifies isolated multi-file HTML previews over a live artifact
+grant and Blob exports through WKDownload.
 Native per-host push enrollment and presentation are implemented. The updated
 broker is deployed; physical Android acceptance proves foreground/background
 FCM, two-host isolation, authenticated session taps and headless presentation.
@@ -300,8 +303,8 @@ Android's R8-minified physical Pixel proof includes two hosts on one relay socke
 and a 100 MiB upload with 16.6 ms peak typing latency. iOS simulator acceptance
 and the physical iPhone native/UI suites pass; the updated physical typing proof
 records 37 inputs, zero drops, 19 ms peak and 294 concurrent mutations.
-Release builds and required local checks pass. Store publication, remaining native push acceptance and
-the viewer/download gap remain the next mobile release work.
+The next mobile release checks cover production push on a TestFlight phone
+and public store publication.
 
 ### Current baseline
 
@@ -415,8 +418,10 @@ the viewer/download gap remain the next mobile release work.
   Android 0.1.2 (1002) is now available to internal testers with host-switch
   resume and WebView inset fixes; the Play password association is verified.
   Retesting the updated Google Play-signed install remains open.
-  French classification/filing is deferred before enabling that market; iOS
-  the existing account holder is enrolled in Internal. Production iOS push and TestFlight phone acceptance remain open. Both mobile workflows support explicit internal delivery. See [mobile store preparation](../distribution/mobile/README.md).
+  France remains excluded pending the encryption filing. The existing account
+  holder is enrolled in Internal. Both mobile workflows support explicit internal
+  delivery. Production iOS notifications and installation on a TestFlight phone
+  remain to be verified. See [mobile store preparation](../distribution/mobile/README.md).
   October 5 public Android setup saves category/contact, app-access instructions
   and all 11 app-setup tasks, including content ratings and Data safety.
   An isolated synthetic reviewer VM passes
@@ -544,9 +549,7 @@ historical evidence in Git.
 tap acceptance, and release-device/network checks for both mobile apps. The
 [Android offline recovery repair](../testing/android-offline-recovery-investigation.md)
 keeps cold pages navigable and recovers in place; physical Pixel/public-relay
-radio-loss and launcher-reopening checks pass locally. Complete
-multi-file iOS preview resource loading before claiming full viewer parity; a new
-SwiftUI transcript/composer design is not required. Desktop release and
+radio-loss and launcher-reopening checks pass locally. The iOS shell now loads multi-file reports inside an isolated WebKit viewer. Desktop release and
 continuous-delivery work continue independently.
 
 ## Active maintenance focus: core house cleaning
