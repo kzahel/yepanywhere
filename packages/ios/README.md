@@ -36,7 +36,13 @@ in build/host-*.json; compilation does not overlap simulator measurement.
 Hosted native tests run first. UI acceptance then requires two consecutive
 host samples with at least 20% CPU idle and 1 GiB available memory. First-use
 simulator services have up to five minutes to settle; inadequate headroom
-fails readiness without skipping or relaxing the 100 ms input gate.
+fails readiness without skipping or relaxing the input gate.
+The input gate is 100 ms locally and on devices. When `CI` is set it is a
+250 ms regression ceiling, about 2.3 times the hosted maximum of 108 ms seen
+in roughly 40 hosted arm64 runs from November 1 to 26, following
+[sequential typing latency](../../topics/ui-testing.md#sequential-typing-latency).
+The test always prints its `QA typing report` and emits a `typing-target-miss`
+warning above 100 ms. Zero dropped keys and the exact draft remain mandatory.
 `build` links an unsigned Release device application;
 it does not install, sign for distribution or publish it. Generated projects,
 bindings, archives, fixture data and xcresults remain ignored under build/.

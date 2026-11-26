@@ -159,7 +159,10 @@ describe("Antigravity log windows", () => {
       expect(pages.flat()).toEqual(all);
       if (pageBytes === 700) expect(pages.length).toBeGreaterThan(100);
     }
-  });
+    // ~250 ms locally. 30 CI unit-test runs (Nov 24-26) passed at 0.8-4.8 s and
+    // timed out twice at the 5 s default (45604187494, 45801048254), so the
+    // observed maximum is at least 5 s: 3x.
+  }, 15_000);
 
   it("resolves every message ID it emits as a page boundary and as an incremental anchor", async () => {
     // Each anchor rereads part of the log. Keep scale coverage in the paging tests.
