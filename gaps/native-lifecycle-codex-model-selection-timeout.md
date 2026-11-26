@@ -8,6 +8,14 @@ request and cold launch", has no explicit timeout and so runs under vitest's
 file right afterwards passed all six cases. The case starts a real Codex
 executable twice, so its duration follows machine load.
 
+A sibling failed the same way on 2026-11-26:
+`test/native-provider/native-input.test.ts`, case "native input boundaries:
+claude > keeps buffered inputs separate before native grouping and preserves
+history", timed out at the 5000 ms default in a full `pnpm test` while the
+other 7,942 server cases passed. It takes about 1.3 s alone, and three
+isolated runs of the file passed. The budget belongs to the native-provider
+cases as a group, not to one of them.
+
 Not fixed in place: the failure appeared while landing an unrelated router
 change, and [test time budgets](../topics/test-time-budgets.md) requires a
 limit taken from measured runs rather than a guess. The fix is to measure the
