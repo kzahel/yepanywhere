@@ -186,6 +186,9 @@ if (phase === "build") {
   process.once("SIGINT", interrupt);
   process.once("SIGTERM", interrupt);
   try {
+    // The in-process relay uses the shared package's normal Node export.
+    // A fresh checkout has source files but no compiled shared/dist yet.
+    await run("pnpm", ["--filter", "@yep-anywhere/shared", "build"], repo);
     const { startRecoveryFixture } = await import("./recovery-fixture.mjs");
     recovery = await startRecoveryFixture();
     tls = await startTLSFixture(fixture.endpoint, join(ios, "build/tls"));
