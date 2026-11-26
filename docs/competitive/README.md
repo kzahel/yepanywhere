@@ -36,6 +36,7 @@ Official apps from AI providers:
 |------|------|--------|-------------------|
 | [Warp](warp.md) | Native desktop terminal + browser/mobile Remote Control | Warp Agent; 15 advertised local CLIs; Claude/Codex cloud harnesses | Direct local-agent remote supervision, attention mailbox, forks, review, hosted/self-hosted execution and adjacent Factories |
 | [T3 Code](t3code.md) | Web + desktop + native mobile | Codex, Claude, Cursor, Grok, OpenCode, Antigravity | Integrated workbench, offline mobile, multi-environment remote access, full source-control workflow |
+| [Paseo](paseo.md) | Electron + native mobile + web + headless daemon + CLI | Ten documented integrations plus generic ACP and plugins | Managed worktrees, integrated review and preview, public mobile apps, encrypted multi-host access and optional Hub automation |
 | [bb](bb.md) | Web + desktop + early-access mobile shell | Claude, Codex, Pi, five named ACP agents + custom ACP | Extensible plugin workbench, durable workflows, scheduling, managed environments and multi-host execution |
 | [AionUi](aionui.md) | Desktop + WebUI + Telegram | 17 (ACP) | Messaging platform bots, cron scheduling, Zed ACP bridges |
 | [emdash](emdash.md) | Desktop app | 20+ | Multi-agent orchestration, git worktrees |
@@ -141,6 +142,12 @@ mixed-model orchestration and human multiplayer. Against Happy, distinguish
 YA's provider-owned runtimes and native history from Happy's recreated
 execution harness; do not reuse the February process/worktree absence claims.
 
+The [Paseo source review](paseo.md) confirms native-session import, contextual
+chat forks, public Android and iOS apps, a managed worktree and preview loop,
+and a separate Hub for team and event automation. Against Paseo, distinguish
+automatic provider-history discovery, the cross-project attention inbox, and
+provider-native forks from explicit import and history-attachment forks.
+
 ## Common Gaps
 
 Features competitors have that we should consider:
@@ -161,5 +168,5 @@ See **[Ecosystem](../ecosystem/)** for adjacent projects — agent-to-agent coor
 
 ## Last Updated
 
-2026-11-25 ([Paradev source review](paradev.md)). Other reviews retain their
+2026-11-26 ([Paseo source review](paseo.md)). Other reviews retain their
 own snapshot dates.
