@@ -51,7 +51,7 @@ export function NativeConnectionProvider({
   if (!source)
     return (
       <StartupShell phase="connection">
-        {t(failed ? "nativeConnectionUnavailable" : "reconnecting")}
+        {t(failed ? "nativeConnectionUnavailable" : "nativeConnecting")}
       </StartupShell>
     );
   return (

@@ -80,6 +80,7 @@
   "audioMemoDefaultAction": "Attach button action",
   "audioMemoDefaultActionDescription": "On this device. Shift-click uses the alternate action: record audio, or files when recording is the default. Right-click or long-press opens Share to session.",
   "audioMemoDefaultAuto": "Files on desktop, share menu on mobile",
+  "nativeConnecting": "Connecting...",
   "nativeConnectionUnavailable": "The native connection is unavailable. Reopen the app to try again.",
   "draftSyncLocalFailure": "Your draft could not be saved on this device. Keep this page open.",
   "draftSyncRecovery": "A saved draft needs recovery. Your text is retained.",
