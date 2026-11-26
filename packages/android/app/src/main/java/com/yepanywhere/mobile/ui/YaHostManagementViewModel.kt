@@ -23,11 +23,11 @@ class YaHostManagementViewModel(application: Application) : AndroidViewModel(app
     private val runtime = (application as YepAnywhereApplication).nativeRuntime
     private val store = runtime.pairedServers
     private val mutableState = MutableStateFlow(YaHostManagementState())
-    private val mutableOpenProfile = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val mutableOpenProfile = MutableSharedFlow<YaOpenProfile>(extraBufferCapacity = 1)
     private val observers = mutableMapOf<String, Job>()
     private val removal = YaServerRemovalCoordinator(store::forget)
     val state = mutableState.asStateFlow()
-    val openProfile = mutableOpenProfile.asSharedFlow()
+    internal val openProfile = mutableOpenProfile.asSharedFlow()
 
     init {
         refreshNotifications()
@@ -63,11 +63,11 @@ class YaHostManagementViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
-    fun select(profileId: String) = action {
+    fun select(profileId: String, newTab: Boolean = false) = action {
         val snapshot = checkNotNull(store.snapshot(profileId))
         if (snapshot.profile.securityClient?.revoked == true) error("Pair the revoked device again")
         store.select(profileId)
-        mutableOpenProfile.emit(profileId)
+        mutableOpenProfile.emit(YaOpenProfile(profileId, newTab))
     }
 
     fun pair(input: YaPairingInput) = action {
@@ -84,7 +84,7 @@ class YaHostManagementViewModel(application: Application) : AndroidViewModel(app
         // Offer notifications once, while the user is still here and Android can show them.
         if (mutableState.value.deviceNotifications in setOf(YaDeviceNotifications.READY, YaDeviceNotifications.CAN_ASK)) {
             mutableState.value = mutableState.value.copy(pushOffer = profile.id, pushOfferAccepted = false)
-        } else mutableOpenProfile.emit(profile.id)
+        } else mutableOpenProfile.emit(YaOpenProfile(profile.id))
     }
 
     /** Returns the offered profile so the activity can run the permission and enable flow. */
@@ -98,13 +98,13 @@ class YaHostManagementViewModel(application: Application) : AndroidViewModel(app
     fun finishPushOffer(open: Boolean = true) {
         val profileId = mutableState.value.pushOffer ?: return
         mutableState.value = mutableState.value.copy(pushOffer = null, pushOfferAccepted = false)
-        if (open) viewModelScope.launch { mutableOpenProfile.emit(profileId) }
+        if (open) viewModelScope.launch { mutableOpenProfile.emit(YaOpenProfile(profileId)) }
     }
 
-    fun reauthenticate(profileId: String, password: String) = action {
+    fun reauthenticate(profileId: String, password: String, newTab: Boolean = false) = action {
         runtime.pairing.reauthenticate(profileId, password)
         store.select(profileId)
-        mutableOpenProfile.emit(profileId)
+        mutableOpenProfile.emit(YaOpenProfile(profileId, newTab))
     }
 
     fun removeProfile(profileId: String) = action {

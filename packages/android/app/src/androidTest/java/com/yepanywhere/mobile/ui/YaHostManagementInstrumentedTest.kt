@@ -1,6 +1,10 @@
 package com.yepanywhere.mobile.ui
 
 import android.content.Intent
+import android.os.SystemClock
+import android.view.KeyCharacterMap
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.inputmethod.InputMethodManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -51,11 +55,40 @@ class YaHostManagementInstrumentedTest {
             "The native pairing screen did not show ${app.getString(label)}"
         }
         try {
-            if (previousProfiles.isNotEmpty()) button(R.string.add_server).click()
+            if (previousProfiles.isNotEmpty()) button(R.string.native_tab_add_host).click()
             val editor = By.clazz("android.widget.EditText")
             assertTrue(device.wait(Until.hasObject(editor), 5_000))
             val (userField, passwordField) = device.findObjects(editor)
-            userField.setText(username)
+            val target = checkNotNull(username)
+            val focusedEditor = By.clazz("android.widget.EditText").focused(true)
+            userField.click()
+            checkNotNull(device.wait(Until.findObject(focusedEditor), 5_000)) { "Pairing editor did not acquire key focus" }
+            val automation = instrumentation.uiAutomation
+            val editorNode = checkNotNull(automation.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT))
+            val keys = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
+            var expected = ""
+            var worstMs = 0L
+            for (character in target) {
+                expected += character
+                val start = SystemClock.uptimeMillis()
+                for (event in keys.getEvents(charArrayOf(character))) {
+                    assertTrue(automation.injectInputEvent(event, true))
+                }
+                val deadline = start + 1_000
+                do {
+                    assertTrue("Pairing editor was replaced", editorNode.refresh())
+                    assertTrue("Pairing editor lost focus", editorNode.isFocused)
+                    if (editorNode.text?.toString() == expected) break
+                    SystemClock.sleep(8)
+                } while (SystemClock.uptimeMillis() < deadline)
+                assertEquals(expected, editorNode.text?.toString())
+                worstMs = maxOf(worstMs, SystemClock.uptimeMillis() - start)
+            }
+            android.util.Log.i("YaPairingTyping", "Username retained ${target.length} keys, maximum acknowledgement ${worstMs} ms")
+            scenario.onActivity {
+                it.getSystemService(InputMethodManager::class.java)
+                    .hideSoftInputFromWindow(it.window.decorView.windowToken, 0)
+            }
             passwordField.setText(password)
             button(R.string.advanced_connection).click()
             checkNotNull(device.wait(Condition<UiDevice, UiObject2?> { current ->
@@ -115,7 +148,8 @@ class YaHostManagementInstrumentedTest {
         val device = UiDevice.getInstance(instrumentation)
         val scenario = ActivityScenario.launch<MainActivity>(Intent(application, MainActivity::class.java).putExtra(MainActivity.SHOW_HOSTS, true))
         try {
-            assertTrue(device.wait(Until.hasObject(By.text("Disposable direct server")), 5_000))
+            checkNotNull(device.wait(Until.findObject(By.text("Disposable direct server")), 5_000)).click()
+            assertTrue(device.wait(Until.hasObject(By.text("Address")), 5_000))
             assertTrue(device.wait(Until.hasObject(By.text("Open full app")), 5_000))
             assertEquals(YaConnectionPhase.IDLE, runtime.connectionManager(profile.id).state.value.phase)
         } finally {

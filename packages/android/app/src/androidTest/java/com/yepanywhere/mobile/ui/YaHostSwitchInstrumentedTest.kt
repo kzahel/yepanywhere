@@ -71,9 +71,8 @@ class YaHostSwitchInstrumentedTest {
         try {
             var documentIdentity: String? = null
             repeat(2) { attempt ->
-                // Scroll the owned card fully into view. A clipped LazyColumn
-                // card must never fall back to another saved host's Open button.
-                hostCard(device).findObject(By.text("Open full app")).click()
+                openHostDetails(device)
+                button(device, "Open full app").click()
                 try { waitFor { evaluate("document.body.textContent.includes('preview-project')") == "true" } }
                 catch (error: Throwable) {
                     var diagnostics = ""
@@ -92,18 +91,21 @@ class YaHostSwitchInstrumentedTest {
                 evaluate("if (!document.querySelector('[data-sidebar-switch-host]')) document.querySelector('[data-sidebar-toggle]')?.click(); true")
                 waitFor { evaluate("!!document.querySelector('[data-sidebar-switch-host]')") == "true" }
                 evaluate("document.querySelector('[data-sidebar-switch-host]').click(); true")
-                assertTrue(device.wait(Until.hasObject(By.text("Servers")), 5_000))
+                button(device, "Manage hosts").click()
+                assertTrue(device.wait(Until.hasObject(By.text("Hosts")), 5_000))
                 runBlocking { withTimeout(10_000) {
                     manager.state.first { it.phase == YaConnectionPhase.IDLE }
                     while (runtime.pairedServers.snapshot(profile.id)?.resumeCredential?.isEligibleAt(System.currentTimeMillis()) != true) delay(25)
                 } }
                 control("resume-hold?enabled=false")
                 instrumentation.waitForIdleSync()
-                waitFor { hostCard(device).hasObject(By.text("Idle")) }
-                assertFalse("Valid saved credential must not leave a sign-in warning after Switch Host", hostCard(device).hasObject(By.text("Sign-in required")))
+                openHostDetails(device)
+                waitFor { device.hasObject(By.text("Idle")) }
+                assertFalse("Valid saved credential must not leave a sign-in warning after Switch Host", device.hasObject(By.text("Sign-in required")))
                 assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "host-switch-$attempt.png")))
+                if (attempt == 0) device.pressBack()
             }
-            hostCard(device).findObject(By.text("Open full app")).click()
+            button(device, "Open full app").click()
             waitFor { evaluate("document.body.textContent.includes('preview-project')") == "true" }
             // The retained page is visible before transport finishes resuming.
             runBlocking { withTimeout(10_000) { manager.state.first { it.phase == YaConnectionPhase.CONNECTED } } }
@@ -128,21 +130,77 @@ class YaHostSwitchInstrumentedTest {
         }
     }
 
-    private fun hostCard(device: UiDevice): UiObject2 {
+    @Test fun expiredHostRecoveryKeepsAnotherSavedHostReachable() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val args = InstrumentationRegistry.getArguments()
+        val ws = args.getString("yaProbeWsUrl")
+        val username = args.getString("yaProbeUsername")
+        val password = args.getString("yaProbePassword")
+        assumeTrue("Disposable probe arguments absent", ws != null && username != null && password != null)
+        val app = instrumentation.targetContext.applicationContext as YepAnywhereApplication
+        val runtime = app.nativeRuntime
+        val store = runtime.pairedServers
+        val originalSelection = runBlocking { store.selectedProfileId.first() }
+        val originalProfiles = runBlocking { store.snapshots().map { it.profile.id }.toSet() }
+        val preferences = app.getSharedPreferences("native-tabs", android.content.Context.MODE_PRIVATE)
+        val originalTabs = preferences.getString("state", null)
+        preferences.edit().remove("state").commit()
+        var scenario: ActivityScenario<MainActivity>? = null
+        try {
+            val (expired, available) = runBlocking {
+                val route = YaServerRoute.direct(checkNotNull(ws))
+                val user = checkNotNull(username)
+                val secret = checkNotNull(password)
+                val expired = runtime.pairing.pair("Expired $hostLabel", user, secret, route)
+                val available = runtime.pairing.pair("Available $hostLabel", user, secret, route)
+                store.clearCredential(expired.id)
+                store.select(expired.id)
+                expired to available
+            }
+            scenario = ActivityScenario.launch<MainActivity>(Intent(app, MainActivity::class.java))
+            val device = UiDevice.getInstance(instrumentation)
+            button(device, "Sign in again")
+            device.pressBack()
+            button(device, "Hosts")
+            button(device, available.label).click()
+            button(device, "Open full app").click()
+            assertTrue(device.wait(Until.hasObject(By.text("preview-project")), 10_000))
+            scenario.onActivity { activity ->
+                assertEquals(available.id, activity.nativeTransportDiagnostics()?.getString("profileId"))
+            }
+            assertNull(runBlocking { store.snapshot(expired.id)?.resumeCredential })
+        } catch (error: Throwable) {
+            com.yepanywhere.mobile.UiFailureCapture.save("expired-host-switch")
+            throw error
+        } finally {
+            scenario?.close()
+            preferences.edit().apply {
+                if (originalTabs == null) remove("state") else putString("state", originalTabs)
+            }.commit()
+            runBlocking {
+                store.snapshots().filter { it.profile.id !in originalProfiles }.forEach { store.forget(it.profile.id) }
+                if (originalSelection != null && store.snapshot(originalSelection) != null) store.select(originalSelection)
+            }
+        }
+    }
+
+    private fun button(device: UiDevice, label: String): UiObject2 =
+        checkNotNull(device.wait(Until.findObject(By.text(label)), 5_000)) { "Missing native control: $label" }
+
+    private fun openHostDetails(device: UiDevice) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
         while (System.nanoTime() < deadline) {
-            val label = device.findObject(By.text(hostLabel))
-            var node = label?.parent
-            while (node != null) {
-                val buttons = node.findObjects(By.text("Open full app"))
-                if (buttons.size == 1 && buttons.single().visibleBounds.top >= checkNotNull(label).visibleBounds.bottom) return node
-                node = node.parent
+            val row = device.findObject(By.text(hostLabel))
+            if (row != null) {
+                row.click()
+                button(device, "Address")
+                return
             }
             val list = device.findObject(By.scrollable(true))
             if (list != null) list.scroll(Direction.DOWN, 0.4f)
             else Thread.sleep(50)
         }
-        error("Owned fixture host card is unavailable")
+        error("Owned fixture host row is unavailable")
     }
 
     private fun waitFor(condition: () -> Boolean) {

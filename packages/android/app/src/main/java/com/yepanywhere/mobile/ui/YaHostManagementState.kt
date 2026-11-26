@@ -16,6 +16,8 @@ enum class YaPairingRouteKind {
     RELAY,
 }
 
+internal data class YaOpenProfile(val id: String, val newTab: Boolean = false)
+
 data class YaPairingInput(
     val username: String,
     val password: String,

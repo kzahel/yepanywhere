@@ -7,16 +7,22 @@ import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import com.yepanywhere.mobile.links.AppLinkDestination
+import com.yepanywhere.mobile.connection.YaConnectionPhase
 import com.yepanywhere.mobile.ui.YaHostManagementScreen
 import com.yepanywhere.mobile.ui.YaHostManagementViewModel
+import com.yepanywhere.mobile.ui.YaNavigationSheet
 import com.yepanywhere.mobile.ui.YaPairingInput
+import com.yepanywhere.mobile.ui.YaShellDestination
 import com.yepanywhere.mobile.ui.theme.YepAnywhereTheme
 import com.yepanywhere.mobile.web.WebClientActivity
 import com.yepanywhere.mobile.web.WebClientConfig
+import com.yepanywhere.mobile.web.NativeTabs
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -36,7 +42,7 @@ import com.yepanywhere.mobile.notifications.NotificationStatusReader
 class MainActivity : WebClientActivity() {
     override val ownsTabs get() = config.bundled
     private var managementView: androidx.compose.ui.platform.ComposeView? = null
-    private var createNewTab = false
+    private var destination by mutableStateOf<YaShellDestination?>(null)
     private var initialized = false
     private lateinit var managementBack: androidx.activity.OnBackPressedCallback
     private val homeViewModel by viewModels<YaHostManagementViewModel>()
@@ -89,71 +95,188 @@ class MainActivity : WebClientActivity() {
             PushLaunch(it, savedInstanceState.getString("pendingPushSession"))
         }
         managementBack = object : androidx.activity.OnBackPressedCallback(false) {
-            override fun handleOnBackPressed() { hideManagement() }
+            override fun handleOnBackPressed() { backFromShell() }
         }
         onBackPressedDispatcher.addCallback(this, managementBack)
         lifecycleScope.launch {
-            homeViewModel.openProfile.collect {
+            homeViewModel.openProfile.collect { selection ->
                 cancelPendingPushLaunch()
                 pairingInput = null
-                if (ownsTabs) { openProfile(it, newTab = createNewTab); hideManagement() }
-                else startWebClient(null, it)
+                if (ownsTabs) {
+                    if (openProfile(selection.id, newTab = selection.newTab)) {
+                        hideShell()
+                    } else {
+                        showShell(YaShellDestination.Details(selection.id, YaShellDestination.Hosts()))
+                    }
+                } else {
+                    hideShell()
+                    startWebClient(null, selection.id)
+                }
             }
         }
         lifecycleScope.launch {
             val runtime = (application as YepAnywhereApplication).nativeRuntime
             val list = runtime.pairedServers.listState.first()
-            if (ownsTabs) restoreTabs(list.profiles.map { it.id }.toSet())
+            tabHostLabels = list.profiles.associate { it.id to it.label }
+            if (ownsTabs) restoreTabs(tabHostLabels.keys)
             initialized = true
             routeLaunch(intent, restorePendingPush = true)
             runtime.pairedServers.listState.collect { current ->
-                retainTabProfiles(current.profiles.map { it.id }.toSet())
-                if (!hasSelectedTab) showHostManagement()
+                tabHostLabels = current.profiles.associate { it.id to it.label }
+                val hadSelectedTab = hasSelectedTab
+                retainTabProfiles(tabHostLabels.keys)
+                val screen = destination
+                if (screen is YaShellDestination.Details && screen.profileId !in tabHostLabels) {
+                    showShell(screen.returnTo.takeUnless { it.isSheet && !hasSelectedTab } ?: YaShellDestination.Hosts())
+                } else if (!hasSelectedTab && (screen?.isSheet == true || (screen == null && hadSelectedTab))) {
+                    showShell(YaShellDestination.Hosts())
+                }
             }
         }
     }
 
-    override fun showHostManagement(newTab: Boolean) {
-        if (hasSelectedTab) cancelPendingPushLaunch()
-        createNewTab = newTab
-        if (newTab && homeViewModel.state.value.profiles.isNotEmpty()) {
-            val profiles = homeViewModel.state.value.profiles.toList()
-            android.app.AlertDialog.Builder(this).setTitle(R.string.native_tab_new)
-                .setItems(profiles.map { it.label }.toTypedArray()) { _, index ->
-                    openProfile(profiles[index].id, newTab = true)
-                }.setNeutralButton(R.string.native_tab_add_host) { _, _ -> showManagementScreen() }
-                .setNegativeButton(android.R.string.cancel, null).show()
-            return
-        }
-        showManagementScreen()
+    override fun showTabs() {
+        if (hasSelectedTab) showShell(YaShellDestination.Tabs)
     }
 
-    private fun showManagementScreen() {
+    override fun showHostSwitcher() {
+        if (hasSelectedTab) showShell(YaShellDestination.SwitchHost) else showSavedHosts()
+    }
+
+    override fun showHostManagement() {
+        if (destination != null) return
+        val id = selectedTab?.profileId
+        val phase = id?.let {
+            (application as YepAnywhereApplication).nativeRuntime.connectionManager(it).state.value.phase
+        }
+        if (id != null && (phase == YaConnectionPhase.REAUTHENTICATION_REQUIRED || phase == YaConnectionPhase.REVOKED)) {
+            showShell(YaShellDestination.Details(id, YaShellDestination.Hosts()))
+        } else showHostSwitcher()
+    }
+
+    override fun showHostSettings() {
+        val id = selectedTab?.profileId
+        if (id != null) showShell(YaShellDestination.Details(id, YaShellDestination.Hosts()))
+        else showSavedHosts()
+    }
+
+    private fun showSavedHosts() {
+        showShell(if (tabHostLabels.isEmpty()) YaShellDestination.AddHost(null) else YaShellDestination.Hosts())
+    }
+
+    private fun showShell(screen: YaShellDestination) {
+        if (hasSelectedTab) cancelPendingPushLaunch()
+        destination = screen
+        setPageForeground(screen.isSheet)
+        setShellModalVisible(true)
+        managementBack.isEnabled = hasSelectedTab || screen is YaShellDestination.Details ||
+            (screen is YaShellDestination.AddHost && screen.returnTo != null)
         if (managementView != null) return
-        managementBack.isEnabled = hasSelectedTab
-        setPageForeground(false)
         managementView = androidx.compose.ui.platform.ComposeView(this).apply {
             setContent {
                 YepAnywhereTheme {
-                    YaHostManagementScreen(
-                        viewModel = homeViewModel,
-                        pairingInput = pairingInput,
-                        onClearPairingInput = { pairingInput = null },
-                        onEnablePush = ::enablePush,
-                        onOpenNotificationSettings = ::openNotificationSettings,
-                        onAcceptPushOffer = { homeViewModel.acceptPushOffer()?.let(::enablePush) },
-                    )
+                    val state by homeViewModel.state.collectAsState()
+                    when (val current = destination) {
+                        YaShellDestination.Tabs, YaShellDestination.OtherHost, YaShellDestination.SwitchHost ->
+                            key(current) {
+                                YaNavigationSheet(
+                                    destination = current,
+                                    state = state,
+                                    tabs = openTabs,
+                                    selectedTabId = selectedTabId,
+                                    hostLabels = tabHostLabels,
+                                    onBack = ::backFromShell,
+                                    onDismiss = ::dismissShell,
+                                    onDismissError = homeViewModel::clearError,
+                                    onSelectTab = { id -> selectTab(id); hideShell() },
+                                    onCloseTab = { id ->
+                                        closeTab(id)
+                                        if (!hasSelectedTab) showShell(YaShellDestination.Hosts())
+                                    },
+                                    onOpenHost = ::openFromSheet,
+                                    onOtherHost = { if (openTabs.size < NativeTabs.MAX_TABS) showShell(YaShellDestination.OtherHost) else tabLimit() },
+                                    onAddHost = { beginPairing(YaShellDestination.OtherHost) },
+                                    onManageHosts = { showShell(YaShellDestination.Hosts(fromSwitcher = true)) },
+                                )
+                            }
+                        is YaShellDestination.Hosts, is YaShellDestination.Details, is YaShellDestination.AddHost ->
+                            YaHostManagementScreen(
+                                destination = current,
+                                viewModel = homeViewModel,
+                                tabs = openTabs,
+                                pairingInput = pairingInput,
+                                onClearPairingInput = { pairingInput = null },
+                                onBack = ::backFromShell,
+                                onAddHost = { beginPairing(current) },
+                                onHostDetails = { id -> showShell(YaShellDestination.Details(id, current)) },
+                                onEnablePush = ::enablePush,
+                                onOpenNotificationSettings = ::openNotificationSettings,
+                                onAcceptPushOffer = { homeViewModel.acceptPushOffer()?.let(::enablePush) },
+                            )
+                        null -> Unit
+                    }
                 }
             }
             shellRoot.addView(this, android.widget.FrameLayout.LayoutParams(-1, -1))
         }
     }
 
-    private fun hideManagement() {
+    private fun openFromSheet(id: String, newTab: Boolean) {
+        val state = homeViewModel.state.value
+        if (state.actionInProgress || state.profiles.none { it.id == id }) return
+        if (openTabs.size >= NativeTabs.MAX_TABS && (newTab || openTabs.none { it.profileId == id })) {
+            tabLimit()
+            return
+        }
+        val phase = state.servers[id]?.connection?.phase
+        if (phase == YaConnectionPhase.REVOKED || phase == YaConnectionPhase.REAUTHENTICATION_REQUIRED) {
+            showShell(YaShellDestination.Details(id, checkNotNull(destination), newTab))
+        } else {
+            homeViewModel.select(id, newTab)
+        }
+    }
+
+    private fun beginPairing(returnTo: YaShellDestination) {
+        if (returnTo == YaShellDestination.OtherHost && openTabs.size >= NativeTabs.MAX_TABS) {
+            tabLimit()
+            return
+        }
+        pairingInput = null
+        homeViewModel.clearError()
+        showShell(YaShellDestination.AddHost(returnTo))
+    }
+
+    private fun backFromShell() {
+        val state = homeViewModel.state.value
+        if (state.actionInProgress || state.pushOffer != null) return
+        homeViewModel.clearError()
+        val previous = when (val current = destination) {
+            YaShellDestination.OtherHost -> YaShellDestination.Tabs
+            is YaShellDestination.Hosts -> YaShellDestination.SwitchHost.takeIf { current.fromSwitcher }
+            is YaShellDestination.Details -> current.returnTo
+            is YaShellDestination.AddHost -> {
+                pairingInput = null
+                current.returnTo
+            }
+            else -> null
+        }
+        if (previous != null) showShell(previous) else dismissShell()
+    }
+
+    private fun dismissShell() {
+        if (hasSelectedTab && !homeViewModel.state.value.actionInProgress) {
+            homeViewModel.clearError()
+            hideShell()
+        }
+    }
+
+    private fun hideShell() {
+        pairingInput = null
+        destination = null
         managementView?.let { shellRoot.removeView(it); it.disposeComposition() }
         managementView = null
         managementBack.isEnabled = false
-        createNewTab = false
+        setShellModalVisible(false)
         setPageForeground(true)
     }
 
@@ -227,7 +350,7 @@ class MainActivity : WebClientActivity() {
         }
         if (intent.getBooleanExtra(SHOW_HOSTS, false)) {
             intent.removeExtra(SHOW_HOSTS)
-            showHostManagement()
+            showSavedHosts()
             return
         }
         if (WebClientConfig.fromBuild().bundled) {
@@ -235,7 +358,7 @@ class MainActivity : WebClientActivity() {
             if (pairingLink != null) {
                 intent.data = null
                 pairingInput = YaPairingInput(pairingLink.username, pairingLink.password, relayWebsocketUrl = pairingLink.relayWebsocketUrl)
-                showHostManagement()
+                showShell(YaShellDestination.AddHost(YaShellDestination.Hosts().takeIf { tabHostLabels.isNotEmpty() }))
                 return
             }
             // A malformed pairing link must never fall through to web login.
@@ -253,7 +376,7 @@ class MainActivity : WebClientActivity() {
         intent.data = null
         launchJob = lifecycleScope.launch {
             val list = (application as YepAnywhereApplication).nativeRuntime.pairedServers.listState.first()
-            val profileId = list.selectedProfileId ?: list.profiles.firstOrNull()?.id
+            val profileId = selectedTab?.profileId ?: list.selectedProfileId ?: list.profiles.firstOrNull()?.id
             if (profileId != null) startWebClient(requestedUrl, profileId)
             else if (!WebClientConfig.fromBuild().bundled && requestedUrl != null) startWebClient(requestedUrl, null)
             else showHostManagement()
@@ -262,8 +385,7 @@ class MainActivity : WebClientActivity() {
 
     private fun startWebClient(requestedUrl: String?, profileId: String?) {
         if (profileId != null && config.bundled) {
-            openProfile(profileId, requestedUrl)
-            hideManagement()
+            if (openProfile(profileId, requestedUrl)) hideShell()
         } else {
             startActivity(Intent(this, WebClientActivity::class.java).apply { if (requestedUrl != null) data = requestedUrl.toUri() })
         }

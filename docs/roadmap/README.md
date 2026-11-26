@@ -508,14 +508,18 @@ compatibility checks belong to the release criteria, not just compilation.
 The 2026-09-30 direction uses the full bundled web interface for ordinary
 projects, sessions, transcripts, input and settings. Android owns native login,
 reauthentication, host selection, protected SRP/resume credentials, transport,
-reconnect and notifications. Saved-host selection enters the web app directly;
-Switch Host returns to native management. Management observes connection state
+reconnect and notifications. Saved-host selection resumes the last tab on that host
+or opens Projects if needed. The host label opens a quick picker with a link to
+native management. Management observes connection state
 without retaining dashboard subscriptions. The approved
 [Android tabs and warm-resume work](../tactical/146-android-tabs-and-warm-resume.md)
 adds a native top toolbar and internal-only tabs while preserving the selected
 WebView through ordinary multitasking. Implementation and Pixel acceptance are
 complete: direct/two-host relay, public-relay radio loss, launcher resume,
 rotation, tab/link routing and typing during 100 MiB upload are verified.
+The Android shell now groups same-host and cross-host creation in Tabs and
+uses a quick host picker, a separate Hosts screen and native sign-in styled
+with the [shared design palette](../../topics/mobile-server-pairing.md#native-login-and-host-management-contract).
 
 The initial mobile release uses server-owner login. Native limited-user login
 is explicitly deferred (2026-10-01). Android and the iOS native-login/transport

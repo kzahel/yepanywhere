@@ -30,6 +30,14 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.ComposeView
+import com.yepanywhere.mobile.ui.YaNavigationToolbar
+import com.yepanywhere.mobile.ui.theme.YepAnywhereTheme
+import com.yepanywhere.mobile.ui.theme.nativeShellDark
+import com.yepanywhere.mobile.ui.theme.nativeShellSurface
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.graphics.Insets
@@ -59,8 +67,12 @@ open class WebClientActivity : ComponentActivity() {
 
     protected lateinit var shellRoot: FrameLayout
     private lateinit var pageRoot: FrameLayout
-    private lateinit var hostLabel: TextView
-    private lateinit var tabButton: Button
+    private lateinit var webColumn: LinearLayout
+    protected var openTabs by mutableStateOf<List<NativeTabs.Tab>>(emptyList())
+        private set
+    protected var selectedTabId by mutableStateOf<String?>(null)
+        private set
+    protected var tabHostLabels by mutableStateOf<Map<String, String>>(emptyMap())
     private val tabs = NativeTabs()
     private val histories = mutableMapOf<String, Bundle>()
     private var activeTabId: String? = null
@@ -71,9 +83,13 @@ open class WebClientActivity : ComponentActivity() {
         pageForeground = value
         transportHost?.setForeground(value && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
     }
+    protected val selectedTab: NativeTabs.Tab? get() = tabs.selected
     protected val hasSelectedTab: Boolean get() = tabs.selected != null
     private val tabPreferences by lazy { getSharedPreferences("native-tabs", MODE_PRIVATE) }
-    protected open fun showHostManagement(newTab: Boolean = false) {
+    protected open fun showTabs() = Unit
+    protected open fun showHostSwitcher() = showHostManagement()
+    protected open fun showHostSettings() = showHostManagement()
+    protected open fun showHostManagement() {
         startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.SHOW_HOSTS, true))
         finish()
     }
@@ -88,27 +104,36 @@ open class WebClientActivity : ComponentActivity() {
         histories.keys.retainAll(tabs.items.map { it.id }.toSet())
         activateSelectedTab()
     }
-    protected fun openProfile(profileId: String, url: String? = null, newTab: Boolean = false) {
+    protected fun openProfile(profileId: String, url: String? = null, newTab: Boolean = false): Boolean {
         val path = url?.takeIf { WebClientNavigation.decide(it, config.origin) == NavigationDecision.ALLOW_IN_APP }
             ?.toUri()?.encodedPath ?: "/projects"
-        tabs.open(profileId, path, newTab) ?: return tabLimit()
+        if (tabs.open(profileId, path, newTab) == null) { tabLimit(); return false }
         activateSelectedTab()
         if (url != null) webView?.loadUrl(config.origin + NativeTabs.safePath(path))
-        persistTabs()
+        return true
+    }
+    protected fun selectTab(id: String) {
+        tabs.select(id)
+        activateSelectedTab()
+    }
+    protected fun closeTab(id: String) {
+        histories.remove(id)
+        tabs.close(id)
+        activateSelectedTab()
+    }
+    protected fun setShellModalVisible(visible: Boolean) {
+        webColumn.importantForAccessibility = if (visible) {
+            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        } else View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
     }
     private fun persistTabs() {
         if (ownsTabs) tabPreferences.edit { putString("state", tabs.encode()) }
-        updateToolbar()
+        updateTabPresentation()
     }
-    private fun updateToolbar() {
+    private fun updateTabPresentation() {
         if (!ownsTabs) return
-        tabButton.text = tabs.items.size.toString()
-        tabButton.contentDescription = resources.getQuantityString(R.plurals.native_tabs_count, tabs.items.size, tabs.items.size)
-        val profileId = tabs.selected?.profileId
-        lifecycleScope.launch {
-            val label = profileId?.let { (application as YepAnywhereApplication).nativeRuntime.pairedServers.snapshot(it)?.profile?.label } ?: getString(R.string.app_name)
-            if (tabs.selected?.profileId == profileId) hostLabel.text = label
-        }
+        openTabs = tabs.items.map { it.copy() }
+        selectedTabId = tabs.selectedId
     }
     private fun activateSelectedTab() {
         val selected = tabs.selected
@@ -127,7 +152,7 @@ open class WebClientActivity : ComponentActivity() {
         }
         persistTabs()
     }
-    private fun tabLimit() = android.widget.Toast.makeText(this, getString(R.string.native_tab_limit, NativeTabs.MAX_TABS), android.widget.Toast.LENGTH_SHORT).show()
+    protected fun tabLimit() = android.widget.Toast.makeText(this, getString(R.string.native_tab_limit, NativeTabs.MAX_TABS), android.widget.Toast.LENGTH_SHORT).show()
     private fun localPath(url: String): String {
         val uri = url.toUri()
         return NativeTabs.livePath((uri.encodedPath ?: "/projects") +
@@ -146,56 +171,6 @@ open class WebClientActivity : ComponentActivity() {
             NavigationDecision.BLOCK -> Unit
         }
     }
-    private fun showTabs() {
-        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val scroll = android.widget.ScrollView(this).apply { addView(list) }
-        val dialog = android.app.AlertDialog.Builder(this).setTitle(R.string.native_tabs).setView(scroll).setNegativeButton(R.string.native_tabs_done, null).create()
-        val snapshot = tabs.items.toList()
-        lifecycleScope.launch {
-            for (tab in snapshot) {
-                val name = (application as YepAnywhereApplication).nativeRuntime.pairedServers.snapshot(tab.profileId)?.profile?.label ?: getString(R.string.native_tab_unavailable_host)
-                val row = LinearLayout(this@WebClientActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-                val label = LinearLayout(this@WebClientActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    minimumHeight = dp(64)
-                    setPadding(dp(16), dp(8), dp(8), dp(8))
-                    isClickable = true; isFocusable = true
-                    contentDescription = getString(R.string.native_tab_select, name, NativeTabs.safePath(tab.path))
-                    if (tab.id == tabs.selectedId) setBackgroundColor(0x224FC7AC)
-                    addView(TextView(context).apply {
-                        text = getString(R.string.native_tab_host_label, if (tab.id == tabs.selectedId) "✓ " else "", name)
-                        textSize = 16f; setTextColor(Color.WHITE)
-                        setTypeface(typeface, android.graphics.Typeface.BOLD)
-                        maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
-                    })
-                    addView(TextView(context).apply {
-                        val path = NativeTabs.safePath(tab.path)
-                        text = when {
-                            tab.title !in setOf("Projects", "Yep Anywhere", "Yep Anywhere - Remote") -> tab.title
-                            path == "/projects" -> getString(R.string.native_tab_projects)
-                            else -> path
-                        }
-                        textSize = 13f; setTextColor(Color.LTGRAY)
-                        maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
-                    })
-                    setOnClickListener { dialog.dismiss(); tabs.select(tab.id); activateSelectedTab() }
-                }
-                row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                row.addView(Button(this@WebClientActivity, null, android.R.attr.borderlessButtonStyle).apply {
-                    text = "×"; contentDescription = getString(R.string.native_tab_close, name)
-                    setOnClickListener {
-                        histories.remove(tab.id); tabs.close(tab.id); activateSelectedTab(); dialog.dismiss()
-                        if (tabs.selected == null) showHostManagement() else showTabs()
-                    }
-                }, LinearLayout.LayoutParams(dp(48), dp(48)))
-                list.addView(row)
-            }
-        }
-        dialog.show()
-    }
-    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
-
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -214,12 +189,10 @@ open class WebClientActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The native shell paints both inset areas dark in every system/web
-        // theme. Automatic styling would select dark icons in light mode.
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-        )
+        val barStyle = if (!ownsTabs || nativeShellDark(resources.configuration)) {
+            SystemBarStyle.dark(Color.TRANSPARENT)
+        } else SystemBarStyle.light(Color.TRANSPARENT, Color.rgb(24, 24, 24))
+        enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
         notificationOperations = NotificationNativeHostOperations(
             activity = this,
             statusReader = NotificationStatusReader(
@@ -229,10 +202,10 @@ open class WebClientActivity : ComponentActivity() {
             launchPermissionRequest = {
                 notificationPermissionLauncher.launch(POST_NOTIFICATIONS_PERMISSION)
             },
-            showNotificationManagement = { showHostManagement() },
+            showNotificationManagement = { showHostSettings() },
         )
         val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.rgb(24, 24, 24))
+            setBackgroundColor(if (ownsTabs) nativeShellSurface(resources.configuration) else Color.rgb(24, 24, 24))
         }
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val handled = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
@@ -245,26 +218,25 @@ open class WebClientActivity : ComponentActivity() {
         }
 
         shellRoot = root
-        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        webColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         pageRoot = FrameLayout(this)
         if (ownsTabs) {
-            val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            hostLabel = TextView(this).apply {
-                setText(R.string.app_name); textSize = 16f; setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER_VERTICAL
-                setCompoundDrawablesWithIntrinsicBounds(R.drawable.native_host, 0, 0, 0)
-                compoundDrawablePadding = dp(10)
-                setPadding(dp(16), 0, dp(8), 0); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
-                contentDescription = getString(R.string.native_switch_host); setOnClickListener { showHostManagement() }
-            }
-            toolbar.addView(hostLabel, LinearLayout.LayoutParams(0, dp(48), 1f))
-            tabButton = Button(this).apply { text = "0"; textSize = 12f; setPadding(0, 0, 0, 0); setBackgroundResource(R.drawable.native_tab_count); setOnClickListener { showTabs() } }
-            toolbar.addView(tabButton, LinearLayout.LayoutParams(dp(56), dp(48)))
-            toolbar.addView(Button(this, null, android.R.attr.borderlessButtonStyle).apply { text = "+"; textSize = 24f; contentDescription = getString(R.string.native_tab_new); setOnClickListener { showHostManagement(newTab = true) } }, LinearLayout.LayoutParams(dp(48), dp(48)))
-            column.addView(toolbar)
+            webColumn.addView(ComposeView(this).apply {
+                setContent {
+                    YepAnywhereTheme {
+                        val profileId = openTabs.firstOrNull { it.id == selectedTabId }?.profileId
+                        YaNavigationToolbar(
+                            host = tabHostLabels[profileId] ?: getString(R.string.app_name),
+                            tabCount = openTabs.size,
+                            onSwitchHost = ::showHostSwitcher,
+                            onShowTabs = ::showTabs,
+                        )
+                    }
+                }
+            })
         }
-        column.addView(pageRoot, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        root.addView(column)
+        webColumn.addView(pageRoot, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(webColumn)
         setContentView(root)
 
         onBackPressedDispatcher.addCallback(
@@ -352,7 +324,13 @@ open class WebClientActivity : ComponentActivity() {
             }
             webChromeClient = object : WebChromeClient() {
                 override fun onReceivedTitle(view: WebView, title: String?) {
-                    if (view === webView) tabs.selected?.title = title?.take(160) ?: "Projects"
+                    val tab = tabs.selected ?: return
+                    if (view !== webView) return
+                    val label = NativeTabs.displayTitle(title)
+                    if (tab.title != label) {
+                        tab.title = label
+                        updateTabPresentation()
+                    }
                 }
                 override fun onCreateWindow(view: WebView, dialog: Boolean, userGesture: Boolean, result: android.os.Message): Boolean {
                     if (!ownsTabs || !userGesture || view !== webView) return false

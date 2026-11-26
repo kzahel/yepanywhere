@@ -1,5 +1,6 @@
 package com.yepanywhere.mobile.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -8,12 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -24,16 +26,19 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,32 +48,39 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yepanywhere.mobile.R
 import com.yepanywhere.mobile.connection.YaConnectionPhase
-import com.yepanywhere.mobile.profiles.YaPairedServerProfile
 import com.yepanywhere.mobile.profiles.YaServerRouteKind
+import com.yepanywhere.mobile.web.NativeTabs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun YaHostManagementScreen(
+internal fun YaHostManagementScreen(
+    destination: YaShellDestination,
+    tabs: List<NativeTabs.Tab>,
     viewModel: YaHostManagementViewModel,
     pairingInput: YaPairingInput? = null,
-    onClearPairingInput: () -> Unit = {},
+    onClearPairingInput: () -> Unit,
+    onBack: () -> Unit,
+    onAddHost: () -> Unit,
+    onHostDetails: (String) -> Unit,
     onEnablePush: (String) -> Unit = {},
     onOpenNotificationSettings: (String) -> Unit = {},
     onAcceptPushOffer: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
-    val uriHandler = LocalUriHandler.current
-    var showAddServer by rememberSaveable { mutableStateOf(false) }
     var confirmForgetProfileId by rememberSaveable { mutableStateOf<String?>(null) }
 
     if (confirmForgetProfileId != null) {
@@ -192,74 +204,69 @@ fun YaHostManagementScreen(
         )
     }
 
+    val details = (destination as? YaShellDestination.Details)?.let { screen ->
+        state.servers[screen.profileId] ?: state.profiles.firstOrNull { it.id == screen.profileId }?.let { YaHostState(it) }
+    }
+    val pairing = destination as? YaShellDestination.AddHost
+    val title = when {
+        pairing != null -> stringResource(if (pairing.returnTo == null) R.string.connect_to_server else R.string.native_tab_add_host)
+        details != null -> details.profile.label
+        else -> stringResource(R.string.native_hosts)
+    }
+    val canGoBack = when (destination) {
+        is YaShellDestination.AddHost -> destination.returnTo != null
+        is YaShellDestination.Hosts -> tabs.isNotEmpty()
+        else -> true
+    }
     Scaffold(
+        modifier = Modifier.fillMaxSize().imePadding(),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                navigationIcon = {
-                    if (showAddServer) {
-                        TextButton(
-                            onClick = {
-                                showAddServer = false
-                            },
-                        ) {
-                            Text(stringResource(R.string.back))
+            Column {
+                TopAppBar(
+                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = {
+                        if (canGoBack) {
+                            ShellIconButton(
+                                R.drawable.native_back, R.string.back, onBack,
+                                enabled = !state.actionInProgress && state.pushOffer == null,
+                            )
                         }
-                    }
-                },
-                actions = {
-                    TextButton(onClick = { uriHandler.openUri("https://graehlarts.com/privacy.html#yepanywhere") }) {
-                        Text(stringResource(R.string.privacy_policy))
-                    }
-                },
-            )
+                    },
+                    windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                ShellRowDivider()
+            }
         },
     ) { contentPadding ->
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding),
-            color = MaterialTheme.colorScheme.background,
+            modifier = Modifier.fillMaxSize().padding(contentPadding),
+            color = MaterialTheme.colorScheme.surface,
         ) {
             when {
-                pairingInput != null -> PairingScreen(
-                    actionInProgress = state.actionInProgress,
+                pairing != null -> PairingScreen(
+                    actionInProgress = state.actionInProgress || state.pushOffer != null,
                     error = state.error,
                     onDismissError = viewModel::clearError,
                     onPair = { onClearPairingInput(); viewModel.pair(it) },
-                    onCancel = onClearPairingInput,
                     initialInput = pairingInput,
                 )
-                state.profiles.isEmpty() -> PairingScreen(
+                details != null -> HostDetails(
+                    source = details,
+                    tabCount = tabs.count { it.profileId == details.profile.id },
+                    deviceNotifications = state.deviceNotifications,
                     actionInProgress = state.actionInProgress,
                     error = state.error,
                     onDismissError = viewModel::clearError,
-                    onPair = viewModel::pair,
+                    onReauthenticate = { password -> viewModel.reauthenticate(details.profile.id, password, destination.newTab) },
+                    onForgetServer = { confirmForgetProfileId = details.profile.id },
+                    onOpenServer = { viewModel.select(details.profile.id, destination.newTab) },
+                    onEnablePush = { onEnablePush(details.profile.id) },
+                    onDisablePush = { viewModel.setPush(details.profile.id, false) },
+                    onTestPush = { viewModel.testPush(details.profile.id) },
+                    onOpenNotificationSettings = { onOpenNotificationSettings(details.profile.id) },
                 )
-
-                showAddServer -> PairingScreen(
-                    actionInProgress = state.actionInProgress,
-                    error = state.error,
-                    onDismissError = viewModel::clearError,
-                    onPair = {
-                        showAddServer = false
-                        viewModel.pair(it)
-                    },
-                    onCancel = { showAddServer = false },
-                )
-
-                else -> ServerSettings(
-                    state = state,
-                    onReauthenticate = viewModel::reauthenticate,
-                    onDismissError = viewModel::clearError,
-                    onAddServer = { showAddServer = true },
-                    onForgetServer = { confirmForgetProfileId = it },
-                    onOpenServer = viewModel::select,
-                    onEnablePush = onEnablePush,
-                    onDisablePush = { viewModel.setPush(it, false) },
-                    onTestPush = viewModel::testPush,
-                    onOpenNotificationSettings = onOpenNotificationSettings,
-                )
+                else -> HostList(state, tabs, onAddHost, onHostDetails, viewModel::clearError)
             }
         }
     }
@@ -271,28 +278,50 @@ private fun PairingScreen(
     error: YaNativeUiError?,
     onDismissError: () -> Unit,
     onPair: (YaPairingInput) -> Unit,
-    onCancel: (() -> Unit)? = null,
     initialInput: YaPairingInput? = null,
 ) {
-    var username by remember(initialInput) { mutableStateOf(initialInput?.username.orEmpty()) }
-    var password by remember(initialInput) { mutableStateOf(initialInput?.password.orEmpty()) }
-    var showAdvanced by remember(initialInput) { mutableStateOf(initialInput?.relayWebsocketUrl?.isNotEmpty() == true) }
-    var relayWebsocketUrl by remember(initialInput) { mutableStateOf(initialInput?.relayWebsocketUrl.orEmpty()) }
+    var username by remember { mutableStateOf(initialInput?.username.orEmpty()) }
+    var password by remember { mutableStateOf(initialInput?.password.orEmpty()) }
+    var showAdvanced by remember { mutableStateOf(initialInput?.relayWebsocketUrl?.isNotEmpty() == true) }
+    var relayWebsocketUrl by remember { mutableStateOf(initialInput?.relayWebsocketUrl.orEmpty()) }
     var directWebsocketUrl by remember { mutableStateOf("") }
     var routeKind by remember { mutableStateOf(YaPairingRouteKind.RELAY) }
+    val uriHandler = LocalUriHandler.current
+
+    LaunchedEffect(initialInput) {
+        if (initialInput != null) {
+            username = initialInput.username
+            password = initialInput.password
+            relayWebsocketUrl = initialInput.relayWebsocketUrl
+            showAdvanced = relayWebsocketUrl.isNotEmpty()
+            routeKind = YaPairingRouteKind.RELAY
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 20.dp),
+            .padding(horizontal = 22.dp, vertical = 20.dp),
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(shape = MaterialTheme.shapes.medium, color = Color(0xFF047857)) {
+                Icon(
+                    painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp),
+                )
+            }
+            Text(
+                stringResource(R.string.native_wordmark),
+                style = MaterialTheme.typography.titleLarge,
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
         Text(
-            text = stringResource(R.string.connect_to_server),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Text(
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = 12.dp),
             text = stringResource(R.string.connect_to_server_explanation),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -304,7 +333,9 @@ private fun PairingScreen(
                 .semantics { contentType = ContentType.Username },
             value = username,
             onValueChange = { username = it },
-            label = { Text(stringResource(R.string.username)) },
+            label = {
+                Text(stringResource(if (routeKind == YaPairingRouteKind.RELAY) R.string.native_relay_server_name else R.string.username))
+            },
             singleLine = true,
         )
         OutlinedTextField(
@@ -320,7 +351,8 @@ private fun PairingScreen(
             singleLine = true,
         )
         TextButton(
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 48.dp),
+            shape = MaterialTheme.shapes.medium,
             enabled = !actionInProgress,
             onClick = { showAdvanced = !showAdvanced },
         ) {
@@ -333,6 +365,8 @@ private fun PairingScreen(
                     },
                 ),
             )
+            Spacer(Modifier.width(4.dp))
+            ShellIcon(if (showAdvanced) R.drawable.native_chevron_down else R.drawable.native_chevron, size = 14)
         }
         if (showAdvanced) {
             Text(
@@ -409,111 +443,96 @@ private fun PairingScreen(
                 singleLine = true,
             )
         }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 20.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
+        Button(
+            modifier = Modifier.fillMaxWidth().padding(top = 14.dp).heightIn(min = 48.dp),
+            shape = MaterialTheme.shapes.medium,
+            enabled = !actionInProgress,
+            onClick = {
+                val enteredPassword = password
+                password = ""
+                onPair(
+                    YaPairingInput(
+                        username = username,
+                        password = enteredPassword,
+                        routeKind = routeKind,
+                        relayWebsocketUrl = relayWebsocketUrl,
+                        directWebsocketUrl = directWebsocketUrl,
+                    ),
+                )
+            },
         ) {
-            if (onCancel != null) {
-                TextButton(
-                    enabled = !actionInProgress,
-                    onClick = onCancel,
-                ) {
-                    Text(stringResource(R.string.cancel))
-                }
+            if (actionInProgress) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                )
                 Spacer(Modifier.width(8.dp))
             }
-            Button(
-                enabled = !actionInProgress,
-                onClick = {
-                    val enteredPassword = password
-                    password = ""
-                    onPair(
-                        YaPairingInput(
-                            username = username,
-                            password = enteredPassword,
-                            routeKind = routeKind,
-                            relayWebsocketUrl = relayWebsocketUrl,
-                            directWebsocketUrl = directWebsocketUrl,
-                        ),
-                    )
-                },
-            ) {
-                if (actionInProgress) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .height(18.dp)
-                            .width(18.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(stringResource(R.string.connect))
-            }
+            Text(stringResource(R.string.connect))
+        }
+        TextButton(onClick = { uriHandler.openUri("https://graehlarts.com/privacy.html#yepanywhere") }) {
+            Text(stringResource(R.string.privacy_policy))
         }
     }
 }
 
 @Composable
-private fun ServerSettings(
+private fun HostList(
     state: YaHostManagementState,
-    onReauthenticate: (String, String) -> Unit,
+    tabs: List<NativeTabs.Tab>,
+    onAddHost: () -> Unit,
+    onHostDetails: (String) -> Unit,
     onDismissError: () -> Unit,
-    onAddServer: () -> Unit,
-    onForgetServer: (String) -> Unit,
-    onOpenServer: (String) -> Unit,
-    onEnablePush: (String) -> Unit,
-    onDisablePush: (String) -> Unit,
-    onTestPush: (String) -> Unit,
-    onOpenNotificationSettings: (String) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+        ErrorCard(state.error, onDismissError)
+        if (state.profiles.isEmpty()) {
+            Text(stringResource(R.string.native_no_hosts), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Surface(
+                modifier = Modifier.weight(1f, fill = false),
+                shape = MaterialTheme.shapes.medium,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
             ) {
-                Text(
-                    modifier = Modifier.weight(1f),
-                    text = stringResource(R.string.servers),
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Button(onClick = onAddServer) {
-                    Text(stringResource(R.string.add_server))
+                LazyColumn {
+                    itemsIndexed(state.profiles, key = { _, profile -> profile.id }) { index, profile ->
+                        if (index > 0) ShellRowDivider()
+                        HostNavigationRow(
+                            profile = profile,
+                            phase = state.servers[profile.id]?.connection?.phase,
+                            tabCount = tabs.count { it.profileId == profile.id },
+                            enabled = !state.actionInProgress,
+                            onClick = { onHostDetails(profile.id) },
+                        )
+                    }
                 }
             }
         }
-        item { ErrorCard(state.error, onDismissError) }
-        items(state.profiles, key = YaPairedServerProfile::id) { profile ->
-            val source = state.servers[profile.id]
-                ?: YaHostState(profile = profile)
-            ServerSettingsCard(
-                source = source,
-                deviceNotifications = state.deviceNotifications,
-                actionInProgress = state.actionInProgress,
-                onReauthenticate = { onReauthenticate(profile.id, it) },
-                onForgetServer = { onForgetServer(profile.id) },
-                onOpenServer = { onOpenServer(profile.id) },
-                onEnablePush = { onEnablePush(profile.id) },
-                onDisablePush = { onDisablePush(profile.id) },
-                onTestPush = { onTestPush(profile.id) },
-                onOpenNotificationSettings = { onOpenNotificationSettings(profile.id) },
-            )
+        Button(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            shape = MaterialTheme.shapes.medium,
+            onClick = onAddHost,
+            enabled = !state.actionInProgress,
+        ) {
+            ShellIcon(R.drawable.native_plus)
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.native_tab_add_host))
         }
     }
 }
 
 @Composable
-private fun ServerSettingsCard(
+private fun HostDetails(
     source: YaHostState,
+    tabCount: Int,
     deviceNotifications: YaDeviceNotifications,
     actionInProgress: Boolean,
+    error: YaNativeUiError?,
+    onDismissError: () -> Unit,
     onReauthenticate: (String) -> Unit,
     onForgetServer: () -> Unit,
     onOpenServer: () -> Unit,
@@ -523,80 +542,80 @@ private fun ServerSettingsCard(
     onOpenNotificationSettings: () -> Unit,
 ) {
     val profile = source.profile
-    val preferredRoute = profile.routes.firstOrNull { it.id == profile.preferredRouteId }
-        ?: profile.routes.first()
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = profile.label,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        text = connectionStatus(source.connection.phase),
-                        color = connectionStatusColor(source.connection.phase),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-
+    val route = preferredRoute(profile)
+    val phase = source.connection.phase
+    val unregistersServer = profile.securityClient?.let {
+        !it.revoked && !it.capabilityMissing && it.clientId != null
+    } == true
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ErrorCard(error, onDismissError)
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        ) {
+            Column {
+                HostDetailRow(
+                    R.string.native_host_connection,
+                    stringResource(if (route.kind == YaServerRouteKind.DIRECT) R.string.direct_connection else R.string.relay_connection),
+                )
+                ShellRowDivider()
+                HostDetailRow(R.string.native_host_address, route.websocketUrl)
+                ShellRowDivider()
+                HostDetailRow(R.string.native_host_open_tabs, tabCount.toString())
+                ShellRowDivider()
+                HostDetailRow(R.string.native_host_status, connectionStatus(phase), connectionStatusColor(phase))
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-            Text(
-                text = if (preferredRoute.kind == YaServerRouteKind.DIRECT) {
-                    stringResource(R.string.direct_connection)
-                } else {
-                    stringResource(R.string.relay_connection)
-                },
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Text(
-                text = preferredRoute.websocketUrl,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-            if (deviceNotifications != YaDeviceNotifications.UNAVAILABLE) PushControls(
+        }
+        if (phase == YaConnectionPhase.REAUTHENTICATION_REQUIRED) {
+            ReauthenticationCard(actionInProgress, onReauthenticate)
+        } else if (phase != YaConnectionPhase.REVOKED) {
+            Button(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                shape = MaterialTheme.shapes.medium,
+                onClick = onOpenServer,
+                enabled = !actionInProgress,
+            ) { Text(stringResource(R.string.open_full_app)) }
+        }
+        if (deviceNotifications != YaDeviceNotifications.UNAVAILABLE) {
+            Text(stringResource(R.string.native_host_notifications), style = MaterialTheme.typography.titleSmall)
+            PushControls(
                 pushEnabled = source.pushEnabled,
                 deviceNotifications = deviceNotifications,
                 actionInProgress = actionInProgress,
-                revoked = profile.securityClient?.revoked == true,
+                revoked = phase == YaConnectionPhase.REVOKED,
                 onEnablePush = onEnablePush,
                 onDisablePush = onDisablePush,
                 onTestPush = onTestPush,
                 onOpenNotificationSettings = onOpenNotificationSettings,
             )
-            if (source.connection.phase == YaConnectionPhase.REAUTHENTICATION_REQUIRED) {
-                ReauthenticationCard(
-                    actionInProgress = actionInProgress,
-                    onReauthenticate = onReauthenticate,
-                )
-            }
-            Button(
-                onClick = onOpenServer,
-                enabled = !actionInProgress && source.connection.phase != YaConnectionPhase.REVOKED,
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            ) { Text(stringResource(R.string.open_full_app)) }
-            TextButton(
-                modifier = Modifier.align(Alignment.End),
-                enabled = !actionInProgress,
-                onClick = onForgetServer,
-            ) {
-                val unregistersServer = profile.securityClient?.let {
-                    !it.revoked && !it.capabilityMissing && it.clientId != null
-                } == true
-                Text(
-                    stringResource(
-                        if (unregistersServer) {
-                            R.string.remove_server
-                        } else {
-                            R.string.forget_server
-                        },
-                    ),
-                )
-            }
         }
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            enabled = !actionInProgress,
+            onClick = onForgetServer,
+        ) {
+            Text(stringResource(if (unregistersServer) R.string.remove_server else R.string.forget_server))
+        }
+    }
+}
+
+@Composable
+private fun HostDetailRow(label: Int, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp).padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(label), style = MaterialTheme.typography.labelLarge)
+        Text(value, modifier = Modifier.weight(1f), color = valueColor,
+            style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.End)
     }
 }
 
@@ -705,7 +724,7 @@ private fun ReauthenticationCard(
 }
 
 @Composable
-private fun ErrorCard(error: YaNativeUiError?, onDismiss: () -> Unit) {
+internal fun ErrorCard(error: YaNativeUiError?, onDismiss: () -> Unit) {
     if (error == null) return
     Card(
         modifier = Modifier

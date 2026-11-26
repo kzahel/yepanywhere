@@ -2,10 +2,10 @@
     <string name="app_name">Yep Anywhere</string>
     <string name="privacy_policy">Privacy policy</string>
     <string name="open_full_app">Open full app</string>
-    <string name="connect_to_server">Connect to your server</string>
-    <string name="connect_to_server_explanation">Enter the remote-access username and password configured on your Yep Anywhere server.</string>
-    <string name="advanced_connection">Advanced connection</string>
-    <string name="hide_advanced_connection">Hide advanced connection</string>
+    <string name="connect_to_server">Connect to your host</string>
+    <string name="connect_to_server_explanation">Use the credentials from Settings → Remote Access on your host.</string>
+    <string name="advanced_connection">Connection options</string>
+    <string name="hide_advanced_connection">Hide connection options</string>
     <string name="connection_route">Connection route</string>
     <string name="direct_connection">Direct</string>
     <string name="relay_connection">Relay</string>
@@ -17,16 +17,14 @@
     <string name="websocket_url_example" translatable="false">wss://example.com/api/ws</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
-    <string name="connect">Connect</string>
+    <string name="connect">Connect host</string>
     <string name="cancel">Cancel</string>
     <string name="back">Back</string>
-    <string name="servers">Servers</string>
-    <string name="add_server">Add server</string>
-    <string name="forget_server">Forget server</string>
-    <string name="forget_server_title">Forget this server?</string>
+    <string name="forget_server">Forget host</string>
+    <string name="forget_server_title">Forget this host?</string>
     <string name="forget_server_explanation">This removes the saved server profile and its protected resume credential from this device.</string>
-    <string name="remove_server">Remove server</string>
-    <string name="remove_server_title">Remove this server?</string>
+    <string name="remove_server">Remove host</string>
+    <string name="remove_server_title">Remove this host?</string>
     <string name="remove_server_explanation">Yep Anywhere will first unregister this Android device from the server, revoking its saved sessions and push access, and then erase the local profile and protected keys.</string>
     <string name="forget_anyway">Forget anyway</string>
     <string name="forget_anyway_title">Could not unregister this device</string>
@@ -83,15 +81,35 @@
         <item quantity="one">Tabs, %1$d open</item>
         <item quantity="other">Tabs, %1$d open</item>
     </plurals>
-    <string name="native_tabs_done">Done</string>
-    <string name="native_tab_new">New tab</string>
     <string name="native_tab_add_host">Add host</string>
     <string name="native_tab_open">Open in new tab</string>
     <string name="native_tab_opened">Opened in new tab</string>
     <string name="native_tab_limit">Close a tab before opening another (maximum %1$d)</string>
     <string name="native_tab_unavailable_host">Unavailable host</string>
-    <string name="native_tab_host_label">%1$s%2$s</string>
     <string name="native_tab_select">Switch to tab: %1$s, %2$s</string>
-    <string name="native_tab_close">Close tab: %1$s</string>
+    <string name="native_tab_close">Close %1$s on %2$s</string>
     <string name="native_switch_host">Switch host</string>
+    <string name="native_hosts">Hosts</string>
+    <string name="native_manage_hosts">Manage hosts</string>
+    <string name="native_tab_new_on_host">New tab on %1$s</string>
+    <string name="native_tab_new_other_host">New tab on another host</string>
+    <string name="native_tab_current">Current</string>
+    <string name="native_tab_current_host">%1$s · Current</string>
+    <string name="native_tab_resume">Resume tab</string>
+    <string name="native_tab_open_projects">Open Projects</string>
+    <string name="native_host_tabs">%1$s · %2$s</string>
+    <string name="native_no_open_tabs">No open tabs</string>
+    <string name="native_no_other_hosts">Add a host to open a tab somewhere else.</string>
+    <string name="native_no_hosts">Add a host to get started.</string>
+    <string name="native_host_status">Status</string>
+    <string name="native_host_connection">Connection</string>
+    <string name="native_host_address">Address</string>
+    <string name="native_host_open_tabs">Open tabs</string>
+    <string name="native_host_notifications">Notifications</string>
+    <string name="native_relay_server_name">Server name</string>
+    <string name="native_wordmark" translatable="false">yepanywhere</string>
+    <plurals name="native_host_tab_count">
+        <item quantity="one">%1$d tab</item>
+        <item quantity="other">%1$d tabs</item>
+    </plurals>
 </resources>

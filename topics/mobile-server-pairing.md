@@ -389,7 +389,7 @@ the normalized lowercase username as both relay target and SRP identity. The
 username also becomes the local profile's display label; onboarding does not
 ask for a second name.
 
-An advanced disclosure permits an explicit custom relay WebSocket URL or an
+Connection options permits an explicit custom relay WebSocket URL or an
 exact direct WebSocket URL. Explicitly entered endpoints remain authoritative:
 onboarding does not probe or silently replace them. This default affects only
 new pairings and does not change any saved profile's route or preferred-route
@@ -398,7 +398,16 @@ cleared from Compose state on submission, and never placed in saved instance
 state, a ViewModel field, DataStore, or the web bridge. A profile is persisted
 only after the authenticated server proof succeeds.
 
-Native management selects, adds, reauthenticates and removes saved profiles.
+Native management lists saved hosts by route and tab count, and highlights a
+revoked device or required sign-in. Host details show the saved address and
+connection state and own reauthentication, notifications and removal. A
+failed Add host attempt stays on the form, retaining the server name and
+route while clearing the password. The host added by successful pairing
+opens Projects in a tab after the existing notification offer. If the tab
+limit is already reached, the host is saved and its details open instead.
+The bundled web recovery flow opens the affected host’s sign-in details.
+Back goes to Hosts so another saved host remains reachable during recovery.
+The web view does not interrupt an open native sheet or management screen.
 Removing a registered device first attempts server revocation and then local
 credential/key deletion; an explicit Forget anyway confirmation handles an
 unreachable server. A rejected or expired resume keeps the non-secret profile
@@ -407,8 +416,9 @@ app, with all ordinary session/settings actions using the borrowed native source
 
 Native management does not acquire summary/activity leases. The bundled
 WebView's document capability outlives its foreground transport lease:
-backgrounding and host management release transport demand, and foregrounding
-reacquires it without replacing the document. Document navigation/destruction
+backgrounding and the full Hosts, host details and Add host screens release
+transport demand, and returning to the tab reacquires it without replacing
+the document. Tabs and host picker sheets keep the selected page active. Document navigation/destruction
 retires both. Final-owner release stops the socket and retry work. This does
 not start or emulate the separately reviewed foreground activity service.
 
@@ -682,13 +692,22 @@ Persistent tab records contain identity, profile and route paths; they exclude
 credential-bearing queries/fragments and credentials. Forgotten profiles lose
 their tabs.
 
-A permanent 48dp native toolbar below system/cutout insets shows the host, a
-one-tap tab-count picker, and New tab. Picker rows show host, page, selection and
-close controls. Merely opening or dismissing the picker preserves the WebView.
-New tab chooses a saved host directly or opens native pairing. Ordinary host
-selection reuses an existing tab; explicit new tabs may share a profile while
-retaining independent navigation. The toolbar is an explicitly approved
-2026-10-04 default-visible mobile affordance.
+A permanent native toolbar below system/cutout insets shows the current
+host and the number of open tabs. The tab count opens a sheet with page-first
+rows, host labels, the current tab indicator and individual close actions.
+Closing a tab keeps the sheet open. Closing the final tab opens Hosts.
+The primary action opens Projects in a new tab on the current host. The
+secondary action opens a picker of other saved hosts with a direct Add host
+action. Cancelling Add host returns to the picker or Hosts that launched it.
+
+The host name opens Switch host. Choosing a host resumes the last selected
+tab on that host, or opens Projects if it has no tabs. If the last selected
+tab has closed, switching reuses another existing tab when available.
+Tab records retain the most recent selection per host across process loss
+and accept older records without that selection. Manage hosts opens the
+full Hosts screen. Opening or dismissing either picker preserves the
+selected document and its source lease. The toolbar is an explicitly
+approved default-visible mobile affordance.
 
 Only the selected tab retains a live WebView. Switching away saves in-memory
 navigation history and destroys that tab's document and transport lease; switching

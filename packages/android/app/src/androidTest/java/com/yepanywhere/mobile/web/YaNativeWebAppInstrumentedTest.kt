@@ -245,8 +245,14 @@ class YaNativeWebAppInstrumentedTest {
             await(scenario, "innerWidth < innerHeight")
             assertEquals(identity, evaluate(scenario, "JSON.stringify([performance.timeOrigin, window.warmDocument.identity])"))
             // Plus creates a distinct same-host tab. Returning restores navigation.
-            device.findObject(By.desc("New tab")).click()
-            device.wait(Until.findObject(By.res("android", "text1").text(hostLabel)), 5_000).click()
+            val beforeTabSheet = evaluate(scenario, "performance.timeOrigin")
+            device.findObject(By.desc("Tabs, 1 open")).click()
+            nativeButton(device, "New tab on $hostLabel")
+            scenario.onActivity { assertTrue(it.nativeTransportDiagnostics()?.getBoolean("foreground") == true) }
+            device.pressBack()
+            checkNotNull(device.wait(Until.findObject(By.desc("Tabs, 1 open")), 5_000)).click()
+            assertEquals(beforeTabSheet, evaluate(scenario, "performance.timeOrigin"))
+            nativeButton(device, "New tab on $hostLabel").click()
             await(scenario, "location.pathname === '/projects' && document.body.textContent.includes('preview-project')")
             assertTrue(device.hasObject(By.desc("Tabs, 2 open")))
             device.findObject(By.desc("Tabs, 2 open")).click()
@@ -297,19 +303,25 @@ class YaNativeWebAppInstrumentedTest {
             assertEquals(externalIdentity, evaluate(scenario, "performance.timeOrigin"))
             assertTrue(device.hasObject(By.desc("Tabs, 4 open")))
             if (secondProfile != null) {
-                device.findObject(By.desc("New tab")).click()
-                device.wait(Until.findObject(By.res("android", "text1").text(secondHostLabel)), 5_000).click()
+                device.findObject(By.desc("Tabs, 4 open")).click()
+                nativeButton(device, "New tab on another host").click()
+                nativeButton(device, "Add host").click()
+                assertTrue(device.wait(Until.hasObject(By.text("Connection options")), 5_000))
+                device.pressBack()
+                nativeButton(device, secondHostLabel).click()
                 await(scenario, "document.body.textContent.includes('preview-project')", expectedProfileId = secondProfile.id)
                 scenario.onActivity { assertEquals(secondProfile.id, it.nativeTransportDiagnostics()?.getString("profileId")) }
                 device.findObject(By.desc("Tabs, 5 open")).click()
                 captureTabs(device, application, "native-tabs-hosts.png")
-                device.wait(Until.findObject(By.desc("Switch to tab: $hostLabel, /projects/$projectId/sessions/android-preview-session")), 5_000).click()
+                device.pressBack()
+                device.wait(Until.findObject(By.desc("Switch host")), 5_000).click()
+                nativeButton(device, hostLabel).click()
                 await(scenario, "document.body.textContent.includes('Preview message 50')", expectedProfileId = profile.id)
                 scenario.onActivity { assertEquals(profile.id, it.nativeTransportDiagnostics()?.getString("profileId")) }
                 // Closing the second host removes metadata and releases only its consumer.
                 device.findObject(By.desc("Tabs, 5 open")).click()
-                device.wait(Until.findObject(By.desc("Close tab: $secondHostLabel")), 5_000).click()
-                assertTrue(device.wait(Until.gone(By.desc("Close tab: $secondHostLabel")), 5_000))
+                device.wait(Until.findObject(By.descEndsWith(" on $secondHostLabel")), 5_000).click()
+                assertTrue(device.wait(Until.gone(By.descEndsWith(" on $secondHostLabel")), 5_000))
                 assertTrue(device.wait(Until.hasObject(By.text("Tabs")), 5_000))
                 device.waitForIdle()
                 device.pressBack()
@@ -322,7 +334,8 @@ class YaNativeWebAppInstrumentedTest {
             evaluate(scenario, "if (!document.querySelector('[data-sidebar-switch-host]')) document.querySelector('[data-sidebar-toggle]')?.click(); true")
             await(scenario, "!!document.querySelector('[data-sidebar-switch-host]')")
             evaluate(scenario, "document.querySelector('[data-sidebar-switch-host]').click(); true")
-            assertTrue("Switch Host did not open native management", device.wait(Until.hasObject(By.text("Servers")), 5_000))
+            nativeButton(device, "Manage hosts").click()
+            assertTrue("Switch Host did not open native management", device.wait(Until.hasObject(By.text("Hosts")), 5_000))
             assertTrue(device.wait(Until.hasObject(By.text(hostLabel)), 5_000))
             scenario.close()
             assertEquals(200, runBlocking { sibling.request("GET", "/version").status })
@@ -350,6 +363,9 @@ class YaNativeWebAppInstrumentedTest {
             }
         }
     }
+
+    private fun nativeButton(device: UiDevice, label: String): UiObject2 =
+        checkNotNull(device.wait(Until.findObject(By.text(label)), 5_000)) { "Missing native control: $label" }
 
     private fun awaitWebLink(device: UiDevice, name: String): UiObject2 {
         // Run 37223303403 exposed a visible link as content-desc with empty
