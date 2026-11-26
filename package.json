@@ -109,8 +109,8 @@
       "compatibleThroughVersion": "0.171.0"
     },
     "claudeCode": {
-      "compatibleThroughVersion": "2.1.330",
-      "claudeAgentSdkVersion": "0.3.330"
+      "compatibleThroughVersion": "2.1.332",
+      "claudeAgentSdkVersion": "0.3.332"
     },
     "piCli": {
       "compatibleThroughVersion": "1.6.0"

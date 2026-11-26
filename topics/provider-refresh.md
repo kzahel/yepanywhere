@@ -1441,7 +1441,22 @@ Previous-model registry review:
 6. Use read-only catalog and lifecycle checks routinely. Do not spend tokens
    on live model turns without explicit approval.
 
-Current source refresh, 2026-11-20 (Claude Code 2.1.330 / SDK 0.3.330):
+Current source refresh, 2026-11-26 (Claude Code 2.1.332 / SDK 0.3.332):
+the SDK advances from 0.3.330, and its bundled executable reports
+2.1.332. No-turn SDK handshakes return identical model metadata (14 rows)
+and command names (55) before and after. The declaration delta adds no
+SDK message type. It adds a `PreSkillShellCommand` hook event, the
+`soft_error_result` MCP-call member, and a registry-policy fingerprint
+option, and makes `setPermissionMode()` resolve to the mode in effect.
+YA's Claude adapter calls none of these, so no adapter change is needed.
+The server type check, the Claude provider suite (48) and the Claude
+native scenarios (16 passed; every skip belongs to another provider)
+pass. No model turn ran. Existing provider-host workers must restart to
+load the update. Whether 2.1.332 fixes an interrupt that is acknowledged
+but ignored during a foreground Bash call is untested
+([gap](../gaps/claude-interrupt-ignored-during-foreground-bash.md)).
+
+Previous source refresh, 2026-11-20 (Claude Code 2.1.330 / SDK 0.3.330):
 the standalone CLI matches the SDK's bundled target. No-turn SDK
 handshakes with isolated configuration return identical model metadata
 and slash-command names before and after. The SDK declaration changes add
