@@ -245,6 +245,14 @@ sending session/Inbox queries only. Canonical routes retain authentication,
 principal/grant filtering and underlying route availability. Project stream
 reads never ask for complete discovery. Neither stream adds launch authority.
 
+An open session uses the project row its picker already receives when the
+collection is complete and healthy. Activity, names and other project fields
+then follow the existing collection updates or event-driven reads. A missing
+row, incomplete collection or failed collection read uses project detail,
+including when an existing directory is accessible only by a direct link.
+Reconnect revalidates through the current owner. When the collection serves
+a warm session open, Git blame loads the author palette on first use.
+
 Project rows, queue items, recovered patient rows and scheduler-status records
 carry group-qualified identities. Queue statuses reconstruct their canonical
 project-keyed map, including authoritative removal and omitted optional fields.

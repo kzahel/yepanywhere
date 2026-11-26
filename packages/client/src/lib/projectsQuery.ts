@@ -7,7 +7,9 @@ import {
 } from "./clientQueryController";
 import { readVersionInfo } from "./versionQuery";
 
-const PROJECTS_QUERY_KEY = createClientQueryKey({ endpoint: "projects" });
+export const PROJECTS_QUERY_KEY = createClientQueryKey({
+  endpoint: "projects",
+});
 
 /** Acquire the project collection before the UI store's code has loaded. */
 export function createProjectsQuery(

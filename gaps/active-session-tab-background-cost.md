@@ -138,12 +138,10 @@ removed work, not as a measured speedup.
 - **The stall recorder** costs most of the idle CPU and stalls the loop
   about 100 ms every 30 seconds:
   [gap](stall-recorder-idle-cost-and-rotation-stall.md).
-- **Every Codex write refetches its project.** Codex project activity is
-  the rollout's mtime, so each write advances `lastActivity`, commits it,
-  emits `projects-changed`, and the open tab's `useProject` requests
-  `GET /api/projects/:id` (120 requests in 120 writes; none for Claude,
-  whose activity is the project directory's mtime). About 2.6 ms of server
-  time per write plus the request.
+- **Resolved 2026-11-26.** The open session uses the project row already
+  supplied to its picker. The [cross-project streaming comparison](#codex-project-detail-during-streaming--2026-11-26)
+  verifies activity, renames and zero duplicate detail GETs. The original
+  survey observed 120 detail GETs across 120 Codex appends.
 - **Project names are recomputed for every project on every list read**
   (about 2.3 ms per write) because nothing signals that a chosen name
   changed. A revision counter on `ProjectMetadataService` would let the
@@ -189,8 +187,7 @@ snapshot, `getOrCreateProject` probes the directory and provider scanners.
 The time attributable to those probes has not been measured separately.
 The route and query regressions cover saved/bound/native overlap,
 moves, deletion, checkpoint restore and unrelated history growth.
-The Codex project refetch trigger above, issue-header activity reads and
-unknown-file discovery remain separate consumers. These work counts cover
+Unknown-file discovery remains a separate consumer. These work counts cover
 warm project requests. Repeat the generated profile scenario from the repository
 root with the desired rollout populations:
 
@@ -234,6 +231,37 @@ indexing and dwell. Only badge work is attributed to the badge.
 The [isolated runner](../scripts/perf-repro/issue-navigation.mjs) documents
 the build and invocation. A [separate Claude discovery gap](claude-discovery-large-first-record.md)
 covers an image-heavy first record before any short cwd-bearing record.
+
+## Codex project detail during streaming — 2026-11-26
+
+An isolated browser opened a Codex session in one project from Inbox, went
+back to Inbox, switched to another project and typed while twelve native
+appends arrived at 1.05-second intervals. The old and updated client bundles
+used the same source server and fresh profiles.
+
+| Browser requests | Previous client | Updated client |
+|---|---:|---:|
+| Detail GETs on the cross-project open | 1 | 0 |
+| Detail GETs during twelve appends | 8 | 0 |
+| Project list GETs during twelve appends | 8 | 5 |
+
+The localhost list still refreshes on activity events. Its debounce and
+watcher timing affect counts. A deterministic two-subscriber check verifies
+one shared list request per refresh and zero extra detail requests while the
+list covers the selected project. Both browser runs rendered the final native
+message and a project rename. The updated browser observed six distinct
+activity times, retained focus and all 26 typed prefixes, with a 16.8 ms
+maximum keydown-to-second-animation-frame interval. A second pair using the
+navigation assertions saw five list GETs on each build and five versus zero
+detail GETs during streaming. It again saw one versus zero on navigation.
+All 26 updated-client prefixes passed, peaking at 13.6 ms.
+
+The session falls back to project detail for an absent row, incomplete
+membership or a failed list fetch, including failure observed by another
+subscriber. Reconnect uses the existing collection or detail owner. Warm
+navigation covered by the list skips the direct route's speculative Git
+author-palette warm-up. The first blame request loads the palette on demand.
+[Browser reproduction](../scripts/perf-repro/codex-project-detail.mjs)
 
 ## Transcript fact follow-up — 2026-11-12
 

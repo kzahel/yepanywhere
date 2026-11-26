@@ -5,11 +5,11 @@ import {
   pauseCollectionUpdates,
 } from "../lib/collectionUpdates";
 import type { ProjectsResponse } from "../api/projectsClient";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { api } from "../api/client";
 import { createProjectsApi } from "../api/projectsClient";
 import { catalogLoadState } from "../lib/clientSummaryCollections";
-import { createProjectsQuery } from "../lib/projectsQuery";
+import { createProjectsQuery, PROJECTS_QUERY_KEY } from "../lib/projectsQuery";
 import { useOptionalRemoteConnection } from "../contexts/RemoteConnectionContext";
 import { useCurrentSourceRuntime } from "../contexts/SourceRuntimeContext";
 import {
@@ -21,6 +21,8 @@ import {
 import {
   createClientQueryKey,
   ensureClientQuery,
+  getClientQueryState,
+  subscribeClientQueries,
 } from "../lib/clientQueryController";
 import {
   useProjectCollectionRecord,
@@ -63,7 +65,10 @@ function useRemoteReady(): boolean {
 /**
  * Fetch a single project by ID.
  */
-export function useProject(projectId: string | undefined) {
+export function useProject(
+  projectId: string | undefined,
+  staleTimeMs?: number,
+) {
   const runtime = useCurrentSourceRuntime();
   const sourceKey = runtime.sourceKey;
   const sourceSummary = runtime.summary;
@@ -88,6 +93,7 @@ export function useProject(projectId: string | undefined) {
       enabled,
       ready,
       hasData: project !== null,
+      staleTimeMs,
       meta: { projectId },
       revalidateOn: ["refresh", "reconnect"],
       fetcher: (context) => {
@@ -236,4 +242,25 @@ export function useProjects({
     error: (live ? null : error) ?? status.refreshError,
     refetch,
   };
+}
+
+/** The session already needs the list for its project picker. A partial list
+ * can retain old members, and direct links can name an unlisted directory. */
+export function useSessionProjects(projectId: string) {
+  const { sourceKey } = useCurrentSourceRuntime();
+  // Another mounted list owner can perform the refresh. Its background failure
+  // is shared by the controller even when the picker keeps showing old rows.
+  const failed = useSyncExternalStore(subscribeClientQueries, () =>
+    Boolean(getClientQueryState(sourceKey, PROJECTS_QUERY_KEY)?.error),
+  );
+  const { projects, complete, error } = useProjects();
+  const listed = useMemo(
+    () => projects.find((p) => p.id === projectId),
+    [projects, projectId],
+  );
+  const { project } = useProject(
+    complete && !failed && !error && listed ? undefined : projectId,
+    0,
+  );
+  return { projects, project: project ?? listed ?? null };
 }

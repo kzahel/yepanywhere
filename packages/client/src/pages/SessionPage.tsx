@@ -138,7 +138,7 @@ import {
   getShowThinkingSetting,
 } from "../hooks/useModelSettings";
 import { useProjectQueues } from "../hooks/useProjectQueues";
-import { useProject, useProjects } from "../hooks/useProjects";
+import { useSessionProjects } from "../hooks/useProjects";
 import { useProviders } from "../hooks/useProviders";
 import { usePublicShareStatus } from "../hooks/usePublicShareStatus";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
@@ -370,8 +370,7 @@ function SessionPageContent({
     useNavigationLayout();
   const basePath = useRemoteBasePath();
   const startNewSessionWithPrefill = useStartNewSessionWithPrefillAction();
-  const { project } = useProject(projectId);
-  const { projects } = useProjects();
+  const { project, projects } = useSessionProjects(projectId);
   const { headerRef, layout: headerLayout } = useSessionHeaderLayout();
   const { projectCodeNamesEnabled } = useProjectCodeNamePreferences();
   const hideHeaderSecondary = headerLayout !== "full";

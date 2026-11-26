@@ -71,7 +71,7 @@ import {
 } from "../../lib/clientQueryBootstrap";
 import { LOCAL_CLIENT_SUMMARY_SOURCE_KEY } from "../../lib/clientSummarySourceKey";
 import { resetClientSummaryStoreForTests } from "../../lib/clientSummaryStore";
-import { useProject, useProjects } from "../useProjects";
+import { useProject, useProjects, useSessionProjects } from "../useProjects";
 import { getSourceRuntimeRegistry } from "../../lib/sourceRuntime";
 import {
   createClientSummaryHostSourceKey,
@@ -309,6 +309,67 @@ describe("useProjects", () => {
     await waitFor(() =>
       expect(list.result.current.projects[0]?.name).toBe("Detail Project"),
     );
+  });
+
+  it("uses listed activity and reconnect changes, recovering detail for incomplete, missing or failed lists", async () => {
+    vi.useFakeTimers();
+    setVersion("0.9.4");
+    const id = "streaming";
+    const initial = project(id);
+    const advanced = project(id, { lastActivity: "2026-07-01T10:00:00Z" });
+    mocks.getProjects.mockResolvedValue({ projects: [initial] });
+    mocks.getProject.mockResolvedValue({ project: initial });
+    const sidebar = renderHook(() => useProjects());
+    await settle();
+    const view = renderHook(() => useSessionProjects(id));
+    await settle();
+    const detailAfterOpen = mocks.getProject.mock.calls.length;
+    const listsAfterOpen = mocks.getProjects.mock.calls.length;
+    async function refresh(event: string) {
+      await act(async () => {
+        mocks.activityBus.emit(event, { projectIds: [id] });
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      await settle();
+    }
+    mocks.getProjects.mockResolvedValue({ projects: [advanced] });
+    await refresh("projects-changed");
+    expect(view.result.current.project?.lastActivity).toBe(
+      advanced.lastActivity,
+    );
+    const renamed = project(id, { name: "Reconnected" });
+    mocks.getProjects.mockResolvedValue({ projects: [renamed] });
+    await refresh("reconnect");
+    expect(view.result.current.project?.name).toBe("Reconnected");
+    expect(mocks.getProject).toHaveBeenCalledTimes(detailAfterOpen);
+    expect(mocks.getProjects).toHaveBeenCalledTimes(listsAfterOpen + 2);
+
+    // An incomplete snapshot retains old membership; the direct route remains
+    // authoritative for that row and for directories absent from the list.
+    mocks.getProjects.mockResolvedValue({
+      projects: [],
+      catalog: { complete: false },
+    });
+    const direct = project(id, { name: "Direct detail" });
+    mocks.getProject.mockResolvedValue({ project: direct });
+    await refresh("projects-changed");
+    await refresh("projects-changed");
+    expect(view.result.current.project?.name).toBe("Direct detail");
+    mocks.getProjects.mockResolvedValue({ projects: [] });
+    await refresh("projects-changed");
+    expect(view.result.current.projects).toHaveLength(0);
+    expect(view.result.current.project?.id).toBe(id);
+    mocks.getProjects.mockResolvedValue({ projects: [renamed] });
+    await refresh("reconnect");
+    mocks.getProjects.mockRejectedValue(new Error("collection unavailable"));
+    await refresh("projects-changed");
+    expect(sidebar.result.current.complete).toBe(true);
+    expect(sidebar.result.current.error).toBeNull();
+    expect(view.result.current.project?.name).toBe("Direct detail");
+    const before = mocks.getProject.mock.calls.length;
+    await refresh("projects-changed");
+    expect(mocks.getProject.mock.calls.length).toBeGreaterThan(before);
+    expect(view.result.current.project?.name).toBe("Direct detail");
   });
 
   it("revalidates project detail for matching activity and code-name changes", async () => {

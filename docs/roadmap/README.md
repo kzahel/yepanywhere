@@ -1203,7 +1203,10 @@ list pipeline with no measured CPU change, and records four candidates that
 need a decision: statement reuse under the 64-statement ceiling, WAL for the
 discovery database (about 6% in an experiment), the
 [stall recorder's idle cost](../../gaps/stall-recorder-idle-cost-and-rotation-stall.md),
-and a project refetch on every Codex write. That refetch remains open.
+and a project refetch on every Codex write. The session viewer now uses its
+existing project collection. The [streaming comparison](../../gaps/active-session-tab-background-cost.md#codex-project-detail-during-streaming--2026-11-26)
+observed zero duplicate detail GETs. [Session-scoped issue reads](../../gaps/active-session-tab-background-cost.md#session-header-issue-reads-during-inbox-navigation--2026-11-26)
+also use indexed candidates at both measured populations.
 [Project card counts with saved creations](../../gaps/active-session-tab-background-cost.md#project-card-counts-with-saved-creations--2026-11-26)
 now share the retained query; repeated reads no longer walk native history or
 enumerate creation records to count one project.
