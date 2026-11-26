@@ -32,7 +32,10 @@ if (
   throw new Error("Invalid iOS release identity or build number");
 const privateKey = Buffer.from(required("ASC_API_KEY_P8_BASE64"), "base64");
 const key = createPrivateKey(privateKey);
-const api = async (path) => {
+const appleOrigin = "https://api.appstoreconnect.apple.com";
+const apiResponse = async (url, body) => {
+  if (url.origin !== appleOrigin)
+    throw new Error("Unexpected Apple API origin");
   const now = Math.floor(Date.now() / 1000);
   const encode = (value) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -49,19 +52,23 @@ const api = async (path) => {
     key,
     dsaEncoding: "ieee-p1363",
   }).toString("base64url");
-  const response = await fetch(
-    "https://api.appstoreconnect.apple.com/v1/" + path,
-    {
-      headers: { authorization: "Bearer " + payload + "." + signature },
-      signal: AbortSignal.timeout(30_000),
+  const response = await fetch(url, {
+    method: body ? "PATCH" : "GET",
+    body: body ? JSON.stringify(body) : undefined,
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + payload + "." + signature,
     },
-  );
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!response.ok)
     throw new Error(
-      `App Store Connect GET ${path.split("?")[0]} returned ${response.status}`,
+      `App Store Connect ${body ? "PATCH" : "GET"} ${url.pathname} returned ${response.status}`,
     );
-  return (await response.json()).data;
+  return response.json();
 };
+const api = async (path, body) =>
+  (await apiResponse(new URL("/v1/" + path, appleOrigin), body)).data;
 const app = await api("apps/" + appId);
 if (app.attributes.bundleId !== "com.yepanywhere.ios")
   throw new Error("Wrong App Store Connect application");
@@ -211,12 +218,60 @@ async function upload() {
     await rm(dir, { recursive: true, force: true });
   }
 }
+// Apple accepted the standard third-party algorithms / no France answers on
+// build 1 and recorded usesNonExemptEncryption=false. Apple does not issue a
+// declaration resource for that answer combination. Check the original Apple
+// record and current territory before replaying it on this internal build.
+async function applyReviewedEncryptionAnswer(build, version) {
+  const [reviewed] = await api(
+    "builds?" +
+      new URLSearchParams({
+        "filter[app]": appId,
+        "filter[version]": "1",
+        "filter[preReleaseVersion.version]": "0.1.0",
+      }),
+  );
+  if (
+    reviewed?.attributes.processingState !== "VALID" ||
+    reviewed.attributes.usesNonExemptEncryption !== false
+  )
+    throw new Error("Apple's reviewed encryption answer could not be verified");
+  let url = new URL(
+    `/v2/appAvailabilities/${appId}/territoryAvailabilities?include=territory&limit=200`,
+    appleOrigin,
+  );
+  let france;
+  while (url && !france) {
+    const page = await apiResponse(url);
+    france = page.data.find(
+      (row) => row.relationships.territory.data.id === "FRA",
+    );
+    url = page.links?.next ? new URL(page.links.next) : null;
+  }
+  if (france?.attributes.available !== false)
+    throw new Error(
+      "Review export compliance for the app's current territories",
+    );
+  await api("builds/" + build.id, {
+    data: {
+      type: "builds",
+      id: build.id,
+      attributes: { usesNonExemptEncryption: false },
+    },
+  });
+  console.log(
+    "Applied the reviewed Apple encryption answer for",
+    version,
+    buildNumber,
+  );
+}
 async function verify() {
   const version = required("IOS_VERSION");
   const sha256 = required("IOS_IPA_SHA256");
   if (!/^[a-f0-9]{64}$/.test(sha256))
     throw new Error("Missing signed IPA fingerprint");
   let delivered = false;
+  let appliedAnswer = false;
   const deadline = Date.now() + 25 * 60_000;
   while (Date.now() < deadline) {
     const [build] = await builds(version);
@@ -224,10 +279,14 @@ async function verify() {
       const detail = await api("builds/" + build.id + "/buildBetaDetail");
       const state = detail.attributes.internalBuildState;
       console.log("Apple internal build state:", state);
-      if (state === "MISSING_EXPORT_COMPLIANCE")
-        throw new Error(
-          "Apple requires the build encryption declaration; preserve the reviewed non-exempt answers and France exclusion.",
-        );
+      if (
+        state === "MISSING_EXPORT_COMPLIANCE" &&
+        !appliedAnswer &&
+        build.attributes.usesNonExemptEncryption == null
+      ) {
+        await applyReviewedEncryptionAnswer(build, version);
+        appliedAnswer = true;
+      }
       const members = await api(
         "betaGroups/" + group.id + "/relationships/builds?limit=200",
       );
