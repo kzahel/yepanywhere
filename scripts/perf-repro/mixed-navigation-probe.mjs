@@ -286,6 +286,29 @@ if (fs.existsSync(firstAppendPlan)) {
     return emit.call(this, event);
   };
 }
+let freshness;
+const freshnessPlan = join(process.env.YEP_DATA_DIR, "mixed-freshness.json");
+if (fs.existsSync(freshnessPlan)) {
+  const { installFreshnessProbe } = await import(
+    "./mixed-navigation-freshness-probe.mjs"
+  );
+  const mark = (kind, stack = false) => {
+    sample.freshness ??= {};
+    sample.freshness[kind] ??= {
+      count: 0,
+      first: Date.now(),
+      ...(stack ? { stack: packageStack() } : {}),
+    };
+    const point = sample.freshness[kind];
+    point.count++;
+    point.last = Date.now();
+  };
+  freshness = await installFreshnessProbe(
+    JSON.parse(fs.readFileSync(freshnessPlan, "utf8")),
+    mark,
+    packageStack,
+  );
+}
 const { ReviewCommentService } = await import(
   "../../packages/server/src/review/ReviewCommentService.ts"
 );
@@ -336,6 +359,18 @@ Server.prototype.emit = function (name, ...args) {
       }
     }
     res.end(JSON.stringify({ leases: leases.length }));
+    return true;
+  }
+  if (freshness && pathname === "/__mixed_freshness_baselines") {
+    res.end(JSON.stringify(freshness.status()));
+    return true;
+  }
+  if (
+    freshness &&
+    req.method === "POST" &&
+    pathname === "/__mixed_freshness_hint"
+  ) {
+    res.end(JSON.stringify({ delivered: freshness.hint() }));
     return true;
   }
   if (pathname === "/__mixed_navigation_workers") {

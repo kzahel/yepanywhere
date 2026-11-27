@@ -29,6 +29,7 @@ import { measuredHostSample, hostWindow } from "./active-session-metrics.mjs";
 import { readHostCapacity } from "../perf-suite/host-profile.mjs";
 import { fingerprintTree } from "./active-session-build.mjs";
 import { typeThroughRelease } from "./mixed-navigation-typing.mjs";
+import { replayFreshness } from "./mixed-navigation-freshness.mjs";
 import { mixedFixture } from "./mixed-navigation-fixture.mjs";
 
 const { chromium, expect } = createRequire(
@@ -40,6 +41,8 @@ const { values } = parseArgs({
     population: { type: "string", default: "50" },
     projects: { type: "string", default: "1" },
     indexless: { type: "boolean" },
+    "startup-control": { type: "string" },
+    "raw-hints": { type: "boolean" },
     typing: { type: "boolean" },
     "pin-watches": { type: "boolean" },
     out: { type: "string" },
@@ -48,7 +51,7 @@ const { values } = parseArgs({
 });
 if (values.help) {
   console.log(
-    "mixed-navigation.mjs --case navigation|arrival|review [--population 50] [--projects 1] [--indexless] [--pin-watches] [--typing] [--out NEW.json]\nPopulation is the number of unrelated sessions, projects the number of archive projects. See the plan 190 mixed-provider navigation audit for build and replay.",
+    "mixed-navigation.mjs --case navigation|arrival|review|freshness [--population 50] [--projects 1] [--indexless] [--pin-watches] [--typing] [--raw-hints] [--startup-control wait|observe-first|empty-ports] [--out NEW.json]\nPopulation is the number of unrelated sessions, projects the number of archive projects. See the plan 190 mixed-provider navigation audit for build and replay.",
   );
   process.exit(0);
 }
@@ -60,14 +63,23 @@ assert(
   !values.typing || scenario === "navigation",
   "--typing requires navigation",
 );
+const startupControl = values["startup-control"];
+assert(
+  !startupControl ||
+    (scenario === "freshness" &&
+      ["wait", "observe-first", "empty-ports"].includes(startupControl)),
+  "Invalid freshness --startup-control",
+);
+const rawHints = values["raw-hints"] ?? false;
+assert(!rawHints || scenario === "freshness", "--raw-hints requires freshness");
 const pinWatches = values["pin-watches"] ?? false;
 assert(
   !pinWatches || scenario === "navigation",
   "--pin-watches requires navigation",
 );
 assert(
-  ["navigation", "arrival", "review"].includes(scenario),
-  "Choose --case navigation, arrival or review",
+  ["navigation", "arrival", "review", "freshness"].includes(scenario),
+  "Choose --case navigation, arrival, review or freshness",
 );
 assert(
   Number.isInteger(population) &&
@@ -98,6 +110,8 @@ const result = {
   projects,
   indexed,
   pinWatches,
+  rawHints,
+  startupControl,
   node: process.version,
   revision: git("rev-parse", "HEAD"),
   dirty: git("status", "--porcelain").length > 0,
@@ -108,6 +122,8 @@ const result = {
       "mixed-navigation-probe.mjs",
       "mixed-navigation-worker-probe.mjs",
       "mixed-navigation-typing.mjs",
+      "mixed-navigation-freshness.mjs",
+      "mixed-navigation-freshness-probe.mjs",
       "mixed-navigation-fixture.mjs",
       "scenario-transcripts.mjs",
     ].map((name) => [
@@ -155,6 +171,11 @@ try {
         writeFileSync(
           join(paths.dataDir, "mixed-first-append.json"),
           JSON.stringify(fixture.active[0].file),
+        );
+      if (scenario === "freshness")
+        writeFileSync(
+          join(paths.dataDir, "mixed-freshness.json"),
+          JSON.stringify({ target: fixture.active[0].file, startupControl }),
         );
       if (pinWatches)
         writeFileSync(
@@ -229,10 +250,31 @@ try {
       )
       .toBe(true);
   }
+  if (startupControl) {
+    await expect
+      .poll(() => get("/__mixed_freshness_baselines"), {
+        timeout: 30000,
+      })
+      .toEqual({ ready: ["claude", "codex"], portListFinished: true });
+    const baseline = await snapshot("both-watchers-ready");
+    assert(
+      baseline.freshness?.["port-list-end"]?.count,
+      "Expected the project-app startup read",
+    );
+    if (startupControl === "observe-first") {
+      assert.equal(baseline.freshness["observed-order-control"]?.count, 1);
+      for (const family of ["claude", "codex"]) {
+        assert(baseline.freshness["discovery-" + family + "-observed"]?.count);
+        assert(!baseline.freshness["discovery-" + family + "-unobserved"]);
+      }
+    }
+  }
   await counts(10);
   await snapshot("discovery");
   db = new DatabaseSync(join(fixture.paths.dataDir, "discovery.sqlite"), {
     readOnly: true,
+    // A catalog commit can briefly own the database during a driver sample.
+    timeout: 1000,
   });
   const lookup = db.prepare(
     "SELECT source_version,project_id FROM session_catalog WHERE family=? AND native_id=? AND deleted=0",
@@ -395,6 +437,13 @@ try {
         await snapshot(kind + "-" + i);
       }
     }
+  }
+  if (scenario === "freshness") {
+    await page.close();
+    await delay(1200);
+    await counts(10);
+    await replayFreshness({ fixture, row, get, snapshot, result, rawHints });
+    await counts(10);
   }
   if (scenario === "arrival") {
     // Keep the watcher window free of browser/list polling after warming Inbox.
