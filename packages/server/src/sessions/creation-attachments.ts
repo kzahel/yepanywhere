@@ -24,10 +24,15 @@ import type {
   SessionCreationStore,
 } from "./SessionCreationStore.js";
 
-export type CreationAttachmentSource = {
-  owner: { type: "draft" } | { type: "project-queue"; queueItemId: string };
-  refs: readonly StagedAttachmentRef[];
-};
+export type CreationAttachmentSource =
+  | {
+      owner: { type: "draft" } | { type: "project-queue"; queueItemId: string };
+      refs: readonly StagedAttachmentRef[];
+    }
+  | {
+      files: readonly (UploadedFile & { sha256: string })[];
+      authorize: () => Promise<void>;
+    };
 type SavedFile = Omit<UploadedFile, "path"> & {
   sha256: string;
   inlineImage?: true;
@@ -133,7 +138,11 @@ export class CreationAttachments {
     this.cleanupPromise ??= this.cleanup();
     await this.cleanupPromise;
     const count =
-      (source?.refs.length ?? 0) +
+      (source
+        ? "refs" in source
+          ? source.refs.length
+          : source.files.length
+        : 0) +
       (legacy?.files?.length ?? 0) +
       (legacy?.images?.length ?? 0);
     if (!count || count > 64)
@@ -141,22 +150,27 @@ export class CreationAttachments {
     const staging = this.staging.forUser(
       owner.kind === "limited" ? owner.username : null,
     );
-    const refs = source
-      ? source.owner.type === "draft"
-        ? (
-            await Promise.all(
-              source.refs.map((ref) =>
-                staging.validateDraftRefs(ref.batchId, [ref]),
-              ),
+    const refs =
+      source && "refs" in source
+        ? source.owner.type === "draft"
+          ? (
+              await Promise.all(
+                source.refs.map((ref) =>
+                  staging.validateDraftRefs(ref.batchId, [ref]),
+                ),
+              )
+            ).flat()
+          : await staging.validateQueueRefs(
+              source.owner.queueItemId,
+              source.refs,
             )
-          ).flat()
-        : await staging.validateQueueRefs(source.owner.queueItemId, source.refs)
-      : [];
-    const records: UploadedFile[] = refs.map((ref) => {
+        : [];
+    const records: (UploadedFile & { sha256?: string })[] = refs.map((ref) => {
       const record = staging.getRecord(ref.id);
       if (!record) throw new Error("Staged attachment is unavailable");
       return record;
     });
+    if (source && "files" in source) records.push(...source.files);
     for (const submitted of legacy?.files ?? []) {
       if (
         !submitted ||
@@ -207,7 +221,7 @@ export class CreationAttachments {
           originalName: record.originalName,
           mimeType: record.mimeType,
           size: record.size,
-          sha256: await digest(path),
+          sha256: record.sha256 ?? (await digest(path)),
           ...(record.width !== undefined ? { width: record.width } : {}),
           ...(record.height !== undefined ? { height: record.height } : {}),
         };
@@ -262,6 +276,7 @@ export class CreationAttachments {
         JSON.stringify({ owner, requestId, createdAt: Date.now(), snapshot }),
       );
       const target = join(this.root, groupId);
+      if (source && "files" in source) await source.authorize();
       try {
         await rename(temp, target);
       } catch (error) {

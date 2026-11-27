@@ -12,7 +12,15 @@ import {
 import { relatedQuery } from "./relationship-graph-contracts.js";
 import type { SessionRelationshipRead } from "../sessions/session-relationship-read.js";
 import { receiptFollowQuery } from "./receipt-follow.js";
-import { createSessionRequest, inputRequest } from "./command-contracts.js";
+import {
+  attachmentUploadBody,
+  attachmentUploadOffset,
+} from "./attachment-contracts.js";
+import {
+  createSessionRequest,
+  inputRequest,
+  requestIdSchema,
+} from "./command-contracts.js";
 import type { SessionCommands } from "./session-commands.js";
 import {
   conversationQuery,
@@ -121,6 +129,7 @@ export class CoreApi {
     caller: ApiPrincipal,
     input: {
       serverId?: string;
+      projectId?: string;
       sessionId?: string;
       receiptId?: string;
       pendingRequestId?: string;
@@ -131,6 +140,7 @@ export class CoreApi {
       query?: PageQuery &
         ConversationFollowQuery & {
           operation?: string;
+          offset?: string;
           provider?: string;
           routing?: string;
           includeRelated?: string;
@@ -358,6 +368,7 @@ export class CoreApi {
                 "selection",
                 "relationships",
                 "createSession",
+                "uploadAttachment",
                 "createInput",
                 "inputs",
                 "cancelInput",
@@ -494,6 +505,61 @@ export class CoreApi {
         await this.assertReceipt(caller, receipt, input.signal);
         return receipt;
       }
+      case "uploadAttachment": {
+        const commands = this.commandAccess(caller, input.launch);
+        const uploads = this.attachmentUploads(commands);
+        const parsed = attachmentUploadBody
+          .extend({ requestId: requestIdSchema })
+          .safeParse(input.body);
+        const offset = attachmentUploadOffset.safeParse(input.query?.offset);
+        const projectId = input.projectId;
+        if (
+          !parsed.success ||
+          !offset.success ||
+          !projectId ||
+          projectId.length > 4096
+        )
+          throw new CoreApiError(
+            "invalid_request",
+            "Invalid attachment chunk; inspect the uploadAttachment schema",
+            400,
+          );
+        if (!visible(projectId))
+          throw new CoreApiError("project_not_found", "Project not found", 404);
+        const projects = await this.sources.projects(input.signal);
+        if (!projects.items.some((project) => project.id === projectId))
+          throw new CoreApiError(
+            projects.catalog?.complete === false
+              ? "catalog_not_ready"
+              : "project_not_found",
+            "Project is not available in this server's catalog",
+            projects.catalog?.complete === false ? 503 : 404,
+          );
+        assertPeerOperation(caller, operation);
+        const authorize = () => {
+          this.commandAccess(caller, input.launch);
+          if (caller.kind === "peer") {
+            if (caller.assertAuthority) caller.assertAuthority();
+            else caller.assertActive();
+          }
+          const reason = input.signal?.reason;
+          if (reason instanceof CoreApiError && reason.code === "forbidden")
+            throw reason;
+        };
+        const { requestId, ...chunk } = parsed.data;
+        return uploads.upload(
+          commands.creator(
+            input.launch,
+            caller.kind === "peer" ? peerCreator(caller) : undefined,
+          ),
+          projectId,
+          requestId,
+          Number(offset.data),
+          chunk,
+          authorize,
+          input.signal,
+        );
+      }
       case "createSession": {
         const commands = this.commandAccess(caller, input.launch);
         const body = createSessionRequest.safeParse(input.body);
@@ -539,6 +605,14 @@ export class CoreApi {
           );
         input.signal?.throwIfAborted();
         assertPeerOperation(caller, operation);
+        const attachments = body.data.attachmentIds
+          ? await this.attachmentUploads(commands).resolve(
+              commands.creator(input.launch, authenticated),
+              project.id,
+              body.data.attachmentIds,
+            )
+          : undefined;
+        input.signal?.throwIfAborted();
         return commands.create(
           project,
           body.data,
@@ -554,6 +628,7 @@ export class CoreApi {
                 403,
               );
           },
+          attachments,
         );
       }
       case "createInput": {
@@ -580,6 +655,15 @@ export class CoreApi {
         const session = await this.readReadySession(caller, input);
         input.signal?.throwIfAborted();
         assertPeerOperation(caller, operation);
+        const attachments =
+          body.data.type === "prompt" && body.data.attachmentIds
+            ? await this.attachmentUploads(commands).resolve(
+                commands.creator(input.launch, authenticated),
+                session.projectId,
+                body.data.attachmentIds,
+              )
+            : undefined;
+        input.signal?.throwIfAborted();
         return commands.input(
           session,
           body.data,
@@ -589,6 +673,7 @@ export class CoreApi {
             this.commandAccess(caller, input.launch);
             assertPeerOperation(caller, operation);
           },
+          attachments,
         );
       }
       case "followReceipt": {
@@ -926,6 +1011,16 @@ export class CoreApi {
       )
         throw error;
     }
+  }
+
+  private attachmentUploads(commands: SessionCommands) {
+    if (!commands.attachmentUploads)
+      throw new CoreApiError(
+        "controller_unavailable",
+        "Attachment staging is unavailable",
+        503,
+      );
+    return commands.attachmentUploads;
   }
 
   private commandAccess(

@@ -3,6 +3,7 @@ import { agentApiEligible } from "../../agent-api/eligibility.js";
 import { agentSelfEnabled } from "./agent-self.js";
 import {
   agentCatalogRequest,
+  cancelAgentCatalogRequest,
   AGENT_CATALOG_MAX_BYTES,
 } from "../../agent-api/controller-protocol.js";
 import { CoreApiError } from "../../core-api/service.js";
@@ -1389,8 +1390,7 @@ class HostedAgentSession {
         void this.handleAgentApiRead(message);
         return;
       case "agentApiCancel":
-        this.agentApiControllers.get(String(message.requestId))?.abort();
-        this.agentApiControllers.delete(String(message.requestId));
+        cancelAgentCatalogRequest(this.agentApiControllers, message);
         return;
       case "approvalCancelled":
         this.cancelApproval(String(message.requestId));

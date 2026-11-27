@@ -16,6 +16,7 @@ export interface PeerPrincipal {
   sourceLaunchId: string | null;
   signal: AbortSignal;
   assertActive(): void;
+  assertAuthority?(): void;
 }
 export type ApiPrincipal = Principal | PeerPrincipal;
 

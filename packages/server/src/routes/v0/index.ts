@@ -102,6 +102,7 @@ export function createV0Routes(
       c.get(PRINCIPAL_VARIABLE),
       {
         serverId: serverId ? decodeURIComponent(serverId) : undefined,
+        projectId: c.req.param("projectId"),
         sessionId: c.req.param("sessionId"),
         receiptId: c.req.param("receiptId"),
         pendingRequestId: c.req.param("requestId"),

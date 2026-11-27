@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { SUPERUSER } from "../../src/auth/principal.js";
 import { CoreApi, type CoreApiSources } from "../../src/core-api/service.js";
 import { ApiReceiptStore } from "../../src/core-api/receipt-store.js";
+import { ApiAttachmentUploads } from "../../src/core-api/attachment-uploads.js";
 import { SessionCommands } from "../../src/core-api/session-commands.js";
 import { PeerAccessManager } from "../../src/peer-api/manager.js";
 import { migrateDiscoveryDatabase } from "../../src/storage/discovery-sqlite.js";
@@ -68,6 +69,9 @@ export async function protectedProfile(
       },
     },
     () => true,
+    undefined,
+    undefined,
+    new ApiAttachmentUploads(directory),
   );
   cleanup.push(async () => {
     commands.close();

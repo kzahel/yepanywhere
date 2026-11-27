@@ -52,6 +52,7 @@ export function peerOperationRequest(
     );
   const path = descriptor.path
     .replace(":serverId", encodeURIComponent(input.serverId ?? ""))
+    .replace(":projectId", encodeURIComponent(input.projectId ?? ""))
     .replace(":sessionId", encodeURIComponent(input.sessionId ?? ""))
     .replace(":receiptId", encodeURIComponent(input.receiptId ?? ""))
     .replace(":requestId", encodeURIComponent(input.pendingRequestId ?? ""))

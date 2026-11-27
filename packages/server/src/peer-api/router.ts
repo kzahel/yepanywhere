@@ -243,24 +243,33 @@ export class PeerApiRouter {
             "Idempotency-Key is required",
             400,
           );
-        record = this.outbound.reserve(
-          {
-            sourceServerId: this.local.serverId,
-            sourceSessionId: attestation.sessionId,
-            attestedSessionId: attestation.sessionId,
-            sourceLaunchId: attestation.launchId,
-            destinationServerId: peer.serverId,
-            operation: request.method,
-            resource: request.path,
-            requestId: request.key,
-          },
-          request.body,
-        );
-        attestation = {
-          ...attestation,
-          sessionId: record.attestedSessionId,
-          launchId: record.sourceLaunchId,
-        };
+        // Chunks are retried against the target's upload state and create no
+        // native receipt. Reserving one outbound record per chunk would exhaust
+        // the session command ledger during ordinary large transfers.
+        const upload =
+          operation === "uploadAttachment" &&
+          request.path.split("?")[0] ===
+            `/v0/servers/${encodeURIComponent(peer.serverId)}/projects/${encodeURIComponent(input.projectId ?? "")}/attachments`;
+        if (!upload)
+          record = this.outbound.reserve(
+            {
+              sourceServerId: this.local.serverId,
+              sourceSessionId: attestation.sessionId,
+              attestedSessionId: attestation.sessionId,
+              sourceLaunchId: attestation.launchId,
+              destinationServerId: peer.serverId,
+              operation: request.method,
+              resource: request.path,
+              requestId: request.key,
+            },
+            request.body,
+          );
+        if (record)
+          attestation = {
+            ...attestation,
+            sessionId: record.attestedSessionId,
+            launchId: record.sourceLaunchId,
+          };
       }
       const reply = httpReplySchema.parse(
         await peer.transport.request(

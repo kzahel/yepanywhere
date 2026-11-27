@@ -10,6 +10,10 @@ import type {
   InputRequest,
   ApiCreator,
 } from "./command-contracts.js";
+import type {
+  ApiAttachment,
+  ApiAttachmentUploads,
+} from "./attachment-uploads.js";
 import type { ApiPendingInput } from "./input-contracts.js";
 import type { InputReceiptPatch } from "./native-session-inputs.js";
 import type { ApiReceiptStore } from "./receipt-store.js";
@@ -45,6 +49,7 @@ export interface SessionCommandOwner {
     progress?: (patch: InputReceiptPatch) => void,
     /** False once authority or the command owner ended; nothing is queued. */
     admissible?: () => boolean,
+    attachments?: readonly ApiAttachment[],
   ):
     | { accepted: boolean; failure?: { code: string; message: string } }
     | Promise<{
@@ -66,6 +71,7 @@ export interface SessionCommandOwner {
     consumed?: () => void,
     admitted?: (sessionId: string) => void,
     authorize?: () => Promise<void>,
+    attachments?: readonly ApiAttachment[],
   ): Promise<
     | { sessionId: string }
     | { queueId: string }
@@ -88,6 +94,7 @@ export class SessionCommands {
       receiptId: string,
       reason: unknown,
     ) => void = () => {},
+    readonly attachmentUploads?: ApiAttachmentUploads,
   ) {}
   creator(launch?: ApiLaunchContext, authenticated?: ApiCreator): ApiCreator {
     if (authenticated) return authenticated;
@@ -122,6 +129,7 @@ export class SessionCommands {
     launch?: ApiLaunchContext,
     authenticated?: ApiCreator,
     authorize?: () => Promise<void>,
+    attachments?: readonly ApiAttachment[],
   ) {
     if (!this.enabled())
       throw new CoreApiError(
@@ -217,6 +225,7 @@ export class SessionCommands {
                   );
                 await authorize?.();
               },
+              attachments,
             ),
       )
       .then((result) => {
@@ -360,6 +369,7 @@ export class SessionCommands {
     authenticated?: ApiCreator,
     /** Throws when the caller's authority ended during an await. */
     authorize: () => void = () => {},
+    attachments?: readonly ApiAttachment[],
   ) {
     const admissible = () => {
       if (this.disposed)
@@ -414,6 +424,7 @@ export class SessionCommands {
             return false;
           }
         },
+        attachments,
       );
       if (this.disposed) return this.store.get(receipt.id)!;
       this.store.update(
@@ -570,8 +581,10 @@ export class SessionCommands {
     this.disposed = true;
     this.closing.abort();
     this.owner.close?.();
+    this.attachmentUploads?.close();
   }
   async idle() {
     await Promise.allSettled(this.active);
+    await this.attachmentUploads?.idle();
   }
 }

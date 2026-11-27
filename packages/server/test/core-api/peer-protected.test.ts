@@ -1,4 +1,5 @@
 import { protectedProfile, nativeRequest } from "./peer-fixture.js";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { afterEach, expect, it, vi } from "vitest";
 import WebSocket from "ws";
@@ -242,11 +243,15 @@ it("uses an owned real relay and replenishes poisoned claimed routes without sha
     await closed;
     await ready();
   }
-  const invitation = await b.manager.issue(grant(a.id));
+  const relayOperations: Operation[] = [...operations, "uploadAttachment"];
+  const invitation = await b.manager.issue({
+    ...grant(a.id),
+    operations: relayOperations,
+  });
   await a.manager.importOutgoing({
     invitation,
     route: { kind: "relay", url, username },
-    operations,
+    operations: relayOperations,
     allowAgentSessions: false,
     replace: false,
   });
@@ -262,8 +267,24 @@ it("uses an owned real relay and replenishes poisoned claimed routes without sha
       (result) => (result as { items: { id: string }[] }).items[0]?.id === "p",
     ),
   ).toBe(true);
+  const bytes = Buffer.alloc(128 * 1024, 0x89);
+  const { attachmentId } = (await a.read("uploadAttachment", {
+    serverId: b.id,
+    projectId: "p",
+    query: { offset: "0" },
+    body: {
+      requestId: "relay-attachment-001",
+      name: "relay.png",
+      mimeType: "image/png",
+      size: bytes.length,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      data: bytes.toString("base64"),
+    },
+  })) as { attachmentId: string };
+  expect(attachmentId).toEqual(expect.any(String));
   const body = {
     requestId: "relay-create-001",
+    attachmentIds: [attachmentId],
     projectId: "p",
     provider: "codex",
     prompt: "Review via relay",
@@ -431,3 +452,81 @@ it("cancels a protected observation on credential revocation even if the catalog
     release();
   }
 });
+
+it("stages a multi-frame attachment at the encrypted peer target and reuses it in both commands", async () => {
+  const a = await profile();
+  const b = await profile();
+  b.addProject("other");
+  const allowed: Operation[] = [...operations, "uploadAttachment"];
+  const invitation = await b.manager.issue({
+    ...grant(a.id),
+    operations: allowed,
+  });
+  await a.manager.importOutgoing({
+    invitation,
+    route: b.route,
+    operations: allowed,
+    allowAgentSessions: true,
+    replace: false,
+  });
+  const bytes = Buffer.alloc(150 * 1024, 0x7b);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const upload = (projectId: string, offset: number, data: Buffer) =>
+    a.read("uploadAttachment", {
+      serverId: b.id,
+      projectId,
+      query: { offset: String(offset) },
+      body: {
+        requestId: "peer-staged-file",
+        name: "fixture.txt",
+        size: bytes.length,
+        sha256,
+        data: data.toString("base64"),
+      },
+    }) as Promise<{ attachmentId: string | null; nextOffset: number }>;
+  await expect(
+    upload("other", 0, bytes.subarray(0, 128 * 1024)),
+  ).rejects.toMatchObject({
+    code: "project_not_found",
+  });
+  const first = await upload("p", 0, bytes.subarray(0, 128 * 1024));
+  expect(first).toMatchObject({ attachmentId: null, nextOffset: 128 * 1024 });
+  const final = await upload(
+    "p",
+    first.nextOffset,
+    bytes.subarray(first.nextOffset),
+  );
+  expect(final.attachmentId).toEqual(expect.any(String));
+  expect(
+    await upload("p", first.nextOffset, bytes.subarray(first.nextOffset)),
+  ).toEqual(final);
+  const attached = { attachmentIds: [final.attachmentId] };
+  const creation = {
+    requestId: "peer-attachment-create",
+    projectId: "p",
+    provider: "codex",
+    prompt: "",
+    ...attached,
+  };
+  await expect(
+    b.read("createSession", { body: creation }),
+  ).rejects.toMatchObject({
+    code: "attachment_not_found",
+  });
+  await a.read("createSession", { serverId: b.id, body: creation });
+  await expect(
+    a.read("createInput", {
+      serverId: b.id,
+      sessionId: "parent",
+      body: {
+        requestId: "peer-attachment-input",
+        type: "prompt",
+        text: "",
+        ...attached,
+      },
+    }),
+  ).resolves.toMatchObject({ state: "accepted" });
+  expect(a.starts()).toBe(0);
+  expect(b.starts()).toBe(1);
+  expect(b.sends()).toBe(1);
+}, 15_000);

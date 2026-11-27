@@ -1337,7 +1337,13 @@ export class ProviderSessionOwner {
       const abort = () => {
         try {
           if (this.attachedController?.id === attached.id)
-            attached.write({ type: "agentApiCancel", requestId });
+            attached.write({
+              type: "agentApiCancel",
+              requestId,
+              authorityRevoked:
+                input.signal?.reason instanceof CoreApiError &&
+                input.signal.reason.code === "forbidden",
+            });
         } catch {
           /* The detach error below remains authoritative. */
         }

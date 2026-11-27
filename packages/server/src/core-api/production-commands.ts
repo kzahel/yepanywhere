@@ -11,6 +11,8 @@ import {
   effectiveGlobalInstructions,
 } from "../sessions/derived-launch-sources.js";
 import { getLogger } from "../logging/logger.js";
+import { ApiAttachmentUploads } from "./attachment-uploads.js";
+import type { ProjectStoragePolicy } from "../projects/projectStoragePolicy.js";
 
 export function createProductionApiCommands(
   publicServerId: string,
@@ -22,12 +24,18 @@ export function createProductionApiCommands(
     sessionQueuePersistenceService?: SessionQueuePersistenceService;
   },
   supervisor: Supervisor,
+  attachments: {
+    dataDir: string;
+    policy: ProjectStoragePolicy;
+    maxUploadSizeBytes?: number;
+  },
 ) {
   return new SessionCommands(
     publicServerId,
     apiReceipts,
     nativeSessionCommandOwner({
       supervisor,
+      attachmentStoragePolicy: attachments.policy,
       sessionQueuePersistenceService: options.sessionQueuePersistenceService,
       sessionMetadataService: options.sessionMetadataService,
       dataDir: options.dataDir,
@@ -67,5 +75,9 @@ export function createProductionApiCommands(
         },
         "Agent API session launch ended without a durable outcome",
       ),
+    new ApiAttachmentUploads(
+      attachments.dataDir,
+      attachments.maxUploadSizeBytes,
+    ),
   );
 }

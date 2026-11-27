@@ -169,8 +169,11 @@ silently lowered by this work. Owned relay qualification also sets a small
 parser limit at the gateway. It does not establish a lower limit at a public
 relay whose configuration has not been qualified.
 
-The restricted acceptor permits bounded v0 HTTP requests only. No subscriptions,
-uploads, speech, devices, browser capabilities, resume or generic app requests.
+The restricted acceptor permits bounded v0 HTTP requests only. Project
+attachment chunks use the [v0 upload operation](http-api-v0.md#project-scoped-attachments)
+and its directional grant. Browser uploads, subscriptions, speech, devices,
+browser capabilities, resume and generic app requests remain outside this
+transport.
 Its authenticated SRP record/generation and each encrypted HTTP credential must
 match. The receiver independently checks current grants for every request;
 source session/launch attribution and Identity Service authority remain

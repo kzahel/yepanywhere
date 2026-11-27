@@ -17,6 +17,7 @@ import {
   CoreApiError,
   type ApiReadPort,
 } from "../core-api/service.js";
+import { agentLeaseRevoked } from "./controller-protocol.js";
 import { createV0Routes } from "../routes/v0/index.js";
 
 export type AgentApiController = { serverId: string; read: ApiReadPort };
@@ -305,7 +306,7 @@ export async function createAgentApiRuntime(options: {
           if (entries.get(key) === entry) entry.expiresAt = now() + LEASE_MS;
         },
         dispose() {
-          entry.abort.abort();
+          entry.abort.abort(agentLeaseRevoked());
           entries.delete(key);
         },
       };
@@ -325,13 +326,15 @@ export async function createAgentApiRuntime(options: {
       };
     },
     revokeAll() {
-      for (const entry of entries.values()) entry.abort.abort();
+      for (const entry of entries.values())
+        entry.abort.abort(agentLeaseRevoked());
       entries.clear();
     },
     close() {
       closePromise ??= (async () => {
         closing = true;
-        for (const entry of entries.values()) entry.abort.abort();
+        for (const entry of entries.values())
+          entry.abort.abort(agentLeaseRevoked());
         entries.clear();
         controller?.abort.abort();
         controller = undefined;

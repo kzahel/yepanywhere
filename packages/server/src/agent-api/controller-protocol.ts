@@ -1,5 +1,6 @@
 import { operations, type Operation } from "../core-api/contracts.js";
 import { httpReplySchema } from "../core-api/http-contracts.js";
+import { CoreApiError } from "../core-api/errors.js";
 import type { ApiReadPort } from "../core-api/service.js";
 import { httpRequestSchema } from "../core-api/http-contracts.js";
 import { launchContextSchema } from "../core-api/contracts.js";
@@ -14,6 +15,7 @@ export const agentCatalogRequest = z
       "access",
       "capabilities",
       "projects",
+      "uploadAttachment",
       "providers",
       "selection",
       "sessions",
@@ -37,6 +39,7 @@ export const agentCatalogRequest = z
     input: z
       .object({
         serverId: z.string().min(1).max(4096).optional(),
+        projectId: z.string().min(1).max(4096).optional(),
         sessionId: z.string().min(1).max(4096).optional(),
         receiptId: z.string().min(1).max(128).optional(),
         body: z.unknown().optional(),
@@ -62,6 +65,7 @@ export function agentCatalogInput(
 ) {
   return {
     serverId: input.serverId,
+    projectId: input.projectId,
     sessionId: input.sessionId,
     receiptId: input.receiptId,
     body: input.body,
@@ -80,4 +84,20 @@ export function parseAgentCatalogReply(
 ) {
   const schema = operations.find((item) => item.id === operation)!.response;
   return (input.http ? httpReplySchema.or(schema) : schema).safeParse(result);
+}
+
+export const agentLeaseRevoked = () =>
+  new CoreApiError("forbidden", "Agent API launch authority was revoked", 403);
+
+export function cancelAgentCatalogRequest(
+  pending: Map<string, AbortController>,
+  message: { requestId?: unknown; authorityRevoked?: unknown },
+) {
+  const id = String(message.requestId);
+  pending
+    .get(id)
+    ?.abort(
+      message.authorityRevoked === true ? agentLeaseRevoked() : undefined,
+    );
+  pending.delete(id);
 }

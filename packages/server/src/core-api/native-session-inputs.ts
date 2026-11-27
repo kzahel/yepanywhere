@@ -22,6 +22,10 @@ import type {
 } from "./command-contracts.js";
 import type { ApiPendingInput } from "./input-contracts.js";
 import { CoreApiError } from "./errors.js";
+import type { ApiAttachment } from "./attachment-uploads.js";
+import type { ProjectStoragePolicy } from "../projects/projectStoragePolicy.js";
+import { MAX_CALLER_ATTACHMENT_BYTES } from "./attachment-contracts.js";
+import { prepareInputAttachments } from "./input-attachments.js";
 
 /** Receipt changes the input owner reports; SessionCommands applies them. */
 export type InputReceiptPatch = Partial<
@@ -31,6 +35,7 @@ export type InputReceiptPatch = Partial<
 export interface NativeSessionInputDeps extends SessionQueueSummaryDeps {
   supervisor: Pick<Supervisor, "getProcessForSession">;
   sessionQueuePersistenceService?: SessionQueuePersistenceService;
+  attachmentStoragePolicy?: ProjectStoragePolicy;
 }
 
 function inputMessage(request: InputRequest, receipt: ApiReceipt): UserMessage {
@@ -227,8 +232,17 @@ const revoked: InputAdmission = {
   },
 };
 
+const sessionEnded: InputAdmission = {
+  accepted: false,
+  failure: {
+    code: "session_not_running",
+    message: "The active session owner ended or changed before queue admission",
+  },
+};
+
 export function nativeSessionInputs(deps: NativeSessionInputDeps) {
   const observers = new Set<() => void>();
+  let preparingAttachments = 0;
   return {
     /** Command-owner shutdown releases every queue subscription. */
     close() {
@@ -252,8 +266,66 @@ export function nativeSessionInputs(deps: NativeSessionInputDeps) {
       progress: (patch: InputReceiptPatch) => void,
       /** Rechecked immediately before the queue mutation, after any await. */
       admissible: () => boolean = () => true,
+      attachments?: readonly ApiAttachment[],
     ): Promise<InputAdmission> {
+      const refusal = () => {
+        if (!admissible()) return revoked;
+        if (
+          attachments &&
+          (deps.supervisor.getProcessForSession(process.sessionId) !==
+            process ||
+            process.isTerminated)
+        )
+          return sessionEnded;
+      };
       const message = inputMessage(request, receipt);
+      let prepared: Awaited<ReturnType<typeof prepareInputAttachments>>;
+      if (attachments) {
+        if (
+          attachments.reduce((sum, file) => sum + file.size, 0) >
+          MAX_CALLER_ATTACHMENT_BYTES
+        )
+          return {
+            accepted: false,
+            failure: {
+              code: "invalid_request",
+              message: "Prompt attachments exceed 128 MiB",
+            },
+          };
+        if (!deps.attachmentStoragePolicy || preparingAttachments >= 8)
+          return {
+            accepted: false,
+            failure: {
+              code: "command_capacity",
+              message: "Attachment preparation is unavailable or busy",
+            },
+          };
+        const refused = refusal();
+        if (refused) return refused;
+        preparingAttachments++;
+        try {
+          prepared = await prepareInputAttachments(
+            attachments,
+            process.projectPath,
+            process.sessionId,
+            deps.attachmentStoragePolicy,
+            () => !refusal(),
+          );
+        } catch {
+          return {
+            accepted: false,
+            failure: {
+              code: "attachment_unavailable",
+              message: "Could not prepare all attachments; nothing was queued",
+            },
+          };
+        } finally {
+          preparingAttachments--;
+        }
+        if (!prepared) return refusal() ?? sessionEnded;
+        message.attachments = prepared.attachments;
+      }
+      let mayHaveQueued = false;
       progress({
         input: {
           type: request.type,
@@ -273,27 +345,30 @@ export function nativeSessionInputs(deps: NativeSessionInputDeps) {
       );
       try {
         if (request.type === "compact") {
-          const refusal = await prepareQueuedCompaction(
+          const compactionRefusal = await prepareQueuedCompaction(
             process,
             message,
             request.instructions ?? "",
           );
-          if (refusal) {
+          if (compactionRefusal) {
             observer.release();
             return { accepted: false };
           }
         }
         if (request.delivery === "steer") {
-          if (!admissible()) {
+          const refused = refusal();
+          if (refused) {
             observer.release();
-            return revoked;
+            return refused;
           }
           observer.arm();
           process.noteInputIntent();
           // Synchronous after the authority check, and never parsed as a
           // provider command: steer delivers exact text.
+          mayHaveQueued = true;
           const result = process.queueMessage(message);
           if (!result.success) {
+            mayHaveQueued = false;
             observer.release();
             return { accepted: false };
           }
@@ -301,22 +376,27 @@ export function nativeSessionInputs(deps: NativeSessionInputDeps) {
           return { accepted: true };
         }
         process.noteInputIntent();
-        let refused = false;
+        let refused: InputAdmission | undefined;
         const result = await deferSessionInput(process, message, {
           beforeDefer: () => {
-            refused = !admissible();
-            if (!refused) observer.arm();
-            return !refused;
+            refused = refusal();
+            if (refused) return false;
+            observer.arm();
+            mayHaveQueued = true;
+            return true;
           },
         });
         if (!result.success) {
           observer.release();
-          return refused ? revoked : { accepted: false };
+          mayHaveQueued = false;
+          return refused ?? { accepted: false };
         }
         return { accepted: true };
       } catch (error) {
         observer.release();
         throw error;
+      } finally {
+        if (!mayHaveQueued) await prepared?.discard();
       }
     },
 

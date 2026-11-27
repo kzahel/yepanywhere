@@ -155,6 +155,7 @@ export function nativeSessionCommandOwner(
       ended,
       progress = () => {},
       admissible,
+      attachments,
     ) {
       const process = deps.supervisor.getProcessForSession(id);
       if (!process || process.isTerminated) return { accepted: false };
@@ -178,6 +179,7 @@ export function nativeSessionCommandOwner(
             progress(patch);
           },
           admissible,
+          attachments,
         );
         if (!result.accepted) release();
         return result;
@@ -229,6 +231,7 @@ export function nativeSessionCommandOwner(
       consumed = () => {},
       admitted = () => {},
       authorize = async () => {},
+      attachments,
     ) {
       const thinking = request.thinking
         ? thinkingOptionToConfig(request.thinking)
@@ -295,6 +298,7 @@ export function nativeSessionCommandOwner(
         };
       let result: Awaited<ReturnType<Supervisor["startSession"]>>;
       try {
+        if (attachments) await authorize();
         result = await deps.supervisor.startSession(
           project.path,
           {
@@ -339,6 +343,9 @@ export function nativeSessionCommandOwner(
             creation: {
               requestId: receipt.id,
               nativeReceiptId: receipt.id,
+              ...(attachments
+                ? { attachments: { files: attachments, authorize } }
+                : {}),
               context: {
                 owner: { kind: "superuser" },
                 source: { kind: "request", provenance: { surface: "api" } },

@@ -16,6 +16,11 @@ import {
   receiptSchema,
   relationshipsSchema,
 } from "./command-contracts.js";
+import {
+  attachmentUploadBody,
+  attachmentUploadOffset,
+  attachmentUploadProgress,
+} from "./attachment-contracts.js";
 import { pendingInputsSchema } from "./input-contracts.js";
 import { z } from "zod";
 import { backingStoreSchema } from "./backing-store.js";
@@ -26,7 +31,7 @@ import {
   followSchema,
 } from "./conversation.js";
 
-export const API_REVISION = "2026-11-23.1";
+export const API_REVISION = "2026-11-27.1";
 export const paginationQuery = z.object({
   cursor: z
     .string()
@@ -326,6 +331,13 @@ export const operations = [
     paginated: true,
   },
   {
+    id: "uploadAttachment",
+    path: "/servers/:serverId/projects/:projectId/attachments",
+    method: "POST",
+    request: attachmentUploadBody,
+    response: attachmentUploadProgress,
+  },
+  {
     id: "providers",
     path: "/servers/:serverId/providers",
     response: page(providerSchema),
@@ -361,7 +373,9 @@ export const operations = [
     id: "createSession",
     path: "/servers/:serverId/sessions",
     method: "POST",
-    request: z.object(createSessionRequest.shape).omit({ requestId: true }),
+    request: z
+      .strictObject(createSessionRequest.shape)
+      .omit({ requestId: true }),
     response: receiptSchema,
   },
   {
@@ -551,10 +565,16 @@ export const operationDocumentation: Record<
       "List retained summaries, optionally filtered by exact projectId. Newest updatedAt first, then id. Resource grants, creator access and hidden projects apply before pagination. Ambiguous cross-project ids are omitted. This does not return messages or completion results.",
     example: "/v0/servers/{serverId}/sessions?projectId={projectId}&limit=1",
   },
+  uploadAttachment: {
+    summary: "Stage a file in a project for a v0 prompt",
+    description:
+      "Requires management and project access on the target. POST JSON {name,mimeType?,size,sha256,data} with ?offset=0 and an Idempotency-Key. data is the next standard base64 chunk, up to 128 KiB decoded. size and sha256 describe the entire file. Keep the key and metadata fixed, use nextOffset for each following chunk, and retry a lost response with the identical chunk and offset. attachmentId is null until the target verifies all bytes. A completed ID is reusable by the same caller in the same target project for one hour. An incomplete upload expires after 15 minutes idle and is discarded on controller restart. Maximum file size is 64 MiB or the server's lower upload limit. Send completed IDs in attachmentIds on createSession or createInput.",
+    example: "/v0/servers/{serverId}/projects/{projectId}/attachments?offset=0",
+  },
   createInput: {
     summary: "Queue a prompt or compaction on an active session",
     description:
-      'Requires explicit management authority like createSession. Supply Idempotency-Key and POST strict JSON {type:"prompt",text,delivery?} or {type:"compact",instructions?,delivery?}. Input enters YA\'s provider-agnostic queue, the same one the composer uses. delivery: deferred (default, next turn boundary, even while background tasks run), patient (verified idle plus a short quiet interval; survives restart paused) or steer (prompts only: joins the active turn where supported). Compaction follows the same deferred/patient boundaries. An idle session receives deferred and steer input at once. Prompt text reaches the provider unchanged: Claude Code runs a leading native slash command itself, but only type=compact is tracked as compaction. Compaction is a distinct queue entry: later input waits until it succeeds, and a failure holds later input until the compaction is cancelled. To compact yourself and continue, queue a deferred compact, then queue the continuation prompt, then end your turn; it starts when your turn ends, even while your background tasks run. Unsupported compaction returns 409 compaction_unsupported. Only the incumbent active native owner receives input; stopped sessions return 409 session_not_running, with no automatic resume, model/mode change or restart. The 202 receipt id is also the input id. Follow it: input.status reports queued/released/cancelled/paused, delivery=consumed means the provider consumed the input, and compact receipts report completion compacted/failed/unconfirmed. Prompt completion stays unknown; read the conversation for the reply.',
+      'Requires explicit management authority like createSession. Supply Idempotency-Key and POST strict JSON {type:"prompt",text,attachmentIds?,delivery?} or {type:"compact",instructions?,delivery?}. Input enters YA\'s provider-agnostic queue, the same one the composer uses. delivery: deferred (default, next turn boundary, even while background tasks run), patient (verified idle plus a short quiet interval; survives restart paused) or steer (prompts only: joins the active turn where supported). Compaction follows the same deferred/patient boundaries. An idle session receives deferred and steer input at once. Attachments append server-owned file references. Claude Code runs a leading native slash command itself, but only type=compact is tracked as compaction. Compaction is a distinct queue entry: later input waits until it succeeds, and a failure holds later input until the compaction is cancelled. To compact yourself and continue, queue a deferred compact, then queue the continuation prompt, then end your turn; it starts when your turn ends, even while your background tasks run. Unsupported compaction returns 409 compaction_unsupported. Only the incumbent active native owner receives input; stopped sessions return 409 session_not_running, with no automatic resume, model/mode change or restart. The 202 receipt id is also the input id. Follow it: input.status reports queued/released/cancelled/paused, delivery=consumed means the provider consumed the input, and compact receipts report completion compacted/failed/unconfirmed. Prompt completion stays unknown; read the conversation for the reply.',
     example: "/v0/servers/{serverId}/sessions/{sessionId}/inputs",
   },
   inputs: {
@@ -585,7 +605,7 @@ export const operationDocumentation: Record<
   createSession: {
     summary: "Create a native session with retry identity",
     description:
-      'Requires explicit default-off session-command enablement and operator authority; launch credentials also require management=true and a bound owning session. POST JSON {projectId,provider,prompt,model?,thinking?,permissionMode?,serviceTier?,routing?,routerPoolId?,routerAccountId?,routerPolicy?}. Supply a unique 8–128 character Idempotency-Key header. Example: {"projectId":"<projectId>","provider":"codex","prompt":"Review the change and report findings","routing":"direct","thinking":"on:high","permissionMode":"default"}. Returns 202 with a receipt before native launch completes. Reuse the identical request/key after response loss; conflicting payloads return409. Receipts and retry keys last for the server process: after a YA restart the receipt id returns 404 and the same key is a new request, so check existing sessions before retrying. Never resend an uncertain request with a new key unless intentionally accepting duplicate work. Requires an existing project and a configured local Claude, Codex or Antigravity harness. Use selection to discover model and router ids (including Antigravity native model IDs and supported thinking levels for both routing=aar and routing=direct). Set routing to "direct" to use the direct login for the requested provider on the target server. Direct cannot be combined with any router fields. An explicit pool or account requires a model from its catalog. With neither choice, a local routed caller on the same provider inherits its pool or account and its model when omitted. A provider mismatch needs an explicit choice. Native admission owns capacity; no checkout/delegation policy is added.',
+      'Requires explicit default-off session-command enablement and operator authority; launch credentials also require management=true and a bound owning session. POST JSON {projectId,provider,prompt,attachmentIds?,model?,thinking?,permissionMode?,serviceTier?,routing?,routerPoolId?,routerAccountId?,routerPolicy?}. Supply a unique 8–128 character Idempotency-Key header. Example: {"projectId":"<projectId>","provider":"codex","prompt":"Review the change and report findings","routing":"direct","thinking":"on:high","permissionMode":"default"}. Returns 202 with a receipt before native launch completes. Reuse the identical request/key after response loss; conflicting payloads return409. Receipts and retry keys last for the server process: after a YA restart the receipt id returns 404 and the same key is a new request, so check existing sessions before retrying. Never resend an uncertain request with a new key unless intentionally accepting duplicate work. Requires an existing project and a configured local Claude, Codex or Antigravity harness. Use selection to discover model and router ids (including Antigravity native model IDs and supported thinking levels for both routing=aar and routing=direct). Set routing to "direct" to use the direct login for the requested provider on the target server. Direct cannot be combined with any router fields. An explicit pool or account requires a model from its catalog. With neither choice, a local routed caller on the same provider inherits its pool or account and its model when omitted. A provider mismatch needs an explicit choice. Native admission owns capacity; no checkout/delegation policy is added.',
     example: "/v0/servers/{serverId}/sessions",
   },
   receipt: {
@@ -655,7 +675,7 @@ export function apiHelp(selected?: Operation, targetServerId?: string) {
     "",
     `Revision: ${API_REVISION}. Unstable: routes, fields and behavior may change.`,
     "",
-    "Use this API to inspect authorized projects, configured provider harnesses and coding-agent session summaries and compact conversations. Reading includes compact conversations and following. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. Queued input (prompts and compaction through YA's queue) requires the same explicit management authority; pending input can be listed and removed. Configured peer adapters expose target-authorized server addressing; inspect servers, access and capabilities.peerRouting rather than assuming a route. Pending permission requests can be inspected and answered; cancel interrupts and may hard-abort, and stop verifies provider shutdown. Configuration changes, arbitrary command execution and terminals remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
+    "Inspect authorized projects, provider harnesses, sessions and compact conversations. Session creation requires a separate explicit management grant and default-off setting; read-only launch credentials never gain writes. The same authority controls queued prompts and compaction. Pending input can be listed and removed. For peers, inspect servers, access and capabilities.peerRouting. Pending permission requests can be inspected and answered; cancel interrupts and may hard-abort, and stop verifies provider shutdown. Configuration changes, arbitrary command execution and terminals remain unimplemented. Do not infer support from older /api routes or provider capability flags.",
     "",
     "## Connect and discover",
     "",
@@ -695,13 +715,15 @@ export function apiHelp(selected?: Operation, targetServerId?: string) {
     "",
     "## Create, send and verify",
     "",
-    "After inspecting the chosen server's access/capabilities, GET /v0/servers/{serverId}/projects for projectId and /providers for configured harness ids. POST /v0/servers/{serverId}/sessions with JSON {projectId,provider,prompt,permissionMode?,model?,thinking?,serviceTier?,routing?,routerPoolId?,routerAccountId?,routerPolicy?}. Claude, Codex and Antigravity can be started with routing=aar or routing=direct. Supply Idempotency-Key as an 8–128 character header; reuse identical key/body after response loss. permissionMode defaults to default. Claude, Codex, or Antigravity thinking accepts off, auto or on:low/on:medium/on:high/on:xhigh/on:max (on Antigravity, off maps to the model's lowest offered thinking level). Query selection?provider=claude|codex|antigravity for AAR pools and their catalogs, or add routing=direct for the host provider catalog.",
+    "Stage files with uploadAttachment, then pass the returned IDs in attachmentIds. For a file-only turn, use empty prompt/text. See focused uploadAttachment help for chunking.",
+    "",
+    "After inspecting the chosen server's access/capabilities, GET /v0/servers/{serverId}/projects for projectId and /providers for configured harness ids. POST /v0/servers/{serverId}/sessions with JSON {projectId,provider,prompt,attachmentIds?,permissionMode?,model?,thinking?,serviceTier?,routing?,routerPoolId?,routerAccountId?,routerPolicy?}. Claude, Codex and Antigravity can be started with routing=aar or routing=direct. Supply Idempotency-Key as an 8–128 character header; reuse identical key/body after response loss. permissionMode defaults to default. Claude, Codex, or Antigravity thinking accepts off, auto or on:low/on:medium/on:high/on:xhigh/on:max (on Antigravity, off maps to the model's lowest offered thinking level). Query selection?provider=claude|codex|antigravity for AAR pools and their catalogs, or add routing=direct for the host provider catalog.",
     "",
     'Set "routing":"direct" in the create body to use the direct login for the requested provider on the target server. Omit router fields for Direct. A local routed caller inherits routing on the same provider unless it selects Direct or supplies a pool or account and model. A provider switch from a routed caller needs one of those explicit choices.',
     "",
     "Creation returns 202 with a receipt {id,sessionId,state,delivery,completion,...} that lasts until the server restarts. A receipt can name a reserved sessionId during dispatching or queued. Session detail can report state=launching during that window. GET /v0/servers/{serverId}/receipts/{receiptId}/follow?waitMs=4000 to observe admission. Reissue with after={cursor}; changed replies replace the receipt. Once accepted, read /sessions/{sessionId} for effective settings and routing. Read /sessions/{sessionId}/conversation or /conversation/follow for the actual answer.",
     "",
-    'POST /v0/servers/{serverId}/sessions/{sessionId}/inputs with Idempotency-Key and JSON {type:"prompt",text,delivery?:"deferred"|"patient"|"steer"} or {type:"compact",instructions?,delivery?:"deferred"|"patient"}. Input uses YA\'s queue on an active owner and changes no settings. Repeat the identical key/body to recover the same receipt. GET the same path for pending input, and POST .../inputs/{inputId}/cancel to remove one. Follow the receipt for input.status, delivery=consumed and compaction completion, and the conversation for the reply. To compact yourself and continue, queue a deferred compact, then your continuation prompt, then end your turn; compaction starts at your turn end even while your background tasks run. GET /sessions/{sessionId}/relationships under the same server prefix for trusted creator session/server and initiated receipts. Prompt completion remains unknown; inspect the requested result in the conversation.',
+    'POST /v0/servers/{serverId}/sessions/{sessionId}/inputs with Idempotency-Key and JSON {type:"prompt",text,attachmentIds?,delivery?:"deferred"|"patient"|"steer"} or {type:"compact",instructions?,delivery?:"deferred"|"patient"}. Input uses YA\'s queue on an active owner and changes no settings. Repeat the identical key/body to recover the same receipt. GET the same path for pending input, and POST .../inputs/{inputId}/cancel to remove one. Follow the receipt for input.status, delivery=consumed and compaction completion, and the conversation for the reply. To compact yourself and continue, queue a deferred compact, then your continuation prompt, then end your turn; compaction starts at your turn end even while your background tasks run. GET /sessions/{sessionId}/relationships under the same server prefix for trusted creator session/server and initiated receipts. Prompt completion remains unknown; inspect the requested result in the conversation.',
     "",
     "## Errors and observation",
     "",
@@ -773,12 +795,25 @@ export function apiSchema(launchBound = false, selected?: Operation) {
                         in: "header",
                         required: true,
                         description:
-                          "Unique retry key; reuse identical key and body after response loss. Never generate a new key to retry uncertain work.",
+                          operation.id === "uploadAttachment"
+                            ? "Use one key for all chunks of this file. Repeat the identical offset and body after response loss."
+                            : "Unique retry key; reuse identical key and body after response loss. Never generate a new key to retry uncertain work.",
                         schema: {
                           type: "string",
                           minLength: 8,
                           maxLength: 128,
                         },
+                      },
+                    ]
+                  : []),
+                ...(operation.id === "uploadAttachment"
+                  ? [
+                      {
+                        name: "offset",
+                        in: "query",
+                        required: true,
+                        description: attachmentUploadOffset.description,
+                        schema: z.toJSONSchema(attachmentUploadOffset),
                       },
                     ]
                   : []),
@@ -842,7 +877,9 @@ export function apiSchema(launchBound = false, selected?: Operation) {
                         ? "Public server id from GET /v0/servers, or self for the receiving access server. Unknown targets fail without local fallback."
                         : match[1] === "inputId"
                           ? "Pending input id from this session's inputs list."
-                          : "Canonical YA session id from this target's session collection.",
+                          : match[1] === "projectId"
+                            ? "Canonical project id from this target's projects collection."
+                            : "Canonical YA session id from this target's session collection.",
                     schema: { type: "string", minLength: 1 },
                   }),
                 ),

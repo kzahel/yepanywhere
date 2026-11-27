@@ -1,5 +1,9 @@
 # Roadmap
 
+The 2026-11-27 [HTTP v0 attachments](../../topics/http-api-v0.md#project-scoped-attachments)
+slice adds target-owned project uploads and reusable IDs for creation and
+follow-up prompts over local and protected peer routes.
+
 The 2026-11-15 [provider CLI installation reliability](../../topics/provider-cli-installations.md)
 slice implements profile-owned selection, managed overrides, fnm default discovery
 and cached offline Codex command verification, with reusable Antigravity launch

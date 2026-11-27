@@ -34,6 +34,7 @@ export type StagedAttachmentOwner =
 export interface StagedAttachmentRecord extends StagedAttachmentRef {
   owner: StagedAttachmentOwner;
   path: string;
+  sha256?: string;
 }
 
 interface ActiveStagedUpload {
@@ -188,6 +189,9 @@ function normalizeRecord(
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
     owner,
+    ...(typeof value.sha256 === "string" && /^[a-f0-9]{64}$/.test(value.sha256)
+      ? { sha256: value.sha256 }
+      : {}),
   };
 }
 
@@ -368,7 +372,10 @@ export class AttachmentStagingService {
     });
   }
 
-  async completeUpload(uploadId: string): Promise<StagedAttachmentRef> {
+  async completeUpload(
+    uploadId: string,
+    sha256?: string,
+  ): Promise<StagedAttachmentRef> {
     await this.ensureInitialized();
     const state = this.activeUploads.get(uploadId);
     if (!state) {
@@ -445,6 +452,7 @@ export class AttachmentStagingService {
         createdAt: now,
         updatedAt: now,
         owner: { type: "draft", batchId: state.batchId },
+        ...(sha256 ? { sha256 } : {}),
       };
 
       await this.withMutation(async () => {
@@ -830,6 +838,13 @@ export class AttachmentStagingService {
     return record ? { ...record, owner: { ...record.owner } } : null;
   }
 
+  listRecords(): StagedAttachmentRecord[] {
+    return [...this.records.values()].map((record) => ({
+      ...record,
+      owner: { ...record.owner },
+    }));
+  }
+
   getStagingRoot(): string {
     return this.stagingRoot;
   }
@@ -1057,6 +1072,9 @@ export class AttachmentStagingService {
   }
 
   private async removePartialFiles(): Promise<void> {
+    const completed = new Set(
+      [...this.records.values()].map(({ path }) => path),
+    );
     const removeInDir = async (dir: string): Promise<void> => {
       const entries = await readdir(dir, { withFileTypes: true }).catch(
         (error) => {
@@ -1071,7 +1089,11 @@ export class AttachmentStagingService {
             await removeInDir(entryPath);
             return;
           }
-          if (entry.isFile() && entry.name.endsWith(".partial")) {
+          if (
+            entry.isFile() &&
+            entry.name.endsWith(".partial") &&
+            !completed.has(entryPath)
+          ) {
             await rm(entryPath, { force: true }).catch(() => {});
           }
         }),

@@ -139,6 +139,15 @@ export class PeerDirectory {
     }
     active.add(controller);
     this.activeCount++;
+    const assertAuthority = () => {
+      if (this.incoming.get(grant.id) !== grant || expiresAt <= Date.now())
+        throw new CoreApiError(
+          "unauthorized",
+          "Peer credential is not active",
+          401,
+        );
+      authority?.assertActive();
+    };
     const principal: PeerPrincipal = {
       kind: "peer",
       serverId: grant.serverId,
@@ -158,14 +167,9 @@ export class PeerDirectory {
       sourceSessionId: attestation.sessionId,
       sourceLaunchId: attestation.launchId,
       signal: controller.signal,
+      assertAuthority,
       assertActive: () => {
-        if (this.incoming.get(grant.id) !== grant || expiresAt <= Date.now())
-          throw new CoreApiError(
-            "unauthorized",
-            "Peer credential is not active",
-            401,
-          );
-        authority?.assertActive();
+        assertAuthority();
         if (controller.signal.aborted)
           throw controller.signal.reason instanceof CoreApiError
             ? controller.signal.reason

@@ -1,5 +1,6 @@
 import { relationshipGraphPageSchema } from "./relationship-graph-contracts.js";
 import { z } from "zod";
+import { attachmentIds } from "./attachment-contracts.js";
 import { selectableProvider } from "./selection-contracts.js";
 import {
   API_CLIENT_PATTERN,
@@ -29,12 +30,11 @@ export const createSessionRequest = z
     ),
     prompt: z
       .string()
-      .min(1)
       .max(100000)
-      .refine((value) => value.trim().length > 0)
       .describe(
-        "Initial prompt, exact text. Native agents choose checkout/worktree and workflow behavior.",
+        "Initial prompt, exact text. Empty text requires attachmentIds.",
       ),
+    attachmentIds,
     model: z
       .string()
       .min(1)
@@ -124,6 +124,11 @@ export const createSessionRequest = z
   })
   .strict()
   .refine(
+    ({ prompt, attachmentIds }) =>
+      Boolean(prompt.trim() || attachmentIds?.length),
+    "Initial prompt or attachments required",
+  )
+  .refine(
     (body) =>
       body.routing !== "direct" ||
       (body.routerPoolId === undefined &&
@@ -158,12 +163,11 @@ const promptInput = z
     type: z.literal("prompt"),
     text: z
       .string()
-      .min(1)
       .max(100000)
-      .refine((value) => value.trim().length > 0)
       .describe(
-        "Exact input text for the incumbent session, delivered unchanged without YA command emulation. Claude Code runs a leading native slash command itself; Codex receives it as text. Queue compaction with type=compact so its receipt reports the outcome and later input waits for it.",
+        "Exact input text for the incumbent session, with file references appended when attached. Empty text requires attachmentIds. Claude Code runs a leading native slash command itself; Codex receives it as text. Queue compaction with type=compact so its receipt reports the outcome and later input waits for it.",
       ),
+    attachmentIds,
     delivery: z
       .enum(["deferred", "patient", "steer"])
       .default("deferred")
@@ -197,10 +201,17 @@ export const inputBody = z.discriminatedUnion("type", [
   promptInput,
   compactInput,
 ]);
-export const inputRequest = z.discriminatedUnion("type", [
-  promptInput.extend({ requestId: requestIdSchema }),
-  compactInput.extend({ requestId: requestIdSchema }),
-]);
+export const inputRequest = z
+  .discriminatedUnion("type", [
+    promptInput.extend({ requestId: requestIdSchema }),
+    compactInput.extend({ requestId: requestIdSchema }),
+  ])
+  .refine(
+    (input) =>
+      input.type === "compact" ||
+      Boolean(input.text.trim() || input.attachmentIds?.length),
+    "Prompt text or attachments required",
+  );
 export type InputRequest = z.infer<typeof inputRequest>;
 export const inputProgressSchema = z.object({
   type: z.enum(["prompt", "compact"]),

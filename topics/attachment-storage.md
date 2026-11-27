@@ -263,6 +263,18 @@ the original recovery identity. Newer unfinished file pastes also survive
 acceptance of an earlier selection. Other retained launch shapes still use their existing
 flow pending the consolidation ledger.
 
+## V0 project uploads
+
+[HTTP v0 uploads](http-api-v0.md#project-scoped-attachments) use an isolated
+staging index under the target profile's app data. Completed upload IDs
+authorize lookup only within the authenticated caller and project scope.
+The caller may reuse a completed ID until expiry. Creation copies verified
+bytes into its durable input bundle. Follow-ups copy verified bytes into
+the existing session attachment directory before queue admission so a
+patient message can still refer to them after a restart. Materialized files
+follow the global project-directory storage setting and the same retention
+rules as composer attachments.
+
 ## Retention And Cleanup
 
 Attachment retention and cleanup remain incomplete. Central storage makes a

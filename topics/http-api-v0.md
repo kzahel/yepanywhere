@@ -7,7 +7,9 @@ peer access, target-owned forwarding and basic session controls are implemented.
 Revision `2026-11-13.1` adds target help/schema, opaque peer operations,
 header-based retry keys and requests/respond/cancel/stop under
 [plan 192](../docs/tactical/192-v0-session-control-and-peer-contracts.md).
-The API remains alpha and deliberately unstable. Release priority is unchanged.
+Revision `2026-11-27.1` adds project-scoped uploads and reusable attachment
+IDs for native creation and prompt input. The API remains alpha and
+deliberately unstable.
 
 ## Implemented local read contract
 
@@ -396,16 +398,14 @@ access and retains the existing supported-release/transport horizons.
 
 ### Creation and retry receipts
 
-The selected [YA-owned session identity](session-identity.md) follow-up and
-[web creation proposal](session-creation.sketches.md) reuse receipt/admission
-concepts below, but are not current v0 guarantees. In particular, today's
-receipt does not retain the prompt/attachments or establish a durable YA
-session before dispatch. Preserve v0 state meanings, authorization and native
-input semantics when extracting shared implementation; the web contract needs
-its own capability rather than broadening `agent-api-management`.
+The [YA-owned creation owner](session-identity.md#selected-ownership-boundary)
+saves accepted launch inputs and their attachment claims before native
+dispatch. The v0 receipt tracks admission and delivery and lasts for the
+controller process. It carries no prompt or attachment bytes.
 
 `POST /v0/servers/{serverId}/sessions` accepts an `Idempotency-Key` header
-and strict JSON with `projectId`, `provider` and exact initial `prompt`. Optional model,
+and strict JSON with `projectId`, `provider`, exact initial `prompt` and optional
+`attachmentIds`. Optional model,
 thinking/effort, permission mode and service tier map to incumbent native
 launch controls. Permission mode defaults to `default`; bypass must be explicit.
 Configured local Claude, Codex and Antigravity can be started in catalog
@@ -522,15 +522,62 @@ Request bodies are limited to 256 KiB before command dispatch. When an early
 network rejection closes an upload, clients may observe a transport error;
 no oversized request may reserve or launch work.
 
+### Project-scoped attachments
+
+`POST /v0/servers/{serverId}/projects/{projectId}/attachments?offset=0`
+stages one file. Use a unique `Idempotency-Key` per file and send JSON
+`{name, mimeType?, size, sha256, data}`. The size and lowercase SHA-256
+describe the whole file. Each `data` field holds up to 128 KiB of raw bytes
+encoded as standard padded base64. An empty file uses an empty data field.
+
+Repeat the same metadata and key with the returned `nextOffset` until
+`attachmentId` is present. Retry a lost response with the same offset and
+bytes. A changed key payload returns `409 request_id_conflict`; an offset that
+cannot be accepted returns `409 attachment_offset` with the expected offset.
+Concurrent attempts against the same upload return `409 attachment_busy`.
+Incomplete uploads expire after 15 idle minutes or a controller restart.
+If an upload has expired while incomplete, restart at offset zero.
+Completed uploads survive controller restart and are reusable for one hour.
+Files are limited to 64 MiB or the server's lower upload limit. The target also
+enforces a profile-wide 512 MiB and 512-file staging limit and permits eight
+incomplete uploads at a time. Each local owner, owning agent session or peer
+credential can hold at most 128 MiB, 64 files and two incomplete uploads
+across projects. A peer's quota spans its source sessions.
+
+An upload requires the existing management opt-in and access to the target
+project. A peer also needs `uploadAttachment` in its directional grant.
+An attachment ID belongs to its target profile and project and to the
+authenticated owner, owning agent session, or incoming peer credential
+and source-attested session that uploaded it. Each use checks the existing
+create/send authority. Missing, expired, or out-of-scope IDs return the same
+`404 attachment_not_found`. The upload API returns no filesystem path.
+
+Pass up to 64 distinct IDs in `attachmentIds` on creation or prompt input.
+Use `prompt: ""` or `text: ""` to send only attachments. File references,
+including images, use the same provider input format as the composer.
+Creation seals the complete selection before accepting it. Follow-ups
+materialize the complete selection before queueing, and a preparation failure
+queues nothing. Session-owned files follow the existing attachment storage
+policy and survive staging expiry, including in restart-paused patient input.
+A matching command retry returns its receipt even after the original staged
+IDs expire, while that receipt remains available.
+See [attachment storage](attachment-storage.md#v0-project-uploads).
+
+Both local and peer callers use the same bounded JSON transfer, so ordinary
+v0 request and peer frame limits remain in force. Each chunk is individually
+authorized at the target. Upload chunks have target retry state and do not
+occupy the native command receipt or outbound ledgers on current servers.
+Check the target's `uploadAttachment` capability before sending a chunk.
+
 ### Attributed queued input and consumption
 
 `POST /v0/servers/{serverId}/sessions/{sessionId}/inputs` (`createInput`)
-accepts strict JSON `{type:"prompt",text,delivery?}` or
+accepts strict JSON `{type:"prompt",text,attachmentIds?,delivery?}` or
 `{type:"compact",instructions?,delivery?}` and an `Idempotency-Key` header.
 It uses the same explicit management opt-in, trusted origin and process-lifetime
-scoped retry rules as creation. `text` is nonblank exact text, at most 100,000
-characters. YA does not translate slash text: it applies no YA command
-emulation and reaches the provider unchanged. Claude Code itself runs a leading
+scoped retry rules as creation. `text` is at most 100,000 characters and may
+be empty with an attachment. The submitted text keeps its existing command
+semantics, with a list of file references appended when attachments are present. Claude Code itself runs a leading
 native command such as `/compact`; Codex receives it as plain text. A prompt
 `/compact` is not YA queued compaction, so its receipt reports no compaction
 outcome and YA holds no later input for it. Only the incumbent active native

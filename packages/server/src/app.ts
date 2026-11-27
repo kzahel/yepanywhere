@@ -3633,6 +3633,11 @@ export function createApp(options: AppOptions): AppResult {
     apiReceipts,
     options,
     supervisor,
+    {
+      dataDir: effectiveDataDir,
+      policy: projectStoragePolicy,
+      maxUploadSizeBytes: options.maxUploadSizeBytes,
+    },
   );
   const coreSources: CoreApiSources = {
     relationships: relationshipRead,

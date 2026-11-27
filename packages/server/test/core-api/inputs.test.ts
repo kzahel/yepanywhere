@@ -1,4 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { ApiAttachmentUploads } from "../../src/core-api/attachment-uploads.js";
+import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
+import { SessionQueuePersistenceService } from "../../src/services/SessionQueuePersistenceService.js";
+import { runIdleSweeps } from "../../src/lib/processIdleSweep.js";
 import {
   Process,
   MessageQueue,
@@ -15,16 +23,15 @@ import { nativeSessionCommandOwner } from "../../src/core-api/native-session-com
 import { CoreApi } from "../../src/core-api/service.js";
 import { apiSessionState } from "../../src/core-api/owned-sessions.js";
 import { SUPERUSER } from "../../src/auth/principal.js";
-import type { SessionQueuePersistenceService } from "../../src/services/SessionQueuePersistenceService.js";
 import type { ApiReceipt } from "../../src/core-api/command-contracts.js";
 import type { ApiPendingInput } from "../../src/core-api/input-contracts.js";
 import type { SDKMessage } from "../../src/sdk/types.js";
 
 const controllers: ReturnType<typeof createControllableIterator>[] = [];
-const cleanup: (() => void)[] = [];
-afterEach(() => {
+const cleanup: (() => void | Promise<void>)[] = [];
+afterEach(async () => {
   for (const c of controllers.splice(0)) c.finish();
-  for (const close of cleanup.splice(0)) close();
+  for (const close of cleanup.splice(0).reverse()) await close();
 });
 
 const launch = { id: "parent", launchId: "launch", management: true as const };
@@ -35,6 +42,8 @@ function fixture(
     commands?: string[];
     persistence?: SessionQueuePersistenceService;
     running?: boolean;
+    attachmentUploads?: ApiAttachmentUploads;
+    attachmentStoragePolicy?: ProjectStoragePolicy;
     commandsGate?: () => Promise<void>;
   } = {},
 ) {
@@ -79,9 +88,13 @@ function fixture(
           running && id === "target" ? process : undefined,
       },
       sessionQueuePersistenceService: options.persistence,
+      attachmentStoragePolicy: options.attachmentStoragePolicy,
       globalInstructions: () => undefined,
     }),
     () => enabled,
+    undefined,
+    undefined,
+    options.attachmentUploads,
   );
   const core = new CoreApi("A", {
     commands,
@@ -100,8 +113,9 @@ function fixture(
       ],
     }),
   });
-  cleanup.push(() => {
+  cleanup.push(async () => {
     commands.close();
+    await commands.idle();
     store.close();
     database.close();
   });
@@ -485,4 +499,65 @@ it("keeps consumed input released when unrelated queued input is cancelled", asy
       delivery: "consumed",
       input: { status: "released" },
     });
+});
+
+it("keeps a restart-paused patient attachment after its reusable staged ID expires", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ya-v0-patient-"));
+  cleanup.push(() => rm(root, { recursive: true, force: true }));
+  let now = Date.now();
+  const uploads = new ApiAttachmentUploads(root, undefined, () => now);
+  const persistence = new SessionQueuePersistenceService({ dataDir: root });
+  await persistence.initialize();
+  const f = fixture({
+    persistence,
+    attachmentUploads: uploads,
+    attachmentStoragePolicy: new ProjectStoragePolicy({
+      dataDir: root,
+      getMode: () => "app-data",
+    }),
+  });
+  const bytes = Buffer.from("file survives the staging lifetime");
+  const creator = f.commands.creator(launch);
+  const uploaded = await uploads.upload(
+    creator,
+    "p",
+    "patient-file-upload",
+    0,
+    {
+      name: "patient.txt",
+      mimeType: "text/plain",
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      size: bytes.length,
+      data: bytes.toString("base64"),
+    },
+    () => {},
+  );
+  const body = {
+    type: "prompt",
+    text: "",
+    delivery: "patient",
+    attachmentIds: [uploaded.attachmentId],
+  };
+  const receipt = await f.create("patient-file-message", body);
+  expect(receipt).toMatchObject({
+    state: "accepted",
+    input: { status: "queued" },
+  });
+  expect(persistence.listSession("target")).toHaveLength(1);
+  now = Date.parse(uploaded.expiresAt) + 1;
+  runIdleSweeps(now);
+  await uploads.idle();
+  expect(await f.create("patient-file-message", body)).toMatchObject({
+    id: receipt.id,
+  });
+  await expect(f.create("patient-file-new-key", body)).rejects.toMatchObject({
+    code: "attachment_not_found",
+  });
+  const reopened = new SessionQueuePersistenceService({ dataDir: root });
+  await reopened.initialize();
+  const [paused] = reopened.listSession("target");
+  expect(paused).toMatchObject({ status: "paused-after-restart" });
+  const [file] = paused?.message.attachments ?? [];
+  expect(await readFile(file!.path)).toEqual(bytes);
+  expect(f.queue.depth).toBe(0);
 });
