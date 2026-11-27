@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { removeFixtureDirectory } from "./remove-fixture-directory.mjs";
@@ -99,6 +100,19 @@ try {
   const expectedVersion = argument("--expected-version") ?? manifest.version;
   assert.equal(manifest.name, "yepanywhere");
   assert.equal(manifest.version, expectedVersion);
+  if (release) {
+    for (const file of [
+      "session-sandbox-network-launcher.mjs",
+      "session-sandbox-port-broker.mjs",
+    ]) {
+      assert.ok(
+        statSync(join(installed, "dist", file), {
+          throwIfNoEntry: false,
+        })?.isFile(),
+        `Installed npm package is missing dist/${file}`,
+      );
+    }
+  }
   let acceptance;
   if (productionStartup) {
     const report = join(directory, "production-acceptance.json");

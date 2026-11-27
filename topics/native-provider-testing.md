@@ -476,6 +476,10 @@ WebSocket output and a native-history read after a server restart. It reuses
 this suite's model server and real file-tool actions. Both Claude and Codex
 must pass; no selected executable can skip or fall back to inference.
 
+The installed npm candidate must contain both Linux sandbox helpers used by
+project apps: the network launcher and the loopback port broker. Release
+acceptance checks the installed files without starting a Linux sandbox.
+
 The first launch has no provider credentials and exercises normal provider-host
 discovery with neither `USE_MOCK_SDK` nor a host-disable override. It must expose
 the expected version, responsive HTTP/WebSocket, ready SQLite and no degraded

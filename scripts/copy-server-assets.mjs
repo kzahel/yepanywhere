@@ -43,10 +43,12 @@ for (const expected of [
   }
 }
 
-copyFileSync(
-  join(serverSourceDir, "session-sandbox-network-launcher.mjs"),
-  join(serverTargetDir, "session-sandbox-network-launcher.mjs"),
-);
+for (const name of [
+  "session-sandbox-network-launcher.mjs",
+  "session-sandbox-port-broker.mjs",
+]) {
+  copyFileSync(join(serverSourceDir, name), join(serverTargetDir, name));
+}
 
 copyFileSync(
   join(serverSourceDir, "sdk/providers/pi-yep-anywhere-extension.mjs"),
