@@ -50,14 +50,15 @@ export async function replayFreshness({
       while (!matches() && Date.now() < until) await delay(40);
       return matches();
     }
-    const sample = (result.writes[label] = {
+    const sample = {
       number,
       writeStart: started,
       maxInterWriteMs,
       writeSpanMs: lastWrite - started,
       versionsSeenBeforeLastWrite: observed.size,
       settledWithoutRescue: await wait(12000),
-    });
+    };
+    result.writes[label] = sample;
     if (!sample.settledWithoutRescue) {
       await snapshot(label + "-before-rescue");
       assert.equal((await hint()).delivered, true);
