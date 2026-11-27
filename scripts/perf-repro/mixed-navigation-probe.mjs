@@ -96,6 +96,12 @@ DatabaseSync.prototype.prepare = function (sql) {
     );
   else if (/\bFROM threads\b/i.test(normalized))
     queries.set(statement, "thread");
+  else if (
+    /^SELECT key,unstable FROM collection_query_\d+_sources WHERE unstable>0$/i.test(
+      normalized,
+    )
+  )
+    queries.set(statement, "unstableSource");
   else if (/^SELECT .*\bFROM session_catalog\b/i.test(normalized))
     queries.set(statement, "otherCatalogSelect");
   return statement;

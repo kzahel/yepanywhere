@@ -29,6 +29,7 @@ import { measuredHostSample, hostWindow } from "./active-session-metrics.mjs";
 import { readHostCapacity } from "../perf-suite/host-profile.mjs";
 import { fingerprintTree } from "./active-session-build.mjs";
 import { typeThroughRelease } from "./mixed-navigation-typing.mjs";
+import { replayNavigationRequests } from "./mixed-navigation-requests.mjs";
 import { replayFreshness } from "./mixed-navigation-freshness.mjs";
 import { mixedFixture } from "./mixed-navigation-fixture.mjs";
 
@@ -51,7 +52,7 @@ const { values } = parseArgs({
 });
 if (values.help) {
   console.log(
-    "mixed-navigation.mjs --case navigation|arrival|review|freshness [--population 50] [--projects 1] [--indexless] [--pin-watches] [--typing] [--raw-hints] [--startup-control wait|observe-first|empty-ports] [--out NEW.json]\nPopulation is the number of unrelated sessions, projects the number of archive projects. See the plan 190 mixed-provider navigation audit for build and replay.",
+    "mixed-navigation.mjs --case navigation|arrival|review|freshness|requests [--population 50] [--projects 1] [--indexless] [--pin-watches] [--typing] [--raw-hints] [--startup-control wait|observe-first|empty-ports] [--out NEW.json]\nPopulation is the number of unrelated sessions, projects the number of archive projects. See the plan 190 mixed-provider navigation audit for build and replay.",
   );
   process.exit(0);
 }
@@ -78,8 +79,10 @@ assert(
   "--pin-watches requires navigation",
 );
 assert(
-  ["navigation", "arrival", "review", "freshness"].includes(scenario),
-  "Choose --case navigation, arrival, review or freshness",
+  ["navigation", "arrival", "review", "freshness", "requests"].includes(
+    scenario,
+  ),
+  "Choose --case navigation, arrival, review, freshness or requests",
 );
 assert(
   Number.isInteger(population) &&
@@ -123,6 +126,7 @@ const result = {
       "mixed-navigation-worker-probe.mjs",
       "mixed-navigation-typing.mjs",
       "mixed-navigation-freshness.mjs",
+      "mixed-navigation-requests.mjs",
       "mixed-navigation-freshness-probe.mjs",
       "mixed-navigation-fixture.mjs",
       "scenario-transcripts.mjs",
@@ -356,6 +360,17 @@ try {
     await page.locator('a[href="/inbox"]:visible').first().click();
     await expect(page).toHaveURL(/\/inbox$/);
   }
+  if (scenario === "requests")
+    await replayNavigationRequests({
+      page,
+      baseUrl: server.baseUrl,
+      fixture,
+      result,
+      open,
+      snapshot,
+      append,
+      expect,
+    });
   if (scenario === "navigation") {
     if (pinWatches) {
       const expected = new Set(fixture.active.map((s) => dirname(s.file))).size;
