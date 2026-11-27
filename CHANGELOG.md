@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-27
+
+### Added
+- Open project apps at a direct address, including an existing URL or a
+  Tailscale Funnel address.
+- Attach files through the HTTP v0 API and browse existing GitHub Copilot CLI
+  sessions.
+- Show Antigravity context usage and quota windows, and offer its native Auto
+  permission mode.
+
+### Changed
+- Update the bundled Claude Code runtime to 2.1.332.
+
+### Fixed
+- Include the Linux sandbox port broker in the npm package so sandboxed
+  project apps can become ready and sandboxed session app links can open
+  ([#183](https://github.com/kzahel/yepanywhere/issues/183)).
+- Explain how to complete Codex hardware-key sign-in when working remotely.
+- Reduce session discovery work during new-session navigation and Inbox loads.
+
 ## [0.14.0] - 2026-11-23
 
 ### Added
