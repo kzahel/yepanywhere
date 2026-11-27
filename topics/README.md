@@ -31,6 +31,9 @@
   over direct and Remote Access connections, confirmation before a change cuts
   off its own caller, and runtime listener changes)
 - [Security trust boundaries](security.md)
+- [Relay fleet](relay-fleet.md) (proposal: regional relay nodes behaving as one
+  relay; YA servers wait on every node, clients pick the nearest, one node owns
+  usernames; comparison with other projects and the decisions still open)
 - [SRP and login security](srp-login-security.md) (current Remote Access
   guarantees, the predictable-randomness incident comparison, review evidence
   and a ranked hardening register)

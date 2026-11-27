@@ -695,6 +695,9 @@ async connectWithExistingSocket(ws: WebSocket, username: string, password: strin
 
 ## Future: Multi-Relay Scaling
 
+> Superseded 2026-11-27 by the [relay fleet proposal](../../topics/relay-fleet.md).
+> The sketch below is the original January 2026 idea, kept for history.
+
 When needed, add a front-door service:
 1. Yepanywhere connects to front-door, gets assigned to relay N
 2. Phone queries front-door for username location, connects to relay N

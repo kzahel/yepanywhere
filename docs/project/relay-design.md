@@ -199,6 +199,9 @@ SecureConnection extends WebSocketConnection, adding SRP handshake and encryptio
 
 ## Multi-Relay Scaling
 
+> Superseded 2026-11-27 by the [relay fleet proposal](../../topics/relay-fleet.md).
+> The sketch below is the original January 2026 idea, kept for history.
+
 For load balancing across multiple relays:
 
 1. **Registration** - Yepanywhere server registers with central DB (Redis/Postgres)

@@ -211,6 +211,9 @@ that request's data until they close. Details and the owner table are in
 - [`topics/relay-client-mux.md`](topics/relay-client-mux.md) — compatibility-
   gated optional transport carrying several independently authenticated YA host
   circuits over one browser-to-relay WebSocket while preserving `/ws`.
+- [`topics/relay-fleet.md`](topics/relay-fleet.md) — proposal for regional
+  relay nodes that behave as one relay, for latency and for surviving the loss
+  of a node; not implemented.
 - [`topics/session-detail-data-layer.md`](topics/session-detail-data-layer.md)
   — lower-level vision for a canonical client session-detail data layer
   between provider stream/REST inputs and transcript DOM rendering; see the
