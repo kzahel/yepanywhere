@@ -19,11 +19,13 @@ export function ProviderSignIn({
   provider,
   displayName,
   supportsHostTerminal,
+  reauthenticate = false,
   onSignedIn,
 }: {
   provider: ProviderName;
   displayName: string;
   supportsHostTerminal: boolean;
+  reauthenticate?: boolean;
   onSignedIn: () => void;
 }) {
   const { t } = useI18n();
@@ -256,7 +258,9 @@ export function ProviderSignIn({
         <Button onClick={() => void start()} disabled={busy}>
           {busy
             ? t("providersSignInStarting")
-            : t("providersSignIn", { provider: displayName })}
+            : reauthenticate
+              ? t("providersSignInAgain", { provider: displayName })
+              : t("providersSignIn", { provider: displayName })}
         </Button>
         {supportsHostTerminal && (
           <Button onClick={() => void openTerminal()} disabled={busy}>

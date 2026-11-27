@@ -1953,54 +1953,55 @@ describe("CodexProvider app-server lifecycle", () => {
     }
   });
 
-  it("does not retry Codex usage-limit failures", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "codex-quota-terminal-"));
-    const logPath = join(tempDir, "fake-codex-requests.jsonl");
-    const codexPath = createFakeCodexCommand(
-      tempDir,
-      "fake-codex-quota-terminal",
-      buildFakeCodexFailureAppServer(logPath, "usageLimitExceeded", 100),
-    );
-    const overloadRetryWait = vi.fn(async () => true);
-    const testProvider = new CodexProvider({
-      codexPath,
-      overloadRetryWait,
-    });
-    const session = await testProvider.startSession({
-      cwd: tempDir,
-      initialMessage: { text: "quota is terminal" },
-    });
-
-    try {
-      const messages: Array<Record<string, unknown>> = [];
-      while (true) {
-        const next = await session.iterator.next();
-        if (next.done) break;
-        messages.push(next.value);
-        if (next.value.type === "result") break;
-      }
-
-      expect(overloadRetryWait).not.toHaveBeenCalled();
-      expect(
-        readFakeCodexRequests(logPath).filter(
-          (request) => request.method === "turn/start",
-        ),
-      ).toHaveLength(1);
-      expect(messages).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            type: "error",
-            codexErrorInfo: "usageLimitExceeded",
-            codexWillRetry: false,
-          }),
-        ]),
+  it.each(["usageLimitExceeded", "cyberPolicy"] as const)(
+    "reports %s as a terminal Codex failure without retrying",
+    async (errorInfo) => {
+      const tempDir = mkdtempSync(join(tmpdir(), "codex-quota-terminal-"));
+      const logPath = join(tempDir, "fake-codex-requests.jsonl");
+      const codexPath = createFakeCodexCommand(
+        tempDir,
+        "fake-codex-quota-terminal",
+        buildFakeCodexFailureAppServer(logPath, errorInfo, 100),
       );
-    } finally {
-      await session.abort();
-      await session.iterator.return?.(undefined);
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
+      const overloadRetryWait = vi.fn(async () => true);
+      const testProvider = new CodexProvider({
+        codexPath,
+        overloadRetryWait,
+      });
+      const session = await testProvider.startSession({
+        cwd: tempDir,
+        initialMessage: { text: "This turn fails" },
+      });
+
+      try {
+        const messages: Array<Record<string, unknown>> = [];
+        while (true) {
+          const next = await session.iterator.next();
+          if (next.done) break;
+          messages.push(next.value);
+          if (next.value.type === "result") break;
+        }
+
+        expect(overloadRetryWait).not.toHaveBeenCalled();
+        expect(
+          readFakeCodexRequests(logPath).filter(
+            (request) => request.method === "turn/start",
+          ),
+        ).toHaveLength(1);
+        expect(messages.filter((message) => message.type === "error")).toEqual([
+          expect.objectContaining({
+            codexErrorInfo: errorInfo,
+            codexWillRetry: false,
+            codexTurnId: "turn-1",
+          }),
+        ]);
+      } finally {
+        await session.abort();
+        await session.iterator.return?.(undefined);
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("cancels a pending overload retry when the session aborts", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "codex-overload-abort-"));
@@ -4827,6 +4828,7 @@ function buildFakeCodexFailureAppServer(
     | "serverOverloaded"
     | "policyCapacityUnavailable"
     | "usageLimitExceeded"
+    | "cyberPolicy"
     | "cyberAccessDenied"
     | "cyberAccessRetrying",
   failuresBeforeSuccess: number,
@@ -4951,7 +4953,9 @@ function handleMessage(message) {
           } : {
             message: codexErrorInfo === "usageLimitExceeded"
               ? "Usage limit reached."
-              : "Selected model is at capacity.",
+              : codexErrorInfo === "cyberPolicy"
+                ? "Please re-authenticate with your hardware key and try your request again."
+                : "Selected model is at capacity.",
             codexErrorInfo,
             additionalDetails: null,
           };
@@ -4968,12 +4972,14 @@ function handleMessage(message) {
             });
             return;
           }
-          notify("error", {
-            threadId: "thread-failure",
-            turnId,
-            error,
-            willRetry: false,
-          });
+          if (codexErrorInfo !== "cyberPolicy") {
+            notify("error", {
+              threadId: "thread-failure",
+              turnId,
+              error,
+              willRetry: false,
+            });
+          }
           completeTurn(turnId, "failed", error);
           return;
         }

@@ -11,6 +11,10 @@ import {
 import { SessionCreationRecovery } from "./SessionCreationRecovery";
 import styles from "../pages/SessionPage.module.css";
 import { BtwAsideStickyCards } from "./BtwAsideStickyCards";
+import {
+  CodexHardwareKeyNotice,
+  needsCodexHardwareKey,
+} from "./CodexHardwareKeyNotice";
 import { MessageInputToolbar } from "./MessageInputToolbar";
 import { QuestionAnswerPanel } from "./QuestionAnswerPanel";
 import { QuestionAsideCard } from "./QuestionAsideCard";
@@ -386,6 +390,10 @@ export function SessionComposerFooter({
 }: SessionComposerFooterProps) {
   const { t } = useI18n();
   const footerClassName = `${styles.input} ${chromeSessionComposerFooterStyles["session-input"]}`;
+  const showHardwareKeyNotice =
+    session &&
+    !pendingInputRequest &&
+    needsCodexHardwareKey(providerRuntimeStatus);
   if (session && readOnly) {
     return (
       <footer className={footerClassName} data-session-input>
@@ -482,6 +490,14 @@ export function SessionComposerFooter({
           onStopAside={(asideId) => void handleStopBtwAside(asideId)}
           onTransferToComposer={transferBtwTurnToMotherComposer}
         />
+
+        {showHardwareKeyNotice && (
+          <CodexHardwareKeyNotice
+            basePath={basePath}
+            className={chromeSessionComposerFooterStyles["hardware-key-notice"]}
+            routed={Boolean(session?.routerBinding)}
+          />
+        )}
 
         {/* User question panel */}
         {pendingInputRequest &&
@@ -717,7 +733,9 @@ export function SessionComposerFooter({
             lastActivityAt={activityAt}
             positionTimestampStore={transcriptPositionStore}
             sessionLiveness={sessionLiveness}
-            providerRuntimeStatus={providerRuntimeStatus}
+            providerRuntimeStatus={
+              showHardwareKeyNotice ? null : providerRuntimeStatus
+            }
             projectId={projectId}
             sessionId={sessionId}
             attachments={mainComposerForAside ? [] : attachments}

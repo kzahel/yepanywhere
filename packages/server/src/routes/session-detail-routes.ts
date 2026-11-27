@@ -36,6 +36,7 @@ import type { ClearloopService } from "../services/ClearloopService.js";
 import type { ModelInfoService } from "../services/ModelInfoService.js";
 import type { SessionQueuePersistenceService } from "../services/SessionQueuePersistenceService.js";
 import { BoundSessionReads } from "../sessions/bound-session-reader.js";
+import { readCodexHardwareKeyStatus } from "../sessions/codex-hardware-key-status.js";
 import type { NestedHarnessRelationshipService } from "../sessions/NestedHarnessRelationshipService.js";
 import {
   detachSessionMessageProjection,
@@ -705,7 +706,12 @@ export function registerSessionDetailRoute(
     const providerRuntimeStatus =
       deps.supervisor.getProviderRuntimeStatusForSession?.(sessionId) ??
       process?.getProviderRuntimeStatus() ??
-      null;
+      (!publicShare &&
+      session?.provider === "codex" &&
+      nativeSource?.native &&
+      (!process || process.state.type === "idle")
+        ? await readCodexHardwareKeyStatus(nativeSource.native)
+        : null);
 
     // Get available slash commands (for "/" button and typed slash menu)
     // The init message that normally carries these gets discarded from the SSE buffer

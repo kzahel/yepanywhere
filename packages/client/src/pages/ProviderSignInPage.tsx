@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { Banner } from "../components/ui/Banner";
+import { useCanAdministerHost } from "../hooks/useActingPrincipal";
 import { useProviderRow } from "../hooks/useProviders";
 import { useRemoteBasePath } from "../hooks/useRemoteBasePath";
 import { useI18n } from "../i18n";
@@ -14,6 +15,7 @@ export function ProviderSignInPage() {
   const provider =
     parameter === "claude" || parameter === "codex" ? parameter : null;
   const { row, loading, error, refresh, sourceKey } = useProviderRow(provider);
+  const canAdminister = useCanAdministerHost();
   const { isWideScreen } = useNavigationLayout();
   const basePath = useRemoteBasePath();
   const { t } = useI18n();
@@ -31,18 +33,27 @@ export function ProviderSignInPage() {
             <p role="status">{t("providerSignInLoading")}</p>
           ) : error ? (
             <Banner tone="error">{error.message}</Banner>
-          ) : row?.authenticated ? (
+          ) : row?.authenticated &&
+            (provider !== "codex" ||
+              !row.supportsInAppLogin ||
+              !canAdminister) ? (
             <Banner tone="success">
               {t("providerSignInReady", { provider: name })}
             </Banner>
-          ) : row?.supportsInAppLogin ? (
-            <ProviderSignIn
-              key={`${sourceKey}:${provider}`}
-              provider={provider}
-              displayName={name}
-              supportsHostTerminal={row.supportsHostTerminalLogin === true}
-              onSignedIn={() => void refresh()}
-            />
+          ) : row?.supportsInAppLogin && canAdminister ? (
+            <>
+              {provider === "codex" && row.authenticated && (
+                <p>{t("providerSignInCodexHardwareKeyHint")}</p>
+              )}
+              <ProviderSignIn
+                key={`${sourceKey}:${provider}`}
+                provider={provider}
+                displayName={name}
+                supportsHostTerminal={row.supportsHostTerminalLogin === true}
+                reauthenticate={provider === "codex" && row.authenticated}
+                onSignedIn={refresh}
+              />
+            </>
           ) : (
             <Banner tone="error">{t("providerSignInUnavailable")}</Banner>
           )}

@@ -1,5 +1,7 @@
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures.js";
+import { e2ePaths, expect, test } from "./fixtures.js";
+import { typingAckLimitMs } from "./support/typing-diagnostics.js";
 import { recordUiCapture } from "./support/ui-capture.js";
 
 test.use({ serviceWorkers: "block" });
@@ -229,4 +231,140 @@ test("focused sign-in keeps startup failures visible and preserves typing during
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(input).toBeVisible();
   await recordUiCapture(page, "focused-provider-sign-in-phone");
+});
+
+test("Codex hardware-key notice preserves the draft and opens a fresh sign-in", async ({
+  page,
+  baseURL,
+}) => {
+  const projectId = Buffer.from(join(e2ePaths.tempDir, "mockproject")).toString(
+    "base64url",
+  );
+  const sessionId = "mock-session-001";
+  const timestamp = new Date().toISOString();
+  const messages = Array.from({ length: 160 }, (_, index) => ({
+    uuid: `hardware-key-message-${index}`,
+    type: index % 2 ? "assistant" : "user",
+    message: {
+      role: index % 2 ? "assistant" : "user",
+      content: `Conversation turn ${index}`,
+    },
+    timestamp,
+  }));
+  await page.route(
+    new RegExp(`/api/projects/[^/]+/sessions/${sessionId}(?:[?]|$)`),
+    async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({
+        response,
+        json: {
+          ...data,
+          messages,
+          session: { ...data.session, provider: "codex" },
+          providerRuntimeStatus: null,
+        },
+      });
+    },
+  );
+  let reportFailure: (() => void) | undefined;
+  await page.routeWebSocket("**/api/ws", (socket) => {
+    const upstream = socket.connectToServer();
+    socket.onMessage((wire) => {
+      const message = JSON.parse(
+        typeof wire === "string" ? wire : wire.subarray(1).toString("utf8"),
+      );
+      if (message.type === "subscribe" && message.channel === "activity") {
+        reportFailure = () =>
+          socket.send(
+            JSON.stringify({
+              type: "event",
+              eventId: "hardware-key-failed",
+              eventType: "provider-runtime-status-changed",
+              subscriptionId: message.subscriptionId,
+              data: {
+                type: "provider-runtime-status-changed",
+                sessionId,
+                projectId,
+                timestamp,
+                providerRuntimeStatus: {
+                  kind: "terminal",
+                  provider: "codex",
+                  reason: "unknown",
+                  message:
+                    "Please re-authenticate with your hardware key and try your request again.",
+                  occurredAt: timestamp,
+                  source: "codex.error",
+                },
+              },
+            }),
+          );
+      }
+      upstream.send(wire);
+    });
+  });
+
+  await page.route(
+    (url) => url.pathname === "/api/providers",
+    (route) =>
+      route.fulfill({ json: { providers: [provider("codex", true)] } }),
+  );
+  await page.route(
+    (url) => url.pathname === "/api/providers/codex",
+    (route) => route.fulfill({ json: { provider: provider("codex", true) } }),
+  );
+  let login: ReturnType<typeof flow> | null = null;
+  let starts = 0;
+  await page.route(
+    (url) => url.pathname === "/api/providers/codex/login",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        starts++;
+        login = flow("codex");
+      }
+      await route.fulfill({ json: { flow: login } });
+    },
+  );
+
+  await page.setViewportSize({ width: 1000, height: 600 });
+  await page.goto(`${baseURL}/projects/${projectId}/sessions/${sessionId}`);
+  await dismissOnboardingIfVisible(page);
+  const composer = page.locator("[data-composer-input]");
+  await expect(composer).toBeVisible();
+  await expect(
+    page.getByText("Conversation turn 159", { exact: true }),
+  ).toBeVisible();
+  await expect.poll(() => reportFailure !== undefined).toBe(true);
+  await composer.focus();
+  await composer.pressSequentially("re");
+  reportFailure?.();
+  let draft = "re";
+  for (const character of "try") {
+    await page.keyboard.press(character);
+    draft += character;
+    await expect(composer).toHaveValue(draft, { timeout: typingAckLimitMs });
+  }
+  await expect(composer).toBeFocused();
+  await expect(composer).toHaveValue("retry");
+
+  const signIn = page.getByRole("link", { name: "Open Codex sign-in" });
+  await expect(signIn).toBeVisible();
+  await recordUiCapture(page, "codex-hardware-key-action-desktop");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(signIn).toBeVisible();
+  await recordUiCapture(page, "codex-hardware-key-action-phone");
+  await signIn.click();
+  const signInAgain = page.getByRole("button", {
+    name: "Sign in to Codex again",
+  });
+  await expect(signInAgain).toBeVisible();
+  expect(starts).toBe(0);
+  await signInAgain.click();
+  await expect(
+    page.getByRole("link", { name: "Open Codex sign-in page" }),
+  ).toHaveAttribute("href", "https://auth.openai.com/codex/device");
+  await expect(page.getByText("IXHO-DHC63", { exact: true })).toBeVisible();
+  await recordUiCapture(page, "codex-hardware-key-sign-in-phone");
+  await page.setViewportSize({ width: 1000, height: 600 });
+  await recordUiCapture(page, "codex-hardware-key-sign-in-desktop");
 });

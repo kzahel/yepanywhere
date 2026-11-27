@@ -25,6 +25,18 @@ Do not infer terminal failure from silence. A terminal status requires an
 explicit provider error or failed-turn signal. Liveness remains a separate
 answer to whether the process is alive, active, idle, or waiting for input.
 
+Codex can carry the only error in its failed `turn/completed` notification.
+YA surfaces that error once, including when Codex skips the separate
+`error` notification.
+
+A Codex terminal error asking the user to re-authenticate with a hardware
+key shows an **Action needed** banner above the composer. The server owner
+can open the focused sign-in for a Direct session, or provider settings for
+a routed account. Once sign-in succeeds, the owner can restart the
+conversation and retry the prompt. The session detail can recover this
+notice from the latest failed turn in Codex's native history database, when
+available for the bound session. A subsequent turn supersedes that failure.
+
 ## Recovery semantics and color
 
 Color follows recovery behavior rather than the underlying error taxonomy:
@@ -32,7 +44,7 @@ Color follows recovery behavior rather than the underlying error taxonomy:
 | Runtime kind | Meaning | Surface tone | Clear condition |
 | --- | --- | --- | --- |
 | `retrying` | The provider or YA's documented adapter policy will retry automatically. | Warning/yellow | Provider progress, completed turn, abort, or replacement status. |
-| `terminal` | The current turn ended and will not retry automatically. The session may still be usable. | Danger/red | The next user turn begins, or YA restarts. |
+| `terminal` | The current turn ended and will not retry automatically. The session may still be usable. | Danger/red | The next user turn begins. A restart clears live-only status. |
 
 “Terminal” is turn-scoped. UI copy should say that the provider stopped or the
 turn ended; it must not imply that the session or provider process crashed.

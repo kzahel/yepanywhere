@@ -24,6 +24,12 @@ output remains visible while the flow runs as well as on failure. A failure
 must not require noticing a transient toast or guessing that a tap registered.
 This is a structured official-CLI flow, not an interactive PTY terminal.
 
+When the host already has a Codex login, the owner can choose **Sign in to
+Codex again** on the focused Codex page. The page also picks up a running
+sign-in from another browser. A hardware-key notice in a Direct Codex
+conversation links here. It uses the existing relayed device sign-in, with
+a fresh code and the provider's authorization link shown together.
+
 When Claude or Codex is installed but not authenticated, its Providers card
 shows three equivalent routes to the same provider-owned login:
 

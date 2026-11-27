@@ -432,6 +432,7 @@ export async function* consumeCodexTurn(
     };
   }
   let emittedTurnError = false;
+  let settledTurn = turn;
   let retryableError: CodexRetryableTurnError | null = null;
   let suppressedPreTurnNotifications: {
     count: number;
@@ -647,6 +648,10 @@ export async function* consumeCodexTurn(
     }
     if (isTurnTerminalNotification(notification, effectiveActiveTurnId)) {
       if (notification.method === "error") emittedTurnError = true;
+      if (notification.method === "turn/completed") {
+        settledTurn =
+          asCodexTurnCompletedNotification(notification.params)?.turn ?? turn;
+      }
       // A turn error precedes its completion; do not release queued work
       // while the provider still owns the failed turn.
       turnComplete = notification.method !== "error" || appServer.isClosed;
@@ -660,25 +665,26 @@ export async function* consumeCodexTurn(
     return { retryableError: null };
   }
 
-  if (!emittedTurnError && turn.status === "failed" && turn.error?.message) {
+  const error = settledTurn.status === "failed" ? settledTurn.error : null;
+  if (!emittedTurnError && !retryableError && error?.message) {
     const fallbackError = {
       type: "error",
-      uuid: `codex-error-${turn.id}`,
+      uuid: `codex-error-${settledTurn.id}`,
       session_id: sessionId,
-      error: turn.error.message,
-      codexErrorInfo: turn.error.codexErrorInfo ?? null,
-      codexAdditionalDetails: readCodexTurnErrorDetail(turn.error),
+      error: error.message,
+      codexErrorInfo: error.codexErrorInfo ?? null,
+      codexAdditionalDetails: readCodexTurnErrorDetail(error),
       codexWillRetry: false,
-      codexTurnId: turn.id,
+      codexTurnId: settledTurn.id,
       codexFailureTrace: snapshotCodexFailureTrace(failureTrace),
       codexFailureSummary: formatCodexFailureTrace(failureTrace),
       codexRequestId: extractOpenAIRequestId(
-        turn.error,
-        turn.error.additionalDetails,
-        turn.error.message,
+        error,
+        error.additionalDetails,
+        error.message,
       ),
     } as SDKMessage;
-    const kind = classifyCodexTurnError(turn.error, cyberAccessRequested);
+    const kind = classifyCodexTurnError(error, cyberAccessRequested);
     if (kind) {
       return { retryableError: { kind, message: fallbackError } };
     }

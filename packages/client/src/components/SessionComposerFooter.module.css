@@ -8,7 +8,8 @@
   position: relative;
 }
 
-.session-creation-recovery {
+.session-creation-recovery,
+.hardware-key-notice {
   margin-bottom: 0.75rem;
 }
 @media (width <= 600px) {
