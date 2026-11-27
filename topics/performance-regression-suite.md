@@ -43,6 +43,10 @@ points and repetition counts live in `scripts/perf-suite/config.json`; targets
 live in `scripts/perf-suite/ratchets.json`. Scenario-specific thresholds do not
 belong in driver code.
 
+## Mixed-provider Inbox and watcher replay
+
+The [plan 190 replay recipe](../docs/research/190-mixed-provider-navigation-audit.md#replaying-the-mixed-profile-experiments) starts an isolated production-entry server with generated Claude and Codex histories. Select `navigation` for ten real session opens and revisits, `review` for project-count scaling or `arrival` for watcher cost after writes to existing and new sessions. The opt-in runner records catalog reads, filesystem work and request counts independently of the suite timing ratchets.
+
 ## Isolated frontend transcript calibration
 
 The [frontend calibration](../docs/research/190-frontend-renderer-calibration.md)

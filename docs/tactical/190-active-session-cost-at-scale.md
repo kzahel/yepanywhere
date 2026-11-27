@@ -39,6 +39,11 @@ The maintainer subsequently selected architecture-led prioritization over
 following the original step order. The stages and selected focus below own
 that order; the numbered steps remain implementation/evidence references.
 
+The [mixed-provider Inbox replay](../research/190-mixed-provider-navigation-audit.md)
+verifies the scoped session-draft and review Inbox fixes. For existing-session
+switching, it ranks blocking macOS directory-watch teardown first. For new
+Codex sessions, the next candidate is single-file discovery in a known project.
+
 ## Goal
 
 Work per transcript write depends only on what changed: never on how many

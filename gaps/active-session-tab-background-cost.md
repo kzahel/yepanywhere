@@ -462,3 +462,11 @@ Safe derived query checkpoints avoid cold JS reconstruction when canonical state
 has not changed. See [catalog evidence](../docs/research/190-catalog-sql-ownership.md).
 Unrecognized new files still rediscover; full SQL restore, project aggregation,
 remaining complete consumers and the long-transcript/client costs remain open.
+
+The [macOS native close replay](../docs/research/190-mixed-provider-navigation-audit.md#a-native-directory-watcher-blocks-session-switching-on-macos)
+identifies synchronous final directory-watch teardown during ordinary session switches.
+In the warm 60-session control, keeping just the two active directory watches alive
+removed 16 native closes and reduced the maximum loop delay from 2,020 to 19 ms.
+The session subscriptions and latest-answer checks ran in both cells. Measure
+bounded teardown away from the server event loop while preserving immediate
+listener release and the focused watcher ownership contract.

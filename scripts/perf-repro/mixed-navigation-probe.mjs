@@ -1,0 +1,285 @@
+// Preload only in the disposable server. A sample is work completed since the
+// previous snapshot. Finished requests and their detached work are distinct.
+import { AsyncLocalStorage } from "node:async_hooks";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
+import { Server } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
+import { basename, dirname, join, sep } from "node:path";
+import { monitorEventLoopDelay } from "node:perf_hooks";
+import { DatabaseSync, StatementSync } from "node:sqlite";
+
+const loop = monitorEventLoopDelay({ resolution: 10 });
+loop.enable();
+const inFlight = new Set();
+const context = new AsyncLocalStorage();
+function window() {
+  return {
+    lanes: {},
+    requests: {},
+    fullReadStacks: [],
+    cpu: process.cpuUsage(),
+    start: performance.now(),
+  };
+}
+let sample = window();
+function laneMetrics() {
+  const request = context.getStore();
+  const lane = request && !request.finished ? request.route : "background";
+  sample.lanes[lane] ??= {};
+  return sample.lanes[lane];
+}
+function count(key, amount = 1) {
+  const metrics = laneMetrics();
+  metrics[key] = (metrics[key] ?? 0) + amount;
+}
+const queries = new WeakMap();
+const prepare = DatabaseSync.prototype.prepare;
+DatabaseSync.prototype.prepare = function (sql) {
+  const statement = prepare.call(this, sql);
+  const normalized = sql.replace(/\s+/g, " ").trim();
+  if (
+    /FROM session_catalog c LEFT JOIN session_catalog_text/i.test(normalized)
+  ) {
+    if (/WHERE c\.deleted\s*=\s*0 ORDER BY c\.id$/i.test(normalized))
+      queries.set(statement, "full");
+    else if (/AND c\.native_id\s*=\s*\? ORDER BY c\.id$/i.test(normalized))
+      queries.set(statement, "candidate");
+    else queries.set(statement, "otherCatalogProjection");
+  } else if (
+    /^SELECT id, family, store_key, native_id, row_hash, deleted FROM session_catalog$/i.test(
+      normalized,
+    )
+  ) {
+    queries.set(statement, "hashInventory");
+  } else if (/^INSERT INTO session_catalog \(/i.test(normalized)) {
+    queries.set(statement, "catalogUpsert");
+  } else if (/FROM threads INDEXED BY idx_threads_updated_at/i.test(normalized))
+    queries.set(
+      statement,
+      this.location() ===
+        join(dirname(process.env.CODEX_SESSIONS_DIR), "state_5.sqlite")
+        ? "threadHint"
+        : "otherThreadHint",
+    );
+  else if (/\bFROM threads\b/i.test(normalized))
+    queries.set(statement, "thread");
+  else if (/^SELECT .*\bFROM session_catalog\b/i.test(normalized))
+    queries.set(statement, "otherCatalogSelect");
+  return statement;
+};
+for (const method of ["all", "get", "run"]) {
+  const original = StatementSync.prototype[method];
+  StatementSync.prototype[method] = function (...args) {
+    const query = queries.get(this);
+    if (!query) return original.apply(this, args);
+    const start = performance.now();
+    const rows = original.apply(this, args);
+    count(query + "SqlMs", performance.now() - start);
+    if (query === "catalogUpsert") {
+      count("catalogUpserts", Number(rows.changes));
+    } else {
+      count(query + "Reads");
+      count(
+        query + "Rows",
+        method === "all" ? rows.length : Number(rows !== undefined),
+      );
+      if (query === "full" && sample.fullReadStacks.length < 3) {
+        const previous = Error.stackTraceLimit;
+        Error.stackTraceLimit = 20;
+        const trace = new Error().stack;
+        Error.stackTraceLimit = previous;
+        sample.fullReadStacks.push(
+          trace
+            .split("\n")
+            .slice(2, 17)
+            .map((frame) =>
+              frame
+                .trim()
+                .replace(/(?:file:\/\/)?[^ (]*\/packages\//g, "packages/"),
+            ),
+        );
+      }
+    }
+    return rows;
+  };
+}
+const roots = [
+  ["codex", process.env.CODEX_SESSIONS_DIR + sep],
+  ["claude", process.env.CLAUDE_SESSIONS_DIR + sep],
+];
+function provider(file) {
+  return (
+    typeof file === "string" &&
+    roots.find(([, prefix]) => file.startsWith(prefix))?.[0]
+  );
+}
+for (const name of ["stat", "readdir", "open", "readFile"]) {
+  const original = fsp[name];
+  fsp[name] = async function (file, ...args) {
+    if (
+      name === "stat" &&
+      typeof file === "string" &&
+      basename(file) === "review-comments.json"
+    )
+      count("reviewFileChecks");
+    const result = await original.call(this, file, ...args);
+    const source = provider(file);
+    if (!source) return result;
+    count(source + "." + name);
+    const bytes = source + ".readBytes";
+    if (name === "readFile") count(bytes, Buffer.byteLength(result));
+    if (name === "open") {
+      for (const method of ["read", "readFile"]) {
+        const read = result[method];
+        result[method] = async function (...args) {
+          const value = await read.apply(this, args);
+          count(
+            bytes,
+            method === "read" ? value.bytesRead : Buffer.byteLength(value),
+          );
+          return value;
+        };
+      }
+    }
+    return result;
+  };
+}
+const stream = fs.createReadStream;
+fs.createReadStream = function (file, ...args) {
+  const result = stream.call(this, file, ...args);
+  const source = provider(file);
+  if (source)
+    result.once("close", () => count(source + ".readBytes", result.bytesRead));
+  return result;
+};
+// Time the synchronous native close itself; a blocked main thread can have
+// very little process CPU. Wrap only watches below this cell's provider roots.
+const watch = fs.watch;
+fs.watch = function (file, ...args) {
+  const handle = watch.call(this, file, ...args);
+  const source = provider(file);
+  if (source) {
+    count(source + ".watchOpens");
+    const close = handle.close;
+    handle.close = function (...args) {
+      const started = performance.now();
+      try {
+        return close.apply(this, args);
+      } finally {
+        const elapsed = performance.now() - started;
+        count(source + ".watchCloses");
+        count(source + ".watchCloseMs", elapsed);
+        const lane = laneMetrics();
+        const field = source + ".longestCloseMs";
+        lane[field] = Math.max(lane[field] ?? 0, elapsed);
+      }
+    };
+  }
+  return handle;
+};
+syncBuiltinESMExports();
+
+const { ReviewCommentService } = await import(
+  "../../packages/server/src/review/ReviewCommentService.ts"
+);
+for (const method of ["getStoreFile", "getStore", "load"]) {
+  const original = ReviewCommentService.prototype[method];
+  ReviewCommentService.prototype[method] = function (...args) {
+    count("review." + method);
+    return original.apply(this, args);
+  };
+}
+function requests(route) {
+  sample.requests[route] ??= {
+    count: 0,
+    completed: 0,
+    closed: 0,
+    status: {},
+    maxMs: 0,
+  };
+  return sample.requests[route];
+}
+// The diagnostic control adds an independent shared lease for each of the
+// active transcript directories. The normal browser subscriptions still run.
+const { watchSharedDirectory } = await import(
+  "../../packages/server/src/watcher/SharedDirectoryWatcher.ts"
+);
+const leases = [];
+const emit = Server.prototype.emit;
+Server.prototype.emit = function (name, ...args) {
+  if (name !== "request") return emit.call(this, name, ...args);
+  const [req, res] = args;
+  const pathname = new URL(req.url, "http://localhost").pathname;
+  if (
+    ["PUT", "DELETE"].includes(req.method) &&
+    pathname === "/__mixed_navigation_leases"
+  ) {
+    const plan = join(process.env.YEP_DATA_DIR, "mixed-watch-directories.json");
+    if (!fs.existsSync(plan)) {
+      res.writeHead(404).end();
+      return true;
+    }
+    if (req.method === "DELETE") {
+      for (const lease of leases.splice(0)) lease.close();
+    } else if (!leases.length) {
+      for (const dir of JSON.parse(fs.readFileSync(plan, "utf8"))) {
+        leases.push(watchSharedDirectory(dir, { persistent: false }, () => {}));
+      }
+    }
+    res.end(JSON.stringify({ leases: leases.length }));
+    return true;
+  }
+  if (pathname === "/__mixed_navigation_sample") {
+    // Atomically cut only between finite requests. The application maintains
+    // a separate long-poll, whose starts and finishes can span windows.
+    const pending = [...inFlight]
+      .filter((r) => !r.longPoll)
+      .map((r) => r.route);
+    if (pending.length) {
+      res.end(JSON.stringify({ pending }));
+      return true;
+    }
+    const { cpu, start, ...result } = sample;
+    const usage = process.cpuUsage(cpu);
+    res.end(
+      JSON.stringify({
+        ...result,
+        cpuMs: Math.round((usage.user + usage.system) / 1000),
+        elapsedMs: Math.round(performance.now() - start),
+        longPollsInFlight: inFlight.size,
+        loopMaxMs: loop.count ? loop.max / 1e6 : null,
+        loopP99Ms: loop.count ? loop.percentile(99) / 1e6 : null,
+      }),
+    );
+    sample = window();
+    loop.reset();
+    return true;
+  }
+  if (!pathname.startsWith("/api/")) return emit.call(this, name, ...args);
+  const route = req.method + " " + pathname.replace(/[\w-]{26,}/g, "@");
+  requests(route).count++;
+  const state = {
+    route,
+    finished: false,
+    longPoll: pathname === "/api/drafts/changes",
+  };
+  const start = performance.now();
+  inFlight.add(state);
+  function finish(closed) {
+    if (state.finished) return;
+    state.finished = true;
+    inFlight.delete(state);
+    const entry = requests(route);
+    if (closed) {
+      entry.closed++;
+      return;
+    }
+    entry.completed++;
+    entry.status[res.statusCode] = (entry.status[res.statusCode] ?? 0) + 1;
+    entry.maxMs = Math.max(entry.maxMs, Math.round(performance.now() - start));
+  }
+  res.once("finish", () => finish(false));
+  res.once("close", () => finish(true));
+  return context.run(state, () => emit.call(this, name, ...args));
+};

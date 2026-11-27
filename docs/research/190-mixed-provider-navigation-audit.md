@@ -1,6 +1,8 @@
 # Mixed Claude and Codex server cost during Inbox navigation
 
-Measured on 2026-11-27 at `33d7e92e5` for [plan 190](../tactical/190-active-session-cost-at-scale.md). The most repeatable foreground cost was authorizing one session draft after another session's transcript changed. The first Inbox visit also triggered expensive source-review discovery. A separate Codex rollout-header reread depended on the spelling of the provider root.
+After the two fixes, the largest reproduced freeze during ordinary browsing came from closing a native transcript-directory watcher on macOS. A separate full-catalog reconciliation occurs when a new Codex session appears. [Watcher comparison](#a-native-directory-watcher-blocks-session-switching-on-macos) · [New-session comparison](#separate-new-codex-sessions-in-an-existing-project) · [Replay commands](#replaying-the-mixed-profile-experiments)
+
+The original baseline was measured on 2026-11-27 at `33d7e92e5` for [plan 190](../tactical/190-active-session-cost-at-scale.md). The most repeatable foreground cost was authorizing one session draft after another session's transcript changed. The first Inbox visit also triggered expensive source-review discovery. A separate Codex rollout-header reread depended on the spelling of the provider root.
 
 ## One draft read after an unrelated append
 
@@ -58,3 +60,82 @@ The configured scanner keys its discovery index by a resolved lexical path. A bo
 The standalone server fixture launched the source server on loopback with a private app-data directory, home, provider roots and disposable browser. It loaded the production client built from the same checkout. Sessions alternated Claude and Codex within each project. The ten opened histories included one 40-turn transcript per provider and four one-turn transcripts per provider. Older unrelated histories were split equally. All were text with synthetic tool traffic. Catalog row counts came from the rows returned by the complete native SQL SELECT. Server-side file counters measured logical bytes read and successful metadata calls. Async request context distinguished a running request from detached background work. The focused path-spelling experiment additionally counted reads inside the reader's uncached enumeration and recorded its native scan metrics. A separate timing-only server omitted SQL and filesystem wrappers.
 
 This was direct localhost navigation with one browser, synthetic writes, and no live model processes. Host capacity was Darwin arm64, 14 CPUs and 48 GiB RAM, Node 24.22.1. Host samples and raw request observations accompany the run bundle. Elapsed times are local observations. Counts, visible-message checks, returned child identity, accepted file versions and same-generation controls establish the scope of repeated work. [Standalone process](../../packages/client/e2e/support/ya-server-process.ts) · [Transcript generators](../../scripts/perf-repro/scenario-transcripts.mjs) · [Navigation fixture](../../scripts/perf-repro/issue-navigation.mjs) · [Measurement guidance](../../topics/performance-regression-suite.md)
+
+## Browsing ten sessions after both fixes
+
+Two cold, indexed profiles on server revision `acc4d7cce` each opened the same ten Claude/Codex sessions from Inbox twice. They then opened one Claude session after an accepted append in another project's Codex session and immediately reopened it. All 44 browser opens showed the expected latest answer and completed a successful draft read for the exact session.
+
+| Unrelated sessions | First Inbox full rows | First ten switches, requests / full rows | Second ten switches, requests / full rows | Draft candidates after the write / stable revisit |
+| ---: | ---: | ---: | ---: | ---: |
+| 50 | 60 | 162 / 60 | 109 / 0 | 1 / 0 |
+| 8,370 | 8,380 | 161 / 8,380 | 117 / 0 | 1 / 0 |
+
+The first Inbox's session-list projection and a subsequent cold reconciliation still read the history once each. In the large run the second read occurred while a session-detail request was open. The first review Inbox and the later draft reads returned zero full rows. At 2,010 sessions, the 2-project and 251-project review cases made 4 and 502 review-file checks on first access. All three fresh windows in each case returned empty results with zero additional presence checks or store loads. In the warm large-profile circuit, the longest completed session-detail handler took 20 ms. The server's maximum event-loop delay during that same circuit was 2.55 s (2.28 s at the smaller size). These were text sessions without new rollouts in that circuit. The warm circuits used 592 ms of server CPU over 12.5 s and 667 ms over 11.8 s respectively. Individual opens took up to 2.6 and 3.1 s. The timer delay alone could reflect blocking or scheduling. The focused experiment below directly measured native watcher teardown.
+
+## A native directory watcher blocks session switching on macOS
+
+This is the first fix to tackle for **opening and leaving existing sessions**. On this Mac, leaving a session can synchronously close the last native watcher for its transcript directory. Node waits inside that call. The server cannot handle the next request in the meantime, even though the process may be using little CPU. A production stall recording from a fresh 60-session fixture reported a 6,235 ms loop delay. Of a 10.46 s profile window, 7.05 s of sample time had the stack `FSWatcher.close → SharedDirectoryWatcher.release → FocusedSessionWatchManager.releaseDirectoryWatch` (leaf first). Sampled wall time includes waiting in native code.
+
+The controlled replay timed the actual synchronous `FSWatcher.close()` calls for the private Claude and Codex transcript trees. On the control pass, two additional leases on those same directories kept their native handles alive while the real browser still subscribed and unsubscribed. The driver closed the browser and released both leases separately at the end. This exercises the current sharing implementation with a second owner. It changes only the test workload.
+
+| Warm ten-session circuit on macOS | Native closes | Total time inside close | Largest single close | Maximum loop delay | Circuit elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 50 unrelated, ordinary | 16 | 7.09 s | 2.01 s | 2.02 s | 9.61 s |
+| 50 unrelated, extra leases | 0 | 0 | 0 | 19 ms | 4.30 s |
+| 8,370 unrelated, ordinary | 16 | 6.88 s | 2.84 s | 2.85 s | 9.78 s |
+| 8,370 unrelated, extra leases | 0 | 0 | 0 | 13 ms | 4.70 s |
+
+All four runs passed all 22 URL, latest-answer and draft checks. Warm circuits read zero full catalog rows. At the larger size the final release of the two control leases still took 976 ms inside native closes, including one 756 ms call. Merely delaying the last close can move the freeze to another time. These close timings are macOS observations on one host. The measurements identify the blocked call in the isolated server. Attribution on a live installation requires its own stall sample.
+
+**Recommended next change.** Fix the lifecycle of the native transcript-directory watcher first. Release session interest immediately and prevent the server's request thread from waiting on slow native closes. A bounded watcher worker on macOS is one option to measure. Short-lived directory reuse can reduce churn, but the eventual last close must also meet the latency target. Verify final unsubscribe, watcher budgets, replacement/rename recovery, no delivery to departed sessions, exact updates to active sessions and clean shutdown. The current contract explicitly closes the last native watch, so keep those ownership guarantees if moving it to another thread. Test the normal unpinned replay on macOS and verify other supported platforms. [Focused session watcher](../../packages/server/src/watcher/FocusedSessionWatchManager.ts) · [Native watch ownership](../../packages/server/src/watcher/SharedDirectoryWatcher.ts) · [Observation contract](../../topics/session-catalog-observation.md) · [Prior macOS worktree watcher incident](../tactical/113-live-worktree-resource-safety.md)
+
+## Separate new Codex sessions in an existing project
+
+After the draft and review Inbox fixes (`6e887eb00`, `acc4d7cce`), a separate repeatable population-sized cost was accepting a **new Codex session** in a project YA already knew. The browser was closed for this experiment. Each singly created session had one completed turn. A second client sent only authentication-status requests during each change.
+
+| Watcher input, in order | Complete rows read, 50 unrelated | Complete rows read, 8,370 unrelated | Hash rows read, 8,370 unrelated |
+| --- | ---: | ---: | ---: |
+| Settled Claude append | 0 | 0 | 0 |
+| Settled Codex append | 0 | 0 | 0 |
+| New Claude session | 0 | 0 | 0 |
+| First new Codex session | 61 | 8,381 | 8,381 |
+| Second, separately accepted new Codex session | 62 | 8,382 | 8,382 |
+| Three more Codex sessions written together | 63 | 8,383 | 8,383 |
+
+The counts matched in four separate profiles, with and without a usable native thread index at both sizes. The two large-profile SELECTs read different columns of the same existing catalog entries. Each burst shared a single reconciliation in these runs. The project finished with exactly 16 sessions in every cell, and the six new sessions returned their own final answers. There is also a cold-start freshness issue. The first Claude append after closing Inbox overlapped a full background reconciliation. The observed time until SQLite showed the changed file was 7.9/1.9 s in the small indexed/indexless pair and 39.0/7.9 s in the large pair. The 39.0 s window used 1.29 s of process CPU and read 8,380 full rows. The cause of the remaining wait is open. Treat it separately from the settled new-session cost.
+
+In the large indexed run, the first new Codex file caused **4,193 Claude file stats and 4,211 Codex file stats** in the watcher window. The server read about 164 KiB of provider file contents and made two native catalog upserts. Most of the work was checking other sessions. The status client's maximum round trip was 5 ms in the quiet control, 2–9 ms during settled appends, and 42 and 53 ms during the two separate Codex arrivals. Event-loop maxima in those arrival windows were 82 and 79 ms. The three-file burst had a 66 ms maximum status round trip. These are individual synthetic observations on the instrumented host.
+
+**Cause.** The changed-file path first looks for an existing catalog row. A new Claude file can inherit a verified project from siblings in its store. A Codex date directory can contain many projects. For a new Codex file the targeted classifier gives up, loads all previous catalog rows and walks the provider stores. The publication step compares hashes across the whole catalog again. This preserves membership today, but repeats the discovery work for each separately arriving Codex session. [Changed-path classifier and fallback](../../packages/server/src/sessions/catalog-adapters/collection-catalog-adapters.ts) · [Reconciliation](../../packages/server/src/services/RetainedSessionCollections.ts) · [Hash inventory and upserts](../../packages/server/src/services/session-catalog-sqlite.ts)
+
+**Second priority, for new-session creation.** When YA sees a new Codex rollout, verify its native session ID, storage root, current file version and project directory against the rollout's own metadata. If those facts identify one known project, publish just that row and its project count. Keep full discovery for incomplete headers, ambiguous identities, conflicting native metadata, moves, and files replaced during the read. Compare the resulting stores, visible identities, counts and answers with a clean full rebuild. The first target is zero complete catalog and hash-inventory reads for each proven arrival at both population sizes. The warm browsing replay should still show the latest answer on every open. [Open structural-discovery gap](../../gaps/session-catalog-rewrites-whole-generation-per-change.md)
+
+## Replaying the mixed-profile experiments
+
+These commands replay the post-fix navigation, empty-review and new-arrival comparisons against one build. The earlier timing-only, symlink, sandbox and retained-recents experiments have separate protocols. From the repository root with Node 24 and pnpm, build the browser client once. The runner uses Playwright's Chromium, a fresh loopback server and a disposable physical profile for **each invocation**. No provider processes are needed.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter @yep-anywhere/shared build
+pnpm --dir packages/client exec playwright install chromium
+export YEP_E2E_RUN_DIR="$(mktemp -d)"
+VITE_DISABLE_CLI_UPDATE_NOTIFICATIONS=true VITE_DISABLE_ONBOARDING=true \
+  pnpm --dir packages/client exec vite build --outDir "$YEP_E2E_RUN_DIR/client-dist" --emptyOutDir
+
+mixed() { node --import tsx --conditions=source scripts/perf-repro/mixed-navigation.mjs "$@"; }
+for n in 50 8370; do
+  mixed --case navigation --population "$n"
+  mixed --case navigation --population "$n" --pin-watches
+  mixed --case arrival --population "$n"
+  mixed --case arrival --population "$n" --indexless
+done
+for p in 1 250; do mixed --case review --population 2000 --projects "$p"; done
+```
+
+The runner prints the path to its JSON result. Use `--out NEW.json` to choose an unused output file. Allow cells to finish sequentially for timing comparisons. The fixture removes the private profile at the end. The close timings survive in the JSON. To retain an optional raw stall profile, copy it from the disposable data directory’s `logs/stalls/` while the run is active. The server logs the data directory at startup.
+
+- **Navigation** waits for exact project counts, opens ten distinct mixed sessions from Inbox twice, then opens the same Claude session after an accepted write to an unrelated Codex session and once more without a write. Every open checks the URL, the session-specific newest answer in the viewport, and a successful draft response for that ID with a recovery field. Add `--pin-watches` to hold one extra lease per active transcript directory and compare native close time and server loop delay.
+- **Arrival** closes the browser after the first Inbox visit. After an initial watcher update and a quiet control, it appends to each provider, creates a Claude session, creates two Codex sessions separately, then writes three more in a burst. Each change waits for its exact catalog row or source version in SQLite. Validation reads check the project count and each new session's ID and answer, outside the mutation sample. A separate localhost client polls authentication status during each sample to measure interference. The native-index fixture updates the new rollout's thread path, cwd and timestamp as it writes the file. The rollout store is separate from Codex's private CLI home so CLI startup cannot backfill the indexless control. The runner checks the database's presence and successful watcher queries against its exact path.
+- **Review** measures first Inbox access and three fresh five-second cache windows, each followed by a same-window repeat. Both project-count cells contain 2,010 sessions.
+
+The preload measures selected SQL statement times and returned rows, successful provider-root async stat, readdir, open and readFile calls, and logical bytes from wrapped file reads and createReadStream. The remaining catalog SELECTs have separate aggregate counters. `fullRows` counts the full native row SELECT, `hashInventoryRows` the separate catalog hash inventory, and `catalogUpserts` actual native row upserts. Each snapshot waits for finite API requests to finish or close. Request starts, closes, completed response statuses and longest completed request are recorded separately. The ten-second draft-change long poll may cross a boundary. SQL/filesystem work is charged at completion to the active API request or to background. Stack samples identify the caller. Process CPU covers everything in the sample, including the probe. Client round trips include time waiting for the server to handle the request. The result also records the server event-loop histogram (10 ms resolution), Git revision and dirty state, client bundle hash, host samples and per-open browser elapsed times. [Replay runner](../../scripts/perf-repro/mixed-navigation.mjs) · [Isolated fixture](../../scripts/perf-repro/mixed-navigation-fixture.mjs) · [Probe](../../scripts/perf-repro/mixed-navigation-probe.mjs)

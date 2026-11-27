@@ -1196,8 +1196,11 @@ transports without a live response path retain REST ownership.
 records the full fixture and population/history controls. Warm list medians,
 loop p99 and typing pass their observed ceilings; CPU, bytes, browser work and
 cold opens still miss. Source-owned Claude/Codex project facts and point reads
-are the recommended next slice; bounded preview consumers and transcript
-rendering remain open. Full goal acceptance is not certified.
+are implemented. For ordinary Inbox navigation, the
+[mixed-provider replay](../research/190-mixed-provider-navigation-audit.md#a-native-directory-watcher-blocks-session-switching-on-macos)
+identifies synchronous macOS directory-watch teardown as the next candidate,
+followed by scoped discovery for new Codex sessions. Bounded preview consumers,
+transcript rendering and full qualification remain open.
 A 2026-11-13 [survey at 10,000 sessions](../../gaps/active-session-tab-background-cost.md#server-survey-at-10000-sessions--2026-11-13)
 finds the same per-write cost as at 50,000 and shows that CPU per write
 varies by half with host load, so builds are compared interleaved or by

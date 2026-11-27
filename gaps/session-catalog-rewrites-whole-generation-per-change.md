@@ -23,6 +23,9 @@ Still open:
 - New Codex/Gemini files and Claude files in empty or ambiguous stores still
   require discovery to establish membership. Classify a single new file from
   verified native facts before removing that conservative fallback.
+  [Repeated new Codex arrivals](../docs/research/190-mixed-provider-navigation-audit.md#separate-new-codex-sessions-in-an-existing-project)
+  reproduce it with a populated native thread index, ordinary append controls
+  and a burst in the same project.
 - First-ever/invalidated list projection builds remain population-sized.
   SQL checkpoint import/index construction is also population-sized, although
   it avoids cold JavaScript catalog/metadata hydration. A canonical mutation
