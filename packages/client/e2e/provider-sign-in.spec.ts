@@ -347,23 +347,35 @@ test("Codex hardware-key notice preserves the draft and opens a fresh sign-in", 
   await expect(composer).toBeFocused();
   await expect(composer).toHaveValue("retry");
 
-  const signIn = page.getByRole("link", { name: "Open Codex sign-in" });
+  const signIn = page.getByRole("link", { name: "Codex sign-in options" });
   await expect(signIn).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText(
+    "Use a browser that can access your registered physical key",
+  );
   await recordUiCapture(page, "codex-hardware-key-action-desktop");
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(signIn).toBeVisible();
   await recordUiCapture(page, "codex-hardware-key-action-phone");
   await signIn.click();
   const signInAgain = page.getByRole("button", {
-    name: "Sign in to Codex again",
+    name: "Start device sign-in",
   });
   await expect(signInAgain).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open in a terminal on the server" }),
+  ).toBeVisible();
   expect(starts).toBe(0);
   await signInAgain.click();
   await expect(
     page.getByRole("link", { name: "Open Codex sign-in page" }),
   ).toHaveAttribute("href", "https://auth.openai.com/codex/device");
   await expect(page.getByText("IXHO-DHC63", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/If OpenAI skips the key prompt, cancel/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Browser sign-in for remote servers" }),
+  ).toBeVisible();
   await recordUiCapture(page, "codex-hardware-key-sign-in-phone");
   await page.setViewportSize({ width: 1000, height: 600 });
   await recordUiCapture(page, "codex-hardware-key-sign-in-desktop");

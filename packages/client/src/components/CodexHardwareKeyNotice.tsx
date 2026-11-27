@@ -24,7 +24,9 @@ export function CodexHardwareKeyNotice({
 }) {
   const { t } = useI18n();
   const canAdminister = useCanAdministerHost();
-  const path = routed ? "/settings/providers" : "/provider-sign-in/codex";
+  const path = routed
+    ? "/settings/providers"
+    : "/provider-sign-in/codex?hardwareKey=1";
   return (
     <Banner
       className={className}

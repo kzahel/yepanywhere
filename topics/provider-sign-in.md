@@ -27,8 +27,12 @@ This is a structured official-CLI flow, not an interactive PTY terminal.
 When the host already has a Codex login, the owner can choose **Sign in to
 Codex again** on the focused Codex page. The page also picks up a running
 sign-in from another browser. A hardware-key notice in a Direct Codex
-conversation links here. It uses the existing relayed device sign-in, with
-a fresh code and the provider's authorization link shown together.
+conversation links to the page's recovery instructions. The device sign-in
+option shows the authorization link and code. The browser that opens that
+link uses the physical key, and can run on a different device from the YA
+server. If OpenAI skips the key prompt, the recovery page points to browser
+sign-in through the server's terminal where available and links to Codex's
+SSH callback forwarding instructions for remote servers.
 
 When Claude or Codex is installed but not authenticated, its Providers card
 shows three equivalent routes to the same provider-owned login:

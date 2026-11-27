@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
 import { Banner } from "../components/ui/Banner";
 import { useCanAdministerHost } from "../hooks/useActingPrincipal";
@@ -14,6 +14,9 @@ export function ProviderSignInPage() {
   const { provider: parameter } = useParams();
   const provider =
     parameter === "claude" || parameter === "codex" ? parameter : null;
+  const [searchParams] = useSearchParams();
+  const hardwareKeyRecovery =
+    provider === "codex" && searchParams.get("hardwareKey") === "1";
   const { row, loading, error, refresh, sourceKey } = useProviderRow(provider);
   const canAdminister = useCanAdministerHost();
   const { isWideScreen } = useNavigationLayout();
@@ -42,7 +45,7 @@ export function ProviderSignInPage() {
             </Banner>
           ) : row?.supportsInAppLogin && canAdminister ? (
             <>
-              {provider === "codex" && row.authenticated && (
+              {hardwareKeyRecovery && (
                 <p>{t("providerSignInCodexHardwareKeyHint")}</p>
               )}
               <ProviderSignIn
@@ -51,11 +54,34 @@ export function ProviderSignInPage() {
                 displayName={name}
                 supportsHostTerminal={row.supportsHostTerminalLogin === true}
                 reauthenticate={provider === "codex" && row.authenticated}
+                startLabel={
+                  hardwareKeyRecovery
+                    ? t("providerSignInStartDevice")
+                    : undefined
+                }
                 onSignedIn={refresh}
               />
             </>
           ) : (
             <Banner tone="error">{t("providerSignInUnavailable")}</Banner>
+          )}
+          {hardwareKeyRecovery && canAdminister && (
+            <>
+              <p>
+                {row?.supportsInAppLogin && row.supportsHostTerminalLogin
+                  ? t("providerSignInCodexHostHardwareKeyHint", {
+                      terminalAction: t("providersSignInHostTerminal"),
+                    })
+                  : t("providerSignInCodexBrowserHardwareKeyHint")}
+              </p>
+              <a
+                href="https://learn.chatgpt.com/docs/auth#fallback-forward-the-localhost-callback-over-ssh"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t("providerSignInCodexRemoteBrowserHelp")}
+              </a>
+            </>
           )}
           <Link to={`${basePath}/settings/providers`}>
             {t("providerSignInSettings")}
