@@ -40,9 +40,10 @@ following the original step order. The stages and selected focus below own
 that order; the numbered steps remain implementation/evidence references.
 
 The [mixed-provider Inbox replay](../research/190-mixed-provider-navigation-audit.md)
-verifies the scoped session-draft and review Inbox fixes. For existing-session
-switching, it ranks blocking macOS directory-watch teardown first. For new
-Codex sessions, the next candidate is single-file discovery in a known project.
+verifies the scoped session-draft and review Inbox fixes and off-thread macOS
+focused-watch teardown. At 8,370 unrelated sessions, the maximum loop delay
+during ten warm switches fell from 2.85 seconds to 13 ms. The next candidate
+is single-file Codex discovery in a known project.
 
 ## Goal
 

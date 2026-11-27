@@ -156,3 +156,53 @@ it("creates native watches outside the caller's async context", () => {
   expect(storesAtCreation).toEqual([undefined]);
   lease.close();
 });
+
+it.runIf(process.platform === "darwin")(
+  "preserves focused coverage at the budget and transfers leases on a synchronous claim",
+  async () => {
+    const { FocusedDirectoryWorker } = await import(
+      "../../src/watcher/FocusedDirectoryWorker.js"
+    );
+    const offThread: NativeWatch[] = [];
+    const retirements: (() => void)[] = [];
+    const worker = vi
+      .spyOn(FocusedDirectoryWorker.prototype, "watch")
+      .mockImplementation((_path, retire) => {
+        const handle = new NativeWatch();
+        offThread.push(handle);
+        retirements.push(retire);
+        return handle as unknown as import("node:fs").FSWatcher;
+      });
+    native.watch.mockImplementation((_p, _opts, listener) =>
+      new NativeWatch().on("change", listener),
+    );
+    const registry = new SharedDirectoryWatcher();
+    const changed = vi.fn();
+    const focused = registry.watch("/project", { focused: true }, changed);
+    const others = Array.from({ length: 1023 }, (_, i) =>
+      registry.watch("/other-" + i, {}, vi.fn()),
+    );
+    try {
+      expect(() => registry.watch("/alias", {}, vi.fn())).toThrow("budget");
+      expect(offThread[0]?.close).not.toHaveBeenCalled();
+      others.pop()?.close();
+      const sync = registry.watch("/alias", {}, vi.fn());
+      expect(offThread[0]?.close).toHaveBeenCalledOnce();
+      expect(changed).toHaveBeenCalledWith("rename", null);
+      expect(() => registry.watch("/extra", {}, vi.fn())).toThrow("budget");
+      retirements[0]?.();
+      registry.watch("/extra", {}, vi.fn()).close();
+      sync.close();
+      expect(offThread.length).toBe(2);
+      const before = changed.mock.calls.length;
+      offThread[0]?.emit("change", "change", "old");
+      expect(changed).toHaveBeenCalledTimes(before);
+      offThread[1]?.emit("change", "change", "current");
+      expect(changed).toHaveBeenLastCalledWith("change", "current");
+    } finally {
+      focused.close();
+      for (const lease of others) lease.close();
+      worker.mockRestore();
+    }
+  },
+);

@@ -623,7 +623,13 @@ scan own their paths, so a completed snapshot cannot overwrite newer state.
 Focused session targets in the same directory share one native watch while
 retaining per-target polling and trailing validation. Removing the final target
 closes that native watch, and an asynchronous file-resolution result arriving
-after the final unsubscribe must not recreate it. Stored Claude/Codex/OpenCode/Pi
+after the final unsubscribe must not recreate it. On macOS, focused-only
+directories use one worker for native attachment and teardown. The final
+lease immediately stops delivery; native registration holds its budget slot
+until close is confirmed. An attachment-ready hint rechecks live target files,
+and viewer polling covers delayed or failed attachment. Synchronous directory
+consumers retain their attach-before-read guarantee when sharing the same path.
+The idle sweep retires the empty, unreferenced worker. Stored Claude/Codex/OpenCode/Pi
 identities resolve the exact native root/id before legacy watch discovery;
 unbound or missing bound sources do not probe same-string ambient files.
 Subscription/event ids and effective project remain public YA facts, while
@@ -1055,8 +1061,9 @@ relocated session visibly grouped under its former project.
   rescans produce at most one trailing pass, and a stop during a scan publishes
   neither events nor completed-scan metrics.
 - Two focused sessions stored in one directory own one native directory watch;
-  removing both subscriptions closes it, including when file resolution
-  completes after the final unsubscribe.
+  removing both subscriptions ends delivery immediately. On macOS the worker
+  confirms native close before the slot is reusable. Resolution after the final
+  unsubscribe cannot reattach a watch.
 - A late computation for an obsolete source version cannot overwrite a newer
   row or mark the newer generation fresh.
 - Moving an active session from project A to B updates its sidebar project

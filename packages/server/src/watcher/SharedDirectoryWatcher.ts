@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { type FSWatcher, realpathSync, statSync, watch } from "node:fs";
 import { sep } from "node:path";
 import { runOutsideRequestContext } from "../lib/outsideRequestContext.js";
+import { FocusedDirectoryWorker } from "./FocusedDirectoryWorker.js";
 
 type Listener = (event: string, filename: string | null) => void;
 interface WatchEntry {
@@ -9,6 +10,7 @@ interface WatchEntry {
   recursive: boolean;
   native: FSWatcher | null;
   identity: string;
+  offThread: boolean;
   leases: Set<DirectoryWatchLease>;
 }
 
@@ -18,6 +20,7 @@ class DirectoryWatchLease extends EventEmitter implements FSWatcher {
 
   constructor(
     readonly recursive: boolean,
+    readonly focused: boolean,
     persistent: boolean,
     private readonly release: () => void,
     private readonly updateReferences: () => void,
@@ -50,9 +53,12 @@ class DirectoryWatchLease extends EventEmitter implements FSWatcher {
 export class SharedDirectoryWatcher {
   private readonly entries = new Map<string, WatchEntry>();
 
+  private readonly focusedWorker = new FocusedDirectoryWorker();
+  private slots = 0;
+
   watch(
     directory: string,
-    options: { recursive?: boolean; persistent?: boolean },
+    options: { recursive?: boolean; persistent?: boolean; focused?: boolean },
     listener: Listener,
   ): FSWatcher {
     const path = realpathSync(directory);
@@ -60,15 +66,11 @@ export class SharedDirectoryWatcher {
     const identity = `${dev}:${ino}`;
     let entry = this.entries.get(path);
     if (!entry) {
-      if (this.entries.size >= 1024)
-        throw Object.assign(
-          new Error("Shared directory watcher budget reached"),
-          { code: "EMFILE" },
-        );
       entry = {
         path,
         identity,
         recursive: false,
+        offThread: false,
         native: null,
         leases: new Set(),
       };
@@ -77,22 +79,24 @@ export class SharedDirectoryWatcher {
     const current = entry;
     const lease = new DirectoryWatchLease(
       options.recursive ?? false,
+      options.focused ?? false,
       options.persistent ?? true,
       () => this.release(current, lease),
       () => this.updateReferences(current),
     );
     lease.on("change", listener);
     current.leases.add(lease);
+    const replacedDirectory = current.identity !== identity;
     try {
-      const replacedDirectory = current.identity !== identity;
       current.identity = identity;
       this.configure(current, lease, replacedDirectory);
     } catch (error) {
       current.leases.delete(lease);
-      this.fail(
-        current,
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      if (!current.native || replacedDirectory)
+        this.fail(
+          current,
+          error instanceof Error ? error : new Error(String(error)),
+        );
       throw error;
     }
     return lease;
@@ -104,26 +108,54 @@ export class SharedDirectoryWatcher {
     replacedDirectory = false,
   ): void {
     const recursive = [...entry.leases].some((lease) => lease.recursive);
-    if (entry.native && entry.recursive === recursive && !replacedDirectory) {
+    // Synchronous consumers claim coverage before reading a directory. Only
+    // focused leases can bridge an asynchronous attachment with a file check.
+    const offThread =
+      process.platform === "darwin" &&
+      !recursive &&
+      [...entry.leases].every((lease) => lease.focused);
+    if (
+      entry.native &&
+      entry.recursive === recursive &&
+      entry.offThread === offThread &&
+      !replacedDirectory
+    ) {
       this.updateReferences(entry);
       return;
     }
+    // An asynchronous close keeps its slot until acknowledged. Reject a
+    // joining claimant before dismantling healthy coverage at saturation.
+    if (entry.native && entry.offThread && this.slots >= 1024)
+      throw this.budgetError();
     const replaced = entry.native;
     entry.native = null;
-    replaced?.close();
+    this.closeNative(entry, replaced);
     entry.recursive = recursive;
-    const native: FSWatcher = runOutsideRequestContext(() =>
-      watch(entry.path, { recursive, persistent: false }, (event, filename) => {
-        if (entry.native !== native) return;
-        for (const lease of [...entry.leases]) {
-          if (
-            !lease.closed &&
-            (lease.recursive || !filename || !filename.includes(sep))
-          )
-            lease.emit("change", event, filename);
-        }
-      }),
-    );
+    entry.offThread = offThread;
+    if (this.slots >= 1024) throw this.budgetError();
+    this.slots++;
+    const changed: Listener = (event, filename) => {
+      if (entry.native !== native) return;
+      for (const lease of [...entry.leases]) {
+        if (
+          !lease.closed &&
+          (lease.recursive || !filename || !filename.includes(sep))
+        )
+          lease.emit("change", event, filename);
+      }
+    };
+    let native: FSWatcher;
+    try {
+      native = runOutsideRequestContext(() => {
+        if (!offThread)
+          return watch(entry.path, { recursive, persistent: false }, changed);
+        const handle = this.focusedWorker.watch(entry.path, () => this.slots--);
+        return handle.on("change", changed);
+      });
+    } catch (error) {
+      this.slots--;
+      throw error;
+    }
     entry.native = native;
     native.on("error", (error) => {
       if (entry.native === native) this.fail(entry, error);
@@ -142,13 +174,25 @@ export class SharedDirectoryWatcher {
     }
   }
 
+  private budgetError(): Error {
+    return Object.assign(new Error("Shared directory watcher budget reached"), {
+      code: "EMFILE",
+    });
+  }
+
+  private closeNative(entry: WatchEntry, native: FSWatcher | null): void {
+    if (!native) return;
+    native.close();
+    if (!entry.offThread) this.slots--;
+  }
+
   private release(entry: WatchEntry, lease: DirectoryWatchLease): void {
     entry.leases.delete(lease);
     if (!entry.leases.size) {
       this.entries.delete(entry.path);
       const native = entry.native;
       entry.native = null;
-      native?.close();
+      this.closeNative(entry, native);
     } else {
       try {
         this.configure(entry);
@@ -171,11 +215,11 @@ export class SharedDirectoryWatcher {
     this.entries.delete(entry.path);
     const native = entry.native;
     entry.native = null;
-    native?.close();
+    this.closeNative(entry, native);
     const leases = [...entry.leases];
     entry.leases.clear();
+    for (const lease of leases) lease.closed = true;
     for (const lease of leases) {
-      lease.closed = true;
       lease.emit("error", error);
       lease.emit("close");
     }

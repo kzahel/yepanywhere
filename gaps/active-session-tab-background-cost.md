@@ -467,6 +467,8 @@ The [macOS native close replay](../docs/research/190-mixed-provider-navigation-a
 identifies synchronous final directory-watch teardown during ordinary session switches.
 In the warm 60-session control, keeping just the two active directory watches alive
 removed 16 native closes and reduced the maximum loop delay from 2,020 to 19 ms.
-The session subscriptions and latest-answer checks ran in both cells. Measure
-bounded teardown away from the server event loop while preserving immediate
-listener release and the focused watcher ownership contract.
+The session subscriptions and latest-answer checks ran in both cells. The
+[off-thread fix](../docs/research/190-mixed-provider-navigation-audit.md#focused-watch-teardown-fix)
+now closes the handles on a bounded worker. Both unpinned profiles reached a
+13 ms warm-loop maximum, verified the latest visible answer and retired every
+registration. The separate new-Codex-file discovery cost remains open.

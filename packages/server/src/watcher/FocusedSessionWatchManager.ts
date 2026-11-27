@@ -52,7 +52,7 @@ interface SessionWatchTarget {
 
 interface FocusedDirectoryWatch {
   targets: Set<SessionWatchTarget>;
-  watcher: fs.FSWatcher;
+  watcher: fs.FSWatcher | null;
 }
 
 export interface FocusedSessionWatchRequest {
@@ -328,32 +328,41 @@ export class FocusedSessionWatchManager {
     target: SessionWatchTarget,
     watchDir: string,
   ): void {
-    let directoryWatch = this.directoryWatches.get(watchDir);
-    if (!directoryWatch) {
-      try {
-        const watcher = watchSharedDirectory(
-          watchDir,
-          {},
-          (_eventType, filename) => {
-            this.notifyDirectoryTargets(watchDir, filename?.toString());
-          },
-        );
-        directoryWatch = { targets: new Set(), watcher };
-        watcher.on("error", () => {
-          this.notifyDirectoryTargets(watchDir);
-        });
-        this.directoryWatches.set(watchDir, directoryWatch);
-      } catch (error) {
-        console.warn(
-          `[FocusedSessionWatch] Failed to start fs.watch for ${watchDir}:`,
-          error,
-        );
-        return;
-      }
-    }
-
+    const directoryWatch = this.directoryWatches.get(watchDir) ?? {
+      targets: new Set<SessionWatchTarget>(),
+      watcher: null,
+    };
+    this.directoryWatches.set(watchDir, directoryWatch);
     directoryWatch.targets.add(target);
     target.watchDir = watchDir;
+    if (directoryWatch.watcher) return;
+
+    try {
+      const watcher = watchSharedDirectory(
+        watchDir,
+        { focused: true },
+        (_eventType, filename) => {
+          this.notifyDirectoryTargets(watchDir, filename?.toString());
+        },
+      );
+      directoryWatch.watcher = watcher;
+      watcher.on("error", (error) => {
+        if (directoryWatch.watcher !== watcher) return;
+        directoryWatch.watcher = null;
+        console.warn(
+          `[FocusedSessionWatch] Lost fs.watch for ${watchDir}:`,
+          error,
+        );
+        this.notifyDirectoryTargets(watchDir);
+        // Live targets keep polling. The next joining target can reattach one
+        // watch for the whole directory; there is no retry loop.
+      });
+    } catch (error) {
+      console.warn(
+        `[FocusedSessionWatch] Failed to start fs.watch for ${watchDir}:`,
+        error,
+      );
+    }
   }
 
   private notifyDirectoryTargets(watchDir: string, changedName?: string): void {
@@ -382,7 +391,7 @@ export class FocusedSessionWatchManager {
     if (!directoryWatch) return;
     directoryWatch.targets.delete(target);
     if (directoryWatch.targets.size > 0) return;
-    directoryWatch.watcher.close();
+    directoryWatch.watcher?.close();
     this.directoryWatches.delete(watchDir);
   }
 

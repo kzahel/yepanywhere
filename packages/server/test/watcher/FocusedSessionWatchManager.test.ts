@@ -1,3 +1,5 @@
+import { EventEmitter } from "node:events";
+import type { FSWatcher } from "node:fs";
 import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +10,8 @@ import {
   type FocusedSessionWatchEvent,
   FocusedSessionWatchManager,
 } from "../../src/watcher/FocusedSessionWatchManager.js";
+
+import * as sharedWatches from "../../src/watcher/SharedDirectoryWatcher.js";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -239,6 +243,53 @@ describe("FocusedSessionWatchManager", () => {
     unsubscribeSecond();
     expect(directoryWatches.size).toBe(0);
     manager.dispose();
+  });
+
+  it("checks writes during attachment and lets a new viewer recover a failed directory watch", async () => {
+    const root = await mkdtemp(join(tmpdir(), "focused-recover-"));
+    tempDirs.push(root);
+    for (const name of ["a", "b"]) await writeFile(join(root, name), "initial");
+    const handles: EventEmitter[] = [];
+    const factory = vi
+      .spyOn(sharedWatches, "watchSharedDirectory")
+      .mockImplementation((_dir, _options, listener) => {
+        const handle = Object.assign(new EventEmitter(), { close: vi.fn() });
+        handles.push(handle.on("change", listener));
+        return handle as unknown as FSWatcher;
+      });
+    const manager = new FocusedSessionWatchManager({
+      scanner: {
+        getProject: async () => null,
+        getOrCreateProject: async () => null,
+      },
+      codexScanner: { getSessionsForProject: async () => [] },
+      geminiScanner: { getSessionsForProject: async () => [] },
+      resolveStoredSessionFile: async ({ sessionId }) => ({
+        filePath: join(root, sessionId),
+        provider: "claude",
+      }),
+      // Only the native signal can pass this check within the test deadline.
+      pollMs: 60_000,
+      debounceMs: 60_000,
+    });
+    const projectId = "project" as UrlProjectId;
+    const changed = vi.fn();
+    try {
+      manager.subscribe({ sessionId: "a", projectId }, changed);
+      await vi.waitFor(() => expect(handles).toHaveLength(1));
+      await appendFile(join(root, "a"), "during attachment");
+      handles[0]?.emit("change", "rename", null);
+      await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+      handles[0]?.emit("error", new Error("injected watch loss"));
+      manager.subscribe({ sessionId: "b", projectId }, vi.fn());
+      await vi.waitFor(() => expect(handles).toHaveLength(2));
+      await appendFile(join(root, "a"), "after recovery");
+      handles[1]?.emit("change", "change", "a");
+      await vi.waitFor(() => expect(changed).toHaveBeenCalledTimes(2));
+    } finally {
+      manager.dispose();
+      factory.mockRestore();
+    }
   });
 
   it("does not attach a watcher after the last subscriber leaves", async () => {

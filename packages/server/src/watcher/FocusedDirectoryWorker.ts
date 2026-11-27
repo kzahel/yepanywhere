@@ -1,0 +1,182 @@
+import { EventEmitter } from "node:events";
+import type { FSWatcher } from "node:fs";
+import { Worker } from "node:worker_threads";
+import { runOutsideRequestContext } from "../lib/outsideRequestContext.js";
+import { registerIdleSweep } from "../lib/processIdleSweep.js";
+
+type Reply =
+  | { id: number; type: "change"; event: string; filename: string | null }
+  | { id: number; type: "ready" | "released" }
+  | { id: number; type: "error"; message: string; code?: string };
+
+class WorkerWatch extends EventEmitter implements FSWatcher {
+  readonly cancelled = new Int32Array(new SharedArrayBuffer(4));
+  private persistent = false;
+  sent = false;
+
+  constructor(
+    readonly id: number,
+    readonly path: string,
+    readonly retired: () => void,
+    private readonly host: FocusedDirectoryWorker,
+  ) {
+    super();
+  }
+
+  close(): void {
+    if (Atomics.exchange(this.cancelled, 0, 1)) return;
+    this.unref();
+    this.removeAllListeners();
+    this.host.release(this);
+  }
+
+  ref(): this {
+    if (!this.persistent && !Atomics.load(this.cancelled, 0)) {
+      this.persistent = true;
+      this.host.reference(1);
+    }
+    return this;
+  }
+
+  unref(): this {
+    if (this.persistent) {
+      this.persistent = false;
+      this.host.reference(-1);
+    }
+    return this;
+  }
+}
+
+// A retiring handle counts against the shared registry's native budget until
+// the worker confirms close. At most one open and one close can queue per slot.
+export class FocusedDirectoryWorker {
+  private worker: Worker | null = null;
+  private stopping = false;
+  private references = 0;
+  private nextId = 1;
+  private watches = new Map<number, WorkerWatch>();
+
+  private retryAt = 0;
+  private cancelIdleSweep?: () => void;
+  constructor(
+    private readonly createWorker = () =>
+      new Worker(new URL("./focused-directory-worker.mjs", import.meta.url), {
+        execArgv: [],
+      }),
+  ) {}
+
+  watch(path: string, retired: () => void): FSWatcher {
+    const watch = new WorkerWatch(this.nextId++, path, retired, this);
+    this.watches.set(watch.id, watch);
+    try {
+      if (!this.stopping) this.send(watch);
+    } catch (error) {
+      this.watches.delete(watch.id);
+      throw error;
+    }
+    return watch;
+  }
+
+  private send(watch: WorkerWatch): void {
+    if (!this.worker) {
+      if (Date.now() < this.retryAt)
+        throw new Error("Directory watch worker temporarily unavailable");
+      let worker: Worker;
+      try {
+        worker = runOutsideRequestContext(this.createWorker);
+      } catch (error) {
+        this.retryAt = Date.now() + 30_000;
+        throw error;
+      }
+      this.worker = worker;
+      // The worker can serve the next click after its last native handle
+      // closes. Share one sweep registration for the lifetime of this thread.
+      this.cancelIdleSweep = registerIdleSweep(() => {
+        if (this.watches.size || this.stopping) return;
+        this.stopping = true;
+        void worker.terminate();
+      });
+      let failure: Error | undefined;
+      worker.on("error", (error) => {
+        failure = error;
+        this.stopping = true;
+      });
+      worker.on("message", (reply: Reply) => this.receive(reply));
+      worker.once("exit", () => {
+        if (failure || !this.stopping) this.retryAt = Date.now() + 30_000;
+        this.cancelIdleSweep?.();
+        this.cancelIdleSweep = undefined;
+        this.worker = null;
+        this.stopping = false;
+        // Only posted watches belonged to this worker. Requests that arrived
+        // during termination are dispatched together on its successor.
+        const lost = [...this.watches.values()].filter((watch) => watch.sent);
+        for (const watch of lost) this.forget(watch);
+        for (const watch of lost) {
+          if (!Atomics.load(watch.cancelled, 0))
+            watch.emit(
+              "error",
+              failure ?? new Error("Directory watch worker exited"),
+            );
+        }
+        for (const pending of this.watches.values()) {
+          if (pending.sent) continue;
+          try {
+            this.send(pending);
+          } catch (error) {
+            this.forget(pending);
+            pending.emit("error", error);
+          }
+        }
+      });
+      this.updateReferences();
+    }
+    this.worker.postMessage({
+      id: watch.id,
+      path: watch.path,
+      cancelled: watch.cancelled,
+    });
+    watch.sent = true;
+  }
+
+  release(watch: WorkerWatch): void {
+    if (!this.watches.has(watch.id)) return;
+    if (watch.sent) this.worker?.postMessage({ id: watch.id });
+    else this.forget(watch);
+  }
+
+  private forget(watch: WorkerWatch): void {
+    this.watches.delete(watch.id);
+    watch.unref();
+    watch.retired();
+  }
+
+  private receive(reply: Reply): void {
+    const watch = this.watches.get(reply.id);
+    if (!watch) return;
+    if (reply.type === "released") {
+      this.forget(watch);
+    } else if (!Atomics.load(watch.cancelled, 0)) {
+      if (reply.type === "error")
+        watch.emit(
+          "error",
+          Object.assign(new Error(reply.message), { code: reply.code }),
+        );
+      // Validate any change between taking the first file snapshot and the
+      // asynchronous attachment. The focused manager checks only live targets.
+      else if (reply.type === "ready") watch.emit("change", "rename", null);
+      else if (reply.type === "change")
+        watch.emit("change", reply.event, reply.filename);
+    }
+  }
+
+  reference(delta: 1 | -1): void {
+    this.references += delta;
+    this.updateReferences();
+  }
+
+  private updateReferences(): void {
+    if (this.references) this.worker?.ref();
+    else this.worker?.unref();
+  }
+}

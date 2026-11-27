@@ -9,6 +9,8 @@ import { basename, dirname, join, sep } from "node:path";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 import { DatabaseSync, StatementSync } from "node:sqlite";
 
+import threads from "node:worker_threads";
+
 const loop = monitorEventLoopDelay({ resolution: 10 });
 loop.enable();
 const inFlight = new Set();
@@ -17,6 +19,18 @@ function window() {
   return {
     lanes: {},
     requests: {},
+    worker: {
+      starts: 0,
+      requests: 0,
+      ready: 0,
+      releases: 0,
+      retired: 0,
+      nativeCloses: 0,
+      nativeCloseMs: 0,
+      maxNativeCloseMs: 0,
+      maxReadyMs: 0,
+      maxReleaseAckMs: 0,
+    },
     fullReadStacks: [],
     cpu: process.cpuUsage(),
     start: performance.now(),
@@ -178,6 +192,70 @@ fs.watch = function (file, ...args) {
   }
   return handle;
 };
+let activeWorkers = 0;
+const attached = new Set();
+const workerPreload = new URL(
+  "./mixed-navigation-worker-probe.mjs",
+  import.meta.url,
+).href;
+threads.Worker = class extends threads.Worker {
+  constructor(url, options) {
+    const focused =
+      url instanceof URL &&
+      url.pathname.endsWith("/focused-directory-worker.mjs");
+    super(
+      url,
+      focused ? { ...options, execArgv: ["--import", workerPreload] } : options,
+    );
+    if (!focused) return;
+    activeWorkers++;
+    sample.worker.starts++;
+    const opened = new Map();
+    const released = new Map();
+    const post = this.postMessage;
+    this.postMessage = function (msg, ...args) {
+      if (msg.path) {
+        sample.worker.requests++;
+        opened.set(msg.id, {
+          at: performance.now(),
+          provider: provider(msg.path),
+        });
+      } else {
+        sample.worker.releases++;
+        released.set(msg.id, performance.now());
+        attached.delete(opened.get(msg.id));
+      }
+      return post.call(this, msg, ...args);
+    };
+    this.on("message", ({ id, type, ms }) => {
+      const metrics = sample.worker;
+      if (type === "ready") {
+        metrics.ready++;
+        if (!released.has(id)) attached.add(opened.get(id));
+        metrics.maxReadyMs = Math.max(
+          metrics.maxReadyMs,
+          performance.now() - opened.get(id).at,
+        );
+      } else if (type === "released") {
+        metrics.retired++;
+        metrics.maxReleaseAckMs = Math.max(
+          metrics.maxReleaseAckMs,
+          performance.now() - released.get(id),
+        );
+        opened.delete(id);
+        released.delete(id);
+      } else if (type === "probe-native-close") {
+        metrics.nativeCloses++;
+        metrics.nativeCloseMs += ms;
+        metrics.maxNativeCloseMs = Math.max(metrics.maxNativeCloseMs, ms);
+      }
+    });
+    this.once("exit", () => {
+      activeWorkers--;
+      for (const entry of opened.values()) attached.delete(entry);
+    });
+  }
+};
 syncBuiltinESMExports();
 
 const { ReviewCommentService } = await import(
@@ -224,10 +302,21 @@ Server.prototype.emit = function (name, ...args) {
       for (const lease of leases.splice(0)) lease.close();
     } else if (!leases.length) {
       for (const dir of JSON.parse(fs.readFileSync(plan, "utf8"))) {
-        leases.push(watchSharedDirectory(dir, { persistent: false }, () => {}));
+        leases.push(
+          watchSharedDirectory(dir, { focused: true }, () => {}).unref(),
+        );
       }
     }
     res.end(JSON.stringify({ leases: leases.length }));
+    return true;
+  }
+  if (pathname === "/__mixed_navigation_workers") {
+    res.end(
+      JSON.stringify({
+        activeWorkers,
+        attached: [...new Set([...attached].map((reg) => reg.provider))],
+      }),
+    );
     return true;
   }
   if (pathname === "/__mixed_navigation_sample") {

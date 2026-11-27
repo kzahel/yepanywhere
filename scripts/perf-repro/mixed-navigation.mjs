@@ -24,6 +24,7 @@ import { catalogFileVersion } from "../../packages/server/src/sessions/catalog-a
 import { measuredHostSample, hostWindow } from "./active-session-metrics.mjs";
 import { readHostCapacity } from "../perf-suite/host-profile.mjs";
 import { fingerprintTree } from "./active-session-build.mjs";
+import { typeThroughRelease } from "./mixed-navigation-typing.mjs";
 import { mixedFixture } from "./mixed-navigation-fixture.mjs";
 
 const { chromium, expect } = createRequire(
@@ -35,6 +36,7 @@ const { values } = parseArgs({
     population: { type: "string", default: "50" },
     projects: { type: "string", default: "1" },
     indexless: { type: "boolean" },
+    typing: { type: "boolean" },
     "pin-watches": { type: "boolean" },
     out: { type: "string" },
     help: { type: "boolean" },
@@ -42,7 +44,7 @@ const { values } = parseArgs({
 });
 if (values.help) {
   console.log(
-    "mixed-navigation.mjs --case navigation|arrival|review [--population 50] [--projects 1] [--indexless] [--pin-watches] [--out NEW.json]\nPopulation is the number of unrelated sessions, projects the number of archive projects. See the plan 190 mixed-provider navigation audit for build and replay.",
+    "mixed-navigation.mjs --case navigation|arrival|review [--population 50] [--projects 1] [--indexless] [--pin-watches] [--typing] [--out NEW.json]\nPopulation is the number of unrelated sessions, projects the number of archive projects. See the plan 190 mixed-provider navigation audit for build and replay.",
   );
   process.exit(0);
 }
@@ -50,6 +52,10 @@ const scenario = values.case;
 const population = Number(values.population);
 const projects = Number(values.projects);
 const indexed = !values.indexless;
+assert(
+  !values.typing || scenario === "navigation",
+  "--typing requires navigation",
+);
 const pinWatches = values["pin-watches"] ?? false;
 assert(
   !pinWatches || scenario === "navigation",
@@ -96,6 +102,8 @@ const result = {
     [
       "mixed-navigation.mjs",
       "mixed-navigation-probe.mjs",
+      "mixed-navigation-worker-probe.mjs",
+      "mixed-navigation-typing.mjs",
       "mixed-navigation-fixture.mjs",
       "scenario-transcripts.mjs",
     ].map((name) => [
@@ -245,11 +253,14 @@ try {
     handleSIGTERM: false,
     handleSIGHUP: false,
   });
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     serviceWorkers: "block",
     viewport: { width: 1280, height: 800 },
   });
-  page.on("pageerror", (error) => result.pageErrors.push(error.message));
+  context.on("page", (page) =>
+    page.on("pageerror", (error) => result.pageErrors.push(error.message)),
+  );
+  const page = await context.newPage();
   const card = (s) =>
     page
       .locator(
@@ -263,7 +274,7 @@ try {
   assert.deepEqual((await (await firstReview).json()).items, []);
   await expect(card(fixture.active[0])).toBeVisible({ timeout: 30000 });
   await snapshot("first-inbox");
-  async function open(s) {
+  async function open(s, whileOpen) {
     abort.signal.throwIfAborted();
     const start = performance.now();
     const [draft] = await Promise.all([
@@ -286,6 +297,7 @@ try {
       marker: s.marker,
       elapsedMs: Math.round(performance.now() - start),
     });
+    await whileOpen?.();
     await page.locator('a[href="/inbox"]:visible').first().click();
     await expect(page).toHaveURL(/\/inbox$/);
   }
@@ -308,6 +320,22 @@ try {
       await open(fixture.active[0]);
       await snapshot(name);
     }
+    if (values.typing) {
+      result.typing = {};
+      for (const session of fixture.active.slice(0, 2)) {
+        await open(session, async () => {
+          result.typing[session.provider] = await typeThroughRelease({
+            page,
+            session,
+            other: fixture.active.find((s) => s.provider !== session.provider),
+            append: fixture.append,
+            expect,
+            workerState: () => get("/__mixed_navigation_workers"),
+          });
+        });
+        await snapshot("typing-" + session.provider);
+      }
+    }
     if (pinWatches) {
       await page.close();
       await snapshot("close-browser");
@@ -316,7 +344,28 @@ try {
         0,
       );
       await snapshot("release-focused-directories");
-    }
+    } else await page.close();
+    await expect
+      .poll(
+        async () => (await get("/__mixed_navigation_workers")).activeWorkers,
+        { timeout: 75000 },
+      )
+      .toBe(0);
+    await snapshot("drained-workers");
+    const sum = (key) =>
+      Object.values(result.phases).reduce((n, p) => n + p.worker[key], 0);
+    assert.equal(
+      sum("requests"),
+      sum("retired"),
+      "Every worker request must retire",
+    );
+    assert.equal(
+      sum("ready"),
+      sum("nativeCloses"),
+      "Every attached native handle must close",
+    );
+    if (process.platform === "darwin")
+      assert(sum("ready") > 0, "Expected real focused watches");
   }
   if (scenario === "review") {
     for (let i = 1; i <= 3; i++) {

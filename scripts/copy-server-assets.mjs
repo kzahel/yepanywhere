@@ -68,6 +68,11 @@ for (const name of [
 }
 
 copyFileSync(
+  join(serverSourceDir, "watcher/focused-directory-worker.mjs"),
+  join(serverTargetDir, "watcher/focused-directory-worker.mjs"),
+);
+
+copyFileSync(
   join(serverSourceDir, "highlighting/highlight-worker.mjs"),
   join(serverTargetDir, "highlighting/highlight-worker.mjs"),
 );
