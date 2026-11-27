@@ -25,7 +25,10 @@ Still open:
   verified native facts before removing that conservative fallback.
   [Repeated new Codex arrivals](../docs/research/190-mixed-provider-navigation-audit.md#separate-new-codex-sessions-in-an-existing-project)
   reproduce it with a populated native thread index, ordinary append controls
-  and a burst in the same project.
+  and a burst in the same project. A [second-project control](../docs/research/190-mixed-provider-navigation-audit.md#same-date-directory-different-project)
+  reproduces 8,386 row reads and 8,386 hash reads on arrival, then zero of
+  either on the first append after verification. The two rollout headers
+  identify their separate projects within the same date directory.
 - First-ever/invalidated list projection builds remain population-sized.
   SQL checkpoint import/index construction is also population-sized, although
   it avoids cold JavaScript catalog/metadata hydration. A canonical mutation

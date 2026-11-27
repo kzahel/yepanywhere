@@ -20,6 +20,10 @@ import {
   startYaServerProcess,
   disposeYaServerProcess,
 } from "../../packages/client/e2e/support/ya-server-process.ts";
+import {
+  createCodexRolloutDiscoveryStats,
+  readCodexRolloutMetadata,
+} from "../../packages/server/src/sessions/codex-discovery.ts";
 import { catalogFileVersion } from "../../packages/server/src/sessions/catalog-adapters/row.ts";
 import { measuredHostSample, hostWindow } from "./active-session-metrics.mjs";
 import { readHostCapacity } from "../perf-suite/host-profile.mjs";
@@ -147,6 +151,11 @@ try {
     startupDeadline: Date.now() + 300000,
     setupProfile: async (paths) => {
       await fixture.setup(paths);
+      if (scenario === "arrival")
+        writeFileSync(
+          join(paths.dataDir, "mixed-first-append.json"),
+          JSON.stringify(fixture.active[0].file),
+        );
       if (pinWatches)
         writeFileSync(
           join(paths.dataDir, "mixed-watch-directories.json"),
@@ -197,7 +206,7 @@ try {
     return record;
   }
   const projectId = Buffer.from(fixture.paths.project).toString("base64url");
-  async function counts(active) {
+  async function counts(active, archive) {
     await expect
       .poll(
         async () => {
@@ -209,7 +218,11 @@ try {
             !catalog.refreshing &&
             list.length === projects + 1 &&
             list.find((p) => p.id === projectId)?.sessionCount === active &&
-            list.reduce((n, p) => n + p.sessionCount, 0) === population + active
+            (!archive ||
+              list.find((p) => p.id === archive.id)?.sessionCount ===
+                archive.count) &&
+            list.reduce((n, p) => n + p.sessionCount, 0) ===
+              population + active + (archive ? 1 : 0)
           );
         },
         { timeout: 180000 },
@@ -393,7 +406,21 @@ try {
     await snapshot("settled-inbox");
     // The first watcher update may overlap startup reconciliation. Report it
     // separately before the two provider append controls.
-    await append(fixture.active[0]);
+    const first = fixture.active[0];
+    const originalVersion = row(first)?.source_version;
+    try {
+      await append(first);
+    } catch (error) {
+      const accepted = row(first);
+      result.firstAppendFailure = {
+        stillOriginal: accepted?.source_version === originalVersion,
+        matchesFile:
+          accepted?.source_version === catalogFileVersion(statSync(first.file)),
+        matchesProject: accepted?.project_id === projectId,
+      };
+      await snapshot("first-watcher-update-failed");
+      throw error;
+    }
     await snapshot("first-watcher-update");
 
     // A second client pings a cheap route, one outstanding request at a time.
@@ -432,17 +459,27 @@ try {
       await observe("append-" + s.provider, () => append(s));
     }
     let active = 10;
-    for (const [label, numbers] of [
-      ["new-claude", [200000]],
-      ["new-codex-1", [200001]],
-      ["new-codex-2", [200003]],
-      ["codex-burst", [200005, 200007, 200009]],
+    const archivePath = fixture.archive.project;
+    const archiveId = Buffer.from(archivePath).toString("base64url");
+    const projectList = await get("/api/projects?summaryMode=retained");
+    const archiveBase = projectList.projects.find(
+      (p) => p.id === archiveId,
+    )?.sessionCount;
+    assert(archiveBase > 0 && archiveId !== projectId);
+    await snapshot("before-new-files");
+    let sibling;
+    for (const [label, numbers, path] of [
+      ["new-claude", [200000], fixture.paths.project],
+      ["new-codex-1", [200001], fixture.paths.project],
+      ["new-codex-2", [200003], fixture.paths.project],
+      ["codex-burst", [200005, 200007, 200009], fixture.paths.project],
+      ["new-codex-other-project", [200011], archivePath],
     ]) {
+      const owner = Buffer.from(path).toString("base64url");
       let added;
       await observe(label, async () => {
-        added = numbers.map((n) =>
-          fixture.make(n, fixture.paths.project, Date.now(), 4),
-        );
+        added = numbers.map((n) => fixture.make(n, path, Date.now(), 4));
+        if (label === "codex-burst") sibling = added[0];
         const expected = added.map((s) => catalogFileVersion(statSync(s.file)));
         await expect
           .poll(
@@ -450,7 +487,7 @@ try {
               added.every((s, i) => {
                 const accepted = row(s);
                 return (
-                  accepted?.project_id === projectId &&
+                  accepted?.project_id === owner &&
                   accepted.source_version === expected[i]
                 );
               }),
@@ -460,19 +497,56 @@ try {
           )
           .toBe(true);
       });
-      active += added.length;
-      await counts(active);
-      // Read the same detail route as a session open. Check every new final answer
-      // separately from the mutation window, including all three burst members.
-      for (const s of added) {
+      const archive =
+        path === archivePath
+          ? { id: archiveId, count: archiveBase + 1 }
+          : undefined;
+      if (!archive) active += added.length;
+      await counts(active, archive);
+      // Verify identity/answer outside the timed window, including burst members.
+      async function verifyDetail(s) {
         const detail = await get(
-          "/api/projects/" + projectId + "/sessions/" + s.id,
+          "/api/projects/" + owner + "/sessions/" + s.id,
         );
         assert.equal(detail.session.id, s.id);
         assert(
           JSON.stringify(detail.messages).includes(s.marker),
           s.id + " latest answer",
         );
+      }
+      for (const s of added) await verifyDetail(s);
+      if (archive) {
+        const current = added[0];
+        assert.equal(dirname(current.file), dirname(sibling.file));
+        // Driver-side identity check using the uncached header reader. Its
+        // counters describe these two explicit calls outside server timing.
+        result.sameDirectoryHeaders = [];
+        for (const s of [sibling, current]) {
+          const metrics = createCodexRolloutDiscoveryStats();
+          const meta = await readCodexRolloutMetadata({
+            sessionsDir: fixture.paths.codexSessionsDir,
+            filePath: s.file,
+            metrics,
+          });
+          assert.equal(meta?.id, s.id);
+          assert.equal(meta.cwd, s.project);
+          assert.equal(
+            row(s)?.project_id,
+            Buffer.from(meta.cwd).toString("base64url"),
+          );
+          result.sameDirectoryHeaders.push({
+            id: s.id,
+            statCalls: metrics.statCalls,
+            plainHeaders: metrics.firstLineReadsPlain,
+          });
+        }
+        await snapshot(label + "-verified");
+        await observe("append-new-codex-other-project", () => append(current));
+        await counts(active, archive);
+        await verifyDetail(current);
+        result.finalOtherProjectCount = archive.count;
+        await snapshot("append-new-codex-other-project-verified");
+        continue;
       }
       await snapshot(label + "-verified");
     }

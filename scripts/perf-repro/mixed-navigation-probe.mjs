@@ -32,6 +32,8 @@ function window() {
       maxReleaseAckMs: 0,
     },
     fullReadStacks: [],
+    statStarts: { claude: 0, codex: 0 },
+    statStacks: { claude: [], codex: [] },
     cpu: process.cpuUsage(),
     start: performance.now(),
   };
@@ -46,6 +48,22 @@ function laneMetrics() {
 function count(key, amount = 1) {
   const metrics = laneMetrics();
   metrics[key] = (metrics[key] ?? 0) + amount;
+}
+function packageStack() {
+  const limit = Error.stackTraceLimit;
+  try {
+    Error.stackTraceLimit = 24;
+    return new Error().stack
+      .replaceAll("\\", "/")
+      .split("\n")
+      .filter((frame) => frame.includes("/packages/"))
+      .slice(0, 15)
+      .map((frame) =>
+        frame.trim().replace(/(?:file:\/\/)?[^ (]*\/packages\//g, "packages/"),
+      );
+  } finally {
+    Error.stackTraceLimit = limit;
+  }
 }
 const queries = new WeakMap();
 const prepare = DatabaseSync.prototype.prepare;
@@ -98,22 +116,8 @@ for (const method of ["all", "get", "run"]) {
         query + "Rows",
         method === "all" ? rows.length : Number(rows !== undefined),
       );
-      if (query === "full" && sample.fullReadStacks.length < 3) {
-        const previous = Error.stackTraceLimit;
-        Error.stackTraceLimit = 20;
-        const trace = new Error().stack;
-        Error.stackTraceLimit = previous;
-        sample.fullReadStacks.push(
-          trace
-            .split("\n")
-            .slice(2, 17)
-            .map((frame) =>
-              frame
-                .trim()
-                .replace(/(?:file:\/\/)?[^ (]*\/packages\//g, "packages/"),
-            ),
-        );
-      }
+      if (query === "full" && sample.fullReadStacks.length < 3)
+        sample.fullReadStacks.push(packageStack());
     }
     return rows;
   };
@@ -137,8 +141,13 @@ for (const name of ["stat", "readdir", "open", "readFile"]) {
       basename(file) === "review-comments.json"
     )
       count("reviewFileChecks");
-    const result = await original.call(this, file, ...args);
     const source = provider(file);
+    if (source && name === "stat") {
+      const ordinal = sample.statStarts[source]++;
+      if (ordinal % 512 === 0 && sample.statStacks[source].length < 16)
+        sample.statStacks[source].push(packageStack());
+    }
+    const result = await original.call(this, file, ...args);
     if (!source) return result;
     count(source + "." + name);
     const bytes = source + ".readBytes";
@@ -258,6 +267,25 @@ threads.Worker = class extends threads.Worker {
 };
 syncBuiltinESMExports();
 
+// A cold append can time out before the settled arrival cases. Distinguish
+// an observed write from one that never reached the catalog's event bus.
+const firstAppendPlan = join(
+  process.env.YEP_DATA_DIR,
+  "mixed-first-append.json",
+);
+if (fs.existsSync(firstAppendPlan)) {
+  const target = JSON.parse(fs.readFileSync(firstAppendPlan, "utf8"));
+  const { EventBus } = await import(
+    "../../packages/server/src/watcher/EventBus.ts"
+  );
+  const emit = EventBus.prototype.emit;
+  EventBus.prototype.emit = function (event) {
+    if (event.type === "file-change" && event.path === target)
+      count("firstAppendFileEvents");
+    if (event.type === "session-catalog-updated") count("catalogPublications");
+    return emit.call(this, event);
+  };
+}
 const { ReviewCommentService } = await import(
   "../../packages/server/src/review/ReviewCommentService.ts"
 );
