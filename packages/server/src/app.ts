@@ -140,6 +140,7 @@ import type { UserUsageService } from "./auth/UserUsageService.js";
 import type { LimitedUsersService } from "./auth/LimitedUsersService.js";
 import { limitedUserInstructionsForLaunch } from "./auth/limitedUserInstructions.js";
 import { limitedActivityEvent } from "./auth/activityEventAccess.js";
+import { readPublicSessionRows } from "./sessions/public-session-catalog.js";
 import { SessionAccessResolver } from "./auth/sessionAccess.js";
 import type { SubscriptionAccessTarget } from "./routes/ws-relay-handlers.js";
 import type { SrpLimitedUserLookup } from "./routes/ws-srp-handlers.js";
@@ -1001,29 +1002,29 @@ export function createApp(options: AppOptions): AppResult {
       sessionReadLifetime.signal.aborted
         ? undefined
         : `${retainedCollections?.getVersion() ?? ""}/${options.sessionMetadataService?.creations?.generation ?? 0}`,
-    readCatalogRows: async () => {
-      if (!retainedCollections) {
-        throw new Error("Session catalog read before the app was built");
-      }
-      let { rows, catalog } = await retainedCollections.read();
-      // Before the first pass completes, a missing row means "not yet
-      // scanned", not "no such session". Wait for that pass once rather than
-      // refusing every session a client asks about right after startup.
-      if (!catalog.complete) {
-        await retainedCollections.refresh();
-        ({ rows } = await retainedCollections.read());
-      }
-      return (
-        await projectCatalogIdentities(
-          rows,
+    readCatalogRows: async (sessionId) => {
+      const catalog = retainedCollections;
+      if (!catalog)
+        throw new Error("Session catalog read before initialization");
+      const read = () =>
+        readPublicSessionRows(
+          catalog,
+          sessionId,
           options.sessionMetadataService,
           sessionReadLifetime.signal,
-        )
-      ).map((row) => ({
-        sessionId: row.sessionId,
-        projectId: row.projectId,
+        );
+      let rows = await read();
+      const state = catalog.getState();
+      if (
+        !state.complete &&
+        (state.refreshing || state.refreshError === undefined)
+      ) {
+        await catalog.refresh();
+        rows = await read();
+      }
+      return rows.map((row) => ({
+        ...row,
         provider: row.provider ?? row.catalogFamily,
-        updatedAt: row.updatedAt,
       }));
     },
     getSessionMetadata: (sessionId) =>

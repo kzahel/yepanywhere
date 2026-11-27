@@ -5,12 +5,12 @@
  * Contract: topics/limited-users.md § Delivery v1 — Authorization.
  *
  * A live process is authoritative for the project and cheap. A session with no
- * process is looked up in the session catalog, whose rows are cached here for
- * a few seconds so a burst of session requests costs one read. Last activity
+ * process is looked up by public id in the accepted catalog. Last activity
  * is the process's last provider message, else the catalog's last update;
  * a session with neither is never fresh.
  */
 
+import { refreshLruMap } from "../lib/lruCollections.js";
 import { isSessionFreshForJoin } from "@yep-anywhere/shared";
 
 export interface SessionAccessFacts {
@@ -40,7 +40,7 @@ export interface SessionAccessResolverDeps {
       }
     | undefined;
   /** Session catalog rows, for sessions with no live process. */
-  readCatalogRows: () => Promise<
+  readCatalogRows: (sessionId: string) => Promise<
     ReadonlyArray<{
       sessionId: string;
       projectId: string;
@@ -77,14 +77,15 @@ interface CatalogFacts {
   updatedAtMs: number | null;
 }
 
+interface CatalogEntry {
+  version: string | undefined;
+  facts?: CatalogFacts;
+  retryAt: number;
+}
+
 export class SessionAccessResolver {
-  private catalog = new Map<string, CatalogFacts>();
-  /** Session ids whose catalog rows name more than one project. */
-  private ambiguous = new Set<string>();
-  private catalogAttemptedAt = Number.NEGATIVE_INFINITY;
-  private catalogLoad: Promise<void> | null = null;
-  private catalogAttemptedVersion: string | undefined;
-  private catalogLoadedVersion: string | undefined;
+  private readonly catalog = new Map<string, CatalogEntry>();
+  private readonly pending = new Map<string, Promise<CatalogEntry>>();
 
   constructor(private readonly deps: SessionAccessResolverDeps) {}
 
@@ -92,131 +93,119 @@ export class SessionAccessResolver {
     return this.deps.now?.() ?? Date.now();
   }
 
-  /**
-   * Re-read the catalog at most once per TTL, success or failure, so a
-   * failing or unknown-id stream costs one read per interval.
-   */
-  private async refreshCatalog(): Promise<void> {
-    const version = this.deps.getCatalogVersion?.();
+  private cached(sessionId: string) {
+    const entry = this.catalog.get(sessionId);
     if (
-      !this.catalogLoad &&
-      this.now() - this.catalogAttemptedAt < CATALOG_CACHE_TTL_MS &&
-      version === this.catalogAttemptedVersion
+      entry &&
+      entry.version === this.deps.getCatalogVersion?.() &&
+      (entry.facts || this.now() < entry.retryAt)
     ) {
-      return;
+      refreshLruMap(this.catalog, sessionId, entry);
+      return entry;
     }
-    this.catalogLoad ??= (async () => {
-      this.catalogAttemptedAt = this.now();
-      this.catalogAttemptedVersion = version;
-      try {
-        const rows = await this.deps.readCatalogRows();
-        const next = new Map<string, CatalogFacts>();
-        const ambiguous = new Set<string>();
-        for (const row of rows) {
-          const updatedAtMs = row.updatedAt
-            ? Date.parse(row.updatedAt)
-            : Number.NaN;
-          const facts: CatalogFacts = {
+    return undefined;
+  }
+
+  private async load(sessionId: string): Promise<CatalogEntry> {
+    const entry: CatalogEntry = {
+      version: this.deps.getCatalogVersion?.(),
+      retryAt: this.now() + CATALOG_CACHE_TTL_MS,
+    };
+    try {
+      const rows = await this.deps.readCatalogRows(sessionId);
+      for (const row of rows) {
+        if (row.sessionId !== sessionId) continue;
+        if (entry.facts && entry.facts.projectId !== row.projectId) {
+          entry.facts = undefined;
+          break;
+        }
+        const timestamp = Date.parse(row.updatedAt ?? "");
+        const updatedAtMs = Number.isFinite(timestamp) ? timestamp : null;
+        if (
+          !entry.facts ||
+          (updatedAtMs ?? 0) > (entry.facts.updatedAtMs ?? 0)
+        ) {
+          entry.facts = {
             projectId: row.projectId,
             provider: row.provider,
-            updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : null,
+            updatedAtMs,
           };
-          const prior = next.get(row.sessionId);
-          if (prior && prior.projectId !== facts.projectId) {
-            ambiguous.add(row.sessionId);
-          }
-          if (!prior || (facts.updatedAtMs ?? 0) > (prior.updatedAtMs ?? 0)) {
-            next.set(row.sessionId, facts);
-          }
         }
-        this.catalog = next;
-        this.ambiguous = ambiguous;
-        // Capture the version before reading. A publication during the read
-        // must remain observable to the next caller, even if that read ended
-        // up using the newer generation.
-        this.catalogLoadedVersion = version;
-      } finally {
-        this.catalogLoad = null;
       }
-    })();
-    await this.catalogLoad;
+      return entry;
+    } finally {
+      // Keep misses and failures briefly. A different publication immediately
+      // invalidates all facts derived from the old one, including successes.
+      refreshLruMap(this.catalog, sessionId, entry);
+      if (this.catalog.size > 512)
+        this.catalog.delete(this.catalog.keys().next().value!);
+    }
   }
 
-  private catalogFacts(sessionId: string): CatalogFacts | undefined {
-    // A removed, moved or newly ambiguous session must not keep authorizing
-    // requests/events while its replacement projection loads or retries.
-    if (!this.catalogIsCurrent()) return undefined;
-    return this.ambiguous.has(sessionId)
-      ? undefined
-      : this.catalog.get(sessionId);
+  private refresh(sessionId: string) {
+    let work = this.pending.get(sessionId);
+    if (!work) {
+      work = this.load(sessionId).finally(() => this.pending.delete(sessionId));
+      this.pending.set(sessionId, work);
+    }
+    return work;
   }
 
-  private catalogIsCurrent(): boolean {
-    return this.catalogLoadedVersion === this.deps.getCatalogVersion?.();
-  }
-
-  /** Whether the catalog could add a project or activity time to these facts. */
-  private needsCatalog(
-    sessionId: string,
-    live: ReturnType<SessionAccessResolverDeps["getLiveSession"]>,
-  ): boolean {
-    if (live?.lastActivityMs != null) return false;
-    if (this.deps.getCatalogVersion?.() !== this.catalogLoadedVersion)
-      return true;
-    if (this.catalog.has(sessionId)) return false;
-    return !live || live.lastActivityMs == null;
-  }
-
-  /** Facts about a session, or null when it resolves to no project. */
   async resolve(sessionId: string): Promise<SessionAccessFacts | null> {
-    const metadata = this.deps.getSessionMetadata(sessionId);
     const live = this.deps.getLiveSession(sessionId);
     const saved = live ? undefined : this.deps.getCreationSession?.(sessionId);
+    let entry = this.cached(sessionId);
     if (
-      (!saved || saved.nativeBound === true) &&
-      this.needsCatalog(sessionId, live)
+      !entry &&
+      live?.lastActivityMs == null &&
+      (!saved || saved.nativeBound)
     ) {
-      await this.refreshCatalog();
-      // A publication can race the shared read. Join one replacement read,
-      // then fail closed if publications still outpace it; never chase an
-      // unbounded sequence of generations on a foreground request.
-      if (!this.catalogIsCurrent()) await this.refreshCatalog();
+      entry = await this.refresh(sessionId);
+      if (entry.version !== this.deps.getCatalogVersion?.())
+        entry = await this.refresh(sessionId);
     }
-    return this.factsFrom(sessionId, metadata, live, saved);
+    const row =
+      entry?.version === this.deps.getCatalogVersion?.()
+        ? entry?.facts
+        : undefined;
+    return this.factsFrom(
+      this.deps.getSessionMetadata(sessionId),
+      live,
+      saved,
+      row,
+    );
   }
 
-  /**
-   * Facts from what is already in memory — the live process, session
-   * metadata, and the last catalog read — for callers that cannot wait, such
-   * as per-event activity filtering. A session the last read lacked starts a
-   * background read, so its later events resolve.
-   */
+  /** Event filters cannot await an uncached session. A later event can reuse its facts. */
   resolveKnown(sessionId: string): SessionAccessFacts | null {
     const live = this.deps.getLiveSession(sessionId);
     const saved = live ? undefined : this.deps.getCreationSession?.(sessionId);
+    const entry = this.cached(sessionId);
     if (
-      (!saved || saved.nativeBound === true) &&
-      this.needsCatalog(sessionId, live)
+      !entry &&
+      live?.lastActivityMs == null &&
+      (!saved || saved.nativeBound)
     ) {
-      this.refreshCatalog().catch((error: unknown) => {
+      this.refresh(sessionId).catch((error: unknown) => {
         console.warn("[SessionAccess] Session catalog read failed:", error);
       });
     }
     return this.factsFrom(
-      sessionId,
       this.deps.getSessionMetadata(sessionId),
       live,
       saved,
+      entry?.facts,
     );
   }
 
   private factsFrom(
-    sessionId: string,
     metadata: ReturnType<SessionAccessResolverDeps["getSessionMetadata"]>,
     live: ReturnType<SessionAccessResolverDeps["getLiveSession"]>,
-    saved?: { projectId: string; provider: string; nativeBound?: boolean },
+    saved:
+      | { projectId: string; provider: string; nativeBound?: boolean }
+      | undefined,
+    row: CatalogFacts | undefined,
   ): SessionAccessFacts | null {
-    const row = this.catalogFacts(sessionId);
     if (live) {
       return {
         projectId: metadata?.workingProjectId ?? live.projectId,

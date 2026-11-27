@@ -1253,20 +1253,20 @@ describe("session access resolver", () => {
     });
     expect(await resolver.resolve("new-session")).toBeNull();
     expect(await resolver.resolve("another-missing-id")).toBeNull();
-    expect(reads).toBe(1);
+    expect(reads).toBe(2);
     rows = [{ sessionId: "new-session", projectId: "owned-project" }];
     version = "epoch:2";
     expect((await resolver.resolve("new-session"))?.projectId).toBe(
       "owned-project",
     );
-    expect(reads).toBe(2);
+    expect(reads).toBe(3);
     rows.push({ sessionId: "new-session", projectId: "other-project" });
     version = "epoch:3";
     expect(await resolver.resolve("new-session")).toBeNull();
     rows = [];
     version = "replacement-epoch:0";
     expect(await resolver.resolve("new-session")).toBeNull();
-    expect(reads).toBe(4);
+    expect(reads).toBe(5);
   });
 
   it("throttles failed catalog reads per version and retries on publication", async () => {
@@ -1319,11 +1319,11 @@ describe("session access resolver", () => {
       now: () => now,
     });
     const first = resolver.resolve("published");
-    const coalesced = resolver.resolve("missing");
+    const coalesced = resolver.resolve("published");
     version = "epoch:2";
     release([]);
     expect((await first)?.projectId).toBe("owned-project");
-    expect(await coalesced).toBeNull();
+    expect((await coalesced)?.projectId).toBe("owned-project");
     expect(reads).toBe(2);
     expect((await resolver.resolve("published"))?.projectId).toBe(
       "owned-project",

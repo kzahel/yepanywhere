@@ -263,6 +263,10 @@ navigation covered by the list skips the direct route's speculative Git
 author-palette warm-up. The first blame request loads the palette on demand.
 [Browser reproduction](../scripts/perf-repro/codex-project-detail.mjs)
 
+## Mixed-provider Inbox navigation — 2026-11-27
+
+The [mixed-profile audit](../docs/research/190-mixed-provider-navigation-audit.md) reproduces a complete access-catalog rebuild for the next session draft after each unrelated Codex append. The access resolver now reads one native row after each of the three unrelated appends in the same 8,380-row browser case, down from 8,380 each. The audit also measures the empty review Inbox, symlink-dependent Codex header reads, retained recents and sandbox metadata hydration, with stable-generation and physical-path controls.
+
 ## Transcript fact follow-up — 2026-11-12
 
 The [transcript outcome](../docs/research/190-transcript-fact-reuse.md) narrows

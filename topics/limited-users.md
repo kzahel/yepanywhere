@@ -398,10 +398,10 @@ host-wide routes.
 
 Session-to-project resolution for session-scoped paths uses the live process
 first and the session catalog second — the same retained catalog All Sessions
-and Inbox read. Its access projection refreshes when that retained catalog
-publishes a different epoch or generation; otherwise unknown-id and failed-read
-bursts remain throttled to one read every five seconds. The publication identity
-is read from memory and never initiates provider discovery. A session that resolves to
+and Inbox read. Each lookup projects only the requested public session's
+native candidates. Reads for the same session join, and misses or failures
+retry after five seconds or a new publication. A changed catalog generation
+invalidates cached facts. A session that resolves to
 no project, including one the catalog files under two projects, is refused. List filtering is by project only: a session the user started in a
 project whose grant was later removed stays directly readable but no longer
 appears in their lists. Sessions the user starts are recorded with `createdByUser` in
@@ -423,9 +423,8 @@ The activity channel is filtered by event type, by default deny. An event
 reaches a limited user only when it names a project they may read: directly,
 through the session it creates, or through the session it is about, resolved
 from what the server already holds in memory (live process, session metadata,
-last catalog read); a session that resolves to no project hides its event.
-Filtering never waits on the catalog: a session the last read lacked starts a
-background read, so that session's later events resolve.
+current catalog facts for that session). An unresolved session hides its event
+and starts a scoped background read for later events.
 An event listing several projects arrives listing only the readable ones, or
 not at all. Signals that carry no project data (backend reload, restart-queue
 and catalog refresh counters, minus the catalog's refresh error) arrive so

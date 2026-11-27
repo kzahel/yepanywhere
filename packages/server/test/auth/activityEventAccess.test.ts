@@ -204,8 +204,8 @@ describe("SessionAccessResolver.resolveKnown", () => {
     await vi.waitFor(() => {
       expect(resolver.resolveKnown("idle")?.projectId).toBe("idle-project");
     });
-    // Every miss above joined one read; a later event reuses its rows.
-    expect(catalogReads).toBe(1);
+    // Each id loads once, including concurrent events for the same idle session.
+    expect(catalogReads).toBe(3);
   });
 
   it("uses catalog rows an earlier resolve already read", async () => {
