@@ -138,6 +138,23 @@ The complete SQL read came from the structural fallback in the changed-path clas
 
 One separate large indexed attempt missed the 120-second deadline waiting for the **first Claude append** to be accepted and never entered the settled arrival experiment. A fresh indexed run accepted this first write within its 0.86-second sampling window. The timeout did not establish whether the native watcher missed the write or publication lagged. The replay now captures exact-file bus event counts, catalog publications and whether the stored version still matches the old version or the file on disk when this first-write check fails. A subsequent successful large indexed run saw one matching file-change event and two catalog-update notifications in the 1.86-second first-write window. A single refresh can emit both notifications. The counter includes all catalog notifications in the window, and file-event matching requires the same path spelling.
 
+### Bounded acceptance of a new Codex rollout
+
+YA now checks a new plain rollout's header and filename against the configured root, the scanner’s visible project and an existing Codex catalog member of that project. A point lookup checks for a live or tombstoned thread key. The reader shares the verified file location even when the native thread row has yet to commit. Ordinary growth during summary acquisition rechecks the header. A replacement, changed project, competing rollout or uncertain owner goes through discovery. An append crossing a summary read can publish an identity-only row until the next observed write settles it. [Arrival classifier](../../packages/server/src/sessions/catalog-adapters/codex-catalog-arrival.ts) · [On-disk rebuild and race checks](../../packages/server/test/sessions/codex-catalog-arrival.test.ts)
+
+Each isolated profile accepted the two separately created threads, the three-thread burst and the arrival in a second project with **zero complete catalog rows and zero inventory hashes read** in each of those four mutation windows. The active project ended at 16 and the archive project at 51 or 8,371. Detail checks verified every public ID and latest answer, including the subsequent append in the archive project.
+
+| Second-project arrival | Full rows before → after | Hash rows before → after | Successful async stats after (Claude / Codex) |
+| --- | ---: | ---: | ---: |
+| 50 unrelated, indexed | 66 → 0 | 66 → 0 | 0 / 19 |
+| 50 unrelated, index absent | — → 0 | — → 0 | 2 / 22 |
+| 8,370 unrelated, indexed | 8,386 → 0 | 8,386 → 0 | 2 / 22 |
+| 8,370 unrelated, index absent | 8,386 → 0 | 8,386 → 0 | 2 / 4,221 |
+
+In the large indexed cell the same window previously made 4,193 Claude and 4,215 Codex stats. Process CPU fell from 368 to 72 ms in this single comparison. In the large indexless cell the remaining thousands of stats sampled in the window came from the independent file watcher's full-tree rescan. The ordinary Codex append control also recorded 4,206 stats. Removing catalog work does not eliminate that observer cost. The integration regression drops the shared reader cache and checks zero reader tree walks for an absent database, a missing native row and a committed row, including two real writes during acquisition.
+
+A separate large-profile Chromium circuit verified all 24 opens and revisits. The ten warm switches made 120 API requests, read zero full catalog rows and took 4.71 seconds with a 12 ms maximum server loop delay. Both 26-character typing checks retained every prefix and focus during a provider write and neighboring tab close. Maximum two-frame acknowledgements were 25.7 ms for Claude and 21.5 ms for Codex. These are macOS observations on generated histories.
+
 ## Replaying the mixed-profile experiments
 
 These commands replay the post-fix navigation, empty-review and new-arrival comparisons against one build. The earlier timing-only, symlink, sandbox and retained-recents experiments have separate protocols. From the repository root with Node 24 and pnpm, build the browser client once. The runner uses Playwright's Chromium, a fresh loopback server and a disposable physical profile for **each invocation**. No provider processes are needed.

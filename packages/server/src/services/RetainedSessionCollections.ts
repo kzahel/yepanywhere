@@ -531,6 +531,8 @@ export class RetainedSessionCollections {
         ? {
             fileStoreProject: (family, store) =>
               this.catalog.fileStoreProject(family, store),
+            newCodexSessionProject: (store, projectKey, id) =>
+              this.catalog.newCodexSessionProject(store, projectKey, id),
             readAllRows: async () => (await this.catalog.readRows()).rows,
           }
         : undefined,

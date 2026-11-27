@@ -1122,8 +1122,11 @@ Only changed rows/deletions advance a generation, in one transaction with the
 row count. A failed scan/write keeps the prior generation. Existing source
 version guards reject stale optional enrichment. New Claude files may join a
 store only when its direct-file rows agree on one canonical project; ambiguous,
-empty or unrecognized stores conservatively rediscover. Unknown Codex/Gemini
-files retain discovery until their membership can be established safely.
+empty or unrecognized stores conservatively rediscover. A new plain Codex
+rollout can join an existing Codex project when its canonical root, header,
+thread key, reader location and visible project election agree. Its date
+directory supplies no project identity. Replacement, competing rollouts and
+uncertain membership retain discovery. [Qualification](../docs/research/190-mixed-provider-navigation-audit.md#bounded-acceptance-of-a-new-codex-rollout)
 
 Known changed files do not read/yield unchanged native rows. The optional Codex
 question pass inspects changed rows; unarchiving explicitly reconsiders that

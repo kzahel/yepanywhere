@@ -4,6 +4,12 @@ import { parseNativeSessionId } from "@yep-anywhere/shared";
 import type { ProjectScanner } from "../../projects/scanner.js";
 import type { Project } from "../../supervisor/types.js";
 import { CopilotSessionCatalogAdapter } from "./copilot-catalog-adapter.js";
+import { createCodexRolloutPathMapper } from "../codex-thread-index.js";
+import {
+  newCodexFile,
+  sameCodexArrival,
+  type AddedFile,
+} from "./codex-catalog-arrival.js";
 import { getCodexRolloutActivityTimeMs } from "../../utils/codexRolloutFiles.js";
 import { buildProviderProjectCatalog } from "../../routes/provider-catalog.js";
 import {
@@ -212,11 +218,14 @@ async function refreshChangedRows(
       )
       .map((row) => (row.location.kind === "file" ? row.location.path : "")),
   );
-  // A new Claude transcript joins the project its store's rows belong to; any
-  // other newly observed file needs discovery to establish its membership.
-  const added: [string, Readonly<SessionCatalogRow>][] = [];
+  const added: AddedFile[] = [];
+  const locatePath =
+    deps.codexSessionsDir &&
+    createCodexRolloutPathMapper(deps.codexSessionsDir);
+  const newThreads = new Set<string>();
   let claudeStores: ReturnType<typeof claudeStoreProjects> | undefined;
   for (const path of changedPaths) {
+    signal.throwIfAborted();
     if (knownPaths.has(path)) continue;
     if (!lookup) claudeStores ??= claudeStoreProjects(previousRows);
     const name = basename(path);
@@ -226,8 +235,31 @@ async function refreshChangedRows(
           ? lookup.fileStoreProject("claude", dirname(path))
           : claudeStores!.get(dirname(path))
         : undefined;
-    if (!sibling) return undefined;
-    added.push([path, sibling]);
+    if (sibling) {
+      added.push({
+        filePath: path,
+        sessionId: name.slice(0, -".jsonl".length),
+        projectRow: sibling,
+      });
+      continue;
+    }
+    if (
+      !lookup ||
+      !locatePath ||
+      !deps.codexSessionsDir ||
+      !deps.getCatalogFamilies().includes("codex")
+    )
+      return undefined;
+    const file = await newCodexFile(
+      deps.codexSessionsDir,
+      path,
+      lookup,
+      deps.scanner,
+      locatePath,
+    );
+    if (!file || newThreads.has(file.sessionId)) return undefined;
+    newThreads.add(file.sessionId);
+    added.push(file);
   }
   const rows: SessionCatalogRow[] = [];
   const needsGemini = previousRows.some(
@@ -244,6 +276,7 @@ async function refreshChangedRows(
     row: Readonly<SessionCatalogRow>,
     file: { sessionId: string; filePath: string },
     old?: Readonly<SessionCatalogRow>,
+    initialStat?: AddedFile["initialStat"],
   ) => {
     const project: Project = {
       id: row.projectId,
@@ -264,8 +297,30 @@ async function refreshChangedRows(
       new Set([row.catalogFamily]),
     )[0];
     if (!source) throw new Error(`No catalog reader for ${row.catalogFamily}`);
+    if (
+      initialStat &&
+      (await source.reader.getSessionFilePath?.(file.sessionId)) !==
+        file.filePath
+    )
+      return false;
     const refreshed = await readFileRow(deps, project, source, file, old);
+    if (
+      initialStat &&
+      (!refreshed ||
+        !(await sameCodexArrival(
+          initialStat,
+          row.storeKey,
+          file.filePath,
+          file.sessionId,
+          row.projectPath,
+        )) ||
+        refreshed.nativeStorageScope !== row.nativeStorageScope ||
+        (await source.reader.getSessionFilePath?.(file.sessionId)) !==
+          file.filePath)
+    )
+      return false;
     if (refreshed) rows.push(refreshed);
+    return true;
   };
   for (const row of previousRows) {
     signal.throwIfAborted();
@@ -279,12 +334,10 @@ async function refreshChangedRows(
       row,
     );
   }
-  for (const [filePath, sibling] of added) {
+  for (const file of added) {
     signal.throwIfAborted();
-    await reread(sibling, {
-      sessionId: basename(filePath).slice(0, -".jsonl".length),
-      filePath,
-    });
+    if (!(await reread(file.projectRow, file, undefined, file.initialStat)))
+      return undefined;
   }
   if (!lookup) return catalogAdaptersForRows(rows, sources);
   const adapters = catalogAdaptersForRows(rows, previousRows);

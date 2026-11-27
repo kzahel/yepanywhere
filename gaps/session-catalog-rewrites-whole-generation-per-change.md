@@ -20,15 +20,7 @@ they do not certify all plan 190 targets. See
 
 Still open:
 
-- New Codex/Gemini files and Claude files in empty or ambiguous stores still
-  require discovery to establish membership. Classify a single new file from
-  verified native facts before removing that conservative fallback.
-  [Repeated new Codex arrivals](../docs/research/190-mixed-provider-navigation-audit.md#separate-new-codex-sessions-in-an-existing-project)
-  reproduce it with a populated native thread index, ordinary append controls
-  and a burst in the same project. A [second-project control](../docs/research/190-mixed-provider-navigation-audit.md#same-date-directory-different-project)
-  reproduces 8,386 row reads and 8,386 hash reads on arrival, then zero of
-  either on the first append after verification. The two rollout headers
-  identify their separate projects within the same date directory.
+- New Gemini files, Codex rollouts without proven membership, and Claude files in empty or ambiguous stores still require discovery. An ordinary new Codex rollout in an already cataloged Codex project now uses indexed point reads. Moves, competing thread files, subagents and the first Codex session in a project retain full discovery. The [mixed-provider replay](../docs/research/190-mixed-provider-navigation-audit.md#bounded-acceptance-of-a-new-codex-rollout) verifies the cross-project case and the independent indexless observer cost.
 - First-ever/invalidated list projection builds remain population-sized.
   SQL checkpoint import/index construction is also population-sized, although
   it avoids cold JavaScript catalog/metadata hydration. A canonical mutation

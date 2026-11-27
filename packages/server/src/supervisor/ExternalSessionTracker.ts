@@ -438,7 +438,10 @@ export class ExternalSessionTracker {
     if (!info.dirProjectId) return null;
 
     const project = options?.retained
-      ? this.scanner.getRetainedProjectBySessionDirSuffix(info.dirProjectId)
+      ? this.scanner.retainedFileProject(
+          info.dirProjectId,
+          "bySessionDirSuffix",
+        )
       : await this.scanner.getProjectBySessionDirSuffix(info.dirProjectId);
     if (!project) return null;
 

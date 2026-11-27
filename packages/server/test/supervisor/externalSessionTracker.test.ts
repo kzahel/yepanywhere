@@ -26,7 +26,7 @@ describe("ExternalSessionTracker", () => {
       } as unknown as Supervisor,
       scanner: {
         getProjectBySessionDirSuffix: complete,
-        getRetainedProjectBySessionDirSuffix: retained,
+        retainedFileProject: retained,
       } as unknown as ProjectScanner,
     });
     try {
@@ -46,7 +46,10 @@ describe("ExternalSessionTracker", () => {
           retained: true,
         }),
       ).toMatchObject({ projectId });
-      expect(retained).toHaveBeenCalledExactlyOnceWith("-tmp-test");
+      expect(retained).toHaveBeenCalledExactlyOnceWith(
+        "-tmp-test",
+        "bySessionDirSuffix",
+      );
       expect(complete).toHaveBeenCalledTimes(calls);
     } finally {
       tracker.dispose();

@@ -42,8 +42,7 @@ that order; the numbered steps remain implementation/evidence references.
 The [mixed-provider Inbox replay](../research/190-mixed-provider-navigation-audit.md)
 verifies the scoped session-draft and review Inbox fixes and off-thread macOS
 focused-watch teardown. At 8,370 unrelated sessions, the maximum loop delay
-during ten warm switches fell from 2.85 seconds to 13 ms. The next candidate
-is single-file Codex discovery in a known project.
+during ten warm switches fell from 2.85 seconds to 13 ms. New Codex rollouts in a known Codex project now publish one changed row; the cross-project replay reads zero complete catalog or hash rows at both sizes.
 
 ## Goal
 

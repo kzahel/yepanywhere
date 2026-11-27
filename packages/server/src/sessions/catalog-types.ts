@@ -103,5 +103,10 @@ export interface CatalogFileLookup {
     family: string,
     store: string,
   ): Readonly<SessionCatalogRow> | undefined;
+  newCodexSessionProject(
+    store: string,
+    projectKey: string,
+    sessionId: string,
+  ): Readonly<SessionCatalogRow> | undefined;
   readAllRows(): Promise<readonly Readonly<SessionCatalogRow>[]>;
 }

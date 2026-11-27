@@ -513,6 +513,11 @@ export class SessionCatalogService {
   fileStoreProject(family: string, store: string) {
     return this.withStore((sql) => sql.fileStoreProject(family, store));
   }
+  newCodexSessionProject(store: string, projectKey: string, sessionId: string) {
+    return this.withStore((sql) =>
+      sql.newCodexSessionProject(store, projectKey, sessionId),
+    );
+  }
   private scopedRows(
     kind: "path" | "native" | "questions" | "project",
     value: string,

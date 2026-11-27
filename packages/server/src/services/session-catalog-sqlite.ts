@@ -298,6 +298,25 @@ export class SessionCatalogSqliteStore {
       );
     return c && rowFromColumns(c);
   }
+  newCodexSessionProject(store: string, projectKey: string, sessionId: string) {
+    // A live key or retained tombstone can be a replacement, move or second rollout
+    // of the same thread. Leave those elections to complete discovery.
+    if (
+      this.query(
+        "SELECT 1 FROM session_catalog WHERE family='codex' AND store_key=? AND native_id=?",
+      ).get(store, sessionId)
+    )
+      return undefined;
+    const c =
+      this.query(`SELECT ${ROW_COLUMNS} FROM session_catalog c INDEXED BY session_catalog_store_project
+      LEFT JOIN session_catalog_text t ON t.catalog_id=c.id
+      WHERE c.family='codex' AND c.store_key=? AND c.direct_file=0
+      AND c.project_key=? AND c.deleted=0 ORDER BY c.id LIMIT 1`).get<CatalogColumns>(
+        store,
+        projectKey,
+      );
+    return c && rowFromColumns(c);
+  }
   readProjectFacts(stores: readonly SessionCatalogSqliteSource[]) {
     return this.query(`SELECT c.project_key,c.family,COUNT(*) AS members,MAX(c.updated_at) AS latest,
       (SELECT project_path FROM session_catalog first WHERE first.deleted=0 AND first.project_key=c.project_key

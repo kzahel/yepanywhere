@@ -423,13 +423,12 @@ export class ProjectScanner {
     };
   }
 
-  /** Resolve retained directory identity without scanning any provider store. */
-  getRetainedProjectBySessionDirSuffix(dirSuffix: string): Project | null {
-    const project = this.snapshot?.bySessionDirSuffix.get(
-      this.normalizeDirSuffix(dirSuffix),
-    );
+  /** Display identity from the last file discovery, with current visibility and name. */
+  retainedFileProject(value: string, index: "byId" | "bySessionDirSuffix") {
+    const key = index === "byId" ? value : this.normalizeDirSuffix(value);
+    const project = this.snapshot?.[index].get(key);
     return project && !this.isHiddenProjectPath(project.path)
-      ? this.cloneProject(project)
+      ? { id: project.id, path: project.path, name: this.displayName(project) }
       : null;
   }
 
