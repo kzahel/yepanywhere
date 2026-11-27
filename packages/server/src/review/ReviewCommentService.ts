@@ -34,6 +34,7 @@ import {
   parseReviewSubmissionResponse,
   projectLegacyReviewComments,
 } from "@yep-anywhere/shared";
+import { ReviewInboxSources } from "./ReviewInboxSources.js";
 import { createCoalescingSaver } from "../lib/coalescingSaver.js";
 import { HttpError } from "../middleware/error-handler.js";
 import { getDataDir } from "../config.js";
@@ -200,7 +201,12 @@ export class ReviewCommentService
   private readonly maxRetainedStoreAgeMs: number;
   private readonly monotonicNowMs: () => number;
   private retainedBytes = 0;
-  private stateRevision = 0;
+  readonly inbox = new ReviewInboxSources(
+    (path) =>
+      this.withStorageOperation(async () => (await this.getStore(path)).state),
+    (path) => this.storagePolicy.readPaths(path, REVIEW_COMMENTS_FILENAME),
+    (path) => this.stores.has(this.filePathFor(path)),
+  );
   private releases = 0;
   private releasesByAge = 0;
   private protectedSkips = 0;
@@ -770,6 +776,7 @@ export class ReviewCommentService
   }
 
   reset(): void {
+    this.inbox.reset();
     this.stores.clear();
     this.releasedKeys.clear();
     this.retainedBytes = 0;
@@ -1043,20 +1050,19 @@ export class ReviewCommentService
         estimatedBytes: 0,
       };
       const saver = createCoalescingSaver(() =>
-        this.doSave(projectPath, created),
+        this.writeStoreToMode(created, this.storagePolicy.mode),
       );
       // A save in flight pins the store: releasing it would strand the only
       // copy of state the writer has not yet reached disk with.
       created.save = () => {
         created.activeOperations += 1;
-        // In-memory state has already changed by the time a save is issued, and
-        // getStoreFile reads that state, so retained projections go stale here
-        // rather than when the write lands.
-        this.stateRevision += 1;
+        // Readers can see the mutation before the coalesced save lands.
+        this.inbox.changed(projectPath);
         created.logicalRevision += 1;
         return saver
           .save()
           .catch((error) => {
+            this.inbox.changed(projectPath);
             created.writeFailed = true;
             created.writeFailure = error;
             throw error;
@@ -1189,6 +1195,7 @@ export class ReviewCommentService
       if (this.storagePolicy.mode !== targetMode) {
         throw new Error("Review storage transition did not change modes");
       }
+      this.inbox.reset();
       this.releaseAllStores();
       return result;
     } finally {
@@ -1199,11 +1206,6 @@ export class ReviewCommentService
     }
   }
 
-  /** Monotonic marker every retained review projection can key against. */
-  getStateRevision(): number {
-    return this.stateRevision;
-  }
-
   getRetentionMetrics(): ReviewStoreRetentionMetrics {
     return {
       retainedStores: this.stores.size,
@@ -1212,7 +1214,7 @@ export class ReviewCommentService
       releasesByAge: this.releasesByAge,
       protectedSkips: this.protectedSkips,
       reloadsAfterRelease: this.reloadsAfterRelease,
-      stateRevision: this.stateRevision,
+      stateRevision: this.inbox.revision,
     };
   }
 
@@ -1329,13 +1331,6 @@ export class ReviewCommentService
     store.state.submissions = recovered;
     store.loaded = true;
     if (needsSave) await store.save();
-  }
-
-  private async doSave(
-    _projectPath: string,
-    store: ProjectStore,
-  ): Promise<void> {
-    await this.writeStoreToMode(store, this.storagePolicy.mode);
   }
 
   private async writeStoreToMode(

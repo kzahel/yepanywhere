@@ -15,6 +15,12 @@ for the 2026-08-04 incident.
 
 ## Implementation progress
 
+- **2026-11-27 — bounded empty-project discovery.** The Inbox reuses complete retained
+  project discovery, probes eligible review paths, and projects unread fields
+  directly from canonical state. Empty projects are skipped across mounts and
+  invalidated on review mutations. The first Inbox read after server startup
+  still discovers existing review files. See the [mixed-provider measurements](../research/190-mixed-provider-navigation-audit.md#scoped-review-inbox-follow-up).
+
 - **2026-08-05 — retained Inbox projection and bounded store retention.**
   `GET /api/review/inbox` builds one projection behind the shared
   source-versioned single-flight owner, keyed by a review state revision that
@@ -49,7 +55,7 @@ Related contracts and plans:
 - [`085-project-directory-storage-policy.md`](085-project-directory-storage-policy.md)
 - [`089-main-thread-startup-cpu-investigation.md`](089-main-thread-startup-cpu-investigation.md)
 
-## Current fan-out and retention
+## Original fan-out and retention (before implementation)
 
 When Source Review submissions are enabled, `GET /api/review/inbox` calls
 `ProjectScanner.listProjects()`, then `Promise.all`s every project through

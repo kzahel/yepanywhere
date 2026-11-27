@@ -234,14 +234,14 @@ describe("review store retention", () => {
     const service = makeService();
     const [first] = projects as [string];
 
-    const before = service.getStateRevision();
+    const before = service.inbox.revision;
     await service.getStoreFile(first);
-    expect(service.getStateRevision()).toBe(before);
+    expect(service.inbox.revision).toBe(before);
 
     await service.addComment(first, {
       anchor: anchor("src/a.ts"),
       text: "changes state",
     });
-    expect(service.getStateRevision()).toBeGreaterThan(before);
+    expect(service.inbox.revision).toBeGreaterThan(before);
   });
 });

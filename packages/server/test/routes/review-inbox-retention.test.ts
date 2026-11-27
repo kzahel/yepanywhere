@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import type { ReviewCommentService } from "../../src/review/ReviewCommentService.js";
+import { ReviewInboxSources } from "../../src/review/ReviewInboxSources.js";
 import { createReviewInboxRoutes } from "../../src/routes/review-inbox.js";
 
 type ScannerProjects = Awaited<ReturnType<ProjectScanner["listProjects"]>>;
@@ -59,6 +60,39 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+function fixtureRoutes(options: {
+  scanner: Pick<ProjectScanner, "listProjects">;
+  service: Pick<ReviewCommentService, "getStoreFile"> & {
+    getStateRevision(): number;
+  };
+  isEnabled: () => boolean;
+  projectSetTtlMs?: number;
+  now?: () => number;
+}) {
+  const sources = new ReviewInboxSources(
+    options.service.getStoreFile,
+    () => [],
+    () => true,
+  );
+  return createReviewInboxRoutes({
+    ...options,
+    scanner: {
+      ...options.scanner,
+      readRetainedProjects: async () => ({
+        projects: await options.scanner.listProjects(),
+        complete: true,
+        refreshing: false,
+      }),
+    },
+    inbox: {
+      get revision() {
+        return options.service.getStateRevision();
+      },
+      read: (projects) => sources.read(projects),
+    },
+  });
+}
+
 function harness(options: { projects?: number } = {}) {
   const projectCount = options.projects ?? 200;
   const projects = Array.from({ length: projectCount }, (_, index) => ({
@@ -67,30 +101,39 @@ function harness(options: { projects?: number } = {}) {
     path: `/projects/p${index}`,
   }));
   const counts = { listProjects: 0, storeLoads: 0 };
-  let revision = 0;
   const clock = { value: 1_000_000 };
-
+  const unread = new Set(["/projects/p7"]);
+  const sources = new ReviewInboxSources(
+    async (path) => {
+      counts.storeLoads++;
+      return (unread.has(path)
+        ? unreadStore(path)
+        : emptyStore()) as unknown as StoreFile;
+    },
+    () => [],
+    () => true,
+    () => clock.value,
+  );
   const app = new Hono();
   app.route(
     "/api",
     createReviewInboxRoutes({
       scanner: {
+        readRetainedProjects: async () => {
+          counts.listProjects++;
+          return {
+            projects: projects as unknown as ScannerProjects,
+            complete: true,
+            refreshing: false,
+          };
+        },
         listProjects: async () => {
-          counts.listProjects += 1;
-          return projects as unknown as ScannerProjects;
+          throw new Error("unexpected full project listing");
         },
       },
-      service: {
-        getStoreFile: async (projectPath: string) => {
-          counts.storeLoads += 1;
-          const store =
-            projectPath === "/projects/p7" ? unreadStore("s7") : emptyStore();
-          return store as unknown as StoreFile;
-        },
-        getStateRevision: () => revision,
-      },
+      inbox: sources,
       isEnabled: () => true,
-      projectSetTtlMs: 5_000,
+      projectSetTtlMs: 5000,
       now: () => clock.value,
     }),
   );
@@ -99,8 +142,9 @@ function harness(options: { projects?: number } = {}) {
     app,
     counts,
     clock,
-    bumpRevision: () => {
-      revision += 1;
+    markUnread: (path: string) => {
+      unread.add(path);
+      sources.changed(path);
     },
     get: async (query = "") => {
       const response = await app.request(`/api/review/inbox${query}`);
@@ -149,7 +193,7 @@ describe("review inbox retention", () => {
       const app = new Hono();
       app.route(
         "/api",
-        createReviewInboxRoutes({
+        fixtureRoutes({
           scanner: {
             listProjects: async () => {
               listCalls += 1;
@@ -228,7 +272,7 @@ describe("review inbox retention", () => {
     const app = new Hono();
     app.route(
       "/api",
-      createReviewInboxRoutes({
+      fixtureRoutes({
         scanner: {
           listProjects: async () => {
             listCalls += 1;
@@ -275,7 +319,7 @@ describe("review inbox retention", () => {
     app.onError((error, c) => c.json({ error: error.message }, 500));
     app.route(
       "/api",
-      createReviewInboxRoutes({
+      fixtureRoutes({
         scanner: {
           listProjects: async () => {
             listCalls += 1;
@@ -306,7 +350,7 @@ describe("review inbox retention", () => {
     app.onError((error, c) => c.json({ error: error.message }, 500));
     app.route(
       "/api",
-      createReviewInboxRoutes({
+      fixtureRoutes({
         scanner: {
           listProjects: async () => {
             listCalls += 1;
@@ -337,12 +381,15 @@ describe("review inbox retention", () => {
     const test = harness({ projects: 20 });
     await test.get();
 
-    test.bumpRevision();
-    await test.get();
+    test.markUnread("/projects/p3");
+    expect((await test.get()).items.map((i) => i.projectId)).toEqual([
+      "p3",
+      "p7",
+    ]);
     await test.get();
 
     expect(test.counts.listProjects).toBe(2);
-    expect(test.counts.storeLoads).toBe(40);
+    expect(test.counts.storeLoads).toBe(22);
   });
 
   it("rebuilds after the project-set backstop window", async () => {
@@ -354,6 +401,73 @@ describe("review inbox retention", () => {
 
     expect(test.counts.listProjects).toBe(2);
   });
+
+  it("rechecks previously empty projects after the presence window", async () => {
+    const test = harness({ projects: 20 });
+    await test.get();
+    test.clock.value += 5001;
+    await test.get();
+    expect(test.counts.storeLoads).toBe(21);
+    test.clock.value += 600001;
+    await test.get();
+    expect(test.counts.storeLoads).toBe(41);
+  });
+
+  it("a racing save invalidates only the affected project's in-flight empty result", async () => {
+    const projects = ["a", "b"].map((id) => ({
+      id,
+      name: id,
+      path: "/projects/" + id,
+    }));
+    const started = deferred<void>();
+    const pending = deferred<StoreFile>();
+    let calls = 0;
+    const sources = new ReviewInboxSources(
+      async (path) => {
+        calls++;
+        if (calls === 2) {
+          started.resolve();
+          return pending.promise;
+        }
+        return (calls > 2
+          ? unreadStore(path)
+          : emptyStore()) as unknown as StoreFile;
+      },
+      () => [],
+      () => true,
+    );
+    const initial = sources.read(projects);
+    await started.promise;
+    sources.changed("/projects/./b");
+    pending.resolve(emptyStore() as unknown as StoreFile);
+    expect(await initial).toEqual([]);
+    expect(await sources.read(projects)).toMatchObject([{ projectId: "b" }]);
+    expect(calls).toBe(3);
+  });
+
+  it.each([{ complete: false }, { complete: true, refreshError: "failed" }])(
+    "uses complete discovery when the retained view is unavailable (%j)",
+    async (view) => {
+      let listings = 0;
+      const routes = createReviewInboxRoutes({
+        scanner: {
+          readRetainedProjects: async () => ({
+            ...view,
+            projects: [],
+            refreshing: false,
+          }),
+          listProjects: async () => {
+            listings++;
+            return [];
+          },
+        },
+        inbox: { revision: 0, read: async () => [] },
+        isEnabled: () => true,
+      });
+      expect((await routes.request("/review/inbox")).status).toBe(200);
+      expect(listings).toBe(1);
+    },
+  );
 
   it("filters by project without rebuilding the projection", async () => {
     const test = harness({ projects: 20 });
@@ -374,7 +488,7 @@ describe("review inbox retention", () => {
     const app = new Hono();
     app.route(
       "/api",
-      createReviewInboxRoutes({
+      fixtureRoutes({
         scanner: {
           listProjects: async () => {
             counts.listProjects += 1;

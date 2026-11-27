@@ -769,11 +769,19 @@ refreshes, and repeated response events join that build rather than each
 starting an all-project store load. A project filter narrows the retained
 projection and never builds a separate one from canonical stores.
 
+A rebuild uses the retained visible project list once discovery is complete.
+On a cold Inbox each project is checked for an in-memory store or either
+supported review file location, in bounded batches. Only candidate stores
+are read, and only unread outcome fields are copied. An empty project is
+skipped for eight to ten minutes, with staggered rechecks. A YA review
+mutation makes that project eligible immediately. A newly visible project is checked on the next project-set
+refresh. A file independently imported into an already visible, previously
+empty project can take until the next presence check to appear.
+
 The projection's source version is a monotonic review state revision that every
 accepted mutation bumps, because canonical state changes in memory before its
-save reaches disk. A project appearing with review state already on disk
-publishes no review event today, so a coarse time bucket bounds that staleness
-until exact per-row deltas exist. A projection build is accepted only while its
+save reaches disk. The five-second project-set bucket picks up newly
+visible projects even when they publish no review event. A projection build is accepted only while its
 observed revision and project-set bucket remain current. If they move during the
 build, neither a success nor a failure from that obsolete read is returned; the
 caller follows the newest build instead. A failure from the still-current source

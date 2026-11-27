@@ -80,7 +80,12 @@ describe("Source Review storage transitions", () => {
     policy.registerTransitionParticipant(service);
 
     await service.addComment(projectPath, { anchor: anchor(), text: "app A" });
+    const project = { id: "p", path: projectPath, name: "Project" };
+    expect(await service.inbox.read([project])).toEqual([]);
     await changeMode("project");
+    expect(service.getRetentionMetrics().retainedStores).toBe(0);
+    expect(await service.inbox.read([project])).toEqual([]);
+    expect(service.getRetentionMetrics().retainedStores).toBe(1);
     await service.addComment(projectPath, {
       anchor: anchor("src/b.ts"),
       text: "project B",

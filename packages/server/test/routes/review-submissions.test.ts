@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import type { ReviewCommentAnchor } from "@yep-anywhere/shared";
 import { toUrlProjectId } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
+import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
 import { ReviewCommentService } from "../../src/review/ReviewCommentService.js";
 import { ReviewCaptureService } from "../../src/review/ReviewCaptureService.js";
 import { createReviewInboxRoutes } from "../../src/routes/review-inbox.js";
@@ -292,13 +293,46 @@ describe("review submission routes", () => {
         ],
       }),
     );
-    const inboxService = new ReviewCommentService();
+    const storagePolicy = new ProjectStoragePolicy({
+      dataDir: join(dir, "app-data"),
+      getMode: () => "app-data",
+    });
+    const paths = vi.spyOn(storagePolicy, "readPaths");
+    const inboxService = new ReviewCommentService({
+      storagePolicy,
+      maxRetainedStoreBytes: 1,
+    });
+    const empty = Array.from({ length: 250 }, (_, i) =>
+      projectFor(join(dir, "empty-" + i)),
+    );
+    let visible = [...empty];
+    let now = 0;
     const routes = createReviewInboxRoutes({
-      scanner,
-      service: inboxService,
+      scanner: {
+        readRetainedProjects: async () => ({
+          projects: visible,
+          complete: true,
+          refreshing: false,
+        }),
+        listProjects: async () => {
+          throw new Error("unexpected full project scan");
+        },
+      },
+      now: () => now,
+      inbox: inboxService.inbox,
       isEnabled: () => true,
     });
 
+    const read = async () => (await routes.request("/review/inbox")).json();
+    expect(await read()).toEqual({ items: [] });
+    expect(inboxService.getRetentionMetrics().retainedStores).toBe(0);
+    expect(paths).toHaveBeenCalledTimes(250);
+    paths.mockClear();
+    now += 5000;
+    expect(await read()).toEqual({ items: [] });
+    expect(paths).not.toHaveBeenCalled();
+    visible.push(project);
+    now += 5000;
     const response = await routes.request("/review/inbox");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
@@ -322,5 +356,13 @@ describe("review submission routes", () => {
       (await inboxService.getStoreFile(dir)).submissions[0]
         ?.acknowledgedRevision,
     ).toBe(1);
+    expect(inboxService.getRetentionMetrics().retainedStores).toBe(1);
+    await inboxService.getStoreFile(empty[0]!.path);
+    expect(inboxService.getRetentionMetrics().releases).toBeGreaterThan(0);
+    visible = [{ ...project, name: "Renamed" }];
+    now += 5000;
+    expect(await read()).toMatchObject({ items: [{ projectName: "Renamed" }] });
+    await inboxService.acknowledgeSubmission(dir, "unread-1");
+    expect(await read()).toEqual({ items: [] });
   });
 });

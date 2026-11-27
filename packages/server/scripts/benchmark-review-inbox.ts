@@ -9,6 +9,7 @@ import {
   ReviewCommentService as ReviewCommentServiceClass,
   type ReviewCommentService,
 } from "../src/review/ReviewCommentService.js";
+import { ReviewInboxSources } from "../src/review/ReviewInboxSources.js";
 import { createReviewInboxRoutes } from "../src/routes/review-inbox.js";
 
 const PROJECTS = 2_000;
@@ -83,28 +84,41 @@ interface Measurement {
 
 function makeApp(retained: boolean, counters: Measurement): Hono {
   const app = new Hono();
-  const service = {
-    getStoreFile: async (projectPath: string) => {
-      counters.storeLoads += 1;
-      // Mirror the real service: canonical state is deep-cloned per read.
-      const raw = JSON.stringify(canonicalStores.get(projectPath) ?? {});
-      counters.clonedBytes += raw.length;
-      return JSON.parse(raw) as StoreFile;
-    },
-    // A revision that never advances models an idle server; bumping it every
-    // request models the pre-retention behaviour of rebuilding each time.
-    getStateRevision: retained ? () => 0 : () => counters.projectListings,
-  };
+  const sources = () =>
+    new ReviewInboxSources(
+      async (projectPath) => {
+        counters.storeLoads++;
+        const store = canonicalStores.get(projectPath);
+        if (retained) return store as unknown as StoreFile;
+        const raw = JSON.stringify(store);
+        counters.clonedBytes += raw.length;
+        return JSON.parse(raw) as StoreFile;
+      },
+      () => [],
+      () => true,
+    );
+  const retainedSources = sources();
   app.route(
     "/api",
     createReviewInboxRoutes({
       scanner: {
+        readRetainedProjects: async () => {
+          counters.projectListings++;
+          return {
+            projects: projects as unknown as ScannerProjects,
+            complete: true,
+            refreshing: false,
+          };
+        },
         listProjects: async () => {
-          counters.projectListings += 1;
-          return projects as unknown as ScannerProjects;
+          throw new Error("Unexpected full project listing");
         },
       },
-      service,
+      inbox: {
+        revision: 0,
+        read: (projects) =>
+          (retained ? retainedSources : sources()).read(projects),
+      },
       isEnabled: () => true,
       projectSetTtlMs: retained ? 60_000 : 0,
       now: () => 1_000_000,
@@ -142,6 +156,9 @@ async function measureFiltered(): Promise<Measurement> {
   };
   const app = makeApp(true, counters);
   await app.request("/api/review/inbox");
+  counters.storeLoads = 0;
+  counters.projectListings = 0;
+  counters.clonedBytes = 0;
   const startedAt = performance.now();
   for (let request = 0; request < REQUESTS; request += 1) {
     await app.request("/api/review/inbox?projectId=p7");
@@ -192,6 +209,49 @@ async function measureStoreRetention(
   }
 }
 
+async function measureEmptyProjects() {
+  const root = await mkdtemp(join(tmpdir(), "review-inbox-presence-"));
+  try {
+    let pathChecks = 0;
+    class MeasuredPolicy extends ProjectStoragePolicy {
+      override readPaths(project: string, ...segments: string[]) {
+        pathChecks++;
+        return super.readPaths(project, ...segments);
+      }
+    }
+    const storagePolicy = new MeasuredPolicy({
+      dataDir: root,
+      getMode: () => "app-data",
+    });
+    const service = new ReviewCommentServiceClass({ storagePolicy });
+    const projects = Array.from({ length: 251 }, (_, i) => ({
+      id: String(i),
+      name: String(i),
+      path: join(root, "p" + i),
+    }));
+    await Promise.all(projects.map((project) => mkdir(project.path)));
+    const readEmpty = async () => {
+      if ((await service.inbox.read(projects)).length !== 0)
+        throw new Error("Unexpected unread review");
+    };
+    await readEmpty();
+    const initial = pathChecks;
+    await readEmpty();
+    const repeated = pathChecks - initial;
+    if (
+      initial !== projects.length ||
+      repeated !== 0 ||
+      service.getRetentionMetrics().retainedStores !== 0
+    ) {
+      throw new Error("Empty Inbox performed unexpected project/store work");
+    }
+    return { initial, repeated };
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+const emptyProjects = await measureEmptyProjects();
 const legacy = await measure(false);
 const retained = await measure(true);
 const filtered = await measureFiltered();
@@ -201,6 +261,8 @@ const boundedStores = await measureStoreRetention(64 * 1024);
 console.log(
   [
     "REVIEW_INBOX:",
+    `empty_project_presence_checks_first=${emptyProjects.initial}`,
+    `empty_project_presence_checks_next=${emptyProjects.repeated}`,
     `projects=${PROJECTS}`,
     `requests=${REQUESTS}`,
     `legacy_project_listings=${legacy.projectListings}`,

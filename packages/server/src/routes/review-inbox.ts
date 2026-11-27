@@ -2,20 +2,24 @@
 
 import { Hono } from "hono";
 import { SourceVersionedSingleFlight } from "../lib/sourceVersionedSingleFlight.js";
+import type { ReviewInboxItem } from "@yep-anywhere/shared";
 import type { ProjectScanner } from "../projects/scanner.js";
-import type { ReviewCommentService } from "../review/ReviewCommentService.js";
+import type { ReviewProject } from "../review/ReviewInboxSources.js";
 
 /** Backstop for project-set changes, which publish no review event yet. */
 const DEFAULT_PROJECT_SET_TTL_MS = 5_000;
 const MAX_REVIEW_INBOX_RETARGETS = 4;
 
 interface ReviewInboxProjection {
-  items: Array<Record<string, unknown>>;
+  items: ReviewInboxItem[];
 }
 
 export interface ReviewInboxDeps {
-  scanner: Pick<ProjectScanner, "listProjects">;
-  service: Pick<ReviewCommentService, "getStoreFile" | "getStateRevision">;
+  scanner: Pick<ProjectScanner, "readRetainedProjects" | "listProjects">;
+  inbox: {
+    readonly revision: number;
+    read(projects: readonly ReviewProject[]): Promise<ReviewInboxItem[]>;
+  };
   isEnabled: () => boolean;
   projectSetTtlMs?: number;
   now?: () => number;
@@ -40,50 +44,18 @@ export function createReviewInboxRoutes(deps: ReviewInboxDeps): Hono {
   const currentSourceVersion = (): string => {
     const projectSetVersion =
       ttlMs > 0 ? String(Math.floor(now() / ttlMs)) : "uncached";
-    return `${deps.service.getStateRevision()}:${projectSetVersion}`;
+    return `${deps.inbox.revision}:${projectSetVersion}`;
   };
 
   const buildProjection = async (): Promise<ReviewInboxProjection> => {
-    const projects = await deps.scanner.listProjects();
-    const items = (
-      await Promise.all(
-        projects.map(async (project) => {
-          const store = await deps.service.getStoreFile(project.path);
-          return store.submissions.flatMap((submission) =>
-            submission.responseRevision > submission.acknowledgedRevision
-              ? [
-                  {
-                    projectId: project.id,
-                    projectName: project.name,
-                    submissionId: submission.id,
-                    name: submission.name,
-                    targetSessionId: submission.targetSessionId,
-                    responseRevision: submission.responseRevision,
-                    outcomes: submission.entryRefs.flatMap((ref) => {
-                      const site = store.sites.find(
-                        (item) => item.id === ref.siteId,
-                      );
-                      const outcome = site?.outcomes
-                        .filter((item) => item.entryId === ref.entryId)
-                        .at(-1);
-                      return site && outcome
-                        ? [{ ...outcome, siteId: site.id, path: site.path }]
-                        : [];
-                    }),
-                  },
-                ]
-              : [],
-          );
-        }),
-      )
-    )
-      .flat()
-      .sort(
-        (left, right) =>
-          (right.responseRevision as number) -
-          (left.responseRevision as number),
-      );
-    return { items };
+    // A saved snapshot can be served during restart refresh. Newly
+    // discovered projects join the next project-set bucket.
+    const view = await deps.scanner.readRetainedProjects();
+    const projects =
+      view.complete && !view.refreshError
+        ? view.projects
+        : await deps.scanner.listProjects();
+    return { items: await deps.inbox.read(projects) };
   };
 
   routes.get("/review/inbox", async (c) => {
@@ -94,10 +66,9 @@ export function createReviewInboxRoutes(deps: ReviewInboxDeps): Hono {
       );
     }
     // Every accepted mutation bumps the revision. The coarse time bucket is the
-    // backstop for a project appearing with review state already on disk, which
-    // publishes no review event today. A zero TTL deliberately gives each
-    // request a distinct, unretained version while revision freshness remains
-    // testable at completion.
+    // backstop for newly visible projects. The source separately rechecks
+    // previously empty paths for out-of-band file imports. With a zero TTL,
+    // each request gets a distinct version and still checks its revision.
     let projection: ReviewInboxProjection | undefined;
     for (let attempt = 0; attempt < MAX_REVIEW_INBOX_RETARGETS; attempt += 1) {
       const observedVersion = currentSourceVersion();

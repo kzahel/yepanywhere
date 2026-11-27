@@ -118,6 +118,9 @@ describe("review response ingestion", () => {
 
   it("accepts only complete snapshots and appends changed outcomes", async () => {
     const svc = service();
+    const readInbox = () =>
+      svc.inbox.read([{ id: "p", path: dir, name: "Project" }]);
+    expect(await readInbox()).toEqual([]);
     const entry = await accept(svc, dir, "submission-1", "session-1");
     const complete = {
       version: 1,
@@ -134,6 +137,16 @@ describe("review response ingestion", () => {
     await writeResponse(svc, dir, "submission-1", complete);
     await expect(svc.observeAssistantTurn(dir, "session-1")).resolves.toEqual([
       { submissionId: "submission-1", status: "ingested" },
+    ]);
+    expect(await readInbox()).toMatchObject([
+      {
+        projectId: "p",
+        submissionId: "submission-1",
+        responseRevision: 1,
+        outcomes: [
+          { entryId: entry.entryId, text: "Implemented the requested change." },
+        ],
+      },
     ]);
     await expect(svc.observeAssistantTurn(dir, "session-1")).resolves.toEqual([
       { submissionId: "submission-1", status: "unchanged" },

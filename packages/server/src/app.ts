@@ -1014,11 +1014,8 @@ export function createApp(options: AppOptions): AppResult {
           sessionReadLifetime.signal,
         );
       let rows = await read();
-      const state = catalog.getState();
-      if (
-        !state.complete &&
-        (state.refreshing || state.refreshError === undefined)
-      ) {
+      const { complete, refreshing, refreshError } = catalog.getState();
+      if (!complete && (refreshing || refreshError === undefined)) {
         await catalog.refresh();
         rows = await read();
       }
@@ -3953,7 +3950,7 @@ export function createApp(options: AppOptions): AppResult {
     "/api",
     createReviewInboxRoutes({
       scanner,
-      service: reviewCommentService,
+      inbox: reviewCommentService.inbox,
       isEnabled: sourceReviewSubmissionsEnabled,
     }),
   );
