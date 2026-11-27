@@ -72,6 +72,13 @@ describe.skipIf(process.platform === "win32")("agy --version probe", () => {
     return path;
   }
 
+  async function readProbePid(marker: string) {
+    // Opening the marker can make it visible before the writer publishes the PID.
+    const contents = await readFile(marker, "utf8");
+    expect(contents).toMatch(/^[1-9]\d*\n$/);
+    return Number(contents);
+  }
+
   it("runs without YA credentials", async () => {
     vi.stubEnv("AUTH_COOKIE_SECRET", "COOKIE_CANARY");
     vi.stubEnv("AGENT_YA_V0_AUTHORIZATION", "V0_CANARY");
@@ -109,15 +116,22 @@ describe.skipIf(process.platform === "win32")("agy --version probe", () => {
         controller.signal,
         ending === "deadline" ? 1_000 : 60_000,
       );
-      if (ending === "cancel") {
-        await vi.waitFor(() => readFile(marker, "utf8"), { timeout: 5_000 });
+      try {
+        const helper = await vi.waitFor(() => readProbePid(marker), {
+          timeout: 5_000,
+        });
+        if (ending === "cancel") controller.abort();
+        expect(await probe).toBe(expected);
+        await vi.waitFor(
+          () => expect(() => process.kill(helper, 0)).toThrow(),
+          {
+            timeout: 2_000,
+          },
+        );
+      } finally {
         controller.abort();
+        await probe;
       }
-      expect(await probe).toBe(expected);
-      const helper = Number(await readFile(marker, "utf8"));
-      await vi.waitFor(() => expect(() => process.kill(helper, 0)).toThrow(), {
-        timeout: 2_000,
-      });
     },
   );
 
@@ -154,8 +168,8 @@ process.exit(0);`,
       const marker = join(directory, "pid");
       const agy = await script(
         "agy",
-        `require('node:fs').writeFileSync(${JSON.stringify(marker)}, String(process.pid));
-process.on('SIGTERM', () => {});
+        `process.on('SIGTERM', () => {});
+require('node:fs').writeFileSync(${JSON.stringify(marker)}, String(process.pid) + '\\n');
 setInterval(() => {}, 1000);`,
       );
       const controller = new AbortController();
@@ -165,14 +179,18 @@ setInterval(() => {}, 1000);`,
         controller.signal,
         ending === "deadline" ? 1_500 : 60_000,
       );
-      if (ending === "cancel") {
-        await vi.waitFor(() => readFile(marker, "utf8"), { timeout: 5_000 });
+      try {
+        const pid = await vi.waitFor(() => readProbePid(marker), {
+          timeout: 5_000,
+        });
+        if (ending === "cancel") controller.abort();
+        expect(await probe).toBeUndefined();
+        expect(Date.now() - started).toBeLessThan(5_000);
+        expect(() => process.kill(pid, 0)).toThrow();
+      } finally {
         controller.abort();
+        await probe;
       }
-      expect(await probe).toBeUndefined();
-      expect(Date.now() - started).toBeLessThan(5_000);
-      const pid = Number(await readFile(marker, "utf8"));
-      expect(() => process.kill(pid, 0)).toThrow();
     },
   );
 });

@@ -135,7 +135,12 @@ export async function openSessionPage(
       );
       if (options.holdSessionRead && !url.pathname.endsWith("/metadata"))
         await options.holdSessionRead;
-      const response = await route.fetch({ url: url.toString() });
+      // CI 45989416770 saw the fixture GET reset before the app could load.
+      // Playwright retries only ECONNRESET here; the header actions run once.
+      const response = await route.fetch({
+        url: url.toString(),
+        maxRetries: 1,
+      });
       const body = await response.json();
       await route.fulfill({
         response,
