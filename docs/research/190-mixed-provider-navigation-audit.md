@@ -199,7 +199,7 @@ With 60 writes about 100 ms apart and one immediate test hint per write, at both
 
 ## New Session reads the whole catalog for recent visits on open and after background writes
 
-**Next CPU task.** Bound the retained recent-visits lookup to the saved visit IDs. The New Session page includes recent visits in its initial settings stream. While the page is open, completed catalog updates can prompt a separate recents GET. The server loads every native catalog row, projects their public identities and groups all candidates before selecting the visits. [Client refresh events](../../packages/client/src/hooks/useRecentSessions.ts) · [Streamed bootstrap](../../packages/server/src/routes/new-session-bootstrap.ts) · [Retained recents handler](../../packages/server/src/routes/recents.ts)
+**Pre-fix finding.** Bound the retained recent-visits lookup to the saved visit IDs. The New Session page includes recent visits in its initial settings stream. While the page is open, completed catalog updates can prompt a separate recents GET. The server loads every native catalog row, projects their public identities and groups all candidates before selecting the visits. [Client refresh events](../../packages/client/src/hooks/useRecentSessions.ts) · [Streamed bootstrap](../../packages/server/src/routes/new-session-bootstrap.ts) · [Retained recents handler](../../packages/server/src/routes/recents.ts)
 
 The `requests` case opened New Session with an empty history, visited ten mixed sessions from Inbox twice, and reopened New Session. It then appended to a visited Claude file, a visited Codex file and an unvisited Codex file, waiting for the driver's exact SQLite version each time. The last control repeated the unvisited write with the browser back on Inbox. The table shows two sequential large-profile runs after the workspace test gate finished on this macOS host. The second used the checked-in harness, which also counts unstable source rows. The small profile produced the same row counts in both runs. Timing ranges cover completed HTTP responses, including the other parts of the initial bootstrap. Every run waited for the expected browser response, settled other finite API calls and checked the returned IDs, providers, projects, order and catalog status.
 
@@ -217,6 +217,51 @@ All three refreshes returned identical enriched visit records. The appends chang
 Preserve current project reassignment, public/native identity and ambiguity handling, newest-first visit order, unresolved visits and catalog completeness. In particular, an identity conflict outside the list can currently make the response incomplete. The retained collection query already indexes sources by public ID and by instability. Bring that projection to the current catalog generation before looking up the visits and checking whether any conflict exists (`unstable=2`). Synchronization can revisit other unstable rows, and starting directly on New Session can still require a first projection build. Account for the existing identity-binding side effect on a fresh store. Verify the bounded implementation against two candidates matching the same visit, a reassigned project, archived and unresolved visits, an unrelated identity conflict with zero visits, and limited-user error visibility. The Inbox and session-list queries returned zero unstable source rows in both instrumented runs. The current recents handler does its own projection. The current workload measures resolved visits in an operator profile; it does not qualify those semantics. [Existing catalog-reader gap](../../gaps/v0-session-lists-and-misses-read-the-whole-catalog.md) · [Retained query identity status](../../packages/server/src/services/retained-session-query.ts)
 
 A separate check explains the two transcript GETs seen per open in both populations. Each circuit of ten included ten bounded history responses and ten cursor responses containing zero messages. The subsequent call can catch a write between the first read and attachment of a focused watch. The recents scan has a clearer path to savings while preserving freshness. [Focused watcher catch-up](../../packages/client/src/hooks/useSession.ts)
+
+### Bounded recent visits
+
+The same New Session bootstrap and update replays now use the shared collection index.
+The two disposable profiles had ten visited Claude/Codex sessions and either 50
+or 8,370 unrelated sessions. The browser opened all ten sessions twice and
+verified the latest answer in the viewport on every open.
+
+| Recents work per request | Previous complete catalog rows, small / large | New complete catalog rows, small / large | New indexed visit candidates, small / large |
+| --- | ---: | ---: | ---: |
+| Warm New Session bootstrap, empty history | 60 / 8,380 | 0 / 0 | 0 / 0 |
+| Warm bootstrap, ten visits | 60 / 8,380 | 0 / 0 | 10 / 10 |
+| Update to a visited Claude, visited Codex or unvisited Codex session | 60 / 8,380 | 0 / 0 | 10 / 10 |
+
+Each append triggered one recents GET while New Session was open. All three
+returned the same ten enriched records in the same order as the bootstrap.
+The unvisited append on Inbox triggered zero recents GETs. In the large profile
+the unvisited-write GET went from 197 ms in the earlier baseline to 9 ms in
+each of two post-fix runs. These are request durations on one development
+host. Row counts are the regression check. Sync on the two Codex refreshes
+read one changed catalog row apiece in the final large replay. None of these
+warm requests read a hash inventory or a complete metadata table. Three direct
+reads around concurrent Claude and Codex appends returned thirty visit
+candidates in total and the same ten records each time. SQLite's query plan
+used the public-ID index for membership and the instability index for the global
+conflict check.
+
+**First collection request on a fresh profile.** The runner also requested
+empty recents directly after native discovery, before opening Inbox. With no
+checkpoint the first request built the shared index, reading 60 or 8,380
+native rows in 26 or 697 ms respectively. Its immediate repeat took 1 ms at
+both sizes, and the next Inbox open reused that build. With Inbox opened
+first, the initial Inbox read paid this cost and the first New Session bootstrap
+read zero complete rows. Queries share a queue, so another read can wait for
+an in-progress build. An outdated checkpoint or a lost change window can also
+require rebuilding. Filesystem-dependent identities and conflicts still receive
+conservative revalidation.
+
+The route tests cover first-read identity adoption, distinct public and native
+IDs, duplicate candidates, moved projects, archived sessions, missing visits,
+unobserved and null titles, and limited-user visibility. A publication during
+synchronization returns the title from the reported generation, and a restored
+checkpoint serves the saved title. An unrelated link conflict makes even an
+empty result incomplete and clearing it restores completeness.
+[Query contract](../../topics/session-collection-queries.md#recent-visits-on-new-session) · [Replay](../../scripts/perf-repro/mixed-navigation-requests.mjs)
 
 ## Replaying the mixed-profile experiments
 
@@ -246,7 +291,7 @@ The runner prints the path to its JSON result. Use `--out NEW.json` to choose an
 - **Runtime lifecycle** checks the compiled worker independently. After `pnpm --filter @yep-anywhere/server build`, run `node scripts/perf-repro/focused-watch-runtime.mjs` on macOS and repeat with `bun` as its argument. An external writer changes the file while the child owns a referenced watch. A separate unreferenced child must exit naturally.
 - **Arrival** closes the browser after the first Inbox visit. After an initial watcher update and a quiet control, it appends to each provider, creates a Claude session, creates two Codex sessions separately, then writes three more in a burst. It creates a rollout for a second known project in that same date directory and verifies the first append after opening its detail. Each change waits for its exact catalog row or source version in SQLite. Validation reads check the project count and each new session's ID and answer, outside the mutation sample. A separate localhost client polls authentication status during each sample to measure interference. The native-index fixture updates the new rollout's thread path, cwd and timestamp as it writes the file. The rollout store is separate from Codex's private CLI home so CLI startup cannot backfill the indexless control. The runner checks the database's presence and successful watcher queries against its exact path.
 - **Freshness** traces the first two Claude appends, twelve spaced writes and sixty faster writes after one Inbox visit. Run `mixed --case freshness --population 8370`. Repeat with `--startup-control wait` (no browser until startup watches and the port project lookup finish), `--startup-control observe-first` (also hold first discovery until observation begins), and `--startup-control empty-ports` (omit only the app-port caller's project list in the empty-declaration fixture). Repeat at 50. Use `--raw-hints` to add a diagnostic callback on each real write. After 12 seconds without the expected SQLite version, the replay records a separate sample before sending one rescue hint. Every result indicates whether rescue was needed. Intermediate versions are sampled before subsequent writes and form a lower bound.
-- **Requests** runs real New Session visits and ten-session circuits. Run `mixed --case requests --population 50`, then repeat at 8,370. It records transcript request shapes, returned message counts and sizes, and recents returned both in the settings stream and in subsequent GETs. Unvisited-file writes with New Session and Inbox open provide the comparison.
+- **Requests** runs real New Session visits and ten-session circuits. Run `mixed --case requests --population 50`, then repeat at 8,370. It records transcript request shapes, returned message counts and sizes, and recents returned both in the settings stream and in subsequent GETs. It measures the first direct recents read before Inbox, its immediate repeat, and warm bootstraps. Unvisited-file writes with New Session and Inbox open provide the comparison. Three direct reads bracket concurrent Claude and Codex writes.
 - **Review** measures first Inbox access and three fresh five-second cache windows, each followed by a same-window repeat. Both project-count cells contain 2,010 sessions.
 
 The preload measures selected SQL statement times and returned rows, successful provider-root async stat, readdir, open and readFile calls, and logical bytes from wrapped file reads and createReadStream. The remaining catalog SELECTs have separate aggregate counters. `fullRows` counts the full native row SELECT, `hashInventoryRows` the separate catalog hash inventory, and `catalogUpserts` actual native row upserts. Each snapshot waits for finite API requests to finish or close. Request starts, closes, completed response statuses and longest completed request are recorded separately. The ten-second draft-change long poll may cross a boundary. SQL/filesystem work is charged at completion to the active API request or to background. Full-read stacks identify the SQL caller. For provider async stats, the probe samples the first call start and every 512th thereafter, capped at 16 examples per provider per window. The samples identify possible call paths and do not estimate their proportions. Process CPU covers everything in the sample, including the probe. Client round trips include time waiting for the server to handle the request. The result also records the server event-loop histogram (10 ms resolution), Git revision and dirty state, client bundle hash, host samples and per-open browser elapsed times. [Replay runner](../../scripts/perf-repro/mixed-navigation.mjs) · [Isolated fixture](../../scripts/perf-repro/mixed-navigation-fixture.mjs) · [Probe](../../scripts/perf-repro/mixed-navigation-probe.mjs)

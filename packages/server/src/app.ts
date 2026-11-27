@@ -3020,6 +3020,16 @@ export function createApp(options: AppOptions): AppResult {
     );
   }
 
+  const retainedQueryDeps = {
+    signal: sessionReadLifetime.signal,
+    sessionMetadataService: options.sessionMetadataService,
+    supervisor,
+    externalTracker,
+    notificationService: options.notificationService,
+    sessionAutoArchiveDays: options.sessionAutoArchiveDays,
+    projectDisplayName,
+    providerChildRelationships,
+  };
   // Mount API routes
   app.route(
     "/api/browser-debug",
@@ -3031,20 +3041,7 @@ export function createApp(options: AppOptions): AppResult {
     createProjectsRoutes({
       providerChildRelationships,
       readProjectCardGroups: (id) =>
-        readProjectCardGroups(
-          retainedCollections,
-          {
-            signal: sessionReadLifetime.signal,
-            sessionMetadataService: options.sessionMetadataService,
-            supervisor,
-            externalTracker,
-            notificationService: options.notificationService,
-            sessionAutoArchiveDays: options.sessionAutoArchiveDays,
-            projectDisplayName,
-            providerChildRelationships,
-          },
-          id,
-        ),
+        readProjectCardGroups(retainedCollections, retainedQueryDeps, id),
       signal: sessionReadLifetime.signal,
       scanner,
       projectAppStore,
@@ -3607,15 +3604,11 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/inbox",
     createInboxRoutes({
-      signal: sessionReadLifetime.signal,
+      ...retainedQueryDeps,
       retainedCollections,
       scanner,
       readerFactory,
-      supervisor,
-      externalTracker,
-      notificationService: options.notificationService,
       sessionIndexService: options.sessionIndexService,
-      sessionMetadataService: options.sessionMetadataService,
       projectQueueService: options.projectQueueService,
       codexScanner,
       codexSessionsDir,
@@ -3628,8 +3621,6 @@ export function createApp(options: AppOptions): AppResult {
       piSessionsDir,
       piReaderFactory,
       eventBus: options.eventBus,
-      sessionAutoArchiveDays: options.sessionAutoArchiveDays,
-      projectDisplayName,
     }),
   );
 
@@ -3742,16 +3733,11 @@ export function createApp(options: AppOptions): AppResult {
   app.route(
     "/api/sessions",
     createGlobalSessionsRoutes({
-      providerChildRelationships,
-      signal: sessionReadLifetime.signal,
+      ...retainedQueryDeps,
       retainedCollections,
       scanner,
       readerFactory,
-      supervisor,
-      externalTracker,
-      notificationService: options.notificationService,
       sessionIndexService: options.sessionIndexService,
-      sessionMetadataService: options.sessionMetadataService,
       getClearloopBadge,
       codexScanner,
       codexSessionsDir,
@@ -3764,8 +3750,6 @@ export function createApp(options: AppOptions): AppResult {
       piSessionsDir,
       piReaderFactory,
       eventBus: options.eventBus,
-      sessionAutoArchiveDays: options.sessionAutoArchiveDays,
-      projectDisplayName,
     }),
   );
 
@@ -3962,11 +3946,9 @@ export function createApp(options: AppOptions): AppResult {
     app.route(
       "/api/recents",
       createRecentsRoutes({
-        signal: sessionReadLifetime.signal,
+        ...retainedQueryDeps,
         recentsService: options.recentsService,
         retainedCollections,
-        projectDisplayName,
-        sessionMetadataService: options.sessionMetadataService,
         scanner,
         readerFactory,
         sessionIndexService: options.sessionIndexService,

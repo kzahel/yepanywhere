@@ -1,5 +1,9 @@
 import { ProjectCardCounts } from "./project-card-counts.js";
-import { fromUrlProjectId, isUrlProjectId } from "@yep-anywhere/shared";
+import {
+  fromUrlProjectId,
+  isUrlProjectId,
+  type UrlProjectId,
+} from "@yep-anywhere/shared";
 import { isDetachedProjectPath } from "../projects/paths.js";
 import { isNamedSidebarSession } from "./sidebar-named-section.js";
 import type {
@@ -37,6 +41,7 @@ export interface CollectionStoredRow {
   parent_json: string | null;
 }
 export interface CollectionSource {
+  recent_title_json: string | null;
   card_provider: import("@yep-anywhere/shared").ProviderName | null;
   key: string;
   public_id: string | null;
@@ -71,7 +76,7 @@ export class SessionCollectionSql {
         total INTEGER NOT NULL, archived INTEGER NOT NULL, starred INTEGER NOT NULL,
         unread INTEGER NOT NULL, PRIMARY KEY(project_id,provider,executor));
       CREATE TEMP TABLE ${p}_sources (key TEXT PRIMARY KEY,public_id TEXT,
-        project_id TEXT,project_path TEXT,ordinal INTEGER NOT NULL,unstable INTEGER NOT NULL,card_provider TEXT);
+        project_id TEXT,project_path TEXT,ordinal INTEGER NOT NULL,unstable INTEGER NOT NULL,card_provider TEXT,recent_title_json TEXT);
       CREATE INDEX ${p}_source_id ON ${p}_sources(public_id,ordinal);
       CREATE INDEX ${p}_source_project ON ${p}_sources(project_id,ordinal DESC);
       CREATE INDEX ${p}_unstable ON ${p}_sources(unstable);
@@ -149,13 +154,37 @@ export class SessionCollectionSql {
   }
   source(key: string) {
     return this.prepare(
-      `SELECT * FROM ${this.prefix}_sources WHERE key=?`,
-    ).get<CollectionSource>(key);
+      `SELECT public_id,project_id,ordinal FROM ${this.prefix}_sources WHERE key=?`,
+    ).get<Pick<CollectionSource, "public_id" | "project_id" | "ordinal">>(key);
   }
   sourcesFor(id: string) {
     return this.prepare(
-      `SELECT * FROM ${this.prefix}_sources WHERE public_id=? ORDER BY ordinal`,
-    ).all<CollectionSource>(id);
+      `SELECT key,project_id,card_provider,ordinal FROM ${this.prefix}_sources WHERE public_id=? ORDER BY ordinal`,
+    ).all<
+      Pick<CollectionSource, "key" | "project_id" | "card_provider" | "ordinal">
+    >(id);
+  }
+  recentSources(ids: readonly string[]) {
+    if (!ids.length) return [];
+    return this.prepare(
+      `SELECT public_id,project_id,project_path,card_provider,recent_title_json FROM ${this.prefix}_sources WHERE public_id IN (SELECT value FROM json_each(?))`,
+    )
+      .all<{
+        public_id: string;
+        project_id: UrlProjectId;
+        project_path: string;
+        card_provider: NonNullable<CollectionSource["card_provider"]>;
+        recent_title_json: string | null;
+      }>(JSON.stringify(ids))
+      .map((row) => ({
+        sessionId: row.public_id,
+        projectId: row.project_id,
+        projectPath: JSON.parse(row.project_path) as string,
+        provider: row.card_provider,
+        ...(row.recent_title_json === null
+          ? {}
+          : { title: JSON.parse(row.recent_title_json) as string | null }),
+      }));
   }
   sourceProjects() {
     return this.prepare(
@@ -174,6 +203,11 @@ export class SessionCollectionSql {
       ).get(),
     );
   }
+  hasIdentityConflicts() {
+    return !!this.prepare(
+      `SELECT 1 FROM ${this.prefix}_sources WHERE unstable=2 LIMIT 1`,
+    ).get();
+  }
   unstableSources() {
     return this.prepare(
       `SELECT key,unstable FROM ${this.prefix}_sources WHERE unstable>0`,
@@ -181,7 +215,7 @@ export class SessionCollectionSql {
   }
   putSource(row: CollectionSource) {
     this.prepare(
-      `INSERT INTO ${this.prefix}_sources VALUES(?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET public_id=excluded.public_id,project_id=excluded.project_id,project_path=excluded.project_path,unstable=excluded.unstable,card_provider=excluded.card_provider`,
+      `INSERT INTO ${this.prefix}_sources VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET public_id=excluded.public_id,project_id=excluded.project_id,project_path=excluded.project_path,unstable=excluded.unstable,card_provider=excluded.card_provider,recent_title_json=excluded.recent_title_json`,
     ).run(
       row.key,
       row.public_id,
@@ -190,6 +224,7 @@ export class SessionCollectionSql {
       row.ordinal,
       row.unstable,
       row.card_provider,
+      row.recent_title_json,
     );
   }
   refreshProject(id: string) {

@@ -235,6 +235,10 @@ it("withholds an OpenCode row whose bound project link changed and rechecks it",
   const conflicted = await projectCatalogIdentityResult([native], metadata);
   expect(conflicted.rows).toEqual([]);
   expect(conflicted.conflicts).toEqual([native]);
+  expect(
+    (await retainedSessionQuery(collection, deps).recentVisits([])).catalog
+      .complete,
+  ).toBe(false);
   const partial = await readRetainedSessionItems(collection, deps);
   expect(partial.sessions.map((session) => session.id)).toEqual([
     healthy.sessionId,
@@ -276,6 +280,10 @@ it("withholds an OpenCode row whose bound project link changed and rechecks it",
     [],
   );
   await symlink(physical, alias, linkType);
+  expect(
+    (await retainedSessionQuery(collection, deps).recentVisits([])).catalog
+      .complete,
+  ).toBe(true);
   const recovered = await readRetainedSessionItems(collection, deps);
   expect(recovered.sessions.map((session) => session.id).sort()).toEqual(
     [id, healthy.sessionId].sort(),

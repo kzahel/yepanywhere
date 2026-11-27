@@ -168,11 +168,10 @@ export class RetainedSessionCollections {
   }
 
   getState(): RetainedSessionCollectionState {
-    const snapshot = this.catalog.getSnapshot();
+    const token = this.catalog.getToken();
     return {
-      catalogEpoch: snapshot.catalogEpoch,
-      catalogGeneration: snapshot.catalogGeneration,
-      complete: this.discovered || snapshot.catalogGeneration > 0,
+      ...token,
+      complete: this.discovered || token.catalogGeneration > 0,
       refreshing: Boolean(this.work || this.timer),
       ...(this.refreshError ? { refreshError: this.refreshError } : {}),
     };
@@ -211,6 +210,13 @@ export class RetainedSessionCollections {
     );
     this.controller.signal.throwIfAborted();
     return accepted.rows;
+  }
+
+  async readState() {
+    await this.initialize();
+    this.controller.signal.throwIfAborted();
+    this.schedule();
+    return this.getState();
   }
 
   async read() {

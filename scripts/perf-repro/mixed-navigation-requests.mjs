@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 export async function replayNavigationRequests({
   page,
   baseUrl,
+  readRecents,
   fixture,
   result,
   open,
@@ -168,9 +169,52 @@ export async function replayNavigationRequests({
     await sample("inbox-control-write");
     assert(!recentIds.some((row) => row.phase === "inbox-control"));
     assert(recentIds.some((row) => row.phase === "populated"));
+    phase = "concurrent-writes";
+    const before = await readRecents();
+    const [during] = await Promise.all([
+      readRecents(),
+      append(fixture.active[0]),
+      append(fixture.active[1]),
+    ]);
+    const after = await readRecents();
+    for (const body of [during, after]) {
+      assert.deepEqual(
+        body.visits.map((v) => v.sessionId),
+        newestFirst,
+      );
+      assert.equal(
+        digest(JSON.stringify(body.recents)),
+        recentIds.find((r) => r.phase === "populated").enrichedHash,
+      );
+      assert(body.catalog.complete && !body.catalog.refreshError);
+    }
+    assert(after.catalog.catalogGeneration > before.catalog.catalogGeneration);
+    assert(after.catalog.catalogGeneration >= during.catalog.catalogGeneration);
+    await sample(phase);
+    for (const [name, route, expected] of [
+      ["repeat-direct-recents", "GET /api/recents", 0],
+      ["concurrent-writes", "GET /api/recents", 30],
+      ["empty-new-session", "GET /api/settings", 0],
+      ["populated-new-session", "GET /api/settings", 10],
+      ...["claude-write", "codex-write", "unvisited-write"].map((name) => [
+        name,
+        "GET /api/recents",
+        10,
+      ]),
+    ]) {
+      const counts = result.phases[name].lanes[route] ?? {};
+      assert.equal(counts.fullReads ?? 0, 0, name);
+      assert.equal(counts.hashInventoryReads ?? 0, 0, name);
+      assert.equal(counts.metadataFullReads ?? 0, 0, name);
+      assert.equal(counts.recentSourceRows ?? 0, expected, name);
+    }
     for (const row of recentIds.filter(
       (row) => row.phase === "populated" || row.phase.endsWith("-write"),
     )) {
+      assert.equal(
+        row.enrichedHash,
+        recentIds.find((r) => r.phase === "populated").enrichedHash,
+      );
       assert.deepEqual(row.visits, newestFirst);
       assert.deepEqual(row.enriched, newestFirst);
     }

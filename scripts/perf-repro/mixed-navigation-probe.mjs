@@ -102,6 +102,20 @@ DatabaseSync.prototype.prepare = function (sql) {
     )
   )
     queries.set(statement, "unstableSource");
+  else if (
+    /FROM collection_query_\d+_sources WHERE public_id IN \(SELECT value FROM json_each\(\?\)\)/i.test(
+      normalized,
+    )
+  )
+    queries.set(statement, "recentSource");
+  else if (
+    /\bFROM session_metadata WHERE session_id (?:= \?|IN \(SELECT value FROM json_each\(\?\)\))$/i.test(
+      normalized,
+    )
+  )
+    queries.set(statement, "metadataPoint");
+  else if (/\bFROM session_metadata$/i.test(normalized))
+    queries.set(statement, "metadataFull");
   else if (/^SELECT .*\bFROM session_catalog\b/i.test(normalized))
     queries.set(statement, "otherCatalogSelect");
   return statement;

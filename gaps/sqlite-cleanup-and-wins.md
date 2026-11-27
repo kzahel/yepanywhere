@@ -229,18 +229,16 @@ The catalog findings (cache budget below the catalog's size, pathless
 invalidation from the issue indexer, double publication) are recorded in
 [session catalog rewrites](session-catalog-rewrites-whole-generation-per-change.md).
 
-15. Still open; cheaper by a constant factor since plan 189 step 7, which
-    keeps each bound row's identity projection: recents takes 1.5 ms (was 27)
-    and a project card 10 ms (was 37), but recents,
-    the issue routes and the session-access catalog still walk every row, and
-    content search and the conversation source scan memory for one row
-    (about 0.1 ms). Original finding:
+15. Partially addressed. The issue and session-access fallback readers still
+    walk the catalog, and content search and the conversation source scan
+    memory for one row. Original finding:
     **Whole-catalog reads answer point questions.**
     - Content search reads the full catalog per 128-record batch, and again
       in `isCurrent`, to find one row by linear search
       (`routes/session-content-search.ts:109-111`, `:152-157`).
-    - Recents projects all 7,470 identities to enrich at most 100 visits
-      (`routes/recents.ts:67-75`).
+    - Retained recents now selects public sources by visit ID. Ten visits in
+      an 8,380-session profile read ten indexed sources on warm revalidation.
+      [Mixed-provider evidence](../docs/research/190-mixed-provider-navigation-audit.md#bounded-recent-visits)
     - Fixed 2026-11-26: project cards with creations now use indexed counts
       in the shared retained query. [Generated rollout results](active-session-tab-background-cost.md#project-card-counts-with-saved-creations--2026-11-26)
       cover individual and retained-list requests.

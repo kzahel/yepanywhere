@@ -26,7 +26,7 @@ TEMP storage is unchanged (file-backed defaults in the checked Node 25/Bun 1.3.1
 builds). A derived durable checkpoint can restore the working tables; it has
 no authority over canonical facts.
 
-A WeakMap shares the owner across lists, Inbox and tabs. Replacing dependencies
+Lists, Inbox, project cards and retained recents share the same owner across tabs. Replacing dependencies
 retires it. Collection abort removes subscriptions, finalizes its bounded
 8-statement LRU and drops its tables. Reads serialize through one promise
 chain; a failed partial synchronization forces a full replacement next time.
@@ -80,6 +80,26 @@ Checkpoints from before this attention rule rebuild from canonical facts.
 Active and queued selections use separate bounded queries before merging. Archive expiry visits indexed rows crossing the cutoff, in chunks without decoding response JSON, including
 clock reversal or disabling automatic archive; explicit metadata wins.
 Recaps advance display time, never provider unread time.
+
+### Recent visits on New Session
+
+The settings bootstrap and subsequent retained recents requests resolve the
+saved visits in newest-first order. A visit needs exactly one public source
+matching its saved or current working project. Archived sessions can resolve.
+Missing and ambiguous visits remain in visit history. Current project names,
+working projects and provider overrides apply on each read. A source with an
+unknown title omits it, while a known null title remains null. Project grants
+and personal visibility apply to both the visits and their enriched entries.
+
+Once the shared index is current, a stable read selects sources by the saved
+public IDs. An empty visit list needs only catalog status. Changed or unstable
+identities synchronize through the ordinary query owner. An identity conflict
+anywhere in the catalog still marks the response incomplete, including for an
+empty list. Limited principals receive the completeness flag without error
+details. Checkpoint format 5 keeps the source display title alongside its
+identity and project so a concurrent publication cannot mix generations.
+A missing or outdated checkpoint can require one shared build on the first
+collection request, including when New Session opens first.
 
 ### Project card counts
 

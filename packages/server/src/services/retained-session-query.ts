@@ -16,6 +16,7 @@ import { SessionQueryCheckpoint } from "./session-query-checkpoint.js";
 import type { SessionMetadata } from "../metadata/SessionMetadataService.js";
 import {
   isYaSessionId,
+  truncateSessionTitle,
   type NativeSessionRef,
   type ProviderChildSessionSummary,
 } from "@yep-anywhere/shared";
@@ -301,6 +302,14 @@ export class RetainedSessionQuery {
           this.sql.putSource({
             key,
             public_id: publicRow?.sessionId ?? null,
+            recent_title_json:
+              publicRow?.title === undefined
+                ? null
+                : JSON.stringify(
+                    publicRow.title === null
+                      ? null
+                      : truncateSessionTitle(publicRow.title),
+                  ),
             card_provider: publicRow
               ? (publicRow.provider ?? publicRow.catalogFamily)
               : null,
@@ -486,7 +495,7 @@ export class RetainedSessionQuery {
     if (this.checkpoint && revision !== undefined)
       this.checkpoint.save(
         {
-          format: 4,
+          format: 5,
           signature: this.checkpointSignature,
           revision,
           token: this.token,
@@ -559,15 +568,41 @@ export class RetainedSessionQuery {
     );
     return rows.map((row) => this.hydrate(row, children, forInbox));
   }
-  private catalog() {
+  recentVisits(ids: readonly string[]) {
+    return this.run(async () => {
+      const state = await this.service.readState();
+      // Visit metadata is read directly. Only a changed or unstable native
+      // source can change which candidates a visit resolves to.
+      if (
+        !this.token ||
+        this.overflow ||
+        this.needsRestoreIndexes ||
+        state.catalogEpoch !== this.token.catalogEpoch ||
+        state.catalogGeneration !== this.token.catalogGeneration ||
+        this.sql.hasUnstableSources()
+      ) {
+        await this.synchronize(Date.now());
+      }
+      return {
+        sources: this.sql.recentSources(ids),
+        catalog: this.catalog(true),
+      };
+    });
+  }
+  private catalog(includeDiscoveredEmpty = false) {
     const state = this.service.getState();
     return catalogWithIdentityConflicts(
       {
         ...state,
         ...this.token,
-        complete: !!this.token && this.token.catalogGeneration > 0,
+        complete:
+          !!this.token &&
+          (this.token.catalogGeneration > 0 ||
+            (includeDiscoveredEmpty &&
+              state.catalogGeneration === 0 &&
+              state.complete)),
       },
-      this.sql.unstableSources().some((source) => source.unstable === 2),
+      this.sql.hasIdentityConflicts(),
     );
   }
   private pageResult(

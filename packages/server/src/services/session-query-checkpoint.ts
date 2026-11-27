@@ -3,8 +3,8 @@ import type { SqliteDatabase } from "../storage/sqlite.js";
 import type { SessionCatalogToken } from "./SessionCatalogService.js";
 
 export interface QueryCheckpoint {
-  /** Format 4 includes the public project-card membership facts. */
-  format: 4;
+  /** Format 5 stores truncated source titles. Invalidate on title rule changes. */
+  format: 5;
   signature: string;
   revision: number;
   token: SessionCatalogToken;
@@ -15,7 +15,7 @@ export interface QueryCheckpoint {
 const TABLES = {
   rows: "id,project_id,updated_ms,archived,automatic,starred,categorized,unread,attention,active,live,provider,executor,ordinal,native_key,parent_json,name_json,option_visible,search_json,item",
   sources:
-    "key,public_id,project_id,project_path,ordinal,unstable,card_provider",
+    "key,public_id,project_id,project_path,ordinal,unstable,card_provider,recent_title_json",
   cards:
     "key,session_id,project_id,provider,control_provider,control_order,control_updated",
   projects: "project_id,project_path",
@@ -58,7 +58,7 @@ export class SessionQueryCheckpoint {
           try {
             const saved = JSON.parse(state.snapshot) as QueryCheckpoint;
             if (
-              saved.format === 4 &&
+              saved.format === 5 &&
               saved.signature === signature &&
               saved.revision === state.revision &&
               Number.isSafeInteger(saved.nextOrdinal) &&

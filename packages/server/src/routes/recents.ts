@@ -5,7 +5,6 @@ import type {
   UrlProjectId,
 } from "@yep-anywhere/shared";
 import { Hono } from "hono";
-import { truncateSessionTitle } from "@yep-anywhere/shared";
 import { PRINCIPAL_VARIABLE, type Principal } from "../auth/principal.js";
 import type { ISessionIndexService } from "../indexes/types.js";
 import type { CodexSessionScanner } from "../projects/codex-scanner.js";
@@ -13,13 +12,9 @@ import type { GeminiSessionScanner } from "../projects/gemini-scanner.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import type { RecentsService } from "../recents/index.js";
 import { decodeProjectId, getProjectName } from "../projects/paths.js";
-import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
+import type { RetainedItemsDeps } from "./retained-session-collections.js";
+import { retainedSessionQuery } from "../services/retained-session-query.js";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
-import {
-  projectCatalogIdentityResult,
-  catalogWithIdentityConflicts,
-} from "../sessions/catalog-identity.js";
-import type { SessionCatalogRow } from "../sessions/catalog-types.js";
 import type { CodexSessionReader } from "../sessions/codex-reader.js";
 import type { GeminiSessionReader } from "../sessions/gemini-reader.js";
 import { findSessionListSummaryAcrossProviders } from "../sessions/provider-resolution.js";
@@ -28,12 +23,9 @@ import type { PiSessionReader } from "../sessions/pi-reader.js";
 import type { ISessionReader } from "../sessions/types.js";
 import type { Project } from "../supervisor/types.js";
 
-export interface RecentsDeps {
-  signal?: AbortSignal;
+export interface RecentsDeps extends RetainedItemsDeps {
   recentsService: RecentsService;
   retainedCollections?: RetainedSessionCollections;
-  projectDisplayName?: (path: string) => string;
-  sessionMetadataService?: SessionMetadataService;
   scanner: ProjectScanner;
   readerFactory: (project: Project) => ISessionReader;
   sessionIndexService?: ISessionIndexService;
@@ -67,18 +59,12 @@ export function createRecentsRoutes(deps: RecentsDeps) {
     );
 
     if (c.req.query("summaryMode") === "retained" && deps.retainedCollections) {
-      const retained = await deps.retainedCollections.read();
-      const projection = await projectCatalogIdentityResult(
-        retained.rows,
-        deps.sessionMetadataService,
-        deps.signal,
-      );
-      const catalog = catalogWithIdentityConflicts(
-        retained.catalog,
-        projection.conflicts.length > 0,
-      );
-      const bySession = new Map<string, SessionCatalogRow[]>();
-      for (const row of projection.rows) {
+      const { sources, catalog } = await retainedSessionQuery(
+        deps.retainedCollections,
+        deps,
+      ).recentVisits(recents.map((visit) => visit.sessionId));
+      const bySession = new Map<string, typeof sources>();
+      for (const row of sources) {
         const candidates = bySession.get(row.sessionId) ?? [];
         candidates.push(row);
         bySession.set(row.sessionId, candidates);
@@ -87,11 +73,14 @@ export function createRecentsRoutes(deps: RecentsDeps) {
       const enriched: RecentSessionsResponse["recents"] = [];
       const visits: NonNullable<RecentSessionsResponse["visits"]> = [];
       for (const entry of recents) {
-        const candidates = (bySession.get(entry.sessionId) ?? []).filter(
+        const sourcesForVisit = bySession.get(entry.sessionId) ?? [];
+        const metadata = sourcesForVisit.length
+          ? deps.sessionMetadataService?.getMetadata(entry.sessionId)
+          : undefined;
+        const candidates = sourcesForVisit.filter(
           (row) =>
             row.projectId === entry.projectId ||
-            deps.sessionMetadataService?.getMetadata(row.sessionId)
-              ?.workingProjectId === entry.projectId,
+            metadata?.workingProjectId === entry.projectId,
         );
         const row = candidates.length === 1 ? candidates[0] : undefined;
         // Missing from the retained catalog is not evidence of deletion. Do
@@ -100,9 +89,6 @@ export function createRecentsRoutes(deps: RecentsDeps) {
           visits.push(entry);
           continue;
         }
-        const metadata = deps.sessionMetadataService?.getMetadata(
-          row.sessionId,
-        );
         const projectId = metadata?.workingProjectId ?? row.projectId;
         visits.push({ ...entry, projectId });
         enriched.push({
@@ -113,13 +99,8 @@ export function createRecentsRoutes(deps: RecentsDeps) {
               ? row.projectPath
               : decodeProjectId(projectId),
           ),
-          provider: metadata?.provider ?? row.provider ?? row.catalogFamily,
-          ...(row.title !== undefined
-            ? {
-                title:
-                  row.title === null ? null : truncateSessionTitle(row.title),
-              }
-            : {}),
+          provider: metadata?.provider ?? row.provider,
+          ...(row.title !== undefined ? { title: row.title } : {}),
         });
       }
       const { refreshError, ...catalogStatus } = catalog;

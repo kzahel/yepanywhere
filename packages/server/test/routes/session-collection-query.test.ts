@@ -11,6 +11,8 @@ import {
   createGlobalSessionsRoutes,
   type GlobalSessionsDeps,
 } from "../../src/routes/global-sessions.js";
+import { createRecentsRoutes } from "../../src/routes/recents.js";
+import { RecentsService } from "../../src/recents/index.js";
 import { createInboxRoutes } from "../../src/routes/inbox.js";
 import { NotificationService } from "../../src/notifications/NotificationService.js";
 import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
@@ -453,6 +455,13 @@ it("restores a SQL query checkpoint without rehydrating cold metadata", async ()
   const metadata = vi.spyOn(f.metadata, "getMetadataBatch");
   const restored = new RetainedSessionQuery(f.collections, f.deps);
   try {
+    const recent = await restored.recentVisits([f.id(0)]);
+    expect(recent.sources).toMatchObject([
+      { sessionId: f.id(0), title: "Title 0" },
+    ]);
+    expect(recent.catalog.catalogGeneration).toBe(
+      expected.catalog.catalogGeneration,
+    );
     const page = await restored.page({ limit: 10 });
     expect(page.sessions).toEqual(expected.sessions);
     expect(page.stats).toEqual(expected.stats);
@@ -460,6 +469,48 @@ it("restores a SQL query checkpoint without rehydrating cold metadata", async ()
   } finally {
     restored.dispose();
   }
+});
+
+it("uses current working metadata on a stable visit without synchronizing other list overlays", async () => {
+  const f = await fixture(4);
+  const page = await f.get();
+  const session = page.sessions[0];
+  const visits = new RecentsService({ dataDir: f.directory });
+  await visits.recordVisit(session.id, session.projectId);
+  const route = createRecentsRoutes({ ...f.deps, recentsService: visits });
+  const changes = vi.spyOn(f.collections, "readChanges");
+  const moved = toUrlProjectId(join(f.directory, "moved"));
+  await f.metadata.setWorkingProject(session.id, moved, session.projectId);
+  const body = await (await route.request("/?summaryMode=retained")).json();
+  expect(body.recents).toMatchObject([
+    { sessionId: session.id, projectId: moved, projectName: "moved" },
+  ]);
+  expect(changes).not.toHaveBeenCalled();
+});
+
+it("returns the visit title from its reported generation across an overlapping publication", async () => {
+  const f = await fixture(2);
+  const read = f.collections.readChanges.bind(f.collections);
+  vi.spyOn(f.collections, "readChanges").mockImplementationOnce(
+    async (...args) => {
+      const captured = await read(...args);
+      await f.change((rows) =>
+        rows.map((row) => ({ ...row, title: "Changed", sourceVersion: "v2" })),
+      );
+      return captured;
+    },
+  );
+  const { retainedSessionQuery } = await import(
+    "../../src/services/retained-session-query.js"
+  );
+  const query = retainedSessionQuery(f.collections, f.deps);
+  const first = await query.recentVisits([f.id(0)]);
+  const next = await query.recentVisits([f.id(0)]);
+  expect(first.sources[0]?.title).toBe("Title 0");
+  expect(next.sources[0]?.title).toBe("Changed");
+  expect(next.catalog.catalogGeneration).toBeGreaterThan(
+    first.catalog.catalogGeneration,
+  );
 });
 
 it("rejects a checkpoint after canonical changes and interrupted builds", async () => {

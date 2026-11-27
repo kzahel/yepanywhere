@@ -15,11 +15,11 @@ complete read knows whether the catalog can establish absence
 (`404 session_not_found` versus `503 catalog_not_ready`), but a caller polling
 such an id pays it on every request.
 
-The [mixed-provider New Session replay](../docs/research/190-mixed-provider-navigation-audit.md#new-session-reads-the-whole-catalog-for-recent-visits-on-open-and-after-background-writes) reproduces 8,380 full catalog rows per retained recents read even for zero visits. An unvisited Codex append with New Session open triggered the same read for ten unchanged visits. Inbox alone made no recents request for that write.
-
-Other population readers share the cost without being v0:
-`routes/recents.ts`, `routes/session-content-search.ts` and several callers of
-`retainedCollections.read()` in `app.ts`.
+Other population readers share the cost outside v0, including
+`routes/session-content-search.ts` and callers of `retainedCollections.read()`
+in `app.ts`. Retained recent visits now use indexed public sources. The
+[mixed-provider replay](../docs/research/190-mixed-provider-navigation-audit.md#bounded-recent-visits)
+records the separate first-build and warm costs.
 
 The query itself is not the cost. All 8,160 rows came back from a copy of the
 catalog database in about 17 ms, against the 155 ms list read above; on a

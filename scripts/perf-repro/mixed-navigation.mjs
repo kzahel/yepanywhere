@@ -306,6 +306,17 @@ try {
       )
       .toBe(true);
   }
+  const recentsPath = "/api/recents?limit=100&summaryMode=retained";
+  if (scenario === "requests") {
+    for (const phase of ["first-direct-recents", "repeat-direct-recents"]) {
+      const body = await get(recentsPath);
+      assert(body.catalog.complete);
+      assert(!body.catalog.refreshError);
+      assert.deepEqual(body.visits, []);
+      assert.deepEqual(body.recents, []);
+      await snapshot(phase);
+    }
+  }
   browser = await chromium.launch({
     chromiumSandbox: true,
     handleSIGINT: false,
@@ -364,6 +375,7 @@ try {
     await replayNavigationRequests({
       page,
       baseUrl: server.baseUrl,
+      readRecents: () => get(recentsPath),
       fixture,
       result,
       open,

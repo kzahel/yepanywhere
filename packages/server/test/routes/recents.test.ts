@@ -1,14 +1,32 @@
-import type { UrlProjectId } from "@yep-anywhere/shared";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import {
+  nativeSessionRef,
+  parseNativeSessionId,
+  parseYaSessionId,
+  toUrlProjectId,
+  type UrlProjectId,
+} from "@yep-anywhere/shared";
+import { SessionAccessResolver } from "../../src/auth/sessionAccess.js";
+import { createLimitedUsersMiddleware } from "../../src/middleware/limited-users.js";
+import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
+import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
+import { seedRetainedCollection } from "../utils/retained-query-fixture.js";
+import {
+  closeTestDiscoveryDatabases,
+  openTestDiscoveryDatabase,
+} from "../utils/session-metadata-database.js";
 import { Hono } from "hono";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PRINCIPAL_VARIABLE,
   type Principal,
   SUPERUSER,
 } from "../../src/auth/principal.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
-import type { RecentsService } from "../../src/recents/index.js";
-import type { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
+import { RecentsService } from "../../src/recents/index.js";
+import { RetainedSessionCollections } from "../../src/services/RetainedSessionCollections.js";
 import { createRecentsRoutes } from "../../src/routes/recents.js";
 import type { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
@@ -43,90 +61,197 @@ function createSummary(): SessionSummary {
 }
 
 describe("Recents Routes", () => {
-  it("does not scan or prune visits absent from an incomplete retained catalog", async () => {
-    const scan = vi.fn();
-    const readerFactory = vi.fn();
-    const pruneUnresolved = vi.fn();
-    const catalog = {
-      catalogEpoch: "empty",
-      catalogGeneration: 0,
-      complete: false,
-      refreshing: true,
-    };
-    const routes = createRecentsRoutes({
-      recentsService: {
-        getRecentsWithLimit: () => [
-          {
-            sessionId: "unseen",
-            projectId: "proj-1",
-            visitedAt: "2026-01-01T00:00:00Z",
-          },
-        ],
-        pruneUnresolved,
-      } as unknown as RecentsService,
-      scanner: { listProjects: scan } as unknown as ProjectScanner,
-      readerFactory,
-      retainedCollections: {
-        read: async () => ({ rows: [], catalog }),
-      } as unknown as RetainedSessionCollections,
-    });
-    const response = await routes.request("/?summaryMode=retained");
-    expect(await response.json()).toEqual({
-      recents: [],
-      catalog,
-      visits: [
-        {
-          sessionId: "unseen",
-          projectId: "proj-1",
-          visitedAt: "2026-01-01T00:00:00Z",
-        },
-      ],
-    });
-    expect(scan).not.toHaveBeenCalled();
-    expect(readerFactory).not.toHaveBeenCalled();
-    expect(pruneUnresolved).not.toHaveBeenCalled();
+  let directory: string;
+  let retained: RetainedSessionCollections | undefined;
+  afterEach(async () => {
+    await retained?.dispose();
+    retained = undefined;
+    closeTestDiscoveryDatabases();
+    if (directory) await rm(directory, { recursive: true, force: true });
   });
 
-  it("omits unobserved titles and uses the current project display name", async () => {
+  it("keeps missing visits before and after discovery of an empty profile", async () => {
+    directory = await mkdtemp(join(tmpdir(), "ya-empty-recents-"));
+    retained = new RetainedSessionCollections({
+      dataDir: directory,
+      database: openTestDiscoveryDatabase(directory),
+      adapters: async () => [],
+    });
+    const recentsService = new RecentsService({ dataDir: directory });
+    await recentsService.recordVisit("unseen", "proj-1");
     const routes = createRecentsRoutes({
-      recentsService: {
-        getRecentsWithLimit: () => [
-          {
-            sessionId: "known",
-            projectId: "proj-1",
-            visitedAt: "2026-01-01T00:00:00Z",
-          },
-        ],
-      } as unknown as RecentsService,
+      recentsService,
       scanner: {} as ProjectScanner,
       readerFactory: vi.fn(),
-      projectDisplayName: (path) => `Renamed ${path}`,
-      retainedCollections: {
-        read: async () => ({
-          rows: [
-            {
-              sessionId: "known",
-              projectId: "proj-1",
-              projectPath: "/work",
-              catalogFamily: "pi",
-            },
-          ],
-          catalog: {
-            catalogEpoch: "one",
-            catalogGeneration: 1,
-            complete: true,
-            refreshing: false,
+      retainedCollections: retained,
+    });
+    for (const complete of [false, true]) {
+      if (complete) await retained.refresh();
+      const response = await routes.request("/?summaryMode=retained");
+      expect(await response.json()).toEqual({
+        recents: [],
+        catalog: expect.objectContaining({ complete }),
+        visits: recentsService.getRecents(),
+      });
+    }
+  });
+
+  it("resolves visits against all matching public sources and filters the effective project", async () => {
+    directory = await mkdtemp(join(tmpdir(), "ya-visit-sources-"));
+    const database = openTestDiscoveryDatabase(directory);
+    const metadata = new SessionMetadataService({
+      dataDir: directory,
+      database,
+    });
+    await metadata.initialize();
+    const original = toUrlProjectId("/original"),
+      moved = toUrlProjectId("/moved");
+    const makeRow = (
+      sessionId: string,
+      storeKey: string,
+      extra: Partial<SessionCatalogRow> = {},
+    ): SessionCatalogRow => ({
+      catalogFamily: "claude",
+      storeKey,
+      sessionId,
+      projectPath: "/original",
+      projectId: original,
+      projectIdentityKey: "/original",
+      updatedAt: "2026-03-10T09:46:00.000Z",
+      fidelity: "head",
+      sourceVersion: "one",
+      location: { kind: "provider", recordId: sessionId },
+      ...extra,
+    });
+    const remapped = makeRow("native", join(directory, "store-a"), {
+      nativeStorageScope: join(directory, "store-a"),
+      title: null,
+    });
+    const conflict = makeRow("other-native", join(directory, "store-c"), {
+      catalogFamily: "codex",
+      nativeStorageScope: join(directory, "store-c"),
+    });
+    database.transaction(() => {
+      for (const [row, id, projectId] of [
+        [remapped, "public", original],
+        [conflict, "other-public", moved],
+      ] as const) {
+        metadata.identities.allocateWithinTransaction({
+          sessionId: parseYaSessionId(id),
+          provider: row.catalogFamily,
+          projectId,
+          createdAt: row.updatedAt,
+        });
+        metadata.identities.bindWithinTransaction(
+          parseYaSessionId(id),
+          nativeSessionRef(
+            row.catalogFamily,
+            row.nativeStorageScope!,
+            parseNativeSessionId(row.sessionId),
+          ),
+        );
+      }
+    });
+    const adopted = makeRow("discovered", join(directory, "store-d"), {
+      nativeStorageScope: join(directory, "store-d"),
+    });
+    retained = await seedRetainedCollection(directory, [
+      remapped,
+      conflict,
+      adopted,
+      makeRow("duplicate", join(directory, "store-a")),
+      makeRow("duplicate", "store-b"),
+    ]);
+    const recentsService = new RecentsService({ dataDir: directory });
+    const routes = createRecentsRoutes({
+      recentsService,
+      retainedCollections: retained,
+      sessionMetadataService: metadata,
+      scanner: {} as ProjectScanner,
+      readerFactory: vi.fn(),
+      projectDisplayName: (path) => "Renamed " + path,
+    });
+    const path = "/?summaryMode=retained";
+    // The first request has no visits or earlier Inbox read. It must still
+    // adopt native identities and report a conflict outside the visit set.
+    expect(await (await routes.request(path)).json()).toMatchObject({
+      visits: [],
+      recents: [],
+      catalog: { complete: false, refreshError: expect.any(String) },
+    });
+    expect(
+      metadata.identities.lookupNative(
+        nativeSessionRef(
+          "claude",
+          join(directory, "store-d"),
+          parseNativeSessionId("discovered"),
+        ),
+      ),
+    ).toBeDefined();
+    await metadata.setArchived("public", true);
+    for (const id of ["discovered", "duplicate", "public", "native", "missing"])
+      await recentsService.recordVisit(id, original);
+    await metadata.setWorkingProject("public", moved, original);
+    const body = await (await routes.request(path)).json();
+    expect(body.visits).toEqual(
+      recentsService
+        .getRecents()
+        .map((v) =>
+          v.sessionId === "public" ? { ...v, projectId: moved } : v,
+        ),
+    );
+    expect(body.recents).toEqual([
+      {
+        ...body.visits[2],
+        title: null,
+        provider: "claude",
+        projectName: "Renamed /moved",
+      },
+      {
+        ...body.visits[4],
+        provider: "claude",
+        projectName: "Renamed /original",
+      },
+    ]);
+    await recentsService.recordVisit("public", moved);
+    const limited = new Hono();
+    limited.use(
+      "*",
+      createLimitedUsersMiddleware({
+        getActiveGrants: () => ({
+          viewProjects: [moved],
+          joinProjects: [],
+          newSessionProjects: [],
+          joinStaleOffsetMinutes: 0,
+          lock: {},
+        }),
+        getSuperuserIdentity: () => null,
+        getCookieSessionUsername: async () => "alice",
+        getCookieSecret: () => "secret",
+        sessionAccess: new SessionAccessResolver({
+          getLiveSession: () => undefined,
+          getSessionMetadata: () => undefined,
+          readCatalogRows: async () => {
+            throw Error("unexpected session lookup");
           },
         }),
-      } as unknown as RetainedSessionCollections,
-    });
-    const response = await routes.request("/?summaryMode=retained");
-    const { recents } = await response.json();
-    expect(recents[0]).toMatchObject({
-      projectName: "Renamed /work",
-      provider: "pi",
-    });
-    expect(recents[0]).not.toHaveProperty("title");
+      }),
+    );
+    limited.route("/api/recents", routes);
+    const filtered = await (
+      await limited.request("/api/recents" + path.slice(1))
+    ).json();
+    expect(filtered.catalog.complete).toBe(false);
+    expect(filtered.catalog).not.toHaveProperty("refreshError");
+    expect(filtered.visits).toEqual([recentsService.getRecents()[0]]);
+    expect(filtered.recents).toEqual([
+      {
+        ...filtered.visits[0],
+        title: null,
+        provider: "claude",
+        projectName: "Renamed /moved",
+      },
+    ]);
   });
 
   it("resolves recent sessions across providers for mixed-provider projects", async () => {
