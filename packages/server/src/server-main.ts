@@ -1071,8 +1071,9 @@ async function startServer() {
     persistedAugmentDelayMs: readPerfPersistedAugmentDelayMs(),
     defaultPermissionMode: config.defaultPermissionMode,
     eventBus,
-    // Note: uploadeWebSocket not passed yet - will be added below
-    ...providerSessionWatchers.sourceObservationCallbacks(),
+    ...providerSessionWatchers.sourceObservationCallbacks(
+      installService.getCatalogFamilies(),
+    ),
     notificationService,
     sessionMetadataService,
     onSuccessfulProviderSession: async (_sessionId, provider) => {
@@ -1108,7 +1109,6 @@ async function startServer() {
     nativePushService,
     relayClientService,
     relayConfigCallbackHolder,
-    // Note: frontendProxy not passed - will be added below
     serverHost: "127.0.0.1", // Always report localhost as main binding
     serverPort: effectiveServerPort,
     installId: installService.getInstallId(),
@@ -1579,7 +1579,6 @@ async function startServer() {
   const startupNetworkHost = cliNetworkHost ?? savedNetworkHost;
   const startupNetworkPort = cliNetworkHost ? null : networkConfig.port;
 
-  // Create the main localhost server
   const expectedServerUrl = `${serverProtocol}://127.0.0.1:${effectivePort}`;
   console.log(`[Server] Starting on ${expectedServerUrl}`);
   let desktopReadySent = false;
@@ -1589,6 +1588,7 @@ async function startServer() {
     markStartup("localhost server onReady");
     providerSessionWatchers.requestActivation(
       installService.getCatalogFamilies(),
+      "listener-ready",
     );
     announceLocalhostListening(info.port, config.dataDir, serverProtocol);
     // Write port to file if requested (for test harnesses)

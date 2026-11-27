@@ -699,6 +699,7 @@ function getPreservedRestartWork(
 }
 
 export function createApp(options: AppOptions): AppResult {
+  const sessionReadLifetime = new AbortController();
   let artifactServer: ArtifactServer;
   let supervisor!: Supervisor;
   const isLocalAuthEnforced = (): boolean =>
@@ -1283,6 +1284,8 @@ export function createApp(options: AppOptions): AppResult {
     codexSessionsDir,
     geminiScanner,
     geminiSessionsDir,
+    waitForProjectWatchStartup: () =>
+      options.waitForProjectWatchStartup?.(sessionReadLifetime.signal),
     getProviderObservationEpoch: options.getProviderObservationEpoch,
     projectFactsDatabase: discoverySqlite.getDatabase(),
     projectMetadataService: options.projectMetadataService,
@@ -1551,7 +1554,6 @@ export function createApp(options: AppOptions): AppResult {
       : null;
   /** Least recently used first; admission is capped at 500 readers. */
   const readerCache = createLruMap<string, ISessionReader>();
-  const sessionReadLifetime = new AbortController();
   const relationshipRead = options.sessionMetadataService
     ? createSessionRelationshipRead({
         serverId: publicServerId,

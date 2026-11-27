@@ -142,6 +142,71 @@ describe("ProviderSessionWatcherRegistry", () => {
     }
   });
 
+  it.each(["complete", "deadline", "stop", "abort", "never-listened"])(
+    "joins only eligible startup baselines and releases discovery on %s",
+    async (outcome) => {
+      vi.useFakeTimers();
+      let finish!: () => void;
+      const baseline = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const probe = vi.fn((path: string) => path !== "/missing");
+      const registry = new ProviderSessionWatcherRegistry({
+        eventBus: new EventBus(),
+        specs: [
+          { family: "claude", provider: "claude", watchDir: "/claude" },
+          { family: "codex", provider: "codex", watchDir: "/missing" },
+          { family: "gemini", provider: "gemini", watchDir: "/unused" },
+        ],
+        activationDelayMs: 1000,
+        directoryExists: probe,
+        createWatcher: () => ({
+          start() {},
+          stop() {},
+          waitForInitialBaseline: () => baseline,
+        }),
+      });
+      try {
+        const source = registry.sourceObservationCallbacks(["claude", "codex"]);
+        const controller = new AbortController();
+        const waiting = source.waitForProjectWatchStartup!(controller.signal)!;
+        expect(source.waitForProjectWatchStartup!(controller.signal)).toBe(
+          waiting,
+        );
+        expect(probe).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(4500);
+        if (outcome === "never-listened") {
+          await vi.advanceTimersByTimeAsync(2000);
+          await waiting;
+          expect(probe).not.toHaveBeenCalled();
+          return;
+        }
+        registry.requestActivation(["claude", "codex"], "listener-ready");
+        await vi.advanceTimersByTimeAsync(10);
+        expect(probe.mock.calls.flat()).toEqual(["/claude", "/missing"]);
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(source.waitForProjectWatchStartup!()).toBe(waiting);
+        if (outcome === "abort") {
+          controller.abort();
+          await expect(waiting).rejects.toBe(controller.signal.reason);
+        } else {
+          if (outcome === "complete") finish();
+          else if (outcome === "stop") registry.stop();
+          else await vi.advanceTimersByTimeAsync(2000);
+          await waiting;
+        }
+        expect(
+          source.getProviderObservationEpoch!("claude", "/claude"),
+        ).toBeNull();
+        expect(source.waitForProjectWatchStartup!()).toBeUndefined();
+      } finally {
+        finish();
+        registry.stop();
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it("starts and stops at most one watcher per eligible family", () => {
     const watcher = { start: vi.fn(), stop: vi.fn() };
     const directoryExists = vi.fn(() => true);

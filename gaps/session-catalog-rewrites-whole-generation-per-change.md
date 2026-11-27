@@ -21,7 +21,6 @@ they do not certify all plan 190 targets. See
 Still open:
 
 - New Gemini files, Codex rollouts without proven membership, and Claude files in empty or ambiguous stores still require discovery. An ordinary new Codex rollout in an already cataloged Codex project now uses indexed point reads. Moves, competing thread files, subagents and the first Codex session in a project retain full discovery. The [mixed-provider replay](../docs/research/190-mixed-provider-navigation-audit.md#bounded-acceptance-of-a-new-codex-rollout) verifies the cross-project case and the independent indexless observer cost.
-- A first Claude write after cold discovery can invalidate the catalog when the project scanner realizes its startup observation predates watcher coverage. At 8,370 unrelated sessions the first write reread 8,380 native rows and hashes, using roughly 5–7% of startup-through-discovery CPU in the two browser-wait comparisons. Capturing the initial inventory under active watchers reduced both to zero. Preserve writes during real startup gaps and recovery from watcher loss. [Ordered startup replay and control](../docs/research/190-mixed-provider-navigation-audit.md#the-first-claude-write-can-pay-for-a-second-startup-inventory)
 - First-ever/invalidated list projection builds remain population-sized.
   SQL checkpoint import/index construction is also population-sized, although
   it avoids cold JavaScript catalog/metadata hydration. A canonical mutation

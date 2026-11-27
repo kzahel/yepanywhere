@@ -39,6 +39,7 @@ export class ProjectDiscoveryFacts {
     private readonly options: {
       database: SqliteDatabase;
       scope: () => ProjectDiscoveryScope;
+      waitForProjectWatchStartup?: () => Promise<void> | undefined;
       getProviderObservationEpoch?: ProjectObservationEpoch;
       codexSessionsDir: string;
       codexScanner?: Pick<CodexSessionScanner, "invalidateCache"> | null;
@@ -90,9 +91,12 @@ export class ProjectDiscoveryFacts {
       !this.disposed && this.active && this.matches() && this.metadataCurrent()
     );
   }
-  observationEpochChanged(proof?: ProjectDiscoveryObservation): boolean {
-    return (
-      !!this.observation &&
+  observationHandover(proof?: ProjectDiscoveryObservation) {
+    if (!this.observation)
+      return proof?.roots.some((root) => root.epoch !== null)
+        ? "first-observed"
+        : undefined;
+    if (
       !projectObservationEpochsCurrent(
         this.observation,
         (family, path) =>
@@ -100,9 +104,12 @@ export class ProjectDiscoveryFacts {
             (root) => root.family === family && root.path === path,
           )?.epoch ?? null,
       )
-    );
+    )
+      return "changed";
+    return undefined;
   }
   async beginObservation(): Promise<ProjectDiscoveryObservation> {
+    await this.options.waitForProjectWatchStartup?.();
     await this.flush();
     if (this.disposed) throw new Error("Project facts owner is disposed");
     return captureProjectObservation(

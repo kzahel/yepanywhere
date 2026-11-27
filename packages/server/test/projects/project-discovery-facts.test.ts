@@ -292,6 +292,36 @@ it("SQL restores retained identity but cannot certify an unchanged complete read
   const world = await setup();
   await collections.dispose();
   await scanner.dispose();
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const baseline = new Promise<void>((resolve) => {
+    unblock = resolve;
+  });
+  let epoch: number | null = null;
+  const earlyCodexReader = new CodexSessionScanner({
+    sessionsDir: world.codexRoot,
+  });
+  scanner = new ProjectScanner({
+    codexScanner: earlyCodexReader,
+    projectsDir: world.projectsDir,
+    codexSessionsDir: world.codexRoot,
+    enableGemini: false,
+    projectFactsDatabase: world.database,
+    waitForProjectWatchStartup: () => {
+      entered();
+      return baseline;
+    },
+    getProviderObservationEpoch: () => epoch,
+  });
+  const refreshing = scanner.refreshRetainedProjects();
+  await started;
+  const retained = await scanner.readRetainedProjects();
+  expect(
+    retained.projects.find((project) => project.path === world.path)
+      ?.sessionCount,
+  ).toBe(2);
   const secondId = "21111111-2222-4333-8444-555555555555";
   await writeFile(
     join(world.claudeDir, `${secondId}.jsonl`),
@@ -302,19 +332,13 @@ it("SQL restores retained identity but cannot certify an unchanged complete read
       message: { role: "user", content: "new while stopped" },
     }) + "\n",
   );
-  scanner = new ProjectScanner({
-    projectsDir: world.projectsDir,
-    codexSessionsDir: world.codexRoot,
-    enableGemini: false,
-    projectFactsDatabase: world.database,
-  });
-  const retained = await scanner.readRetainedProjects();
-  expect(
-    retained.projects.find((project) => project.path === world.path)
-      ?.sessionCount,
-  ).toBe(2);
+  expect(await earlyCodexReader.listProjects()).toHaveLength(1);
+  await rm(world.codexFile);
+  epoch = 1;
+  unblock();
+  await refreshing;
   const actual = await scanner.getProject(encodeProjectId(world.path));
-  expect(actual?.sessionCountsByProvider).toEqual({ claude: 2, codex: 1 });
+  expect(actual?.sessionCountsByProvider).toEqual({ claude: 2 });
   expect(JSON.parse(JSON.stringify(actual))).toEqual(await world.rebuild());
 });
 
@@ -534,6 +558,24 @@ it.each([false, true])(
     ).toEqual(await world.rebuild());
   },
 );
+
+it("a forced refresh repairs catalog membership after a gap with no delivered file events", async () => {
+  const world = await setup();
+  world.observationEpoch(null);
+  await scanner.refreshRetainedProjects();
+  await collections.refresh();
+  await rm(world.codexFile);
+  world.observationEpoch(2);
+  await scanner.refreshRetainedProjects();
+  await collections.refresh();
+  const accepted = await collections.read();
+  expect(accepted.rows.map((row) => row.catalogFamily)).toEqual(["claude"]);
+  expect(
+    JSON.parse(
+      JSON.stringify(await scanner.getProject(encodeProjectId(world.path))),
+    ),
+  ).toEqual(await world.rebuild());
+});
 
 it("membership lookup uses the file path as its leading SQL search key", async () => {
   const world = await setup();

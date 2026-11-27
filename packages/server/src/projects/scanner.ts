@@ -60,6 +60,7 @@ import {
 
 export interface ScannerOptions {
   projectFactsDatabase?: SqliteDatabase;
+  waitForProjectWatchStartup?: () => Promise<void> | undefined;
   getProviderObservationEpoch?: ProjectObservationEpoch;
   catalogProjects?: CatalogProjectSource;
   projectsDir?: string; // override for testing
@@ -241,6 +242,7 @@ export class ProjectScanner {
           metadataRevision:
             this.projectMetadataService?.getDiscoveryRevision?.() ?? 0,
         }),
+        waitForProjectWatchStartup: options.waitForProjectWatchStartup,
         getProviderObservationEpoch: options.getProviderObservationEpoch,
         codexSessionsDir: this.codexSessionsDir,
         codexScanner: this.codexScanner,
@@ -513,9 +515,6 @@ export class ProjectScanner {
     return this.retainedRefresh;
   }
 
-  /**
-   * Mark the project snapshot stale so next read triggers a rescan.
-   */
   invalidateCache(): void {
     this.resetClaudeDiscovery();
     this.codexScanner?.invalidateCache();
@@ -607,8 +606,9 @@ export class ProjectScanner {
     }
 
     const proof = await this.projectFacts?.beginObservation();
-    const handover = this.projectFacts?.observationEpochChanged(proof);
+    const handover = this.projectFacts?.observationHandover(proof);
     if (handover) {
+      if (handover === "changed") this.catalogProjects?.invalidate?.();
       this.codexScanner?.invalidateCache();
       this.geminiScanner?.invalidateCache();
     }

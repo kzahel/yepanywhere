@@ -1,3 +1,4 @@
+import { ProjectWatchStartup } from "./project-watch-startup.js";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import type { ProviderCatalogFamily } from "../sessions/provider-catalog-family.js";
@@ -6,6 +7,9 @@ import { EventBus, type FileChangeEvent } from "./EventBus.js";
 
 /** Consumer handover stays tied to the exact native root and uninterrupted epoch. */
 export interface ProviderObservationCallbacks {
+  waitForProjectWatchStartup?: (
+    signal?: AbortSignal,
+  ) => Promise<void> | undefined;
   getProviderObservationEpoch?: (
     family: ProviderCatalogFamily,
     root: string,
@@ -20,7 +24,12 @@ export interface ProviderObservationCallbacks {
 
 type ManagedFileWatcher = Pick<FileWatcher, "start" | "stop"> &
   Partial<
-    Pick<FileWatcher, "getObservationDiagnostics" | "getObservationEpoch">
+    Pick<
+      FileWatcher,
+      | "getObservationDiagnostics"
+      | "getObservationEpoch"
+      | "waitForInitialBaseline"
+    >
   >;
 
 export interface ProviderSessionWatcherSpec
@@ -83,6 +92,7 @@ export class ProviderSessionWatcherRegistry {
   private readonly pendingFamilies = new Set<ProviderCatalogFamily>();
   private activationTimer: NodeJS.Timeout | null = null;
   private generation = 0;
+  private projectStartup?: ProjectWatchStartup;
   private readonly ready = new Set<ProviderCatalogFamily>();
   private readonly readySubscribers = new Set<
     (family: ProviderCatalogFamily) => void
@@ -134,14 +144,18 @@ export class ProviderSessionWatcherRegistry {
     return (this.watchers.get(family)?.length ?? 0) < totalCandidates;
   }
 
-  requestActivation(families: Iterable<ProviderCatalogFamily>): void {
+  requestActivation(
+    families: Iterable<ProviderCatalogFamily>,
+    startup?: "listener-ready",
+  ): void {
     this.activationQueueRequests += 1;
     for (const family of families) {
       if (this.hasUnwatchedCandidates(family)) {
         this.pendingFamilies.add(family);
       }
     }
-    this.scheduleNextActivation(this.activationDelayMs);
+    const discoveryWaiting = startup && this.projectStartup?.listenerReady();
+    this.scheduleNextActivation(discoveryWaiting ? 0 : this.activationDelayMs);
   }
 
   activateFamily(family: ProviderCatalogFamily): void {
@@ -196,12 +210,19 @@ export class ProviderSessionWatcherRegistry {
       this.watchersStarted += 1;
     }
 
+    this.projectStartup?.attempted(
+      family,
+      started
+        .find((entry) => entry.watchDir === primaryOptions.watchDir)
+        ?.watcher.waitForInitialBaseline?.(),
+    );
     if (started.length > existing.length) {
       this.watchers.set(family, started);
     }
   }
 
   stop(): void {
+    this.projectStartup?.finish();
     this.generation++;
     this.ready.clear();
     if (this.activationTimer) {
@@ -238,8 +259,15 @@ export class ProviderSessionWatcherRegistry {
     );
   }
 
-  sourceObservationCallbacks(): ProviderObservationCallbacks {
+  sourceObservationCallbacks(
+    startupFamilies?: readonly ProviderCatalogFamily[],
+  ): ProviderObservationCallbacks {
+    if (startupFamilies)
+      this.projectStartup ??= new ProjectWatchStartup(
+        startupFamilies.filter((family) => this.specs.has(family)),
+      );
     return {
+      waitForProjectWatchStartup: (signal) => this.projectStartup?.wait(signal),
       getProviderObservationEpoch: (family, root) => {
         const entries = this.watchers.get(family);
         const target = resolve(root);

@@ -363,6 +363,13 @@ advance a local discovery revision. Complete reads validate registered-only
 directory existence in bounded batches; point reads check only the requested
 registration. Native points neither walk nor copy unrelated registrations.
 
+At startup, retained reads can return while the first complete discovery joins
+eligible project watchers. Watcher startup remains asynchronous after listen.
+The wait is finite and ends on app shutdown. Only an exact root epoch captured
+before enumeration certifies coverage. An unavailable watcher leaves ordinary
+discovery and subsequent repair intact. A changed epoch also repairs catalog
+membership when a forced project refresh is the first to notice the gap.
+
 `ProjectDiscoveryFacts` owns ordinary known Claude/Codex file modifications:
 indexed catalog location/version evidence, bounded native metadata and stable
 file identity qualify an update to the affected project activity only. Native

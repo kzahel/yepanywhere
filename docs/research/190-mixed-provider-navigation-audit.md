@@ -157,7 +157,7 @@ A separate large-profile Chromium circuit verified all 24 opens and revisits. Th
 
 ## The first Claude write can pay for a second startup inventory
 
-**Next CPU task:** coordinate the initial project/catalog discovery with startup of the eligible transcript watchers. In a fresh server, the first ordinary Claude append sometimes reads every session again. A second write to that same file gets a point update. The first complete discovery and the first Inbox list projection remain separate costs.
+**Pre-fix finding.** The initial project/catalog discovery could begin before the eligible transcript watchers. In a fresh server, the first ordinary Claude append sometimes reads every session again. A second write to that same file gets a point update. The first complete discovery and the first Inbox list projection remain separate costs.
 
 The `freshness` replay creates two mixed projects, loads the real Inbox, closes the browser, then appends to a known Claude transcript. A read-only SQLite connection in the driver checks its exact source version. The traced path was as follows.
 
@@ -182,6 +182,12 @@ A final pair ran sequentially with the checked-in harness after the workspace te
 Waiting to open the browser left the server's startup discovery order intact. The project-app startup code calls `listProjects` to restore declared host ports before a visit. A control returned an empty project list only to that caller in a fixture with no app declarations. Its first write saw no non-injected watcher event in 12 seconds. Once a diagnostic hint delivered that change, it still read 8,380 rows and hashes. YA also starts a retained project refresh at boot. Changing just the port lookup would leave this path, and existing declarations can require an early listening port. [Independent startup refresh](../../packages/server/src/app.ts) · [Host-port startup](../../packages/server/src/artifacts/projectAppRuntime.ts) · [Direct serving contract](../../topics/project-service.md#direct-serving)
 
 The ordering control delays the first project observation in the test process until both eligible watchers have coverage. It preserves the first full inventory and the real Inbox, project counts and latest session detail. A production change should share the startup observation or reconcile the uncovered interval while keeping retained reads responsive even when a watcher is unavailable. Verify actual file creation and deletion during handover, changed roots and watcher loss before accepting the fix.
+
+### Startup handover after the fix
+
+The first inventory gives the already eligible watcher activations time to finish their baselines. If discovery is waiting at listen time, activation starts on the next timer turn and remains staggered. No extra directory probes are made. Missing or failed watchers, a late listener (five-second cap), or a slow baseline (two seconds after listen while waiting) leave the existing uncovered discovery and repair path available. Retained reads can serve saved project counts throughout. A newly observed scan discards earlier provider enumerations, and a change in coverage also invalidates catalog membership on forced refreshes.
+
+Fresh ordinary runs used no injected hint on either first append and no test-imposed startup order. With 50 and 8,370 unrelated sessions both appends read zero complete rows and zero inventory hashes. In the large run, the first write made 8 Claude file stats, zero Codex file stats and used 22 ms of process CPU. The previous sequential browser-wait run made 4,201 and 8,380 stats and used 420 ms CPU. The initial Inbox projection still read 8,380 rows. The interval from the startup project-port lookup to the first covered project observation was 126 ms at the small size and 240 ms at the large size. It includes other startup work and is not a request-latency measurement. [Startup coordinator](../../packages/server/src/watcher/project-watch-startup.ts) · [On-disk handover regressions](../../packages/server/test/projects/project-discovery-facts.test.ts)
 
 ### Delayed notifications and continuous writes
 
