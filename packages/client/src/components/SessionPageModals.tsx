@@ -192,6 +192,7 @@ export function SessionPageModals({
           sessionId={actualSessionId}
           currentModel={session?.model}
           sessionProvider={effectiveProvider}
+          contextUsage={session?.contextUsage}
           onModelChanged={handleModelChanged}
           guardEffortChange={guardEffortChange}
           initialTab={modelPanelInitialTab}

@@ -7,6 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import type { ProviderSubscriptionUsage } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ModelSwitchModal } from "../ModelSwitchModal";
 
@@ -14,13 +15,24 @@ const {
   mockGetProcessInfo,
   mockGetProcessModels,
   mockSetProcessConfig,
+  mockRefreshSubscriptionUsage,
+  mockSubscriptionUsage,
   mockTranslate,
   mockVersion,
 } = vi.hoisted(() => ({
   mockGetProcessInfo: vi.fn(),
   mockGetProcessModels: vi.fn(),
   mockSetProcessConfig: vi.fn(),
-  mockTranslate: vi.fn((key: string) => key),
+  mockRefreshSubscriptionUsage: vi.fn(),
+  mockSubscriptionUsage: {
+    current: null as ProviderSubscriptionUsage | null,
+    loading: false,
+    supported: false,
+  },
+  mockTranslate: vi.fn(
+    (key: string, params?: Record<string, string | number>) =>
+      params ? `${key}:${JSON.stringify(params)}` : key,
+  ),
   mockVersion: { current: { capabilities: [] as string[] } },
 }));
 
@@ -44,10 +56,10 @@ vi.mock("../../hooks/useModelSettings", () => ({
 
 vi.mock("../../hooks/useProviderSubscriptionUsage", () => ({
   useProviderSubscriptionUsage: () => ({
-    usage: null,
-    loading: false,
-    supported: false,
-    refresh: vi.fn(),
+    usage: mockSubscriptionUsage.current,
+    loading: mockSubscriptionUsage.loading,
+    supported: mockSubscriptionUsage.supported,
+    refresh: mockRefreshSubscriptionUsage,
   }),
 }));
 
@@ -56,7 +68,7 @@ vi.mock("../../hooks/useVersion", () => ({
 }));
 
 vi.mock("../../i18n", () => ({
-  useI18n: () => ({ t: mockTranslate }),
+  useI18n: () => ({ locale: "en-US", t: mockTranslate }),
 }));
 
 describe("ModelSwitchModal", () => {
@@ -81,6 +93,9 @@ describe("ModelSwitchModal", () => {
     cleanup();
     vi.clearAllMocks();
     mockVersion.current = { capabilities: [] };
+    mockSubscriptionUsage.current = null;
+    mockSubscriptionUsage.loading = false;
+    mockSubscriptionUsage.supported = false;
   });
 
   it("resets the shared modal scroller when switching tabs", () => {
@@ -537,6 +552,141 @@ describe("ModelSwitchModal", () => {
           model: "gemini-4-neon-low",
         });
       });
+    });
+  });
+
+  describe("usage tab", () => {
+    it("shows current model windows shortest-first, other provider buckets below, and refreshes on click", () => {
+      mockSubscriptionUsage.supported = true;
+      mockSubscriptionUsage.current = {
+        provider: "antigravity",
+        fetchedAt: "2026-11-28T10:54:00.000Z",
+        windows: [
+          {
+            id: "antigravity:gemini-weekly",
+            usedPercent: 5,
+            windowDurationMinutes: 10_080,
+            resetsAt: "2026-12-05T09:57:00.000Z",
+            scope: {
+              type: "models",
+              label: "Gemini",
+              modelIds: ["gemini-4-neon"],
+            },
+          },
+          {
+            id: "antigravity:gemini-5h",
+            usedPercent: 20,
+            windowDurationMinutes: 300,
+            resetsAt: "2026-11-28T14:57:00.000Z",
+            scope: {
+              type: "models",
+              label: "Gemini",
+              modelIds: ["gemini-4-neon"],
+            },
+          },
+          {
+            id: "antigravity:3p-weekly",
+            usedPercent: 0,
+            windowDurationMinutes: 10_080,
+            scope: {
+              type: "models",
+              label: "Claude & GPT",
+              modelIds: ["claude-opus-5-5"],
+            },
+          },
+          {
+            id: "antigravity:3p-5h",
+            usedPercent: 0,
+            windowDurationMinutes: 300,
+            scope: {
+              type: "models",
+              label: "Claude & GPT",
+              modelIds: ["claude-opus-5-5"],
+            },
+          },
+        ],
+      };
+
+      render(
+        <ModelSwitchModal
+          sessionId="session-1"
+          currentModel="gemini-4-neon"
+          sessionProvider="antigravity"
+          infoPane={<div>Session details</div>}
+          onModelChanged={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("tab", { name: "sessionUsageTab" }));
+
+      const panel = screen.getByRole("tabpanel");
+      const text = panel.textContent ?? "";
+      const gemini5h = text.indexOf(
+        'Gemini · subscriptionUsageWindow:{"duration":"5h"}',
+      );
+      const gemini7d = text.indexOf(
+        'Gemini · subscriptionUsageWindow:{"duration":"7d"}',
+      );
+      const otherHeading = text.indexOf("subscriptionUsageOtherModels");
+      const thirdParty5h = text.indexOf(
+        'Claude & GPT · subscriptionUsageWindow:{"duration":"5h"}',
+      );
+      const thirdParty7d = text.indexOf(
+        'Claude & GPT · subscriptionUsageWindow:{"duration":"7d"}',
+      );
+
+      expect(gemini5h).toBeGreaterThan(-1);
+      expect(gemini7d).toBeGreaterThan(gemini5h);
+      expect(otherHeading).toBeGreaterThan(gemini7d);
+      expect(thirdParty5h).toBeGreaterThan(otherHeading);
+      expect(thirdParty7d).toBeGreaterThan(thirdParty5h);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "subscriptionUsageRefresh" }),
+      );
+      expect(mockRefreshSubscriptionUsage).toHaveBeenCalledOnce();
+    });
+
+    it("omits the Usage tab when neither subscription usage nor token details exist", () => {
+      render(
+        <ModelSwitchModal
+          sessionId="session-1"
+          currentModel="model-1"
+          infoPane={<div>Session details</div>}
+          onModelChanged={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      expect(screen.queryByRole("tab", { name: "sessionUsageTab" })).toBeNull();
+    });
+
+    it("shows last-turn token details in the Usage tab even without subscription quota", () => {
+      render(
+        <ModelSwitchModal
+          sessionId="session-1"
+          currentModel="claude-opus"
+          sessionProvider="claude"
+          contextUsage={{
+            inputTokens: 104_966,
+            contextWindow: 1_000_000,
+            percentage: 10,
+            cacheReadTokens: 103_341,
+            outputTokens: 333,
+          }}
+          infoPane={<div>Session details</div>}
+          onModelChanged={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("tab", { name: "sessionUsageTab" }));
+
+      const panel = screen.getByRole("tabpanel");
+      expect(panel.textContent).toContain("contextTokenUsageTitle");
+      expect(panel.textContent).toContain("103,341");
+      expect(panel.textContent).toContain("333");
     });
   });
 });

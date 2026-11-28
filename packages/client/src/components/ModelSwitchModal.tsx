@@ -27,9 +27,11 @@ import {
   getThinkingMode,
   useModelSettings,
 } from "../hooks/useModelSettings";
+import { useContextBreakdown } from "../hooks/useContextBreakdown";
 import { useProviderSubscriptionUsage } from "../hooks/useProviderSubscriptionUsage";
 import { useVersion } from "../hooks/useVersion";
 import { useI18n } from "../i18n";
+import type { ContextUsage } from "../types";
 import {
   getEffortLevelLabel,
   getEffortLevelOptions,
@@ -52,6 +54,10 @@ import {
   selectableServiceTiers,
   serviceTierLabel,
 } from "../lib/serviceTiers";
+import {
+  hasContextTokenDetails,
+  SessionUsagePane,
+} from "./ContextUsagePopover";
 import { ProviderBadge } from "./ProviderBadge";
 import { ModelSubscriptionUsage } from "./ModelSubscriptionUsage";
 import { Badge } from "./ui/Badge";
@@ -87,7 +93,7 @@ function MaybeTabPanel({
   );
 }
 
-export type SessionModelPanelTab = "model" | "account" | "info";
+export type SessionModelPanelTab = "model" | "usage" | "account" | "info";
 
 interface ModelSwitchModalProps {
   /** Session uses an AAR account pin. */
@@ -98,6 +104,8 @@ interface ModelSwitchModalProps {
   currentModel?: string;
   /** Session provider, for effort labels/tones when no process is live. */
   sessionProvider?: ProviderName;
+  /** Session context usage for the Usage tab's token/cache details. */
+  contextUsage?: ContextUsage;
   onModelChanged: (next: {
     processId: string;
     model?: string;
@@ -167,6 +175,7 @@ export function ModelSwitchModal({
   sessionId,
   currentModel,
   sessionProvider,
+  contextUsage,
   onModelChanged,
   guardEffortChange,
   infoPane,
@@ -178,8 +187,14 @@ export function ModelSwitchModal({
   const { t } = useI18n();
   const { setThinkingMode, setEffortLevel } = useModelSettings();
   const [models, setModels] = useState<ModelInfo[]>([]);
-  const [provider, setProvider] = useState<ProviderName | null>(null);
-  const { usage: subscriptionUsage } = useProviderSubscriptionUsage(provider);
+  const [provider, setProvider] = useState<ProviderName | null>(
+    sessionProvider ?? null,
+  );
+  const {
+    usage: subscriptionUsage,
+    loading: subscriptionUsageLoading,
+    refresh: refreshSubscriptionUsage,
+  } = useProviderSubscriptionUsage(provider);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
@@ -479,7 +494,7 @@ export function ModelSwitchModal({
 
   const handleTabChange = (tab: SessionModelPanelTab) => {
     setActiveTab(tab);
-    contentRef.current?.scrollTo({ top: 0 });
+    contentRef.current?.scrollTo?.({ top: 0 });
   };
 
   const handleActivate = async () => {
@@ -526,7 +541,16 @@ export function ModelSwitchModal({
     </Button>
   );
 
-  const hasTabs = Boolean(infoPane || accountPane);
+  const contextBreakdown = useContextBreakdown(
+    sessionId,
+    activeTab === "usage",
+  );
+  const hasUsageTab = Boolean(
+    subscriptionUsage ||
+      hasContextTokenDetails(contextUsage) ||
+      initialTab === "usage",
+  );
+  const hasTabs = Boolean(hasUsageTab || infoPane || accountPane);
 
   return (
     <Dialog
@@ -535,7 +559,9 @@ export function ModelSwitchModal({
           ? "processInfoTitle"
           : activeTab === "account"
             ? "sessionAccountTab"
-            : "modelSwitchTitle",
+            : activeTab === "usage"
+              ? "sessionUsageTab"
+              : "modelSwitchTitle",
       )}
       size="large"
       onClose={handleDismiss}
@@ -566,6 +592,9 @@ export function ModelSwitchModal({
           onChange={handleTabChange}
           tabs={[
             { value: "model", label: t("newSessionModelTitle") },
+            ...(hasUsageTab
+              ? [{ value: "usage" as const, label: t("sessionUsageTab") }]
+              : []),
             ...(accountPane
               ? [{ value: "account" as const, label: t("sessionAccountTab") }]
               : []),
@@ -576,6 +605,16 @@ export function ModelSwitchModal({
         />
       )}
       <MaybeTabPanel tabsId={hasTabs ? tabsId : undefined} value={activeTab}>
+        {hasUsageTab && activeTab === "usage" && (
+          <SessionUsagePane
+            usage={subscriptionUsage ?? undefined}
+            contextUsage={contextUsage}
+            breakdown={contextBreakdown}
+            modelId={currentModelId ?? currentModel}
+            refreshing={subscriptionUsageLoading}
+            onRefresh={() => void refreshSubscriptionUsage()}
+          />
+        )}
         {accountPane && activeTab === "account" && accountPane}
         {infoPane && activeTab === "info" && <div>{infoPane}</div>}
         {(!hasTabs || activeTab === "model") && loading && (

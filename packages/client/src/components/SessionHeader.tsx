@@ -5,6 +5,7 @@ import { ClearloopRemainingBadge } from "./ClearloopRemainingBadge";
 import { ClientLogRecordingBadge } from "./ClientLogRecordingBadge";
 import { GoalFlag } from "./GoalNotice";
 import { HostIdentityMarker } from "./HostIdentityMarker";
+import type { SessionModelPanelTab } from "./ModelSwitchModal";
 import { ProjectAppIcon } from "./ProjectAppIcon";
 import { ProviderBadge } from "./ProviderBadge";
 import { ProviderChildSessionControl } from "./ProviderChildSessionControl";
@@ -197,9 +198,7 @@ export interface SessionHeaderProps {
   saveTitleValue: ReturnType<typeof useSessionTitleEditing>["saveTitleValue"];
   session: ReturnType<typeof useSession>["session"];
   sessionId: string;
-  setModelPanelInitialTab: Dispatch<
-    SetStateAction<"model" | "account" | "info">
-  >;
+  setModelPanelInitialTab: Dispatch<SetStateAction<SessionModelPanelTab>>;
   setProjectAppFull: Dispatch<SetStateAction<boolean>>;
   setProjectAppOpen: Dispatch<SetStateAction<boolean>>;
   setProjectAppOpenedBy: Dispatch<SetStateAction<"session" | "user">>;

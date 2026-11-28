@@ -97,8 +97,17 @@ short replay streams; it does not claim provider persistence for that row.
 ## Client surfaces
 
 The compact binding percentage appears beside model choices in New Session,
-Model Settings, live Model Switch, and Handoff Session. The session context
-indicator has two distinct interactions:
+Model Settings, live Model Switch, and Handoff Session.
+
+The session header's model dialog includes a **Usage** tab whenever subscription
+usage or last-turn token details are available for the session. The tab lists
+every applicable window for the current model first (ordered shortest window to
+longest, e.g., five-hour above weekly, with reset times and a manual Refresh
+control), shows any other model buckets on the same provider below under a
+separate heading, and renders the session's context breakdown and token
+accounting underneath when available.
+
+The session context indicator has two distinct interactions:
 
 - left click, Enter, or Space opens all applicable subscription windows and
   reset times when usage is available;
