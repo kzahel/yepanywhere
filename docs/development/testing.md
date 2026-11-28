@@ -185,6 +185,21 @@ their explicit update responses; general tests never require public update
 service availability. Client unit setup clears local/session storage before
 invalidating preference caches, so earlier cases cannot choose later defaults.
 
+## Client Browser Tests With Installed Chrome
+
+On a Linux workstation where AppArmor blocks Playwright's bundled Chromium,
+`YEP_TEST_USE_SYSTEM_CHROME=1` selects installed Google Chrome Stable for the
+client Vitest suite.
+
+```bash
+YEP_TEST_USE_SYSTEM_CHROME=1 pnpm --dir packages/client test
+```
+
+The option also applies to the client Vitest suites inside root `pnpm test`.
+The browser runs with sandboxing enabled. Runs without the option, including
+CI, use Playwright's bundled Chromium for these suites. Playwright E2E and
+extension acceptance have their own browser configuration.
+
 ## Native App CI Cadence
 
 Main CI and Server Runtime And SQLite still run on every pull request and

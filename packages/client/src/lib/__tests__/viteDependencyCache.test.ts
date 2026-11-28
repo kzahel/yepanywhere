@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
-import { chromium } from "@playwright/test";
+import type { Browser } from "@playwright/test";
+import { launchTestChromium } from "../../../test/launch-test-chromium";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { createServer, resolveConfig } from "vite";
@@ -15,7 +16,7 @@ describe("Vite dependency cache isolation", () => {
       await mkdtemp(resolve(tmpdir(), "ya-vite-generation-")),
     );
     let server: Awaited<ReturnType<typeof createServer>> | undefined;
-    let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+    let browser: Browser | undefined;
     try {
       await writeFile(
         resolve(directory, "index.html"),
@@ -51,10 +52,7 @@ if (location.pathname === '/page') document.querySelector('button').click();`,
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(new Response());
       await server.listen();
-      browser = await chromium.launch({
-        chromiumSandbox: true,
-        headless: true,
-      });
+      browser = await launchTestChromium();
       const page = await browser.newPage();
       await page.addInitScript(() => {
         sessionStorage.setItem(

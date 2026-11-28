@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { chromium } from "@playwright/test";
+import { launchTestChromium } from "../test/launch-test-chromium";
 import {
   captureArtifact as runCaptureArtifact,
   markdownLink,
@@ -302,7 +302,7 @@ describe("portable artifact capture", { timeout: 45000 }, () => {
 
   it("packages an existing driven page without replacing its screenshots or owning its browser", async () => {
     const files = await fixture();
-    const browser = await chromium.launch({ chromiumSandbox: true });
+    const browser = await launchTestChromium();
     try {
       const page = await browser.newPage({
         viewport: { width: 375, height: 812 },

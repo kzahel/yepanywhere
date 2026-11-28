@@ -1,7 +1,8 @@
 // @vitest-environment node
 
 import { fileURLToPath } from "node:url";
-import { chromium, type Browser } from "@playwright/test";
+import type { Browser } from "@playwright/test";
+import { launchTestChromium } from "../../../test/launch-test-chromium";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createTestViteServer } from "../../../e2e/support/vite-server";
 
@@ -36,7 +37,7 @@ beforeAll(async () => {
       );
     </script>`,
   );
-  browser = await chromium.launch({ chromiumSandbox: true });
+  browser = await launchTestChromium();
   // CI 36665933364 measured a 6.6s cold Vite fixture boot; allow 4x that
   // observed startup without making initialization order a timing assertion.
 }, 30_000);

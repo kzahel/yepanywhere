@@ -3,12 +3,8 @@
 import { readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import {
-  chromium,
-  type Browser,
-  type BrowserContext,
-  type Page,
-} from "@playwright/test";
+import type { Browser, BrowserContext, Page } from "@playwright/test";
+import { launchTestChromium } from "../../../test/launch-test-chromium";
 import katex from "katex";
 import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -107,7 +103,7 @@ describe("Markdown preview rich-text copy", () => {
     });
     const { port } = server.address() as AddressInfo;
 
-    browser = await chromium.launch({ chromiumSandbox: true });
+    browser = await launchTestChromium();
     context = await browser.newContext({
       permissions: ["clipboard-read", "clipboard-write"],
     });

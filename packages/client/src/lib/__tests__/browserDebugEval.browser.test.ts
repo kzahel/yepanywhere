@@ -5,7 +5,8 @@ import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium, type Browser, type Page } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
+import { launchTestChromium } from "../../../test/launch-test-chromium";
 import ts from "typescript";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createStaticRoutes } from "../../../../server/src/frontend/static";
@@ -62,7 +63,7 @@ describe("browser debug evaluation under the served-page CSP", () => {
       server.listen(0, "127.0.0.1", resolve),
     );
     const address = server.address() as AddressInfo;
-    browser = await chromium.launch({ chromiumSandbox: true });
+    browser = await launchTestChromium();
     page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}/`);
   });

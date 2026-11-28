@@ -1,6 +1,7 @@
 // @vitest-environment node
 
-import { chromium, type Browser, type Page } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
+import { launchTestChromium } from "../../../test/launch-test-chromium";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { readClientStyles } from "./read-client-styles";
@@ -42,7 +43,7 @@ describe("mobile keyboard Steer sizing", () => {
       "../components/ComposerActions.module",
       "../components/MessageInput.module",
     );
-    browser = await chromium.launch({ chromiumSandbox: true });
+    browser = await launchTestChromium();
     page = await browser.newPage();
     await page.setContent(`<!doctype html>
       <style>${css}</style>
