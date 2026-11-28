@@ -99,7 +99,9 @@ async function fixture(
     await process.abort();
   });
   const events: ProcessEvent[] = [];
-  process.subscribe((event) => events.push(event));
+  process.subscribe((event) => {
+    events.push(event);
+  });
   return { store, metadata, saved, fence, source, queue, process, events };
 }
 
@@ -177,9 +179,9 @@ it("binds a different native id before publication, keeping replay and live ids 
       .getMessageHistory()
       .every((message) => message.session_id === f.saved.sessionId),
   ).toBe(true);
-  expect(
-    f.events.filter((event) => event.type === "session-id-changed"),
-  ).toEqual([]);
+  expect(f.events.map((event) => event.type)).not.toContain(
+    "session-id-changed",
+  );
   expect(
     f.events
       .filter((event) => event.type === "message")

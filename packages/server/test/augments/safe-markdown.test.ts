@@ -31,8 +31,10 @@ function satisfiesDependencySpec(version: string, spec: string): boolean {
   for (let i = 0; i <= pinned; i += 1) {
     if (installed[i] !== floor[i]) return false;
   }
-  for (let i = pinned + 1; i < floor.length; i += 1) {
-    if (installed[i] !== floor[i]) return installed[i] > floor[i];
+  for (const i of [0, 1, 2] as const) {
+    if (i > pinned && installed[i] !== floor[i]) {
+      return installed[i] > floor[i];
+    }
   }
   return true;
 }

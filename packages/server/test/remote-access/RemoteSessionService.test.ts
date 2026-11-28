@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -72,7 +73,9 @@ describe("RemoteSessionService", () => {
       const newSessionId = await service.createSession("testuser", sessionKey);
 
       // First session should be gone
-      expect(service.getSession(sessions[0])).toBeNull();
+      const [oldestSessionId] = sessions;
+      assert(oldestSessionId, "Expected an oldest session to be evicted");
+      expect(service.getSession(oldestSessionId)).toBeNull();
 
       // New session should exist
       expect(service.getSession(newSessionId)).not.toBeNull();
@@ -553,15 +556,8 @@ describe("RemoteSessionService", () => {
 
       // Get session and manually set createdAt to 31 days ago
       const session = service.getSession(sessionId);
-      expect(session).not.toBeNull();
-
-      // Access internal state to manipulate for testing
-      const state = (
-        service as unknown as {
-          state: { sessions: Record<string, { createdAt: string }> };
-        }
-      ).state;
-      state.sessions[sessionId].createdAt = new Date(
+      assert(session, "Expected the active session");
+      session.createdAt = new Date(
         Date.now() - 31 * 24 * 60 * 60 * 1000,
       ).toISOString();
 
@@ -575,15 +571,8 @@ describe("RemoteSessionService", () => {
 
       // Get session and manually set lastUsed to 8 days ago
       const session = service.getSession(sessionId);
-      expect(session).not.toBeNull();
-
-      // Access internal state to manipulate for testing
-      const state = (
-        service as unknown as {
-          state: { sessions: Record<string, { lastUsed: string }> };
-        }
-      ).state;
-      state.sessions[sessionId].lastUsed = new Date(
+      assert(session, "Expected the active session");
+      session.lastUsed = new Date(
         Date.now() - 8 * 24 * 60 * 60 * 1000,
       ).toISOString();
 

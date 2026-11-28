@@ -1,3 +1,4 @@
+import { transcriptMessages } from "./provider-session-fixtures.js";
 import {
   appendFile,
   mkdir,
@@ -21,6 +22,7 @@ import {
   ownAntigravitySession,
 } from "../../src/sdk/providers/antigravity-owners.js";
 import { HostedNativeOwnerSync } from "../../src/sdk/providers/hosted-native-owner.js";
+import type { SDKMessage } from "../../src/sdk/types.js";
 import { AntigravitySessionReader } from "../../src/sessions/antigravity-reader.js";
 import { ownHostedAntigravitySession } from "../utils/antigravity-hosted-owner.js";
 import { writeAntigravitySummaries } from "../utils/antigravity-store.js";
@@ -85,9 +87,8 @@ function reader(sessionsDir: string) {
 const texts = (
   loaded: Awaited<ReturnType<AntigravitySessionReader["getSession"]>>,
 ) =>
-  loaded?.data.session.messages.map(
-    (message) =>
-      (message as { message?: { content?: unknown } }).message?.content,
+  transcriptMessages(loaded, "antigravity").map(
+    (message) => message.message?.content,
   );
 
 describe("Antigravity reader over the log", () => {
@@ -186,12 +187,10 @@ describe("Antigravity reader over the log", () => {
       });
       expect(read?.transcriptComplete).toBe(false);
       expect(read?.readWindow).toBeUndefined();
-      expect(read?.data.session.messages).toEqual(
+      expect(transcriptMessages(read, "antigravity")).toEqual(
         notice("cannot read Antigravity's log"),
       );
-      const [row] = (read?.data.session.messages ?? []) as Array<{
-        details?: string[];
-      }>;
+      const [row] = transcriptMessages(read, "antigravity");
       expect(row?.details).toEqual([expect.stringMatching(/^Why: .+\.$/)]);
     }
     // No log: the summaries index counts steps (or says nothing), so the
@@ -200,7 +199,7 @@ describe("Antigravity reader over the log", () => {
     await rm(join(missingAt, "..", "brain"), { recursive: true });
     const missing = await reader(missingAt).getSession(ID, projectId);
     expect(missing?.transcriptComplete).toBe(false);
-    expect(missing?.data.session.messages).toEqual(
+    expect(transcriptMessages(missing, "antigravity")).toEqual(
       notice("log does not hold it"),
     );
     // A log recreated after it was lost starts at agy's next step.
@@ -212,7 +211,7 @@ describe("Antigravity reader over the log", () => {
       ),
     ).getSession(ID, projectId, undefined, { tailCompactions: 2 });
     expect(late?.transcriptComplete).toBe(false);
-    expect(late?.data.session.messages.map((m) => m.uuid)).toEqual([
+    expect(transcriptMessages(late, "antigravity").map((m) => m.uuid)).toEqual([
       `${ID}:history-unavailable`,
       `${ID}:step-2`,
       `${ID}:step-3:text`,
@@ -225,7 +224,7 @@ describe("Antigravity reader over the log", () => {
     ]);
     const never = await reader(neverAt).getSession(ID, projectId);
     expect(never?.transcriptComplete).toBeUndefined();
-    expect(never?.data.session.messages).toEqual([]);
+    expect(transcriptMessages(never, "antigravity")).toEqual([]);
   });
 
   it("titles an untitled summary from the log's first prompt, starting no agy", async () => {
@@ -289,7 +288,7 @@ describe("Antigravity reader over the log", () => {
   }
   const uuids = (
     loaded: Awaited<ReturnType<AntigravitySessionReader["getSession"]>>,
-  ) => loaded?.data.session.messages.map((message) => message.uuid);
+  ) => transcriptMessages(loaded, "antigravity").map((message) => message.uuid);
   const logged = prompt("Ask") + reply(1, "Reply");
   const resumedAt = { step: 1, end: Buffer.byteLength(logged) };
 
@@ -527,8 +526,8 @@ describe("Antigravity reader over the log", () => {
       const target = reader(conversations);
       const owner = own(scope, ID);
       owner.open(resumedAt);
-      const call = {
-        type: "assistant" as const,
+      const call: SDKMessage = {
+        type: "assistant",
         uuid: "live-call",
         message: {
           role: "assistant",

@@ -28,6 +28,20 @@ import {
 import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { encodeProjectId } from "../../src/supervisor/types.js";
 
+class IdleWatcher extends EventEmitter implements FSWatcher {
+  close() {
+    this.removeAllListeners();
+  }
+
+  ref() {
+    return this;
+  }
+
+  unref() {
+    return this;
+  }
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolvePromise) => {
@@ -46,12 +60,7 @@ async function primeProjectFiles(
     io: {
       lstat,
       readdir: (path) => readdir(path, { withFileTypes: true }),
-      watch: () =>
-        Object.assign(new EventEmitter(), {
-          close() {
-            this.removeAllListeners();
-          },
-        }) as unknown as FSWatcher,
+      watch: () => new IdleWatcher(),
     },
   });
   try {
@@ -213,14 +222,14 @@ describe("Files API", () => {
         projectsDir: join(testDir, "sessions"),
       });
       let response: Response | undefined;
-      const responsePromise = app
-        .request(
+      const responsePromise = Promise.resolve(
+        app.request(
           `/api/projects/${projectId}/files?path=manifest.yml&highlight=true`,
-        )
-        .then((resolved) => {
-          response = resolved;
-          return resolved;
-        });
+        ),
+      ).then((resolved) => {
+        response = resolved;
+        return resolved;
+      });
 
       try {
         await probeStarted.promise;

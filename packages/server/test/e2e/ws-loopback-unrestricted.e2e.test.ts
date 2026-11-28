@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "../setup/create-app.js";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
+import { wireBytes } from "../../src/peer-api/srp-protocol.js";
 import { RemoteAccessService } from "../../src/remote-access/index.js";
 import { createWsRelayRoutes } from "../../src/routes/ws-relay.js";
 import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
@@ -112,18 +113,12 @@ describe("WebSocket Loopback Policy E2E", () => {
         5000,
       );
 
-      const onMessage = (data: WebSocket.RawData) => {
+      const onMessage = (data: WebSocket.RawData, isBinary: boolean) => {
         try {
-          let msg: YepMessage;
-          if (typeof data === "string") {
-            msg = JSON.parse(data) as YepMessage;
-          } else {
-            try {
-              msg = JSON.parse(data.toString()) as YepMessage;
-            } catch {
-              msg = decodeJsonFrame<YepMessage>(data);
-            }
-          }
+          const bytes = wireBytes(data);
+          const msg = isBinary
+            ? decodeJsonFrame<YepMessage>(bytes)
+            : (JSON.parse(bytes.toString("utf8")) as YepMessage);
           if (msg.type === "response" && msg.id === request.id) {
             clearTimeout(timeout);
             ws.off("message", onMessage);

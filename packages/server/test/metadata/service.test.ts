@@ -207,7 +207,10 @@ describe("SessionMetadataService", () => {
       await service.observeCommandInventory("session", [goal]);
       const restored = createTestSessionMetadataService(testDir);
       await restored.initialize();
-      expect(restored.getMetadata("session").goalCommand).toEqual(goal);
+      expect(restored.getMetadata("session")).toHaveProperty(
+        "goalCommand",
+        goal,
+      );
     });
 
     it("settles overlapping goal observations and skips durable duplicates", async () => {
@@ -311,7 +314,10 @@ describe("SessionMetadataService", () => {
       const restarted = createTestSessionMetadataService(testDir);
       await restarted.initialize();
       expect(restarted.getLocalCommandMessages("session-1")).toEqual([receipt]);
-      expect(restarted.getMetadata("session-1").customTitle).toBe("Work");
+      expect(restarted.getMetadata("session-1")).toHaveProperty(
+        "customTitle",
+        "Work",
+      );
     });
     it("starts with empty state when file doesn't exist", async () => {
       await service.initialize();

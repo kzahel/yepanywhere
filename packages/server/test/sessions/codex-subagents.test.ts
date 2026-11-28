@@ -17,7 +17,15 @@ import {
   parseNativeSessionId,
   type UrlProjectId,
 } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  assert,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { encodeProjectId } from "../../src/projects/paths.js";
 import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
@@ -473,9 +481,11 @@ describe("Codex subagent sessions", () => {
         await realpath(sessionsDir),
         parseNativeSessionId(parentId),
       );
-      const source = merged.getProviderChildSource(parent)!;
+      assert(merged.getProviderChildSource);
+      const source = merged.getProviderChildSource(parent);
+      assert(source?.onMetadataAvailable);
       let notices = 0;
-      const handover = source.onMetadataAvailable!;
+      const handover = source.onMetadataAvailable;
       source.onMetadataAvailable = (listener) =>
         handover(() => {
           notices++;

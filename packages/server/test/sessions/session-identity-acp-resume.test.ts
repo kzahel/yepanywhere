@@ -12,6 +12,7 @@ import { expect, it, vi } from "vitest";
 import {
   nativeSessionRef,
   parseNativeSessionId,
+  parseYaSessionId,
   toUrlProjectId,
 } from "@yep-anywhere/shared";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
@@ -127,7 +128,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
         cwd: project,
         resumeSessionId: id,
         nativeResumeSource: source,
-        publicSessionId: "owned-public-refusal",
+        publicSessionId: parseYaSessionId("owned-public-refusal"),
       });
       const errors = [];
       for await (const event of failed.iterator) errors.push(event);
@@ -140,7 +141,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
           cwd: project,
           resumeSessionId: id,
           nativeResumeSource: source,
-          publicSessionId: "owned-public-idle",
+          publicSessionId: parseYaSessionId("owned-public-idle"),
         });
         expect((await idle.iterator.next()).value).toMatchObject({
           type: "system",

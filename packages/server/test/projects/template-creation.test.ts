@@ -62,7 +62,7 @@ async function source() {
     ".project-template/icon.svg":
       '<svg xmlns="http://www.w3.org/2000/svg"><title>Original icon</title></svg>',
   };
-  const entries = [];
+  const entries: { from: string; to: string }[] = [];
   for (const [to, bytes] of Object.entries(files)) {
     const from = `file-${entries.length}`;
     await writeFile(join(directory, from), bytes);

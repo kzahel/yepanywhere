@@ -130,8 +130,6 @@ it("forks and clones the native Claude source while keeping public lineage and d
           sourceProjectId,
         );
         await metadata.recordEffectiveLaunchSettings(publicId, {
-          schemaVersion: 1,
-          revision: 1,
           permissionMode: "bypassPermissions",
           requestedModel: "source-model",
           serviceTier: null,

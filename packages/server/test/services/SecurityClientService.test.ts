@@ -57,7 +57,7 @@ function createTestKey(): TestKey {
   };
 }
 
-function androidDescriptor(installationId = randomUUID()) {
+function androidDescriptor(installationId: string = randomUUID()) {
   return {
     installationId,
     deviceClass: "phone" as const,

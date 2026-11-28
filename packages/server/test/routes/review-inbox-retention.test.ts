@@ -217,12 +217,12 @@ describe("review inbox retention", () => {
           now: () => 1_000_000,
         }),
       );
-      const get = () =>
-        app
-          .request("/api/review/inbox")
-          .then((response) => response.json()) as Promise<{
-          items: Array<{ projectId: string }>;
-        }>;
+      const get = async (): Promise<{
+        items: Array<{ projectId: string }>;
+      }> => {
+        const response = await app.request("/api/review/inbox");
+        return response.json();
+      };
       const oldProjects = [
         { id: "old", name: "Old", path: "/projects/old" },
       ] as unknown as ScannerProjects;

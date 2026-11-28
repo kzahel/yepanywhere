@@ -28,7 +28,7 @@ describe("source editing routes", () => {
       policy: createLocalResourcePathPolicy({
         allowedPaths: [join(root, "project")],
       }),
-      scanner: { getProject: async () => undefined },
+      scanner: { getProject: async () => null },
       resolveArtifactUrl: async () => file,
       isWritePending: async () => pending,
     });
@@ -143,7 +143,7 @@ describe("source editing routes", () => {
       policy: createLocalResourcePathPolicy({
         allowedPaths: [join(root, "project")],
       }),
-      scanner: { getProject: async () => undefined },
+      scanner: { getProject: async () => null },
       resolveArtifactUrl: async () => file,
       rebuild,
     });

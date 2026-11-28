@@ -131,7 +131,9 @@ describe("network listeners", () => {
       network: { host: LOOPBACK, port: networkPort },
     });
     const openConnection = await openSocket(networkPort);
-    cleanups.push(() => openConnection.destroy());
+    cleanups.push(() => {
+      openConnection.destroy();
+    });
 
     // TEST-NET-3 is never a local address, so the bind fails after the
     // existing socket on the same port has been released for it.

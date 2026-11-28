@@ -170,14 +170,12 @@ describe("HostAwakeService", () => {
 
   it("coalesces concurrent stale status probes", async () => {
     let now = 1_000;
-    let resolveProbe: ((value: HostPowerSnapshot) => void) | null = null;
+    const firstProbe = Promise.withResolvers<HostPowerSnapshot>();
+    const nextProbe = Promise.withResolvers<HostPowerSnapshot>();
     const backend = new FakeBackend();
-    backend.probe.mockImplementation(
-      () =>
-        new Promise<HostPowerSnapshot>((resolve) => {
-          resolveProbe = resolve;
-        }),
-    );
+    backend.probe
+      .mockReturnValueOnce(firstProbe.promise)
+      .mockReturnValueOnce(nextProbe.promise);
     const service = new HostAwakeService({
       backend,
       now: () => now,
@@ -187,14 +185,14 @@ describe("HostAwakeService", () => {
     const first = service.getStatus();
     const second = service.getStatus();
     expect(backend.probe).toHaveBeenCalledTimes(1);
-    resolveProbe?.(snapshot({ powerObservedAt: now }));
+    firstProbe.resolve(snapshot({ powerObservedAt: now }));
     await Promise.all([first, second]);
 
     now += 31_000;
     const third = service.getStatus();
     const fourth = service.getStatus();
     expect(backend.probe).toHaveBeenCalledTimes(2);
-    resolveProbe?.(snapshot({ powerObservedAt: now }));
+    nextProbe.resolve(snapshot({ powerObservedAt: now }));
     const statuses: HostAwakeStatus[] = await Promise.all([third, fourth]);
     expect(statuses.every((status) => status.state === "disabled")).toBe(true);
   });

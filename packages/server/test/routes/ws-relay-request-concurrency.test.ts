@@ -23,6 +23,7 @@ import {
   handleMessage,
   handleRequest,
   relayResponseSerializationDiagnostics,
+  type SendFn,
 } from "../../src/routes/ws-relay-handlers.js";
 
 beforeEach(() => {
@@ -57,7 +58,7 @@ describe("WS relay request concurrency", () => {
       new Map(),
       new Map(),
       state,
-      vi.fn(),
+      vi.fn<SendFn>(),
       JSON.stringify({
         type: "client_capabilities",
         version: "0.7.1",
@@ -1008,7 +1009,7 @@ it("keeps owner authority bound to the current live stored SRP session", async (
     const request = () =>
       handleRequest(
         { type: "request", id: "owner-proof", method: "GET", path: "/proof" },
-        vi.fn(),
+        vi.fn<SendFn>(),
         ws,
         app,
         "http://localhost",

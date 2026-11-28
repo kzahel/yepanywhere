@@ -55,7 +55,9 @@ describe("collectVisibleClaudeEntries", () => {
 
     const { entries } = collectVisibleClaudeEntries(messages);
 
-    expect(entries.map((entry) => entry.uuid)).toEqual([
+    expect(
+      entries.map((entry) => ("uuid" in entry ? entry.uuid : undefined)),
+    ).toEqual([
       "root",
       "tail",
       "compact",

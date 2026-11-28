@@ -1,4 +1,7 @@
-import type { ClaudeAdditionalModelSelection } from "@yep-anywhere/shared";
+import type {
+  ClaudeAdditionalModelSelection,
+  ModelInfo,
+} from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
 import {
   getClaudeAdditionalModelOptions,
@@ -103,7 +106,7 @@ describe("Claude additional model catalog", () => {
   });
 
   it("hides a live previous-version row until it is selected", () => {
-    const catalog = [
+    const catalog: ModelInfo[] = [
       { id: "opus", name: "Opus" },
       {
         id: "claude-opus-4-8",
@@ -112,12 +115,12 @@ describe("Claude additional model catalog", () => {
         contextWindow: 200_000,
         supportsEffort: true,
         supportedEffortLevels: ["low", "high"],
-        catalogGroup: "additional" as const,
+        catalogGroup: "additional",
       },
       {
         id: "claude-opus-4-7",
         name: "Opus 4.7",
-        catalogGroup: "additional" as const,
+        catalogGroup: "additional",
       },
     ];
 

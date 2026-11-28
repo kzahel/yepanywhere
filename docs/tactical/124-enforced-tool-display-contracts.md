@@ -94,10 +94,9 @@ normalization or transcript framework:
 - [Portable transcript compiler](../../topics/portable-transcript-compiler.md):
   keep data-only display preparation separable from React. This plan does not
   introduce a native projection, public envelope, or wire-version change.
-- [Server-test typechecking gap](../../gaps/server-tests-not-typechecked.md)
-  and [its existing tactical](107-server-test-typechecking.md): Vitest execution
-  does not prove fixtures typecheck. New contract/type fixtures must enter an
-  actually enforced clean check without requiring the entire old debt cleanup.
+- [Server test typechecking](107-server-test-typechecking.md) covers server
+  contract and type fixtures through root `pnpm typecheck`. The tool-display
+  config also checks the mounted client suite and audit tools.
 
 This is a renderer-boundary stability extension. It does not change roadmap
 priority or take on the larger source-runtime, transport, or native compiler

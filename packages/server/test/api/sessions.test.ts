@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { gunzipSync } from "node:zlib";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fromUrlProjectId, toUrlProjectId } from "@yep-anywhere/shared";
+import {
+  fromUrlProjectId,
+  toUrlProjectId,
+  type UrlProjectId,
+} from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp as createFixtureApp } from "../setup/create-app.js";
 import {
@@ -80,7 +84,7 @@ describe("Sessions API", () => {
   // the real SQLite admission route suites, never a synthetic HTTP reply.
   async function seedActiveSession(
     app: ReturnType<typeof createFixtureApp>["app"],
-    project: string,
+    project: UrlProjectId,
     sessionId: string,
   ) {
     const fixture = [...ownedApps].find((value) => value.app === app);
@@ -95,7 +99,7 @@ describe("Sessions API", () => {
   }
   let mockSdk: ScriptedClaudeProvider;
   let testDir: string;
-  let projectId: string;
+  let projectId: UrlProjectId;
 
   beforeEach(async () => {
     mockSdk = new ScriptedClaudeProvider();

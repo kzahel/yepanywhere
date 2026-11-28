@@ -207,13 +207,13 @@ describe("provider resolution", () => {
         filePath: "/tmp/list/dirty-session.jsonl",
       },
     ]);
-    reader.getSessionListSummary = vi.fn(async (sessionId) => ({
+    reader.getSessionListSummary = vi.fn(async (sessionId: string) => ({
       id: sessionId,
       projectId,
       title: "Bounded title",
       fullTitle: "Bounded full title",
       updatedAt: "2026-06-01T00:03:00.000Z",
-      provider: "codex",
+      provider: "codex" as const,
     }));
     const sessionIndexService = makeSessionIndexService(null);
     vi.mocked(sessionIndexService.getCachedSessionSummary).mockImplementation(

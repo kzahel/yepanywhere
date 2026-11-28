@@ -600,7 +600,7 @@ it.each(["stored", "wrong-project", "wrong-path", "legacy-no-scope"])(
       const acquisition = vi.spyOn(ConversationAcquisition.prototype, "read");
       const original = RetainedSessionCollections.prototype.read;
       vi.spyOn(RetainedSessionCollections.prototype, "read").mockImplementation(
-        async function () {
+        async function (this: RetainedSessionCollections) {
           return { ...(await original.call(this)), rows: [publishedRow] };
         },
       );

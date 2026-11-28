@@ -16,7 +16,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { createGitStatusRoutes } from "../../src/routes/git-status.js";
-import type { DirtyFileEditorService } from "../../src/services/DirtyFileEditorService.js";
+import { DirtyFileEditorService } from "../../src/services/DirtyFileEditorService.js";
 import type { Project } from "../../src/supervisor/types.js";
 
 const execFileAsync = promisify(execFile);
@@ -410,14 +410,19 @@ describe("git-status routes", () => {
       join(repoDir, "transport", "__tests__", "types.test.ts"),
       "export {};\n",
     );
-    const dirtyFileEditorService = {
-      editorsForPaths: () => ({
-        "transport/types.ts": {
-          sessionId: "session-1",
-          observedAt: "2026-08-02T10:00:00.000Z",
-        },
-      }),
-    } as DirtyFileEditorService;
+    const dirtyFileEditorService = Object.assign(
+      new DirtyFileEditorService({ dataDir: tempDir }),
+      {
+        editorsForPaths: (): ReturnType<
+          DirtyFileEditorService["editorsForPaths"]
+        > => ({
+          "transport/types.ts": {
+            sessionId: "session-1",
+            observedAt: "2026-08-02T10:00:00.000Z",
+          },
+        }),
+      },
+    );
     const { projectId, routes } = createRoutesForProject(
       repoDir,
       dirtyFileEditorService,

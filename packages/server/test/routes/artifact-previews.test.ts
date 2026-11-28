@@ -9,17 +9,23 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { EMPTY_LIMITED_USER_GRANTS } from "@yep-anywhere/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { PRINCIPAL_VARIABLE } from "../../src/auth/principal.js";
+import {
+  PRINCIPAL_VARIABLE,
+  type Principal,
+} from "../../src/auth/principal.js";
 import { decideLimitedRoute } from "../../src/auth/limitedUserPolicy.js";
 import { createArtifactPreviewRoutes } from "../../src/routes/artifact-previews.js";
 import { createLocalResourcePathPolicy } from "../../src/routes/local-resource-policy.js";
 
+type PrincipalEnv = { Variables: Record<typeof PRINCIPAL_VARIABLE, Principal> };
+
 let root: string;
 let allowed: string[];
 let clock: number;
-let app: Hono;
+let app: Hono<PrincipalEnv>;
 let previews: ReturnType<typeof createArtifactPreviewRoutes>;
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "ya-preview-"));
@@ -37,12 +43,20 @@ beforeEach(async () => {
   mount();
 });
 function mount(maxViewerBytes?: number) {
-  app = new Hono();
+  app = new Hono<PrincipalEnv>();
   app.use("*", async (c, next) => {
+    const username = c.req.header("user");
     c.set(
       PRINCIPAL_VARIABLE,
-      c.req.header("user")
-        ? { kind: "limited", username: c.req.header("user") }
+      username
+        ? {
+            kind: "limited",
+            username,
+            grants: EMPTY_LIMITED_USER_GRANTS,
+            switched: false,
+            locked: true,
+            via: "direct",
+          }
         : { kind: "superuser" },
     );
     await next();

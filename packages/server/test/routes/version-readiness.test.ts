@@ -25,7 +25,9 @@ describe("version readiness", () => {
         getLatestVersion,
       });
       let settled = false;
-      const response = routes.request(fresh ? "/?fresh=1" : "/").then((r) => {
+      const response = Promise.resolve(
+        routes.request(fresh ? "/?fresh=1" : "/"),
+      ).then((r) => {
         settled = true;
         return r;
       });

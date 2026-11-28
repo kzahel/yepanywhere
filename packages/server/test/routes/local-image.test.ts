@@ -13,6 +13,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createLocalImageRoutes } from "../../src/routes/local-image.js";
 import { createMutableFileCacheMetadata } from "../../src/routes/mutable-file-cache.js";
+import { projectForPath } from "./route-fixtures.js";
 
 describe("Local image routes", () => {
   let tempDir: string;
@@ -131,11 +132,7 @@ describe("Local image routes", () => {
       allowedPaths: [uploadsDir],
       scanner: {
         async listProjects() {
-          return [
-            {
-              path: projectDir,
-            },
-          ];
+          return [projectForPath(projectDir)];
         },
       },
     });

@@ -58,9 +58,11 @@ describe("GeminiSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].provider).toBe("gemini");
-    expect(projects[0].sessionCount).toBe(1);
-    expect(projects[0].sessionCountsByProvider).toEqual({ gemini: 1 });
+    expect(projects[0]).toHaveProperty("provider", "gemini");
+    expect(projects[0]).toHaveProperty("sessionCount", 1);
+    expect(projects[0]).toHaveProperty("sessionCountsByProvider", {
+      gemini: 1,
+    });
   });
 
   it("groups sessions from the same project directory", async () => {
@@ -86,7 +88,7 @@ describe("GeminiSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].sessionCount).toBe(2);
+    expect(projects[0]).toHaveProperty("sessionCount", 2);
   });
 
   it("discovers sessions from slug-based directories (Gemini ≥ v0.29)", async () => {
@@ -109,7 +111,7 @@ describe("GeminiSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].sessionCount).toBe(1);
+    expect(projects[0]).toHaveProperty("sessionCount", 1);
   });
 
   it("skips invalid JSON files", async () => {

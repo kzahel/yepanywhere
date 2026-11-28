@@ -4,6 +4,7 @@ import {
   createConnectionState,
   handleActivitySubscribe,
   handleSubscribe,
+  type SendFn,
 } from "../../src/routes/ws-relay-handlers.js";
 import { ConnectedBrowsersService } from "../../src/services/ConnectedBrowsersService.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
@@ -69,7 +70,7 @@ describe("WebSocket activity browser-tab tracking", () => {
         subscriptionId: "activity-1",
         channel: "activity",
       },
-      vi.fn(),
+      vi.fn<SendFn>(),
       supervisor,
       undefined,
       eventBus,

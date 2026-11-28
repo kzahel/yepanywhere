@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type {
   LookupAddress,
@@ -15,10 +16,7 @@ import type {
   RelayRequest,
   RelayResponse,
   RelaySubscribe,
-  RelayUploadComplete,
   RelayUploadEnd,
-  RelayUploadError,
-  RelayUploadProgress,
   RelayUploadStart,
   SrpClientHello,
   SrpClientProof,
@@ -1326,7 +1324,9 @@ describe("Secure WebSocket Transport E2E", () => {
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         expect(events.length).toBeGreaterThanOrEqual(1);
-        expect(events[0].eventType).toBe("connected");
+        const [event] = events;
+        assert(event, "Expected a connected event");
+        expect(event.eventType).toBe("connected");
       } finally {
         await closeWebSocket(ws);
       }
@@ -1491,7 +1491,9 @@ describe("Secure WebSocket Transport E2E", () => {
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
         expect(events.length).toBeGreaterThanOrEqual(1);
-        expect(events[0].eventType).toBe("connected");
+        const [event] = events;
+        assert(event, "Expected a connected event");
+        expect(event.eventType).toBe("connected");
       } finally {
         await closeWebSocket(ws);
       }
@@ -1697,12 +1699,14 @@ describe("Secure WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file.originalName).toBe(filename);
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.originalName).toBe(filename);
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         await closeWebSocket(ws);
       }
@@ -1774,14 +1778,16 @@ describe("Secure WebSocket Transport E2E", () => {
 
         const progressMsgs = messages.filter(
           (m) => m.type === "upload_progress",
-        ) as RelayUploadProgress[];
+        );
         expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
 
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         await closeWebSocket(ws);
       }
@@ -1818,9 +1824,8 @@ describe("Secure WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBe(1);
-        expect(messages[0].type).toBe("upload_error");
-
-        const errorMsg = messages[0] as RelayUploadError;
+        const [errorMsg] = messages;
+        assert(errorMsg?.type === "upload_error", "Expected upload error");
         expect(errorMsg.error).toContain("Upload not found");
       } finally {
         await closeWebSocket(ws);
@@ -1884,11 +1889,13 @@ describe("Secure WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         await closeWebSocket(ws);
       }

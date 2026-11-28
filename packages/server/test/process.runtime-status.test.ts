@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getLogger } from "../src/logging/logger.js";
 import {
@@ -57,10 +58,11 @@ describe("Process", () => {
         eventCount: 1,
         source: "claude.system.api_retry",
       });
-      expect(status?.startedAt).toBe(status?.lastSeenAt);
+      ok(status?.kind === "retrying");
+      expect(status.startedAt).toBe(status.lastSeenAt);
+      ok(status.retryAt !== undefined);
       const retryDelay =
-        Date.parse(status?.retryAt ?? "") -
-        Date.parse(status?.lastSeenAt ?? "");
+        Date.parse(status.retryAt) - Date.parse(status.lastSeenAt);
       expect(retryDelay).toBe(60_000);
 
       controller.finish();
@@ -222,9 +224,13 @@ describe("Process", () => {
       });
 
       await waitFor(() => {
-        expect(process.getInfo().providerRuntimeStatus?.eventCount).toBe(1);
+        expect(process.getInfo().providerRuntimeStatus).toMatchObject({
+          kind: "retrying",
+          eventCount: 1,
+        });
       });
-      const firstStartedAt = process.getInfo().providerRuntimeStatus?.startedAt;
+      const firstStatus = process.getInfo().providerRuntimeStatus;
+      ok(firstStatus?.kind === "retrying");
 
       controller.push({
         type: "system",
@@ -238,7 +244,10 @@ describe("Process", () => {
       });
 
       await waitFor(() => {
-        expect(process.getInfo().providerRuntimeStatus?.eventCount).toBe(2);
+        expect(process.getInfo().providerRuntimeStatus).toMatchObject({
+          kind: "retrying",
+          eventCount: 2,
+        });
       });
 
       expect(process.getInfo().providerRuntimeStatus).toMatchObject({
@@ -249,7 +258,7 @@ describe("Process", () => {
         retryDelayMs: 30_000,
         attempt: 2,
         maxRetries: 3,
-        startedAt: firstStartedAt,
+        startedAt: firstStatus.startedAt,
         eventCount: 2,
       });
 

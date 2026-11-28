@@ -4,7 +4,7 @@ import { EventBus } from "../../src/watcher/EventBus.js";
 import { mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, expect, it } from "vitest";
+import { assert, afterEach, expect, it } from "vitest";
 import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { collectionCatalogAdapters } from "../../src/sessions/catalog-adapters/collection-catalog-adapters.js";
@@ -248,6 +248,7 @@ it("omits a catalogue candidate whose native identity changes after enumeration"
       [],
       new AbortController().signal,
     );
+    assert(Array.isArray(adapters));
     const rows = [];
     for (const adapter of adapters) {
       const scan = await adapter.scan({

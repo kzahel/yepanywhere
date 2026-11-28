@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -88,16 +89,27 @@ describe("E2E startup failure ownership", () => {
     mocks.terminate.mockRejectedValue(new Error("owned group did not exit"));
     const error = await startYaServerProcess({
       label: "cleanup regression",
-    }).catch((failure: AggregateError) => failure);
-    expect(error).toBeInstanceOf(AggregateError);
-    expect(error.errors[0].message).toContain("registry write failed");
-    expect(error.errors[1].errors[0].message).toBe("owned group did not exit");
+    }).catch((failure: unknown) => failure);
+    ok(error instanceof AggregateError);
+    const [registrationError, cleanupError]: unknown[] = error.errors;
+    ok(registrationError instanceof Error);
+    ok(cleanupError instanceof AggregateError);
+    const [reclamationError]: unknown[] = cleanupError.errors;
+    ok(reclamationError instanceof Error);
+    expect(registrationError.message).toContain("registry write failed");
+    expect(reclamationError.message).toBe("owned group did not exit");
     expect(existsSync(mocks.stopHost.mock.calls[0]![0])).toBe(true);
   });
 
   it("arms ownership for a replacement child before re-registering it", async () => {
     const runtime = mkdtempSync(join(root, "h-"));
-    const server = {
+    const server: YaServerProcess = {
+      serverExecutable: process.execPath,
+      claudeSessionsDir: join(root, "claude"),
+      codexSessionsDir: join(root, "codex"),
+      geminiSessionsDir: join(root, "gemini"),
+      dataDir: join(root, "data"),
+      wsUrl: "ws://127.0.0.1:1234",
       baseUrl: "http://127.0.0.1:1234",
       port: 1234,
       label: "restart regression",
@@ -108,7 +120,7 @@ describe("E2E startup failure ownership", () => {
       registryFile: join(root, "previous.json"),
       output: { stdout: [], stderr: [] },
       ownsTempDir: false,
-    } as YaServerProcess;
+    };
     await expect(restartYaServerProcess(server)).rejects.toThrow(
       "registry write failed",
     );

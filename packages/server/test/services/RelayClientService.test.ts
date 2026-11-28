@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEVICE_BRIDGE_CAPABILITY,
@@ -96,20 +97,43 @@ vi.mock("ws", () => {
 
 // Import after mock setup
 import { getLogger } from "../../src/logging/logger.js";
-import { RelayClientService } from "../../src/services/RelayClientService.js";
+import {
+  RelayClientService,
+  type RelayClientConfig,
+} from "../../src/services/RelayClientService.js";
 import { MAX_INBOUND_WEBSOCKET_MESSAGE_BYTES } from "../../src/websocketLimits.js";
+
+function getSocket(index: number) {
+  const socket = MockWebSocketInstances.at(index);
+  assert(socket, `Expected mock WebSocket at index ${index}`);
+  return socket;
+}
+
+function readRegistration(socket: InstanceType<typeof MockWebSocket>): unknown {
+  const [message] = socket.sentMessages;
+  assert(message, "Expected registration message");
+  return JSON.parse(message);
+}
+
+function createRelayConnectionMock() {
+  return vi.fn<RelayClientConfig["onRelayConnection"]>();
+}
+
+function createStatusChangeMock() {
+  return vi.fn<NonNullable<RelayClientConfig["onStatusChange"]>>();
+}
 
 describe("RelayClientService", () => {
   let service: RelayClientService;
-  let mockOnRelayConnection: ReturnType<typeof vi.fn>;
-  let mockOnStatusChange: ReturnType<typeof vi.fn>;
+  let mockOnRelayConnection: ReturnType<typeof createRelayConnectionMock>;
+  let mockOnStatusChange: ReturnType<typeof createStatusChangeMock>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     MockWebSocketInstances.length = 0;
     service = new RelayClientService();
-    mockOnRelayConnection = vi.fn();
-    mockOnStatusChange = vi.fn();
+    mockOnRelayConnection = createRelayConnectionMock();
+    mockOnStatusChange = createStatusChangeMock();
   });
 
   afterEach(() => {
@@ -138,10 +162,10 @@ describe("RelayClientService", () => {
 
       // Should have sent registration message
       expect(MockWebSocketInstances.length).toBe(1);
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       expect(ws.options?.maxPayload).toBe(MAX_INBOUND_WEBSOCKET_MESSAGE_BYTES);
       expect(ws.sentMessages.length).toBe(1);
-      expect(JSON.parse(ws.sentMessages[0])).toEqual({
+      expect(readRegistration(ws)).toEqual({
         type: "server_register",
         username: "testuser",
         installId: "install-123",
@@ -166,8 +190,8 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
-      expect(JSON.parse(ws.sentMessages[0])).toEqual({
+      const ws = getSocket(0);
+      expect(readRegistration(ws)).toEqual({
         type: "server_register",
         username: "testuser",
         installId: "install-123",
@@ -190,8 +214,8 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
-      expect(JSON.parse(ws.sentMessages[0])).toEqual({
+      const ws = getSocket(0);
+      expect(readRegistration(ws)).toEqual({
         type: "server_register_channel",
         channel: "speech",
         username: "testuser",
@@ -210,7 +234,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       ws.simulateMessage(JSON.stringify({ type: "server_registered" }));
 
       expect(service.getState().status).toBe("waiting");
@@ -227,7 +251,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const firstWs = MockWebSocketInstances[0];
+      const firstWs = getSocket(0);
 
       // Start again with different URL
       service.start({
@@ -247,7 +271,7 @@ describe("RelayClientService", () => {
         installId: "old-install",
         onRelayConnection: mockOnRelayConnection,
       });
-      const firstWs = MockWebSocketInstances[0];
+      const firstWs = getSocket(0);
 
       service.start({
         relayUrl: "wss://new-relay.example.com/ws",
@@ -255,11 +279,11 @@ describe("RelayClientService", () => {
         installId: "new-install",
         onRelayConnection: mockOnRelayConnection,
       });
-      const secondWs = MockWebSocketInstances[1];
+      const secondWs = getSocket(1);
       await vi.advanceTimersByTimeAsync(10);
 
       expect(firstWs.sentMessages).toEqual([]);
-      expect(JSON.parse(secondWs.sentMessages[0])).toMatchObject({
+      expect(readRegistration(secondWs)).toMatchObject({
         username: "new-user",
         installId: "new-install",
       });
@@ -286,7 +310,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       ws.simulateMessage(JSON.stringify({ type: "server_registered" }));
 
       expect(service.getState().status).toBe("waiting");
@@ -307,7 +331,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       ws.simulateClose();
 
       // Reconnect should be scheduled
@@ -338,7 +362,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       ws.simulateMessage(
         JSON.stringify({ type: "server_rejected", reason: "username_taken" }),
       );
@@ -370,7 +394,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       ws.simulateMessage(
         JSON.stringify({ type: "server_rejected", reason: "invalid_username" }),
       );
@@ -396,7 +420,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       ws.simulateMessage(JSON.stringify({ type: "server_registered" }));
 
       expect(service.getState().status).toBe("waiting");
@@ -428,7 +452,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const ws = MockWebSocketInstances[0];
+      const ws = getSocket(0);
       ws.simulateMessage(JSON.stringify({ type: "server_registered" }));
 
       // Any message that's not a relay protocol message indicates claim
@@ -452,7 +476,7 @@ describe("RelayClientService", () => {
         });
         await vi.advanceTimersByTimeAsync(10);
 
-        const ws = MockWebSocketInstances[0];
+        const ws = getSocket(0);
         ws.simulateMessage(JSON.stringify({ type: "server_registered" }));
         const claimedBearer = "claimed-public-share-bearer";
         const claimedMessage = JSON.stringify({
@@ -465,7 +489,7 @@ describe("RelayClientService", () => {
         ws.simulateMessage(claimedMessage);
 
         const malformedBearer = "malformed-public-share-bearer";
-        MockWebSocketInstances[1].simulateMessage(
+        getSocket(1).simulateMessage(
           `not-json /public-api/shares/${malformedBearer}/metadata`,
         );
 
@@ -501,7 +525,7 @@ describe("RelayClientService", () => {
         onRelayConnection: mockOnRelayConnection,
       });
       await vi.advanceTimersByTimeAsync(10);
-      const ws = MockWebSocketInstances.at(-1)!;
+      const ws = getSocket(-1);
       ws.simulateMessage(JSON.stringify({ type: "server_registered" }));
       return ws;
     }
@@ -541,7 +565,7 @@ describe("RelayClientService", () => {
       await vi.advanceTimersByTimeAsync(1_001);
       expect(ws.readyState).toBe(MockWebSocket.CLOSED);
       expect(MockWebSocketInstances).toHaveLength(2);
-      const replacement = MockWebSocketInstances.at(-1)!;
+      const replacement = getSocket(-1);
       replacement.simulateMessage(
         JSON.stringify({ type: "server_registered" }),
       );
@@ -583,7 +607,7 @@ describe("RelayClientService", () => {
       await vi.advanceTimersByTimeAsync(10);
 
       // Close the first connection
-      const ws1 = MockWebSocketInstances[0];
+      const ws1 = getSocket(0);
       ws1.simulateClose();
 
       expect(service.getState().reconnectAttempts).toBe(1);
@@ -593,7 +617,7 @@ describe("RelayClientService", () => {
       expect(MockWebSocketInstances.length).toBe(2);
 
       // Close again
-      const ws2 = MockWebSocketInstances[1];
+      const ws2 = getSocket(1);
       ws2.simulateClose();
 
       expect(service.getState().reconnectAttempts).toBe(2);
@@ -617,7 +641,7 @@ describe("RelayClientService", () => {
 
       // Simulate many disconnects to reach max backoff
       for (let i = 0; i < 10; i++) {
-        const ws = MockWebSocketInstances[MockWebSocketInstances.length - 1];
+        const ws = getSocket(-1);
         ws.simulateClose();
         // Advance time to trigger reconnect
         await vi.advanceTimersByTimeAsync(60000);
@@ -627,7 +651,7 @@ describe("RelayClientService", () => {
       // After 10 disconnects, delay should be capped at 60s
       // 1s * 2^9 = 512s > 60s, so should be 60s
       const lastInstance = MockWebSocketInstances.length;
-      const ws = MockWebSocketInstances[lastInstance - 1];
+      const ws = getSocket(lastInstance - 1);
       ws.simulateClose();
 
       // Should reconnect after max 60s
@@ -647,14 +671,14 @@ describe("RelayClientService", () => {
 
       // Disconnect a few times
       for (let i = 0; i < 3; i++) {
-        const ws = MockWebSocketInstances[MockWebSocketInstances.length - 1];
+        const ws = getSocket(-1);
         ws.simulateClose();
         await vi.advanceTimersByTimeAsync(10000); // Advance past backoff
         await vi.advanceTimersByTimeAsync(10);
       }
 
       // Successfully register
-      const ws = MockWebSocketInstances[MockWebSocketInstances.length - 1];
+      const ws = getSocket(-1);
       ws.simulateMessage(JSON.stringify({ type: "server_registered" }));
 
       expect(service.getState().reconnectAttempts).toBe(0);
@@ -711,7 +735,7 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const lastWs = MockWebSocketInstances[MockWebSocketInstances.length - 1];
+      const lastWs = getSocket(-1);
       expect(lastWs.url).toBe("wss://new-relay.example.com/ws");
     });
   });
@@ -736,8 +760,8 @@ describe("RelayClientService", () => {
 
       await vi.advanceTimersByTimeAsync(10);
 
-      const lastWs = MockWebSocketInstances[MockWebSocketInstances.length - 1];
-      expect(JSON.parse(lastWs.sentMessages[0]).username).toBe("newuser");
+      const lastWs = getSocket(-1);
+      expect(readRegistration(lastWs)).toMatchObject({ username: "newuser" });
     });
   });
 });

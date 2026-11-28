@@ -1,5 +1,9 @@
 import type { FileContentResponse } from "@yep-anywhere/shared";
-import { fromUrlProjectId, toUrlProjectId } from "@yep-anywhere/shared";
+import {
+  assertUrlProjectId,
+  fromUrlProjectId,
+  toUrlProjectId,
+} from "@yep-anywhere/shared";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -61,6 +65,7 @@ describe("public file shares", () => {
     requestedPath: string,
     options: { raw?: boolean; projectRoot?: string },
   ): Promise<Response> => {
+    assertUrlProjectId(requestedProjectId);
     const content = options.projectRoot
       ? await fs
           .readFile(path.join(options.projectRoot, requestedPath), "utf8")

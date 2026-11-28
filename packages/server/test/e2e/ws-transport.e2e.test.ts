@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,10 +13,7 @@ import type {
   RelaySubscribe,
   RelayUnsubscribe,
   RelayUploadChunk,
-  RelayUploadComplete,
   RelayUploadEnd,
-  RelayUploadError,
-  RelayUploadProgress,
   RelayUploadStart,
   YepMessage,
 } from "@yep-anywhere/shared";
@@ -23,6 +21,7 @@ import {
   decodeJsonFrame,
   encodeJsonFrame,
   encodeUploadChunkFrame,
+  toUrlProjectId,
 } from "@yep-anywhere/shared";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
@@ -297,8 +296,10 @@ describe("WebSocket Transport E2E", () => {
         const events = await eventsPromise;
 
         expect(events.length).toBe(1);
-        expect(events[0].eventType).toBe("connected");
-        expect(events[0].subscriptionId).toBe(subscriptionId);
+        const [event] = events;
+        assert(event, "Expected a connected event");
+        expect(event.eventType).toBe("connected");
+        expect(event.subscriptionId).toBe(subscriptionId);
       } finally {
         ws.close();
       }
@@ -326,14 +327,17 @@ describe("WebSocket Transport E2E", () => {
           type: "file-change",
           provider: "claude",
           path: "/test/file.txt",
-          changeType: "change",
+          relativePath: "file.txt",
+          changeType: "modify",
+          fileType: "other",
           timestamp: new Date().toISOString(),
         });
 
         eventBus.emit({
           type: "session-status-changed",
           sessionId: "test-session",
-          status: "streaming",
+          projectId: toUrlProjectId("/home/user/testproject"),
+          ownership: { owner: "self", processId: "test-process" },
           timestamp: new Date().toISOString(),
         });
 
@@ -380,7 +384,9 @@ describe("WebSocket Transport E2E", () => {
           type: "file-change",
           provider: "claude",
           path: "/test/file2.txt",
-          changeType: "change",
+          relativePath: "file2.txt",
+          changeType: "modify",
+          fileType: "other",
           timestamp: new Date().toISOString(),
         });
 
@@ -427,7 +433,9 @@ describe("WebSocket Transport E2E", () => {
           type: "file-change",
           provider: "claude",
           path: "/test/concurrent.txt",
-          changeType: "change",
+          relativePath: "concurrent.txt",
+          changeType: "modify",
+          fileType: "other",
           timestamp: new Date().toISOString(),
         });
 
@@ -608,13 +616,14 @@ describe("WebSocket Transport E2E", () => {
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
 
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file).toBeDefined();
-        expect(completeMsg.file.originalName).toBe(filename);
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.originalName).toBe(filename);
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         ws.close();
       }
@@ -674,14 +683,16 @@ describe("WebSocket Transport E2E", () => {
 
         const progressMsgs = messages.filter(
           (m) => m.type === "upload_progress",
-        ) as RelayUploadProgress[];
+        );
         expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
 
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         ws.close();
       }
@@ -722,10 +733,8 @@ describe("WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_error");
-
-        const errorMsg = lastMsg as RelayUploadError;
+        const errorMsg = messages.at(-1);
+        assert(errorMsg?.type === "upload_error", "Expected upload error");
         expect(errorMsg.error).toContain("Invalid offset");
       } finally {
         ws.close();
@@ -751,9 +760,8 @@ describe("WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBe(1);
-        expect(messages[0].type).toBe("upload_error");
-
-        const errorMsg = messages[0] as RelayUploadError;
+        const [errorMsg] = messages;
+        assert(errorMsg?.type === "upload_error", "Expected upload error");
         expect(errorMsg.error).toContain("Upload not found");
       } finally {
         ws.close();
@@ -796,11 +804,9 @@ describe("WebSocket Transport E2E", () => {
 
         const messages = await messagesPromise;
 
-        const errorMsgs = messages.filter(
-          (m) => m.type === "upload_error",
-        ) as RelayUploadError[];
+        const errorMsgs = messages.filter((m) => m.type === "upload_error");
         expect(errorMsgs.length).toBe(1);
-        expect(errorMsgs[0].error).toContain("already in use");
+        expect(errorMsgs[0]?.error).toContain("already in use");
       } finally {
         ws.close();
       }
@@ -1046,7 +1052,7 @@ describe("WebSocket Transport E2E", () => {
                 msg.subscriptionId === subscriptionId
               ) {
                 events.push(msg);
-                if (events.length >= 1 && events[0].eventType === "connected") {
+                if (events[0]?.eventType === "connected") {
                   clearTimeout(timeout);
                   ws.off("message", handler);
                   resolve(events);
@@ -1063,8 +1069,10 @@ describe("WebSocket Transport E2E", () => {
         const events = await eventsPromise;
 
         expect(events.length).toBeGreaterThanOrEqual(1);
-        expect(events[0].eventType).toBe("connected");
-        expect(events[0].subscriptionId).toBe(subscriptionId);
+        const [event] = events;
+        assert(event, "Expected a connected event");
+        expect(event.eventType).toBe("connected");
+        expect(event.subscriptionId).toBe(subscriptionId);
       } finally {
         ws.close();
       }
@@ -1185,13 +1193,14 @@ describe("WebSocket Transport E2E", () => {
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
 
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file).toBeDefined();
-        expect(completeMsg.file.originalName).toBe(filename);
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.originalName).toBe(filename);
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         ws.close();
       }
@@ -1247,14 +1256,16 @@ describe("WebSocket Transport E2E", () => {
 
         const progressMsgs = messages.filter(
           (m) => m.type === "upload_progress",
-        ) as RelayUploadProgress[];
+        );
         expect(progressMsgs.length).toBeGreaterThanOrEqual(1);
 
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         ws.close();
       }
@@ -1299,8 +1310,7 @@ describe("WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
+        expect(messages.at(-1)?.type).toBe("upload_complete");
       } finally {
         ws.close();
       }
@@ -1325,9 +1335,8 @@ describe("WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBe(1);
-        expect(messages[0].type).toBe("upload_error");
-
-        const errorMsg = messages[0] as RelayUploadError;
+        const [errorMsg] = messages;
+        assert(errorMsg?.type === "upload_error", "Expected upload error");
         expect(errorMsg.error).toContain("Upload not found");
       } finally {
         ws.close();
@@ -1365,10 +1374,8 @@ describe("WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_error");
-
-        const errorMsg = lastMsg as RelayUploadError;
+        const errorMsg = messages.at(-1);
+        assert(errorMsg?.type === "upload_error", "Expected upload error");
         expect(errorMsg.error).toContain("Invalid offset");
       } finally {
         ws.close();
@@ -1416,11 +1423,13 @@ describe("WebSocket Transport E2E", () => {
         const messages = await messagesPromise;
 
         expect(messages.length).toBeGreaterThanOrEqual(1);
-        const lastMsg = messages[messages.length - 1];
-        expect(lastMsg.type).toBe("upload_complete");
-
-        const completeMsg = lastMsg as RelayUploadComplete;
-        expect(completeMsg.file.size).toBe(fileSize);
+        const lastMsg = messages.at(-1);
+        assert(
+          lastMsg?.type === "upload_complete",
+          "Expected upload completion",
+        );
+        assert(lastMsg.file, "Expected uploaded file metadata");
+        expect(lastMsg.file.size).toBe(fileSize);
       } finally {
         ws.close();
       }

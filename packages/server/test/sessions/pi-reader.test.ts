@@ -1,3 +1,4 @@
+import { transcriptMessages } from "./provider-session-fixtures.js";
 import { parseNativeSessionId } from "@yep-anywhere/shared";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -385,7 +386,7 @@ describe("PiSessionReader", () => {
       title: "inspect files",
     });
 
-    const messages = loaded?.data.session.messages as Message[];
+    const messages = transcriptMessages(loaded, "pi");
     await augmentEditToolUses(messages);
 
     const uses = toolUseBlocks(messages);

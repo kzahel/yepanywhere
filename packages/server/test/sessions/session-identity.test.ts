@@ -14,7 +14,7 @@ import {
   parseYaSessionId,
   toUrlProjectId,
 } from "@yep-anywhere/shared";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { assert, afterEach, describe, expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { SessionIndexService } from "../../src/indexes/SessionIndexService.js";
 import { normalizeSession } from "../../src/sessions/normalization.js";
@@ -571,7 +571,8 @@ describe("scoped durable session identity", () => {
       });
       expect(JSON.stringify(a?.data)).not.toContain("first turn");
       if (!a) throw new Error("expected compact window");
-      expect(a.readWindow?.startByte).toBeGreaterThan(5 * 1024 * 1024);
+      assert(a.readWindow?.kind === "compact-tail");
+      expect(a.readWindow.startByte).toBeGreaterThan(5 * 1024 * 1024);
       expect(JSON.stringify(normalizeSession(a).messages)).toContain(
         "codex-compacted-byte-",
       );
@@ -1024,7 +1025,7 @@ it("cancels the production legacy fork-source proof before database teardown", a
     vi.spyOn(
       ClaudeSessionReader.prototype,
       "getNativeSessionRef",
-    ).mockImplementation(async function (id) {
+    ).mockImplementation(async function (this: ClaudeSessionReader, id) {
       if (id === nativeId && !blocked) {
         blocked = true;
         entered();

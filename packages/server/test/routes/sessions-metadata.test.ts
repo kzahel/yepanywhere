@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +19,7 @@ import {
   type Principal,
 } from "../../src/auth/principal.js";
 import { getLogger } from "../../src/logging/logger.js";
+import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
 import {
   canonicalizeProjectPath,
   encodeProjectId,
@@ -32,7 +34,8 @@ import {
 } from "../../src/services/SessionQueuePersistenceService.js";
 import type { UserMessage } from "../../src/sdk/types.js";
 import type { CodexSessionReader } from "../../src/sessions/codex-reader.js";
-import type { GrokSessionReader } from "../../src/sessions/grok-reader.js";
+import { GrokSessionReader } from "../../src/sessions/grok-reader.js";
+import { PiSessionReader } from "../../src/sessions/pi-reader.js";
 import { SessionReader } from "../../src/sessions/reader.js";
 import { tagCodexEntrySourceByteOffset } from "../../src/sessions/normalization.js";
 import type {
@@ -53,6 +56,11 @@ import {
   closeTestDiscoveryDatabases,
   createTestSessionMetadataService,
 } from "../utils/session-metadata-database.js";
+import {
+  type ProjectLookups,
+  stubProjectLookups,
+  stubSessionReader,
+} from "./route-fixtures.js";
 
 // These cases resume sessions in project folders that exist only as names.
 vi.mock("../../src/projects/launch-project.js", async (importOriginal) => ({
@@ -65,6 +73,44 @@ vi.mock("../../src/projects/launch-project.js", async (importOriginal) => ({
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+type QueueScheduler = NonNullable<SessionsDeps["projectQueueScheduler"]>;
+
+function createTestSessionsRoutes({
+  scanner,
+  readerFactory = () => {
+    throw new Error("This route fixture has no session reader");
+  },
+  ...deps
+}: Omit<SessionsDeps, "scanner" | "readerFactory"> & {
+  scanner?: ProjectLookups;
+  readerFactory?: SessionsDeps["readerFactory"];
+}) {
+  return createSessionsRoutes({
+    ...deps,
+    scanner: stubProjectLookups(scanner),
+    readerFactory,
+  });
+}
+
+function mockCodexProjectPath(projectPath: string): CodexSessionScanner {
+  return Object.assign(new CodexSessionScanner(), {
+    getSessionProjectPath: vi.fn<CodexSessionScanner["getSessionProjectPath"]>(
+      async () => projectPath,
+    ),
+  });
+}
+
+function createQueueScheduler(
+  overrides: Partial<QueueScheduler>,
+): QueueScheduler {
+  return {
+    reserveUserSessionStart: () => () => {},
+    sessionProjectChanged: vi.fn(),
+    setYaCommandRunner: vi.fn(),
+    ...overrides,
+  };
+}
 
 function createProject(): Project {
   return {
@@ -286,14 +332,14 @@ describe("Sessions metadata route", () => {
         getSession: async () => null,
       } as unknown as ISessionReader;
       try {
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: () => undefined,
             wasEverOwned: () => false,
           } as unknown as SessionsDeps["supervisor"],
           scanner: {
             getOrCreateProject: async () => project,
-          } as unknown as SessionsDeps["scanner"],
+          },
           readerFactory: (_project, ref) =>
             ref?.family === "codex" ? reader : claude,
           codexSessionsDir: source,
@@ -332,14 +378,14 @@ describe("Sessions metadata route", () => {
       );
       const project = { ...createProject(), sessionDir };
       const reader = new SessionReader({ sessionDir });
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: () => null,
           wasEverOwned: () => false,
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject: async () => project,
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: () => reader,
       });
       for (const suffix of ["/metadata", ""]) {
@@ -373,14 +419,14 @@ describe("Sessions metadata route", () => {
         getProviderRuntimeStatus: () => null,
         getDeferredQueueSummary: () => [],
       };
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: () => process,
           wasEverOwned: () => true,
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject: async () => project,
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: () =>
           ({
             getSession: async () => loaded,
@@ -419,7 +465,7 @@ describe("Sessions metadata route", () => {
       order.push("abort-process");
       return null;
     });
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         abortSessionWithVerification,
       } as unknown as SessionsDeps["supervisor"],
@@ -427,7 +473,7 @@ describe("Sessions metadata route", () => {
         updateMetadata,
         getMetadata: vi.fn(() => undefined),
       } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>,
-    } as SessionsDeps);
+    });
 
     const response = await routes.request("/sessions/sess-1/metadata", {
       method: "PUT",
@@ -451,7 +497,7 @@ describe("Sessions metadata route", () => {
     };
     const getOrCreateProject = vi.fn(async () => wrongProject);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           projectId: rightProject.id,
@@ -459,7 +505,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject,
-      } as unknown as SessionsDeps["scanner"],
+      },
     });
 
     const response = await routes.request(
@@ -486,7 +532,7 @@ describe("Sessions metadata route", () => {
       },
     ]);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           isTerminated: false,
@@ -572,7 +618,7 @@ describe("Sessions metadata route", () => {
       mimeType: "text/plain",
     };
     const deferMessage = vi.fn(() => ({ success: true, deferred: true }));
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           isTerminated: false,
@@ -629,7 +675,7 @@ describe("Sessions metadata route", () => {
             },
           ]),
         };
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => process),
           } as unknown as SessionsDeps["supervisor"],
@@ -670,7 +716,7 @@ describe("Sessions metadata route", () => {
         }),
     );
     const deferMessage = vi.fn(() => ({ success: true, deferred: true }));
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           isTerminated: false,
@@ -714,7 +760,7 @@ describe("Sessions metadata route", () => {
           resolveCommand = resolve;
         }),
     );
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           isTerminated: false,
@@ -749,7 +795,7 @@ describe("Sessions metadata route", () => {
       const runProviderCommand = vi.fn(async () => ({ handled: true }));
       const deferMessage = vi.fn();
       const queueMessage = vi.fn();
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => ({
             isTerminated: false,
@@ -784,7 +830,7 @@ describe("Sessions metadata route", () => {
       handled: true,
       error: reason,
     }));
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           isTerminated: false,
@@ -821,7 +867,7 @@ describe("Sessions metadata route", () => {
     const waitForPatientQueuePersistenceIdle = vi.fn(async () => {});
     const getDeferredQueueSummary = vi.fn(() => []);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           isTerminated: false,
@@ -879,14 +925,14 @@ describe("Sessions metadata route", () => {
       getSessionSummary: vi.fn(async () => summary),
     } as unknown as ISessionReader;
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getProject: vi.fn(async () => project),
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => claudeReader),
       codexSessionsDir: "/tmp/codex-sessions",
       codexReaderFactory: vi.fn(
@@ -930,7 +976,7 @@ describe("Sessions metadata route", () => {
         getSession: vi.fn(async () => createLoadedCodexSession()),
       } as unknown as ISessionReader;
 
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => null),
           wasEverOwned: vi.fn(() => true),
@@ -938,7 +984,7 @@ describe("Sessions metadata route", () => {
         scanner: {
           getProject: vi.fn(async () => project),
           getOrCreateProject: vi.fn(async () => project),
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: vi.fn(() => claudeReader),
         codexSessionsDir: "/tmp/codex-sessions",
         codexReaderFactory: vi.fn(
@@ -1011,14 +1057,14 @@ describe("Sessions metadata route", () => {
       listProviderChildSessions,
     } as unknown as ISessionReader;
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getProject: vi.fn(async () => project),
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
     });
 
@@ -1059,7 +1105,7 @@ describe("Sessions metadata route", () => {
       getRecapMessages: vi.fn(() => []),
     } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>;
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
@@ -1067,7 +1113,7 @@ describe("Sessions metadata route", () => {
       scanner: {
         getProject: vi.fn(async () => project),
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       sessionMetadataService,
     });
@@ -1118,13 +1164,13 @@ describe("Sessions metadata route", () => {
           getSessionSummary: vi.fn(async () => summary),
         } as unknown as ISessionReader;
 
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => null),
           } as unknown as SessionsDeps["supervisor"],
           scanner: {
             getOrCreateProject: vi.fn(async () => project),
-          } as unknown as SessionsDeps["scanner"],
+          },
           readerFactory: vi.fn(() => reader),
           sessionQueuePersistenceService,
         });
@@ -1176,7 +1222,7 @@ describe("Sessions metadata route", () => {
           },
         ]);
 
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => ({
               getDeferredQueueSummary: vi.fn(() => [
@@ -1190,7 +1236,7 @@ describe("Sessions metadata route", () => {
           } as unknown as SessionsDeps["supervisor"],
           scanner: {
             getOrCreateProject: vi.fn(async () => project),
-          } as unknown as SessionsDeps["scanner"],
+          },
           sessionQueuePersistenceService,
         });
 
@@ -1246,7 +1292,7 @@ describe("Sessions metadata route", () => {
           waitForPatientQueuePersistenceIdle: vi.fn(async () => {}),
           getDeferredQueueSummary: vi.fn(() => []),
         };
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => null),
             reactivateSession: vi.fn(async () => process),
@@ -1307,7 +1353,7 @@ describe("Sessions metadata route", () => {
           },
         ]);
 
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => ({
               isTerminated: false,
@@ -1374,7 +1420,7 @@ describe("Sessions metadata route", () => {
           ]),
         };
 
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => process),
           } as unknown as SessionsDeps["supervisor"],
@@ -1432,7 +1478,7 @@ describe("Sessions metadata route", () => {
           waitForPatientQueuePersistenceIdle: vi.fn(async () => {}),
           getDeferredQueueSummary: vi.fn(() => []),
         };
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => null),
             reactivateSession: vi.fn(async () => process),
@@ -1540,7 +1586,7 @@ describe("Sessions metadata route", () => {
         };
         const reactivateSession = vi.fn(async () => process);
 
-        const routes = createSessionsRoutes({
+        const routes = createTestSessionsRoutes({
           supervisor: {
             getProcessForSession: vi.fn(() => null),
             reactivateSession,
@@ -1611,6 +1657,7 @@ describe("Sessions metadata route", () => {
     const summary = createSummary();
     const childMessage: Message = {
       id: "child-message-1",
+      type: "assistant",
       role: "assistant",
       content: [{ type: "text", text: "Child transcript" }],
     };
@@ -1633,13 +1680,13 @@ describe("Sessions metadata route", () => {
       })),
     } as unknown as ISessionReader;
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => claudeReader),
       codexSessionsDir: "/tmp/codex-sessions",
       codexReaderFactory: vi.fn(
@@ -1699,14 +1746,14 @@ describe("Sessions metadata route", () => {
       })),
     } as unknown as GrokSessionReader;
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => true),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => primaryReader),
       grokSessionsDir: "/tmp/grok-sessions",
       grokReaderFactory: vi.fn(() => grokReader),
@@ -1866,14 +1913,14 @@ describe("Sessions metadata route", () => {
       const primaryReader = {
         getSession: vi.fn(async () => null),
       } as unknown as ISessionReader;
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => null),
           wasEverOwned: vi.fn(() => true),
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject: vi.fn(async () => fixture.rightProject),
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: vi.fn(() => primaryReader),
         grokSessionsDir: fixture.grokSessionsDir,
       });
@@ -1956,14 +2003,14 @@ describe("Sessions metadata route", () => {
       const primaryReader = {
         getSession: vi.fn(async () => null),
       } as unknown as ISessionReader;
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => null),
           wasEverOwned: vi.fn(() => false),
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject: vi.fn(async () => fixture.wrongProject),
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: vi.fn(() => primaryReader),
         grokSessionsDir: fixture.grokSessionsDir,
       });
@@ -1987,13 +2034,13 @@ describe("Sessions metadata route", () => {
       const primaryReader = {
         getSessionSummary: vi.fn(async () => null),
       } as unknown as ISessionReader;
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => null),
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject: vi.fn(async () => fixture.wrongProject),
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: vi.fn(() => primaryReader),
         grokSessionsDir: fixture.grokSessionsDir,
       });
@@ -2077,7 +2124,7 @@ describe("Sessions metadata route", () => {
     } as unknown as ISessionReader;
 
     try {
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => null),
           wasEverOwned: vi.fn(() => false),
@@ -2090,15 +2137,15 @@ describe("Sessions metadata route", () => {
                 ? transcriptProject
                 : null,
           ),
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: vi.fn(() => reader),
         eventBus: {
           emit,
         } as unknown as NonNullable<SessionsDeps["eventBus"]>,
-        projectQueueScheduler: {
+        projectQueueScheduler: createQueueScheduler({
           reserveUserSessionStart: vi.fn(),
           sessionProjectChanged,
-        },
+        }),
         sessionMetadataService: {
           getMetadata: vi.fn(() => metadata),
           getProvider: vi.fn(() => "grok"),
@@ -2197,7 +2244,7 @@ describe("Sessions metadata route", () => {
       path: targetProjectPath,
     };
     const setWorkingProject = vi.fn(async () => undefined);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           projectId: launchProject.id,
@@ -2212,14 +2259,9 @@ describe("Sessions metadata route", () => {
               (project) => project.id === projectId,
             ) ?? null,
         ),
-      } as unknown as SessionsDeps["scanner"],
-      codexScanner: {
-        getSessionProjectPath: vi.fn(async () => transcriptProjectPath),
       },
-      readerFactory: vi.fn(
-        () =>
-          ({ getSessionSummary: vi.fn(async () => null) }) as ISessionReader,
-      ),
+      codexScanner: mockCodexProjectPath(transcriptProjectPath),
+      readerFactory: () => stubSessionReader(),
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({ provider: "codex" as ProviderName })),
         setWorkingProject,
@@ -2269,14 +2311,14 @@ describe("Sessions metadata route", () => {
     const reader = {
       getSession: vi.fn(async () => loaded),
     } as unknown as ISessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
     });
 
@@ -2359,16 +2401,16 @@ describe("Sessions metadata route", () => {
       [firstProject.id, firstProject],
       [secondProject.id, secondProject],
     ]);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
-        getOrCreateProject: vi.fn(async (projectId: UrlProjectId) =>
-          projects.get(projectId),
+        getOrCreateProject: vi.fn(
+          async (projectId: UrlProjectId) => projects.get(projectId) ?? null,
         ),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
     });
 
@@ -2421,7 +2463,7 @@ describe("Sessions metadata route", () => {
       },
     ];
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-1",
@@ -2443,7 +2485,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -2482,7 +2524,7 @@ describe("Sessions metadata route", () => {
   it("keeps persisted provider when metadata refresh misses the session summary", async () => {
     const project = createProject();
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-1",
@@ -2499,7 +2541,7 @@ describe("Sessions metadata route", () => {
       scanner: {
         getProject: vi.fn(async () => project),
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -2540,7 +2582,7 @@ describe("Sessions metadata route", () => {
       .spyOn(getLogger(), "warn")
       .mockImplementation(() => undefined);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-1",
@@ -2558,7 +2600,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -2620,14 +2662,14 @@ describe("Sessions metadata route", () => {
               ],
             };
 
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => null),
           wasEverOwned: vi.fn(() => false),
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject: vi.fn(async () => project),
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: vi.fn(
           () =>
             ({
@@ -2700,7 +2742,7 @@ describe("Sessions metadata route", () => {
       ],
     };
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-1",
@@ -2721,7 +2763,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -2767,14 +2809,14 @@ describe("Sessions metadata route", () => {
       ],
     };
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -2806,14 +2848,14 @@ describe("Sessions metadata route", () => {
     const getSession = vi.fn(async () => createLoadedCodexSession());
     const reader = { getSession } as unknown as CodexSessionReader;
     const getCachedSessionSummary = vi.fn(async () => summary);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
       sessionIndexService: {
@@ -2900,14 +2942,14 @@ describe("Sessions metadata route", () => {
     };
     const getSession = vi.fn(async () => loaded);
     const reader = { getSession } as unknown as CodexSessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
       sessionIndexService: {
@@ -2993,14 +3035,14 @@ describe("Sessions metadata route", () => {
     };
     const getSession = vi.fn(async () => loaded);
     const reader = { getSession } as unknown as CodexSessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
       sessionMetadataService: {
@@ -3100,14 +3142,14 @@ describe("Sessions metadata route", () => {
     };
     const getSession = vi.fn(async () => loaded);
     const reader = { getSession } as unknown as CodexSessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
       sessionIndexService: {
@@ -3163,14 +3205,14 @@ describe("Sessions metadata route", () => {
     const reader = {
       getSession: vi.fn(async () => loaded),
     } as unknown as CodexSessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
       sessionIndexService: {
@@ -3234,14 +3276,14 @@ describe("Sessions metadata route", () => {
     const reader = {
       getSession: vi.fn(async () => loaded),
     } as unknown as GrokSessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       grokReaderFactory: vi.fn(() => reader),
     });
@@ -3346,14 +3388,14 @@ describe("Sessions metadata route", () => {
       },
     );
     const reader = { getSession } as unknown as GrokSessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       grokReaderFactory: vi.fn(() => reader),
     });
@@ -3441,14 +3483,14 @@ describe("Sessions metadata route", () => {
       createLoadedGrokSession({ messageCount: messages.length }, messages),
     );
     const reader = { getSession } as unknown as GrokSessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       grokReaderFactory: vi.fn(() => reader),
     });
@@ -3489,14 +3531,14 @@ describe("Sessions metadata route", () => {
       (_sessionId: string, updatedAt: string) => updatedAt > lastSeenAt,
     );
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -3552,14 +3594,14 @@ describe("Sessions metadata route", () => {
       isSynthetic: true,
       placementAfterMessageId: "provider-1",
     };
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -3608,14 +3650,14 @@ describe("Sessions metadata route", () => {
       }),
     );
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         wasEverOwned: vi.fn(() => false),
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -3653,13 +3695,13 @@ describe("Sessions metadata route", () => {
       modeVersion: 0,
     }));
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         resumeSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -3716,13 +3758,13 @@ describe("Sessions metadata route", () => {
     }));
     let sandboxLevel: "none" | "project-write" = "none";
     let sandboxNetworkFirewall: boolean | undefined;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         resumeSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -3810,13 +3852,13 @@ describe("Sessions metadata route", () => {
         new Error("native session is missing"),
       );
     });
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         resumeSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -3887,7 +3929,7 @@ describe("Sessions metadata route", () => {
       permissionMode: "default",
       modeVersion: 0,
     }));
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: { resumeSession } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async (projectId: UrlProjectId) =>
@@ -3897,14 +3939,9 @@ describe("Sessions metadata route", () => {
               ? transcriptProject
               : null,
         ),
-      } as unknown as SessionsDeps["scanner"],
-      codexScanner: {
-        getSessionProjectPath: vi.fn(async () => transcriptProjectPath),
       },
-      readerFactory: vi.fn(
-        () =>
-          ({ getSessionSummary: vi.fn(async () => null) }) as ISessionReader,
-      ),
+      codexScanner: mockCodexProjectPath(transcriptProjectPath),
+      readerFactory: () => stubSessionReader(),
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({ provider: "codex" as ProviderName })),
         getProvider: vi.fn(() => "codex"),
@@ -3942,13 +3979,13 @@ describe("Sessions metadata route", () => {
       modeVersion: 0,
     }));
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         resumeSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4041,13 +4078,13 @@ describe("Sessions metadata route", () => {
       modeVersion: 0,
     }));
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         resumeSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4176,13 +4213,13 @@ describe("Sessions metadata route", () => {
       },
     });
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         resumeSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4263,14 +4300,14 @@ describe("Sessions metadata route", () => {
       });
     });
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         resumeSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4343,7 +4380,7 @@ describe("Sessions metadata route", () => {
       process: { id: "proc-2" },
     }));
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           projectPath: project.path,
@@ -4359,7 +4396,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4410,7 +4447,7 @@ describe("Sessions metadata route", () => {
       process: { id: "proc-1" },
     }));
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           projectPath: project.path,
@@ -4426,7 +4463,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4471,9 +4508,9 @@ describe("Sessions metadata route", () => {
   ])("accepts an $label restart body as defaults", async ({ body }) => {
     const project = createProject();
     const getOrCreateProject = vi.fn(async () => null);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {} as SessionsDeps["supervisor"],
-      scanner: { getOrCreateProject } as unknown as SessionsDeps["scanner"],
+      scanner: { getOrCreateProject },
     });
 
     const response = await routes.request(
@@ -4556,14 +4593,14 @@ describe("Sessions metadata route", () => {
         getMessageHistory: vi.fn(() => []),
         getDeferredQueueSummary: vi.fn(() => []),
       }));
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession,
           interruptProcess,
           abortProcess,
           startSession,
         } as unknown as SessionsDeps["supervisor"],
-        scanner: { getOrCreateProject } as unknown as SessionsDeps["scanner"],
+        scanner: { getOrCreateProject },
         readerFactory: vi.fn(
           () =>
             ({
@@ -4615,20 +4652,24 @@ describe("Sessions metadata route", () => {
     let replacementListener:
       | ((event: { type: string; message?: unknown }) => void)
       | undefined;
-    const startSession = vi.fn(async () => ({
-      id: "proc-new",
-      sessionId: "sess-new",
-      projectId: project.id,
-      provider: "codex",
-      model: "gpt-5.4",
-      resolvedModel: "gpt-5.4",
-      permissionMode: "default",
-      modeVersion: 0,
-      subscribe: vi.fn((listener) => {
-        replacementListener = listener;
-        return vi.fn();
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => ({
+        id: "proc-new",
+        sessionId: "sess-new",
+        projectId: project.id,
+        provider: "codex",
+        model: "gpt-5.4",
+        resolvedModel: "gpt-5.4",
+        permissionMode: "default",
+        modeVersion: 0,
+        subscribe: vi.fn((listener) => {
+          replacementListener = listener;
+          return vi.fn();
+        }),
       }),
-    }));
+    );
     const abortProcess = vi.fn(async () => true);
     const interruptProcess = vi.fn(async () => ({
       success: true,
@@ -4637,7 +4678,7 @@ describe("Sessions metadata route", () => {
     const updateMetadata = vi.fn(async () => undefined);
     const emit = vi.fn();
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -4662,7 +4703,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4794,18 +4835,22 @@ describe("Sessions metadata route", () => {
     // topics/limited-users.md § Freshness: the source is neither compacted
     // nor interrupted, and the lock and sandbox apply to the new session.
     const project = createProject();
-    const startSession = vi.fn(async () => ({
-      id: "proc-new",
-      sessionId: "sess-new",
-      projectId: project.id,
-      provider: "codex",
-      model: "gpt-5",
-      permissionMode: "default",
-      modeVersion: 0,
-    }));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => ({
+        id: "proc-new",
+        sessionId: "sess-new",
+        projectId: project.id,
+        provider: "codex",
+        model: "gpt-5",
+        permissionMode: "default",
+        modeVersion: 0,
+      }),
+    );
     const interruptProcess = vi.fn();
     const abortProcess = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -4827,7 +4872,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4904,7 +4949,8 @@ describe("Sessions metadata route", () => {
       }),
       expect.anything(),
     );
-    const text = startSession.mock.calls[0]?.[1].text as string;
+    const text = startSession.mock.calls[0]?.[1].text;
+    assert.ok(text);
     expect(text).toContain("may be a new, independent request");
     expect(text).toContain("build me a maze game");
     expect(text.endsWith("## New Message\n\nwhat is a volcano?")).toBe(true);
@@ -4913,14 +4959,14 @@ describe("Sessions metadata route", () => {
   it("does not allow a handoff restart to weaken the source sandbox", async () => {
     const project = createProject();
     const startSession = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         startSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -4985,7 +5031,7 @@ describe("Sessions metadata route", () => {
     const setSessionSandbox = vi.fn(async () => undefined);
     const emit = vi.fn();
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -5013,7 +5059,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5137,10 +5183,14 @@ describe("Sessions metadata route", () => {
 
   it("forks a transcript without starting a process via the fork endpoint", async () => {
     const project = createProject();
-    const forkSession = vi.fn(async () => ({
-      sessionId: "sess-fork",
-      sandboxStateKey: "project-sandbox",
-    }));
+    const forkSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["forkSession"]>
+      ) => ({
+        sessionId: "sess-fork",
+        sandboxStateKey: "project-sandbox",
+      }),
+    );
     const resumeSession = vi.fn();
     const startSession = vi.fn();
     const setProvider = vi.fn(async () => undefined);
@@ -5148,7 +5198,7 @@ describe("Sessions metadata route", () => {
     const updateMetadata = vi.fn(async () => undefined);
     const emit = vi.fn();
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
@@ -5158,7 +5208,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5257,7 +5307,7 @@ describe("Sessions metadata route", () => {
     const project = createProject();
     const forkSession = vi.fn(async () => ({ sessionId: "sess-fork" }));
     const recordEffectiveLaunchSettings = vi.fn(async () => undefined);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
@@ -5267,7 +5317,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5328,7 +5378,7 @@ describe("Sessions metadata route", () => {
       return { ordinal: forksCreated, lineageRootId: "sess-1" };
     });
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
@@ -5338,7 +5388,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5396,7 +5446,7 @@ describe("Sessions metadata route", () => {
         .mockRejectedValueOnce(new Error("provider fork failed"))
         .mockResolvedValue({ sessionId: "sess-fork" });
 
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession: vi.fn(() => undefined),
           supportsForkSession: vi.fn(() => true),
@@ -5406,7 +5456,7 @@ describe("Sessions metadata route", () => {
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject: vi.fn(async () => project),
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory: vi.fn(
           () =>
             ({
@@ -5449,7 +5499,7 @@ describe("Sessions metadata route", () => {
     const forkSession = vi.fn(async () => ({ sessionId: "sess-fork-2" }));
     const updateMetadata = vi.fn(async () => undefined);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
@@ -5459,7 +5509,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5502,11 +5552,15 @@ describe("Sessions metadata route", () => {
 
   it("clones the latest completed transcript cold with Clone lineage", async () => {
     const project = createProject();
-    const forkSession = vi.fn(async () => ({ sessionId: "sess-clone" }));
+    const forkSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["forkSession"]>
+      ) => ({ sessionId: "sess-clone" }),
+    );
     const resumeSession = vi.fn();
     const updateMetadata = vi.fn(async () => undefined);
     const setRequestedModel = vi.fn(async () => undefined);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           provider: "claude",
@@ -5521,7 +5575,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5585,7 +5639,7 @@ describe("Sessions metadata route", () => {
   it("rejects explicit Clone while the current response is active", async () => {
     const project = createProject();
     const forkSession = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           provider: "claude",
@@ -5596,7 +5650,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5697,7 +5751,7 @@ describe("Sessions metadata route", () => {
         data: { provider: "claude", session: { messages } },
       })),
     } as unknown as ISessionReader;
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           provider: "claude",
@@ -5715,7 +5769,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => durableReader),
       sessionMetadataService: {
         getProvider: vi.fn(() => "claude"),
@@ -5765,6 +5819,7 @@ describe("Sessions metadata route", () => {
     const timestamp = "2026-08-01T07:38:02.999Z";
     const loaded: LoadedSession = {
       summary,
+      transcriptSnapshotUpdatedAt: summary.updatedAt,
       data: {
         provider: "codex",
         session: {
@@ -5838,8 +5893,12 @@ describe("Sessions metadata route", () => {
       getSessionSummary: vi.fn(async () => summary),
       getSession: vi.fn(async () => loaded),
     } as unknown as CodexSessionReader;
-    const forkSession = vi.fn(async () => ({ sessionId: "codex-fork" }));
-    const routes = createSessionsRoutes({
+    const forkSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["forkSession"]>
+      ) => ({ sessionId: "codex-fork" }),
+    );
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
@@ -5847,7 +5906,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5919,7 +5978,7 @@ describe("Sessions metadata route", () => {
       provider: "claude",
       model: "sonnet",
     };
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           provider: "claude",
@@ -5931,7 +5990,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -5989,7 +6048,7 @@ describe("Sessions metadata route", () => {
     const setProvider = vi.fn();
     const setRequestedModel = vi.fn();
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-source",
@@ -6002,7 +6061,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6087,7 +6146,7 @@ describe("Sessions metadata route", () => {
       text: "Codex-backed rename",
     }));
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         reactivateSession,
@@ -6099,7 +6158,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => primaryReader),
       codexSessionsDir: "/tmp/codex-sessions",
       codexReaderFactory: vi.fn(
@@ -6149,8 +6208,10 @@ describe("Sessions metadata route", () => {
       "codex",
       expect.objectContaining({ purpose: "session-retitle" }),
     );
+    const [forkCallOrder] = forkSession.mock.invocationCallOrder;
+    assert.ok(forkCallOrder !== undefined);
     expect(reactivateSession.mock.invocationCallOrder[0]).toBeLessThan(
-      forkSession.mock.invocationCallOrder[0],
+      forkCallOrder,
     );
     expect(primaryReader.getSessionSummary).toHaveBeenCalledWith(
       "sess-1",
@@ -6210,19 +6271,22 @@ describe("Sessions metadata route", () => {
     const addTranscriptDisplayObject = vi.fn(async (_sessionId, object) => {
       transcriptDisplayObjects = [...transcriptDisplayObjects, object];
     });
-    const updateTranscriptDisplayObject = vi.fn(
-      async (_sessionId, objectId, updater) => {
-        let updated: TranscriptDisplayObject | undefined;
-        transcriptDisplayObjects = transcriptDisplayObjects.map((object) => {
-          if (object.id !== objectId) return object;
-          updated = updater(object);
-          return updated;
-        });
-        return updated;
-      },
-    );
+    const updateTranscriptDisplayObject = vi.fn<
+      NonNullable<
+        SessionsDeps["sessionMetadataService"]
+      >["updateTranscriptDisplayObject"]
+    >(async (_sessionId, objectId, updater) => {
+      let updated: TranscriptDisplayObject | undefined;
+      transcriptDisplayObjects = transcriptDisplayObjects.map((object) => {
+        if (object.id !== objectId) return object;
+        const replacement = updater(object);
+        updated = replacement;
+        return replacement;
+      });
+      return updated;
+    });
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-source",
@@ -6258,7 +6322,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6453,17 +6517,20 @@ describe("Sessions metadata route", () => {
     const addTranscriptDisplayObject = vi.fn(async (_sessionId, object) => {
       transcriptDisplayObjects = [...transcriptDisplayObjects, object];
     });
-    const updateTranscriptDisplayObject = vi.fn(
-      async (_sessionId, objectId, updater) => {
-        let updated: TranscriptDisplayObject | undefined;
-        transcriptDisplayObjects = transcriptDisplayObjects.map((object) => {
-          if (object.id !== objectId) return object;
-          updated = updater(object);
-          return updated;
-        });
-        return updated;
-      },
-    );
+    const updateTranscriptDisplayObject = vi.fn<
+      NonNullable<
+        SessionsDeps["sessionMetadataService"]
+      >["updateTranscriptDisplayObject"]
+    >(async (_sessionId, objectId, updater) => {
+      let updated: TranscriptDisplayObject | undefined;
+      transcriptDisplayObjects = transcriptDisplayObjects.map((object) => {
+        if (object.id !== objectId) return object;
+        const replacement = updater(object);
+        updated = replacement;
+        return replacement;
+      });
+      return updated;
+    });
     const getMessageHistory = vi.fn(() => [
       {
         type: "user",
@@ -6498,7 +6565,7 @@ describe("Sessions metadata route", () => {
       },
     ]);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-source",
@@ -6514,7 +6581,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6572,7 +6639,7 @@ describe("Sessions metadata route", () => {
     const project = createProject();
     const forkSession = vi.fn();
     const generateSummary = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-source",
@@ -6597,7 +6664,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6632,7 +6699,7 @@ describe("Sessions metadata route", () => {
     const project = createProject();
     const forkSession = vi.fn();
     const generateSummary = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-source",
@@ -6656,7 +6723,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6691,7 +6758,7 @@ describe("Sessions metadata route", () => {
     const project = createProject();
     const forkSession = vi.fn();
     const generateSummary = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-source",
@@ -6722,7 +6789,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6757,7 +6824,7 @@ describe("Sessions metadata route", () => {
     const project = createProject();
     const forkSession = vi.fn();
     const generateSummary = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-source",
@@ -6778,7 +6845,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6843,7 +6910,7 @@ describe("Sessions metadata route", () => {
       () => new Promise<{ sessionId: string }>(() => {}),
     );
     let transcriptDisplayObjects: TranscriptDisplayObject[] = [];
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => true),
@@ -6851,7 +6918,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       grokReaderFactory: vi.fn(() => reader as unknown as GrokSessionReader),
       sessionMetadataService: {
@@ -6889,11 +6956,11 @@ describe("Sessions metadata route", () => {
 
   it("rejects an invalid fork-summary permission mode", async () => {
     const project = createProject();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {} as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
     });
 
     const response = await routes.request(
@@ -6917,7 +6984,7 @@ describe("Sessions metadata route", () => {
   it("rejects the fork endpoint when the provider has no fork primitive", async () => {
     const project = createProject();
     const forkSession = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         supportsForkSession: vi.fn(() => false),
@@ -6925,7 +6992,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -6964,7 +7031,7 @@ describe("Sessions metadata route", () => {
       success: true,
       supported: true,
     }));
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -6989,7 +7056,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -7052,30 +7119,34 @@ describe("Sessions metadata route", () => {
         },
       })),
     } as unknown as ISessionReader;
-    const startSession = vi.fn(async () => ({
-      id: "proc-new",
-      sessionId: "sess-new",
-      projectId: project.id,
-      provider: "codex",
-      model: "gpt-5.5",
-      resolvedModel: "gpt-5.5",
-      permissionMode: "default",
-      modeVersion: 0,
-      subscribe: vi.fn(() => vi.fn()),
-    }));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => ({
+        id: "proc-new",
+        sessionId: "sess-new",
+        projectId: project.id,
+        provider: "codex",
+        model: "gpt-5.5",
+        resolvedModel: "gpt-5.5",
+        permissionMode: "default",
+        modeVersion: 0,
+        subscribe: vi.fn(() => vi.fn()),
+      }),
+    );
     const setProvider = vi.fn(async () => undefined);
     const getContextWindow = vi.fn((model: string | undefined) =>
       model === "sonnet" ? 200_000 : 0,
     );
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         startSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => reader),
       sessionMetadataService: {
         getProvider: vi.fn(() => undefined),
@@ -7191,20 +7262,24 @@ describe("Sessions metadata route", () => {
 
   it("does not reuse generated handoff boilerplate as the next handoff title", async () => {
     const project = createProject();
-    const startSession = vi.fn(async () => ({
-      id: "proc-new",
-      sessionId: "sess-new",
-      projectId: project.id,
-      provider: "codex",
-      model: "gpt-5.4",
-      resolvedModel: "gpt-5.4",
-      permissionMode: "default",
-      modeVersion: 0,
-      subscribe: vi.fn(() => vi.fn()),
-    }));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => ({
+        id: "proc-new",
+        sessionId: "sess-new",
+        projectId: project.id,
+        provider: "codex",
+        model: "gpt-5.4",
+        resolvedModel: "gpt-5.4",
+        permissionMode: "default",
+        modeVersion: 0,
+        subscribe: vi.fn(() => vi.fn()),
+      }),
+    );
     const updateMetadata = vi.fn(async () => undefined);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -7243,7 +7318,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -7324,19 +7399,23 @@ describe("Sessions metadata route", () => {
       success: true,
       supported: true,
     }));
-    const startSession = vi.fn(async () => ({
-      id: "proc-new",
-      sessionId: "sess-new",
-      projectId: project.id,
-      provider: "codex",
-      model: "gpt-5.4",
-      resolvedModel: "gpt-5.4",
-      permissionMode: "default",
-      modeVersion: 0,
-      subscribe: vi.fn(() => vi.fn()),
-    }));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => ({
+        id: "proc-new",
+        sessionId: "sess-new",
+        projectId: project.id,
+        provider: "codex",
+        model: "gpt-5.4",
+        resolvedModel: "gpt-5.4",
+        permissionMode: "default",
+        modeVersion: 0,
+        subscribe: vi.fn(() => vi.fn()),
+      }),
+    );
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -7364,7 +7443,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -7450,19 +7529,23 @@ describe("Sessions metadata route", () => {
       success: true,
       supported: true,
     }));
-    const startSession = vi.fn(async () => ({
-      id: "proc-new",
-      sessionId: "sess-new",
-      projectId: project.id,
-      provider: "codex",
-      model: "gpt-5.4",
-      resolvedModel: "gpt-5.4",
-      permissionMode: "default",
-      modeVersion: 0,
-      subscribe: vi.fn(() => vi.fn()),
-    }));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => ({
+        id: "proc-new",
+        sessionId: "sess-new",
+        projectId: project.id,
+        provider: "codex",
+        model: "gpt-5.4",
+        resolvedModel: "gpt-5.4",
+        permissionMode: "default",
+        modeVersion: 0,
+        subscribe: vi.fn(() => vi.fn()),
+      }),
+    );
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -7490,7 +7573,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -7599,19 +7682,23 @@ describe("Sessions metadata route", () => {
   it("summarizes fallback activity and appends queued turns last", async () => {
     const project = createProject();
     const verboseReadOutput = "VERBOSE_READ_OUTPUT".repeat(200);
-    const startSession = vi.fn(async () => ({
-      id: "proc-new",
-      sessionId: "sess-new",
-      projectId: project.id,
-      provider: "codex",
-      model: "gpt-5.4",
-      resolvedModel: "gpt-5.4",
-      permissionMode: "default",
-      modeVersion: 0,
-      subscribe: vi.fn(() => vi.fn()),
-    }));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => ({
+        id: "proc-new",
+        sessionId: "sess-new",
+        projectId: project.id,
+        provider: "codex",
+        model: "gpt-5.4",
+        resolvedModel: "gpt-5.4",
+        permissionMode: "default",
+        modeVersion: 0,
+        subscribe: vi.fn(() => vi.fn()),
+      }),
+    );
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -7714,7 +7801,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -7810,7 +7897,7 @@ describe("Sessions metadata route", () => {
     }));
     const cancelQueuedRequest = vi.fn(() => true);
 
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({
           id: "proc-old",
@@ -7833,7 +7920,7 @@ describe("Sessions metadata route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(
         () =>
           ({
@@ -7872,9 +7959,7 @@ describe("Session reactivation route", () => {
   const projectId = encodeProjectId("/tmp/project");
   const reactivatePath = `/projects/${projectId}/sessions/sess-1/reactivate`;
   const project = { ...createProject(), id: projectId };
-  const readerFactory = vi.fn(
-    () => ({ getSessionSummary: vi.fn(async () => null) }) as ISessionReader,
-  );
+  const readerFactory = () => stubSessionReader();
 
   it("reserves the project until provider startup settles", async () => {
     let finishStartup!: (process: { id: string }) => void;
@@ -7884,15 +7969,15 @@ describe("Session reactivation route", () => {
     const release = vi.fn();
     const reserveUserSessionStart = vi.fn(() => release);
     const reactivateSession = vi.fn(() => startup);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         reactivateSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory,
-      projectQueueScheduler: { reserveUserSessionStart },
+      projectQueueScheduler: createQueueScheduler({ reserveUserSessionStart }),
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({ provider: "claude" as ProviderName })),
       } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>,
@@ -7912,7 +7997,7 @@ describe("Session reactivation route", () => {
 
   it("releases the project reservation after provider startup fails", async () => {
     const release = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         reactivateSession: vi.fn(async () => {
           throw new Error("provider refused startup");
@@ -7920,11 +8005,11 @@ describe("Session reactivation route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
-      readerFactory,
-      projectQueueScheduler: {
-        reserveUserSessionStart: vi.fn(() => release),
       },
+      readerFactory,
+      projectQueueScheduler: createQueueScheduler({
+        reserveUserSessionStart: vi.fn(() => release),
+      }),
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({ provider: "claude" as ProviderName })),
       } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>,
@@ -7953,13 +8038,13 @@ describe("Session reactivation route", () => {
       modeVersion: 0,
     };
     const reactivateSession = vi.fn(async () => process);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         reactivateSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory: vi.fn(() => primaryReader),
       grokReaderFactory: vi.fn(() => grokReader),
       sessionMetadataService: {
@@ -7995,7 +8080,7 @@ describe("Session reactivation route", () => {
     };
     const reactivateSession = vi.fn(async () => process);
     const reserveUserSessionStart = vi.fn(() => vi.fn());
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => undefined),
         reactivateSession,
@@ -8008,12 +8093,10 @@ describe("Session reactivation route", () => {
               ? transcriptProject
               : null,
         ),
-      } as unknown as SessionsDeps["scanner"],
-      codexScanner: {
-        getSessionProjectPath: vi.fn(async () => transcriptProjectPath),
       },
+      codexScanner: mockCodexProjectPath(transcriptProjectPath),
       readerFactory,
-      projectQueueScheduler: { reserveUserSessionStart },
+      projectQueueScheduler: createQueueScheduler({ reserveUserSessionStart }),
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({ provider: "codex" as ProviderName })),
       } as unknown as NonNullable<SessionsDeps["sessionMetadataService"]>,
@@ -8036,22 +8119,25 @@ describe("Session reactivation route", () => {
   });
 
   it("does not fall back to the project provider for an unknown session", async () => {
-    const emptyReader = {
-      getSessionSummary: vi.fn(async () => null),
-    } as unknown as ISessionReader;
+    const createEmptyGrokReader = () =>
+      Object.assign(new GrokSessionReader(), {
+        getSessionSummary: async () => null,
+      });
+    const createEmptyPiReader = () =>
+      Object.assign(new PiSessionReader(), {
+        getSessionSummary: async () => null,
+      });
     const reactivateSession = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         reactivateSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
-      readerFactory: vi.fn(() => emptyReader),
-      grokReaderFactory: vi.fn(
-        () => emptyReader as unknown as GrokSessionReader,
-      ),
-      piReaderFactory: vi.fn(() => emptyReader),
+      },
+      readerFactory: () => stubSessionReader(),
+      grokReaderFactory: createEmptyGrokReader,
+      piReaderFactory: createEmptyPiReader,
     });
 
     const response = await routes.request(reactivatePath, { method: "POST" });
@@ -8073,14 +8159,14 @@ describe("Session reactivation route", () => {
       const getOrCreateProject = vi.fn(async () => project);
       const reactivateSession = vi.fn();
       const getProcessForSession = vi.fn();
-      const routes = createSessionsRoutes({
+      const routes = createTestSessionsRoutes({
         supervisor: {
           getProcessForSession,
           reactivateSession,
         } as unknown as SessionsDeps["supervisor"],
         scanner: {
           getOrCreateProject,
-        } as unknown as SessionsDeps["scanner"],
+        },
         readerFactory,
       });
 
@@ -8112,14 +8198,14 @@ describe("Session reactivation route", () => {
       sandboxEnforcement: undefined,
     };
     const reactivateSession = vi.fn(async () => process);
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => process),
         reactivateSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory,
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({
@@ -8193,13 +8279,13 @@ describe("Session reactivation route", () => {
     const reactivateSession = vi.fn(async () => {
       throw new SessionConfigurationConflictError(["service tier"]);
     });
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         reactivateSession,
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => project),
-      } as unknown as SessionsDeps["scanner"],
+      },
       readerFactory,
       sessionMetadataService: {
         getMetadata: vi.fn(() => ({ provider: "claude" as ProviderName })),
@@ -8229,7 +8315,7 @@ describe("Session-keyed away-recap route", () => {
       emitted: true,
       text: "live recap",
     }));
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => ({ id: "p1", isTerminated: false })),
         isRecapPausedUntilUserTurn: vi.fn(() => false),
@@ -8258,7 +8344,7 @@ describe("Session-keyed away-recap route", () => {
       emitted: true,
       text: "revived recap",
     }));
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         isRecapPausedUntilUserTurn: vi.fn(() => false),
@@ -8267,7 +8353,7 @@ describe("Session-keyed away-recap route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => createProject()),
-      } as unknown as SessionsDeps["scanner"],
+      },
       sessionMetadataService: {
         getRecapMode: vi.fn(() => "fork"),
         getMetadata: vi.fn(() => ({ provider: "claude" as ProviderName })),
@@ -8297,7 +8383,7 @@ describe("Session-keyed away-recap route", () => {
   it("does not revive a terminated session whose automatic resume is disabled", async () => {
     const reactivateSession = vi.fn();
     const requestRecap = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         isRecapPausedUntilUserTurn: vi.fn(() => false),
@@ -8328,7 +8414,7 @@ describe("Session-keyed away-recap route", () => {
   it("does not revive a session while recaps await a fresh user turn", async () => {
     const reactivateSession = vi.fn();
     const requestRecap = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         isRecapPausedUntilUserTurn: vi.fn(() => true),
@@ -8359,7 +8445,7 @@ describe("Session-keyed away-recap route", () => {
   it("skips a cold session whose recap mode is not fork (no revival)", async () => {
     const reactivateSession = vi.fn();
     const requestRecap = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         isRecapPausedUntilUserTurn: vi.fn(() => false),
@@ -8386,7 +8472,7 @@ describe("Session-keyed away-recap route", () => {
       );
     });
     const requestRecap = vi.fn();
-    const routes = createSessionsRoutes({
+    const routes = createTestSessionsRoutes({
       supervisor: {
         getProcessForSession: vi.fn(() => null),
         isRecapPausedUntilUserTurn: vi.fn(() => false),
@@ -8395,7 +8481,7 @@ describe("Session-keyed away-recap route", () => {
       } as unknown as SessionsDeps["supervisor"],
       scanner: {
         getOrCreateProject: vi.fn(async () => createProject()),
-      } as unknown as SessionsDeps["scanner"],
+      },
       sessionMetadataService: {
         getRecapMode: vi.fn(() => "fork"),
         getMetadata: vi.fn(() => ({ provider: "claude" as ProviderName })),

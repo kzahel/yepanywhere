@@ -179,10 +179,11 @@ describe("FocusedSessionWatchManager", () => {
     tempDirs.push(root);
     const sessionDir = join(root, "projects", "demo");
     await mkdir(sessionDir, { recursive: true });
-    const sessionIds = ["session-shared-1", "session-shared-2"];
-    const filePaths = sessionIds.map((sessionId) =>
-      join(sessionDir, `${sessionId}.jsonl`),
-    );
+    const sessionIds = ["session-shared-1", "session-shared-2"] as const;
+    const filePaths = [
+      join(sessionDir, `${sessionIds[0]}.jsonl`),
+      join(sessionDir, `${sessionIds[1]}.jsonl`),
+    ] as const;
     await Promise.all(
       filePaths.map((filePath) =>
         writeFile(filePath, '{"type":"user","message":"hello"}\n'),

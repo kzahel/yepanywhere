@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import { getLogger } from "../../src/logging/logger.js";
@@ -59,6 +60,7 @@ async function fixture(retainedInitially = false) {
   const s = new Supervisor({ provider, idleTimeoutMs: 60000 });
   instances.push(s);
   const p = await s.resumeSession("existing", "/tmp/test", { text: "INITIAL" });
+  ok("id" in p, "Expected an immediately started process");
   runs[0]!.queue.drain();
   return {
     s,

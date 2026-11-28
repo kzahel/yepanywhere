@@ -52,6 +52,7 @@ it.skipIf(
       vi.spyOn(provider, "getAuthStatus").mockResolvedValue({
         installed: true,
         authenticated: true,
+        enabled: true,
       });
       vi.spyOn(provider, "getAvailableModels").mockResolvedValue([
         { id: "default", name: "Antigravity default" },

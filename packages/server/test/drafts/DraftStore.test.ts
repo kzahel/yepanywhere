@@ -12,13 +12,14 @@ import {
   EMPTY_DRAFT,
   draftSlotKey,
   mergeDrafts,
+  type DraftPayload,
   type DraftSlot,
   type DraftWrite,
   type StagedAttachmentRef,
 } from "@yep-anywhere/shared";
 
 const slot: DraftSlot = { kind: "new-session" };
-const text = (value: string) => ({
+const text = (value: string): DraftPayload => ({
   fields: value ? { text: value } : {},
   attachments: [],
 });

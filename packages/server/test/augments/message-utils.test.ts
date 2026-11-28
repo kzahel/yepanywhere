@@ -77,6 +77,7 @@ describe("markSubagent", () => {
       const msg = {
         type: "assistant",
         uuid: "msg-1",
+        agentId: undefined,
         message: { content: "hello" },
       };
       const result = markSubagent(msg);
@@ -88,6 +89,7 @@ describe("markSubagent", () => {
     it("returns message unchanged for main session stream events", () => {
       const msg = {
         type: "stream_event",
+        agentId: undefined,
         event: { type: "content_block_delta" },
       };
       const result = markSubagent(msg);

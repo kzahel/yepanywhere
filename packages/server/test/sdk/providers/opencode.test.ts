@@ -6,23 +6,23 @@
  * establishes the native binding before input; public YA identity stays separate.
  */
 
-import type { ChildProcess } from "node:child_process";
-import { EventEmitter } from "node:events";
+import { ChildProcess } from "node:child_process";
+import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- helpers ---
 
 function makeFakeProcess(): ChildProcess {
-  const emitter = new EventEmitter() as ChildProcess;
-  emitter.pid = 12345;
-  emitter.killed = false;
-  emitter.exitCode = null;
-  emitter.signalCode = null;
-  emitter.kill = vi.fn(() => true) as unknown as ChildProcess["kill"];
-  const fakeStream = new EventEmitter() as unknown as import("stream").Readable;
-  emitter.stdout = fakeStream;
-  emitter.stderr = fakeStream;
-  return emitter;
+  const fakeStream = new PassThrough();
+  return Object.assign(new ChildProcess(), {
+    pid: 12345,
+    killed: false,
+    exitCode: null,
+    signalCode: null,
+    kill: vi.fn(() => true),
+    stdout: fakeStream,
+    stderr: fakeStream,
+  });
 }
 
 // Minimal Response-like object for mocking global fetch
@@ -57,7 +57,9 @@ function sseResponse(events: unknown[]): Response {
 describe("OpenCodeProvider.startSession — blocking session ID", () => {
   let spawnMock: ReturnType<typeof vi.fn>;
   let execFileMock: ReturnType<typeof vi.fn>;
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: ReturnType<
+    typeof vi.fn<(url: string, init?: RequestInit) => Promise<Response>>
+  >;
   let fakeProcess: ChildProcess;
 
   beforeEach(async () => {
@@ -288,7 +290,7 @@ describe("OpenCodeProvider.startSession — blocking session ID", () => {
 
     // POST /session should NOT have been called (we resumed)
     const postCalls = fetchMock.mock.calls.filter(
-      ([, init]: [string, RequestInit?]) => init?.method === "POST",
+      ([, init]) => init?.method === "POST",
     );
     expect(postCalls).toHaveLength(0);
 
@@ -341,7 +343,7 @@ describe("OpenCodeProvider.startSession — blocking session ID", () => {
     await session.iterator.next();
 
     const messagePost = fetchMock.mock.calls.find(
-      ([url, init]: [string, RequestInit?]) =>
+      ([url, init]) =>
         url.endsWith(`/session/${sessionId}/message`) &&
         init?.method === "POST",
     );
@@ -931,7 +933,7 @@ describe("OpenCodeProvider.startSession — blocking session ID", () => {
     // 1x1 PNG (magic bytes detected as image/png by the queue)
     const pngBase64 =
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-    let messageBody: { parts?: Array<Record<string, unknown>> } | null = null;
+    const request: { body?: { parts?: Array<Record<string, unknown>> } } = {};
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/event")) {
         return Promise.resolve(
@@ -941,7 +943,7 @@ describe("OpenCodeProvider.startSession — blocking session ID", () => {
         );
       }
       if (url.endsWith(`/session/${sessionId}/message`)) {
-        messageBody = JSON.parse(String(init?.body));
+        request.body = JSON.parse(String(init?.body));
         return Promise.resolve(jsonResponse({ ok: true }));
       }
       if (init?.method === "POST") {
@@ -962,7 +964,7 @@ describe("OpenCodeProvider.startSession — blocking session ID", () => {
       const next = await session.iterator.next();
       if (next.done || next.value.type === "result") break;
     }
-    const parts = messageBody?.parts ?? [];
+    const parts = request.body?.parts ?? [];
     expect(parts).toContainEqual({ type: "text", text: "what is this?" });
     const filePart = parts.find((p) => p.type === "file");
     expect(filePart).toMatchObject({

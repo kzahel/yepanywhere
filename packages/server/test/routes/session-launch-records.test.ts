@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -27,7 +28,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
   const timestamp = "2026-11-01T00:00:00.000Z";
   let root: string;
   let projectPath: string;
-  let projectId: string;
+  let projectId: ReturnType<typeof toUrlProjectId>;
   let storage: DiscoverySqliteService;
   let metadata: SessionMetadataService;
   let provider: ClaudeProvider;
@@ -80,8 +81,6 @@ describe("the launch settings a new session keeps for later resumes", () => {
     await metadata.setProvider(publicId, "claude");
     await metadata.updateMetadata(publicId, { title: "Source title" });
     await metadata.recordEffectiveLaunchSettings(publicId, {
-      schemaVersion: 1,
-      revision: 1,
       permissionMode: "acceptEdits",
       requestedModel: "source-model",
       serviceTier: null,
@@ -433,14 +432,14 @@ describe("the launch settings a new session keeps for later resumes", () => {
     await givenSourcePreferences();
     const generateSummary = vi
       .spyOn(app.supervisor, "generateSummary")
-      .mockResolvedValue({ text: "Proposed title" } as Awaited<
-        ReturnType<typeof app.supervisor.generateSummary>
-      >);
+      .mockResolvedValue({ text: "Proposed title" });
     const response = await post(`${publicId}/retitle`, {});
     expect(response.status, await response.clone().text()).toBe(200);
-    const generator = generateSummary.mock.calls[0]?.[1]?.generatorSessionId;
+    const request = generateSummary.mock.calls[0]?.[1];
+    assert.ok(request?.strategy === "fork");
+    const generator = request.generatorSessionId;
     expect(generator).toEqual(expect.any(String));
-    expect(stored(generator!)).toMatchInlineSnapshot(`
+    expect(stored(generator)).toMatchInlineSnapshot(`
       {
         "customTitle": "Retitle generator",
         "effectiveLaunchSettings": {
@@ -471,9 +470,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
     await givenSourcePreferences();
     const generateSummary = vi
       .spyOn(app.supervisor, "generateSummary")
-      .mockResolvedValue({ text: "Summary of the work so far" } as Awaited<
-        ReturnType<typeof app.supervisor.generateSummary>
-      >);
+      .mockResolvedValue({ text: "Summary of the work so far" });
     const response = await post(`${publicId}/fork-summary`, {
       sourceMessageId: "33333333-3333-4333-8333-333333333333",
     });
@@ -485,13 +482,15 @@ describe("the launch settings a new session keeps for later resumes", () => {
         expect.objectContaining({ kind: "fork-summary", status: "ready" }),
       ),
     );
-    const generator = generateSummary.mock.calls[0]?.[1]?.generatorSessionId;
+    const request = generateSummary.mock.calls[0]?.[1];
+    assert.ok(request?.strategy === "fork");
+    const generator = request.generatorSessionId;
     const target = metadata
       .getMetadata(publicId)
       ?.transcriptDisplayObjects?.find(
         (object) => object.kind === "fork-summary",
       ) as { targetSessionId?: string } | undefined;
-    expect(stored(generator!)).toMatchInlineSnapshot(`
+    expect(stored(generator)).toMatchInlineSnapshot(`
       {
         "customTitle": "Fork summary generator",
         "effectiveLaunchSettings": {
@@ -753,9 +752,7 @@ describe("the launch settings a new session keeps for later resumes", () => {
     await metadata.updateMetadata(publicId, { promptSuggestionMode: "native" });
     const generateSummary = vi
       .spyOn(app.supervisor, "generateSummary")
-      .mockResolvedValue({ text: "Proposed title" } as Awaited<
-        ReturnType<typeof app.supervisor.generateSummary>
-      >);
+      .mockResolvedValue({ text: "Proposed title" });
     const retitle = await post(`${publicId}/retitle`, {});
     expect(retitle.status, await retitle.clone().text()).toBe(200);
     const forkSummary = await post(`${publicId}/fork-summary`, {
@@ -769,9 +766,10 @@ describe("the launch settings a new session keeps for later resumes", () => {
         expect.objectContaining({ kind: "fork-summary", status: "ready" }),
       ),
     );
-    const generators = generateSummary.mock.calls.map(
-      ([, request]) => request.generatorSessionId!,
-    );
+    const generators = generateSummary.mock.calls.map(([, request]) => {
+      assert.ok(request.strategy === "fork");
+      return request.generatorSessionId;
+    });
     expect(generators).toHaveLength(2);
     expect(
       generators.map((id) => ({

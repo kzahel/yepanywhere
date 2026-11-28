@@ -1,5 +1,4 @@
 {
   "extends": "./tsconfig.test.json",
-  "include": ["../../scripts/agent-api-eval/**/*.ts", "test/core-api/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["../../scripts/agent-api-eval/**/*.ts"]
 }

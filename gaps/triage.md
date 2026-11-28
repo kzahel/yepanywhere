@@ -98,7 +98,6 @@ straightforward. The next step deliberately distinguishes investigation from clo
 | [Quick Answer cache misses](quick-answer-fork-cache-efficiency.md) | High cost when enabled | External / M | Measured misses; maintainer disabled use pending evidence | Wait for usable upstream behavior, then measure first-child cache use with representative warm parents; no speculative runtime patch or automatic re-enable. |
 | [CI platform holes](ci-platform-coverage-holes.md) | High release / Dev | L | Concrete coverage inventory; matrix cost/scope decision | Select platform-sensitive tests or cadence; actual native CI runs cover the chosen contract. Linux desktop/iOS scope is not implied by adding tests. |
 | [Windows validation baseline](windows-validation-baseline.md) | High release / Dev | L | Hundreds of recorded failures; mixed independent families | First split path-setup, ACL, database cleanup and checkout-format ownership; each needs native regressions, followed by a truthful full aggregate. |
-| [Server test typechecking](server-tests-not-typechecked.md) | Medium / Dev | L | Excluded tests and staged plan | Ratchet typed coverage under the existing plan until every server test participates in root/CI checks; do not bypass fixture contracts. |
 
 ## Maintenance, duplicate and stale-entry handling
 

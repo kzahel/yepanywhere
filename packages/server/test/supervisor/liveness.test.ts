@@ -14,7 +14,7 @@ function snapshot(
   overrides: Partial<BuildSessionLivenessSnapshotInput>,
 ): ReturnType<typeof buildSessionLivenessSnapshot> {
   return buildSessionLivenessSnapshot({
-    provider: "anthropic",
+    provider: "claude",
     state: { type: "in-turn" },
     startedAt: STARTED_AT,
     lastStateChangeAt: RECENT_STATE_CHANGE_AT,

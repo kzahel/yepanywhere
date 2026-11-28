@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
-import { expect, it, vi } from "vitest";
+import { assert, expect, it, vi } from "vitest";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
 import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
@@ -249,6 +249,7 @@ it("projects scoped Gemini sources once through native discovery, indexed metada
         [],
         new AbortController().signal,
       );
+      assert(Array.isArray(adapters));
       const nativeRows: import("../../src/sessions/catalog-types.js").SessionCatalogRow[] =
         [];
       for (const adapter of adapters) {
@@ -276,6 +277,7 @@ it("projects scoped Gemini sources once through native discovery, indexed metada
         oldRows,
         new AbortController().signal,
       );
+      assert(Array.isArray(refreshedAdapters));
       for (const adapter of refreshedAdapters) {
         const scan = await adapter.scan({
           catalogEpoch: "test",

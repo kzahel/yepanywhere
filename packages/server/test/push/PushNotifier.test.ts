@@ -1,8 +1,10 @@
+import assert from "node:assert/strict";
 import { controlledProvider } from "../support/scripted-provider.js";
 import type { UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PushNotifier } from "../../src/push/PushNotifier.js";
 import type { PushService } from "../../src/push/PushService.js";
+import { Process } from "../../src/supervisor/Process.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
 import { EventBus as LiveEventBus } from "../../src/watcher/EventBus.js";
@@ -26,6 +28,19 @@ describe("PushNotifier", () => {
   const testProjectId = Buffer.from("/home/user/test-project").toString(
     "base64url",
   ) as UrlProjectId;
+
+  function pushPayload(callIndex: number) {
+    const [payload] =
+      vi.mocked(mockPushService.sendToAll).mock.calls[callIndex] ?? [];
+    assert(payload, `Expected push notification payload at index ${callIndex}`);
+    return payload;
+  }
+
+  function pendingInputPayload() {
+    const payload = pushPayload(0);
+    assert.equal(payload.type, "pending-input");
+    return payload;
+  }
 
   beforeEach(() => {
     eventHandler = null;
@@ -132,10 +147,8 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      const sendCall = vi.mocked(mockPushService.sendToAll).mock.calls[0];
-      expect(sendCall).toHaveLength(1);
-      const payload = sendCall[0];
-      expect(payload.type).toBe("pending-input");
+      const payload = pendingInputPayload();
+      expect(mockPushService.sendToAll).toHaveBeenNthCalledWith(1, payload);
       expect(payload.sessionId).toBe("session-1");
       expect(payload.projectId).toBe(testProjectId);
       expect(payload.projectName).toBe("test-project");
@@ -258,7 +271,7 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      const payload = pushPayload(0);
       expect(payload).toMatchObject({
         type: "session-halted",
         sessionId: "session-1",
@@ -377,7 +390,7 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      const payload = pushPayload(0);
       expect(payload).toMatchObject({
         type: "session-halted",
         sessionId: "session-1",
@@ -596,7 +609,6 @@ describe("PushNotifier", () => {
         });
         const supervisor = new Supervisor({
           eventBus,
-          providerDiscoveryEnabled: false,
           provider: controlledProvider({
             startSession: async () => ({
               iterator: stream.iterator,
@@ -616,6 +628,7 @@ describe("PushNotifier", () => {
           "/tmp/test",
           { text: "hi" },
         );
+        assert(process instanceof Process, "Expected a live resumed process");
         // Model the provider having consumed its initial input.
         queue.drain();
         try {
@@ -710,7 +723,7 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      const payload = pendingInputPayload();
       expect(payload.summary).toBe("Write: Button.tsx");
     });
 
@@ -757,7 +770,7 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      const payload = pendingInputPayload();
       expect(payload.summary).toBe("Run: Bash");
     });
 
@@ -805,7 +818,7 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      const payload = pendingInputPayload();
       expect(payload.summary.length).toBeLessThanOrEqual(60);
       expect(payload.summary.endsWith("...")).toBe(true);
       expect(payload.inputType).toBe("user-question");
@@ -854,7 +867,7 @@ describe("PushNotifier", () => {
         expect(mockPushService.sendToAll).toHaveBeenCalled();
       });
 
-      const payload = vi.mocked(mockPushService.sendToAll).mock.calls[0][0];
+      const payload = pendingInputPayload();
       expect(payload.summary).toBe(shortPrompt);
     });
   });
@@ -904,8 +917,7 @@ describe("PushNotifier", () => {
       });
 
       // Verify first call was pending-input
-      const firstPayload = vi.mocked(mockPushService.sendToAll).mock
-        .calls[0][0];
+      const firstPayload = pushPayload(0);
       expect(firstPayload.type).toBe("pending-input");
 
       // Now exit waiting-input state (should send dismiss)
@@ -924,9 +936,8 @@ describe("PushNotifier", () => {
       });
 
       // Verify second call was dismiss
-      const secondPayload = vi.mocked(mockPushService.sendToAll).mock
-        .calls[1][0];
-      expect(secondPayload.type).toBe("dismiss");
+      const secondPayload = pushPayload(1);
+      assert.equal(secondPayload.type, "dismiss");
       expect(secondPayload.sessionId).toBe("session-1");
     });
 

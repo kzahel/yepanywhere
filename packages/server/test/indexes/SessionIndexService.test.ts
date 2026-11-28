@@ -754,20 +754,14 @@ describe("SessionIndexService", () => {
         ),
       ).toHaveLength(2);
 
-      let signalParseStarted: (() => void) | null = null;
-      const parseStarted = new Promise<void>((resolve) => {
-        signalParseStarted = resolve;
-      });
-      let releaseParse: (() => void) | null = null;
-      const parseGate = new Promise<void>((resolve) => {
-        releaseParse = resolve;
-      });
+      const parseStarted = Promise.withResolvers<void>();
+      const parseGate = Promise.withResolvers<void>();
       const originalSummary = reader.getSessionSummary.bind(reader);
       vi.spyOn(reader, "getSessionSummary").mockImplementation(
         async (sessionId, currentProjectId, options) => {
           if (sessionId === "session-a") {
-            signalParseStarted?.();
-            await parseGate;
+            parseStarted.resolve();
+            await parseGate.promise;
           }
           return originalSummary(sessionId, currentProjectId, options);
         },
@@ -779,9 +773,9 @@ describe("SessionIndexService", () => {
         projectId,
         reader,
       );
-      await parseStarted;
+      await parseStarted.promise;
       revisionService.invalidateSession(sessionDir, "session-b");
-      releaseParse?.();
+      parseGate.resolve();
 
       expect((await refresh).map((session) => session.id)).toEqual([
         "session-a",
@@ -811,20 +805,14 @@ describe("SessionIndexService", () => {
       await revisionService.initialize();
       await createSession("session-a", "Session A");
 
-      let signalParseStarted: (() => void) | null = null;
-      const parseStarted = new Promise<void>((resolve) => {
-        signalParseStarted = resolve;
-      });
-      let releaseParse: (() => void) | null = null;
-      const parseGate = new Promise<void>((resolve) => {
-        releaseParse = resolve;
-      });
+      const parseStarted = Promise.withResolvers<void>();
+      const parseGate = Promise.withResolvers<void>();
       const originalSummary = reader.getSessionSummary.bind(reader);
       vi.spyOn(reader, "getSessionSummary").mockImplementation(
         async (sessionId, currentProjectId, options) => {
           if (sessionId === "session-a") {
-            signalParseStarted?.();
-            await parseGate;
+            parseStarted.resolve();
+            await parseGate.promise;
           }
           return originalSummary(sessionId, currentProjectId, options);
         },
@@ -835,10 +823,10 @@ describe("SessionIndexService", () => {
         projectId,
         reader,
       );
-      await parseStarted;
+      await parseStarted.promise;
       await createSession("session-b", "Session B");
       revisionService.invalidateSession(sessionDir, "session-b");
-      releaseParse?.();
+      parseGate.resolve();
 
       expect((await initialScan).map((session) => session.id)).toEqual([
         "session-a",
@@ -877,14 +865,8 @@ describe("SessionIndexService", () => {
       let activeParses = 0;
       let maxActiveParses = 0;
       let parseStarts = 0;
-      let releaseFirstParse: (() => void) | null = null;
-      const firstParseHeld = new Promise<void>((resolve) => {
-        releaseFirstParse = resolve;
-      });
-      let firstParseStarted: (() => void) | null = null;
-      const firstParseStartedPromise = new Promise<void>((resolve) => {
-        firstParseStarted = resolve;
-      });
+      const firstParseHeld = Promise.withResolvers<void>();
+      const firstParseStarted = Promise.withResolvers<void>();
 
       const createQueuedReader = (
         dir: string,
@@ -894,14 +876,14 @@ describe("SessionIndexService", () => {
         listSessionFiles: async () => [{ sessionId, filePath }],
         getSessionSummary: async (
           currentSessionId: string,
-          currentProjectId: string,
+          currentProjectId: UrlProjectId,
         ): Promise<SessionSummary> => {
           parseStarts += 1;
           activeParses += 1;
           maxActiveParses = Math.max(maxActiveParses, activeParses);
           if (parseStarts === 1) {
-            firstParseStarted?.();
-            await firstParseHeld;
+            firstParseStarted.resolve();
+            await firstParseHeld.promise;
           }
           const fileStats = await stat(filePath);
           activeParses -= 1;
@@ -917,6 +899,9 @@ describe("SessionIndexService", () => {
             provider: "claude",
           };
         },
+        listSessions: async () => [],
+        getSession: async () => null,
+        getSessionSummaryIfChanged: async () => null,
         getAgentMappings: async () => [],
         getAgentSession: async () => null,
         getIndexScopeKey: () => dir,
@@ -933,7 +918,7 @@ describe("SessionIndexService", () => {
         createQueuedReader(dirB, "session-b", fileB),
       );
 
-      await firstParseStartedPromise;
+      await firstParseStarted.promise;
       await waitForCondition(
         () => queuedService.getWarmupStatus().queuedParses === 1,
         "second summary parse did not queue behind the active parse",
@@ -945,7 +930,7 @@ describe("SessionIndexService", () => {
       expect(activeStatus.queuedParses).toBe(1);
       expect(activeStatus.activeJobs).toHaveLength(2);
 
-      releaseFirstParse?.();
+      firstParseHeld.resolve();
       const [sessionsA, sessionsB] = await Promise.all([requestA, requestB]);
 
       expect(sessionsA.map((session) => session.id)).toEqual(["session-a"]);
@@ -1430,7 +1415,7 @@ describe("SessionIndexService", () => {
         ],
         getSessionSummary: async (
           sessionId: string,
-          projectId: string,
+          projectId: UrlProjectId,
         ): Promise<SessionSummary> => {
           const title = (await readFile(codexFile, "utf-8")).trim();
           const stats = await stat(codexFile);
@@ -1445,6 +1430,25 @@ describe("SessionIndexService", () => {
             ownership: { owner: "none" },
             provider: "codex",
           };
+        },
+        listSessions: async () => [],
+        getSession: async () => null,
+        getSessionSummaryIfChanged: async (
+          sessionId,
+          projectId,
+          cachedMtime,
+          cachedSize,
+        ) => {
+          const file = await stat(codexFile);
+          if (file.mtimeMs === cachedMtime && file.size === cachedSize) {
+            return null;
+          }
+          const summary = await codexReader.getSessionSummary(
+            sessionId,
+            projectId,
+          );
+          if (!summary) return null;
+          return { summary, mtime: file.mtimeMs, size: file.size };
         },
         getAgentMappings: async () => [],
         getAgentSession: async () => null,
@@ -1887,7 +1891,7 @@ describe("SessionIndexService", () => {
         ],
         getSessionSummary: async (
           sessionId: string,
-          projectId: string,
+          projectId: UrlProjectId,
         ): Promise<SessionSummary> => {
           parseCount += 1;
           return {

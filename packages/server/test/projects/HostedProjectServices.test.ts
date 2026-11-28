@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import {
   mkdtemp,
   mkdir,
@@ -11,7 +12,6 @@ import { once } from "node:events";
 import { join, resolve } from "node:path";
 import { expect, it, vi } from "vitest";
 import { HTTPException } from "hono/http-exception";
-// @ts-expect-error The provider host is intentionally plain Node ESM.
 import { ProviderRuntimeHost } from "../../../../scripts/provider-runtime-host.mjs";
 import { HostedProjectServices } from "../../src/projects/HostedProjectServices.js";
 import { ProjectServiceManager } from "../../src/projects/ProjectServiceManager.js";
@@ -175,6 +175,7 @@ createServer((_req, res) => res.end(String(process.pid))).listen(Number(process.
       const finalUpstream = await replacement.upstream("app");
       if (termination === "worker-loss") {
         const child = host.projectServices.child;
+        assert.ok(child);
         const exited = once(child, "exit");
         child.kill("SIGKILL");
         await exited;

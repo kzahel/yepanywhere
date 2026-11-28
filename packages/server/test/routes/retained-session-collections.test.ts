@@ -158,20 +158,15 @@ it("serves a durable generation through collection routes while one shared refre
   const recents = createRecentsRoutes({ ...deps, recentsService });
   const projectScan = vi.spyOn(deps.scanner, "listProjects");
   const reader = vi.spyOn(deps, "readerFactory");
+  const requests = [
+    [inbox, "/?summaryMode=retained"],
+    [global, "/?summaryMode=retained&knownGeneration=1"],
+    [recents, "/?summaryMode=retained"],
+  ] as const;
   const responses = await Promise.all(
-    Array.from({ length: 30 }, (_, index) =>
-      index % 3 === 2
-        ? recents
-            .request("/?summaryMode=retained")
-            .then((response) => response.json())
-        : index % 3
-          ? global
-              .request("/?summaryMode=retained&knownGeneration=1")
-              .then((response) => response.json())
-          : inbox
-              .request("/?summaryMode=retained")
-              .then((response) => response.json()),
-    ),
+    Array.from({ length: 10 }, () =>
+      requests.map(async ([route, path]) => (await route.request(path)).json()),
+    ).flat(),
   );
   expect(starts).toBe(1);
   expect(projectScan).not.toHaveBeenCalled();

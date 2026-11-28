@@ -36,6 +36,8 @@ import { createLocalResourcePathPolicy } from "../../src/routes/local-resource-p
 import { createSessionPathScopeResolver } from "../../src/routes/session-path-scope.js";
 import { probeSessionSandboxAvailability } from "../../src/session-sandbox.js";
 
+type PrincipalEnv = { Variables: Record<typeof PRINCIPAL_VARIABLE, Principal> };
+
 let root: string;
 let projectPath: string;
 let projectId: string;
@@ -43,7 +45,7 @@ let store: ProjectAppStore;
 let services: ProjectServiceManager;
 let artifacts: ArtifactServer;
 let scanner: ProjectScanner;
-let app: Hono;
+let app: Hono<PrincipalEnv>;
 let grants: LimitedUserGrants;
 let principal: Principal;
 let delivery: ProjectAppDelivery;
@@ -98,7 +100,7 @@ beforeEach(async () => {
     locked: true,
     via: "direct",
   };
-  app = new Hono();
+  app = new Hono<PrincipalEnv>();
   app.use("*", async (c, next) => {
     c.set(PRINCIPAL_VARIABLE, principal);
     await next();
@@ -435,7 +437,7 @@ createServer((req, res) => res.end(req.url === '/health' ? 'ok' : 'app'))
       now: () => clock,
     });
     const appDelivery = new ProjectAppDelivery(artifacts, manager, store);
-    const routes = new Hono();
+    const routes = new Hono<PrincipalEnv>();
     routes.use("*", async (c, next) => {
       c.set(PRINCIPAL_VARIABLE, principal);
       await next();
@@ -534,6 +536,7 @@ it("requires execution authority for live preview and rejects invalid start opti
     observed: "running",
     updatedAt: "2026-09-29T00:00:00.000Z",
     mode: "live-preview",
+    owner: "server",
   });
   expect((await post("start", { mode: "live-preview" })).status).toBe(403);
   expect(start).not.toHaveBeenCalled();
@@ -699,6 +702,8 @@ it("reports the process runtime stamp, including an active service whose declara
   vi.spyOn(services, "status").mockResolvedValue({
     declaration,
     generation: "process-generation",
+    owner: "server",
+    mode: "app",
     desired: "running",
     observed: "running",
     updatedAt,

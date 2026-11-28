@@ -4,12 +4,19 @@ import type { SessionMetadataService } from "../../src/metadata/index.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { createSessionsRoutes } from "../../src/routes/sessions.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
-import type { Project } from "../../src/supervisor/types.js";
+import type {
+  ISessionReader,
+  LoadedSession,
+} from "../../src/sessions/types.js";
+import type { Project, SessionSummary } from "../../src/supervisor/types.js";
 import type { EventBus } from "../../src/watcher/index.js";
+import { stubSessionReader } from "./route-fixtures.js";
 
-function fixture(reader: Record<string, unknown>) {
+const projectId = "proj-preview" as UrlProjectId;
+
+function fixture(reader: Partial<ISessionReader>) {
   const project = {
-    id: "proj-preview" as UrlProjectId,
+    id: projectId,
     path: "/repo/main",
     name: "repo",
     sessionCount: 0,
@@ -31,7 +38,7 @@ function fixture(reader: Record<string, unknown>) {
       getMetadata: vi.fn(() => ({})),
       getProvider: vi.fn(() => "codex"),
     } as unknown as SessionMetadataService,
-    readerFactory: vi.fn(() => reader),
+    readerFactory: vi.fn(() => stubSessionReader(reader)),
     eventBus: { emit } as unknown as EventBus,
   });
   const refresh = () =>
@@ -47,26 +54,30 @@ describe("refresh-preview", () => {
   it("keeps a bounded reader's unknown answer instead of reading the whole history", async () => {
     // A complete read of this session would find prose; the route must not
     // reach it once the bounded reader has answered.
-    const summary = {
+    const summary: SessionSummary = {
       id: "s1",
-      projectId: "proj-preview",
+      projectId,
       provider: "codex",
       title: null,
       fullTitle: null,
       createdAt: "2026-11-14T00:00:00.000Z",
       updatedAt: "2026-11-14T00:00:00.000Z",
       messageCount: 1,
+      ownership: { owner: "none" },
     };
-    const getSession = vi.fn(async () => ({
-      summary,
-      data: { provider: "grok", session: { messages: [] } },
-      projectedMessages: [
-        {
-          type: "assistant",
-          message: { role: "assistant", content: "Far back prose" },
-        },
-      ],
-    }));
+    const getSession = vi.fn(
+      async (): Promise<LoadedSession> => ({
+        summary,
+        transcriptSnapshotUpdatedAt: summary.updatedAt,
+        data: { provider: "codex", session: { entries: [] } },
+        projectedMessages: [
+          {
+            type: "assistant",
+            message: { role: "assistant", content: "Far back prose" },
+          },
+        ],
+      }),
+    );
     const { emit, refresh } = fixture({
       getLastAgentExcerpt: vi.fn(async () => undefined),
       getSessionListSummary: vi.fn(async () => summary),

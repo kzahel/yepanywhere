@@ -143,8 +143,7 @@ describe("OpenCodeSessionReader", () => {
     const bigText = "x".repeat(600_000);
     spawnMock = makeSpawnMock((args) => {
       if (args[0] !== "export") return null;
-      const exported = makeExport(args[1] ?? "ses_cli", projectPath);
-      exported.messages[1].parts[0].text = bigText;
+      const exported = makeExport(args[1] ?? "ses_cli", projectPath, bigText);
       return JSON.stringify(exported);
     });
     vi.doMock("node:child_process", async (importOriginal) => {
@@ -426,7 +425,7 @@ describe("OpenCodeSessionReader", () => {
   });
 });
 
-function makeExport(sessionId: string, directory: string) {
+function makeExport(sessionId: string, directory: string, reply = "Present.") {
   return {
     info: {
       id: sessionId,
@@ -479,7 +478,7 @@ function makeExport(sessionId: string, directory: string) {
             sessionID: sessionId,
             messageID: "msg_assistant",
             type: "text",
-            text: "Present.",
+            text: reply,
           },
         ],
       },

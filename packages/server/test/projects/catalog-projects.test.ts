@@ -26,7 +26,7 @@ function row(
   updatedAt: string,
   family: "claude" | "codex" = "codex",
   storeKey = "default",
-): SessionCatalogRow {
+): SessionCatalogRow & { catalogFamily: "claude" | "codex" } {
   return {
     catalogFamily: family,
     storeKey,
@@ -53,7 +53,7 @@ it("keeps the project view equal to a full fold across random changes", () => {
     seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
     return seed % bound;
   };
-  const rows = new Map<string, SessionCatalogRow>();
+  const rows = new Map<string, ReturnType<typeof row>>();
   const projection = new CatalogProjectsProjection();
   let view: CatalogProjectsView | undefined;
   for (let step = 0; step < 400; step += 1) {

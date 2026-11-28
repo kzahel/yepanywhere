@@ -330,6 +330,7 @@ describe("ClaudeTranscriptCache", () => {
 describe("claude normalization cache", () => {
   function loadedSessionFor(rawMessages: unknown[]): LoadedSession {
     return {
+      transcriptSnapshotUpdatedAt: "2026-08-07T00:00:01.000Z",
       summary: {
         id: "session",
         projectId: "project" as UrlProjectId,

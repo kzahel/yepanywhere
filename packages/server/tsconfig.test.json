@@ -2,11 +2,22 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "customConditions": ["source"],
+    "jsx": "react-jsx",
+    "lib": ["ES2024", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
-    "rootDir": "../.."
+    "rootDir": "../..",
+    "types": ["node"]
   },
-  "include": ["test/**/*"],
+  "include": [
+    "../client/src/vite-env.d.ts",
+    "test/**/*.ts",
+    "test/**/*.tsx",
+    "test/**/*.mts",
+    "test/**/*.cts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

@@ -536,14 +536,7 @@ describe("Project Queue Routes", () => {
       targetFullTitle: "Renamed target session",
     });
 
-    const globalRoutes = createGlobalRoutes({
-      scanner: {
-        getOrCreateProject: vi.fn(async (id) =>
-          id === projectId ? project : null,
-        ),
-      } as unknown as ProjectScanner,
-      sessionMetadataService,
-    });
+    const globalRoutes = createGlobalRoutes({ sessionMetadataService });
     const globalResponse = await globalRoutes.request("/");
 
     expect(globalResponse.status).toBe(200);

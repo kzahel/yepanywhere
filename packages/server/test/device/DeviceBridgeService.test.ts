@@ -1,14 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DeviceBridgeService } from "../../src/device/DeviceBridgeService.js";
 
-type DeviceBridgeServiceTestShim = DeviceBridgeService & {
-  ensureStarted: () => Promise<void>;
-  ensureAndroidServerAPK: () => Promise<string>;
-  sendToSidecar: (msg: Record<string, unknown>) => void;
-  getInstalledBinaryVersion: (binaryPath: string) => Promise<string | null>;
-  shutdown: () => Promise<void>;
-  port: number | null;
+type DeviceBridgeOverrides = {
+  activeBinaryPath?: DeviceBridgeService["activeBinaryPath"];
+  available?: DeviceBridgeService["available"];
+  downloadAndroidServerAPK?: DeviceBridgeService["downloadAndroidServerAPK"];
+  downloadBinary?: DeviceBridgeService["downloadBinary"];
+  ensureAndroidServerAPK?: DeviceBridgeService["ensureAndroidServerAPK"];
+  ensureStarted?: DeviceBridgeService["ensureStarted"];
+  findBinaryCandidate?: DeviceBridgeService["findBinaryCandidate"];
+  getInstalledBinaryVersion?: DeviceBridgeService["getInstalledBinaryVersion"];
+  port?: DeviceBridgeService["port"];
+  sendToSidecar?: DeviceBridgeService["sendToSidecar"];
+  shutdown?: DeviceBridgeService["shutdown"];
 };
+
+function createBridge(overrides: DeviceBridgeOverrides): DeviceBridgeService {
+  const service = new DeviceBridgeService({
+    adbPath: "adb",
+    dataDir: "/tmp/yep-anywhere-test",
+  });
+  return Object.assign(
+    service,
+    { ensureStarted: async () => undefined },
+    overrides,
+  );
+}
 
 describe("DeviceBridgeService", () => {
   const originalFetch = global.fetch;
@@ -27,15 +44,8 @@ describe("DeviceBridgeService", () => {
   });
 
   it("sends session.start with deviceId only (no legacy emulatorId)", async () => {
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
-    });
-    const shim = service as unknown as DeviceBridgeServiceTestShim;
-
-    const sendToSidecar = vi.fn();
-    shim.ensureStarted = vi.fn().mockResolvedValue(undefined);
-    shim.sendToSidecar = sendToSidecar;
+    const sendToSidecar = vi.fn<DeviceBridgeService["sendToSidecar"]>();
+    const service = createBridge({ sendToSidecar });
 
     await service.startStream(
       {
@@ -59,19 +69,12 @@ describe("DeviceBridgeService", () => {
   });
 
   it("does not fall back to /emulators when /devices returns 404", async () => {
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
-    });
-    const shim = service as unknown as DeviceBridgeServiceTestShim;
-
-    shim.ensureStarted = vi.fn().mockResolvedValue(undefined);
-    shim.port = 48765;
+    const service = createBridge({ port: 48765 });
 
     const fetchMock = vi
-      .fn()
+      .fn<typeof fetch>()
       .mockResolvedValue(new Response("not found", { status: 404 }));
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock;
 
     await expect(service.listDevices()).rejects.toThrow("Sidecar error: 404");
 
@@ -82,20 +85,16 @@ describe("DeviceBridgeService", () => {
   });
 
   it("ensures Android APK before starting a physical Android stream", async () => {
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
+    const sendToSidecar = vi.fn<DeviceBridgeService["sendToSidecar"]>();
+    const ensureAndroidServerAPK = vi.fn(
+      async () => "/tmp/yep-device-server.apk",
+    );
+    const ensureStarted = vi.fn(async () => undefined);
+    const service = createBridge({
+      ensureAndroidServerAPK,
+      ensureStarted,
+      sendToSidecar,
     });
-    const shim = service as unknown as DeviceBridgeServiceTestShim;
-
-    const sendToSidecar = vi.fn();
-    const ensureAndroidServerAPK = vi
-      .fn()
-      .mockResolvedValue("/tmp/yep-device-server.apk");
-    const ensureStarted = vi.fn().mockResolvedValue(undefined);
-    shim.ensureAndroidServerAPK = ensureAndroidServerAPK;
-    shim.ensureStarted = ensureStarted;
-    shim.sendToSidecar = sendToSidecar;
 
     await service.startStream(
       {
@@ -122,17 +121,13 @@ describe("DeviceBridgeService", () => {
   it("does not ensure Android APK for default emulator streams", async () => {
     process.env.DEVICE_BRIDGE_USE_APK_FOR_EMULATOR = undefined;
 
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
+    const ensureAndroidServerAPK = vi.fn(
+      async () => "/tmp/yep-device-server.apk",
+    );
+    const service = createBridge({
+      ensureAndroidServerAPK,
+      sendToSidecar: vi.fn<DeviceBridgeService["sendToSidecar"]>(),
     });
-    const shim = service as unknown as DeviceBridgeServiceTestShim;
-
-    shim.ensureAndroidServerAPK = vi
-      .fn()
-      .mockResolvedValue("/tmp/yep-device-server.apk");
-    shim.ensureStarted = vi.fn().mockResolvedValue(undefined);
-    shim.sendToSidecar = vi.fn();
 
     await service.startStream(
       {
@@ -143,23 +138,19 @@ describe("DeviceBridgeService", () => {
       vi.fn(),
     );
 
-    expect(shim.ensureAndroidServerAPK).not.toHaveBeenCalled();
+    expect(ensureAndroidServerAPK).not.toHaveBeenCalled();
   });
 
   it("ensures Android APK for emulator streams when APK override mode is enabled", async () => {
     process.env.DEVICE_BRIDGE_USE_APK_FOR_EMULATOR = "true";
 
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
+    const ensureAndroidServerAPK = vi.fn(
+      async () => "/tmp/yep-device-server.apk",
+    );
+    const service = createBridge({
+      ensureAndroidServerAPK,
+      sendToSidecar: vi.fn<DeviceBridgeService["sendToSidecar"]>(),
     });
-    const shim = service as unknown as DeviceBridgeServiceTestShim;
-
-    shim.ensureAndroidServerAPK = vi
-      .fn()
-      .mockResolvedValue("/tmp/yep-device-server.apk");
-    shim.ensureStarted = vi.fn().mockResolvedValue(undefined);
-    shim.sendToSidecar = vi.fn();
 
     await service.startStream(
       {
@@ -170,26 +161,17 @@ describe("DeviceBridgeService", () => {
       vi.fn(),
     );
 
-    expect(shim.ensureAndroidServerAPK).toHaveBeenCalledTimes(1);
+    expect(ensureAndroidServerAPK).toHaveBeenCalledTimes(1);
   });
 
   it("reports update-available for stale managed binaries", async () => {
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
+    const service = createBridge({
+      findBinaryCandidate: () => ({
+        path: "/tmp/yep-anywhere-test/bin/device-bridge-darwin-arm64",
+        source: "prod",
+      }),
+      getInstalledBinaryVersion: async () => "0.1.0",
     });
-    const shim = service as unknown as DeviceBridgeServiceTestShim & {
-      findBinaryCandidate: () => {
-        path: string;
-        source: "prod" | "dev";
-      } | null;
-    };
-
-    shim.findBinaryCandidate = vi.fn().mockReturnValue({
-      path: "/tmp/yep-anywhere-test/bin/device-bridge-darwin-arm64",
-      source: "prod",
-    });
-    shim.getInstalledBinaryVersion = vi.fn().mockResolvedValue("0.1.0");
 
     global.fetch = vi.fn((url) => {
       if (String(url) === "https://updates.yepanywhere.com/bridge/version") {
@@ -198,7 +180,7 @@ describe("DeviceBridgeService", () => {
         );
       }
       throw new Error(`Unexpected fetch: ${String(url)}`);
-    }) as unknown as typeof fetch;
+    });
 
     await expect(service.getBridgeStatus()).resolves.toEqual({
       state: "update-available",
@@ -208,22 +190,13 @@ describe("DeviceBridgeService", () => {
   });
 
   it("reports update-available when managed binary version probe fails", async () => {
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
+    const service = createBridge({
+      findBinaryCandidate: () => ({
+        path: "/tmp/yep-anywhere-test/bin/device-bridge-darwin-arm64",
+        source: "prod",
+      }),
+      getInstalledBinaryVersion: async () => null,
     });
-    const shim = service as unknown as DeviceBridgeServiceTestShim & {
-      findBinaryCandidate: () => {
-        path: string;
-        source: "prod" | "dev";
-      } | null;
-    };
-
-    shim.findBinaryCandidate = vi.fn().mockReturnValue({
-      path: "/tmp/yep-anywhere-test/bin/device-bridge-darwin-arm64",
-      source: "prod",
-    });
-    shim.getInstalledBinaryVersion = vi.fn().mockResolvedValue(null);
 
     global.fetch = vi.fn((url) => {
       if (String(url) === "https://updates.yepanywhere.com/bridge/version") {
@@ -232,7 +205,7 @@ describe("DeviceBridgeService", () => {
         );
       }
       throw new Error(`Unexpected fetch: ${String(url)}`);
-    }) as unknown as typeof fetch;
+    });
 
     await expect(service.getBridgeStatus()).resolves.toEqual({
       state: "update-available",
@@ -242,37 +215,31 @@ describe("DeviceBridgeService", () => {
   });
 
   it("restarts a running managed sidecar after downloading updates", async () => {
-    const service = new DeviceBridgeService({
-      adbPath: "adb",
-      dataDir: "/tmp/yep-anywhere-test",
+    const shutdown = vi.fn(async () => undefined);
+    const ensureStarted = vi.fn(async () => undefined);
+    const getProdBinaryPath = "getProdBinaryPath";
+    const service = createBridge({
+      ensureStarted,
+      available: true,
+      shutdown,
     });
-    const shim = service as unknown as DeviceBridgeServiceTestShim & {
-      activeBinaryPath: string | null;
-      available: boolean;
-      getProdBinaryPath: () => string;
-      downloadBinary: () => Promise<string>;
-      downloadAndroidServerAPK: () => Promise<string>;
-    };
-    const prodBinaryPath = shim.getProdBinaryPath();
-
-    shim.activeBinaryPath = prodBinaryPath;
-    shim.available = true;
-    shim.downloadBinary = vi.fn().mockResolvedValue(prodBinaryPath);
-    shim.downloadAndroidServerAPK = vi
-      .fn()
-      .mockResolvedValue("/tmp/yep-anywhere-test/bin/yep-device-server.apk");
-    shim.shutdown = vi.fn().mockResolvedValue(undefined);
-    shim.ensureStarted = vi.fn().mockResolvedValue(undefined);
+    const prodBinaryPath = service[getProdBinaryPath]();
+    const apkPath = "/tmp/yep-anywhere-test/bin/yep-device-server.apk";
+    Object.assign(service, {
+      activeBinaryPath: prodBinaryPath,
+      downloadBinary: async () => prodBinaryPath,
+      downloadAndroidServerAPK: async () => apkPath,
+    } satisfies DeviceBridgeOverrides);
 
     await expect(service.downloadRuntimeDependencies()).resolves.toEqual({
       binaryPath: prodBinaryPath,
-      apkPath: "/tmp/yep-anywhere-test/bin/yep-device-server.apk",
+      apkPath,
     });
 
-    expect(shim.shutdown).toHaveBeenCalledTimes(1);
-    expect(shim.ensureStarted).toHaveBeenCalledTimes(1);
-    expect(shim.shutdown.mock.invocationCallOrder[0]).toBeLessThan(
-      shim.ensureStarted.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
+    expect(shutdown).toHaveBeenCalledTimes(1);
+    expect(ensureStarted).toHaveBeenCalledTimes(1);
+    expect(shutdown.mock.invocationCallOrder[0]).toBeLessThan(
+      ensureStarted.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
     );
   });
 });

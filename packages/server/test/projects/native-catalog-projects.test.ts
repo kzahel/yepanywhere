@@ -161,7 +161,10 @@ it("cold retained reads return incomplete promptly while native discovery is blo
   vi.spyOn(
     AntigravitySessionCatalogAdapter.prototype,
     "scan",
-  ).mockImplementation(async function (context) {
+  ).mockImplementation(async function (
+    this: AntigravitySessionCatalogAdapter,
+    context,
+  ) {
     await blocked;
     return original.call(this, context);
   });

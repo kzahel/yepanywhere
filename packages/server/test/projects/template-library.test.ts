@@ -43,7 +43,7 @@ describe("project template composition", () => {
       id,
     );
     await mkdir(directory, { recursive: true });
-    const entries = [];
+    const entries: { from: string; to: string; executable: boolean }[] = [];
     for (const [to, content] of Object.entries(files)) {
       const from = `file-${entries.length}`;
       await writeFile(join(directory, from), content);

@@ -218,7 +218,7 @@ it.each([false, true])(
       }
       return prepare(query);
     });
-    await retainedSessionQuery(retained, deps).inbox({
+    await retainedSessionQuery(retained, {}).inbox({
       accessibleProjectIds: [projectId],
       queueIds: [],
       now,
@@ -460,13 +460,9 @@ it("retains the existing UTC archive boundary and schedules a view crossing it d
   collections.push(retained);
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(midnight - 1);
-  const deps = {
+  const query = retainedSessionQuery(retained, {
     sessionAutoArchiveDays: 1,
-    scanner: new ProjectScanner({ projectsDir: join(dir, "none") }),
-    readerFactory: () =>
-      new ClaudeSessionReader({ sessionDir: join(dir, "none") }),
-  };
-  const query = retainedSessionQuery(retained, deps);
+  });
   const before = await query.page({ limit: 20 });
   expect(before.sessions).toHaveLength(1);
   expect(before.nextTransitionAt).toBe(midnight);
@@ -534,9 +530,6 @@ it("keeps a project page's global statistics on every accessible archive deadlin
   vi.setSystemTime(midnight - 1);
   const query = retainedSessionQuery(retained, {
     sessionAutoArchiveDays: 1,
-    scanner: new ProjectScanner({ projectsDir: join(dir, "none") }),
-    readerFactory: () =>
-      new ClaudeSessionReader({ sessionDir: join(dir, "none") }),
   });
   const before = await query.page({
     filterProjectId: a,
@@ -612,6 +605,7 @@ it("shares project publications and queue deadlines without file-event reacquisi
     type: "projects-changed",
     projectIds: [],
     collectionRefresh: true,
+    timestamp: new Date().toISOString(),
   });
   await vi.advanceTimersByTimeAsync(200);
   expect(projects).toHaveBeenCalledTimes(2);

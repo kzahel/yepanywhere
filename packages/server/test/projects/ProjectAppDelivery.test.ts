@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
@@ -145,8 +146,10 @@ createServer((req, res) => {
     // same URL with the token, so the address bar always shows a working
     // private link; subresources and token-bearing URLs are left alone.
     const cookie = redirected!.headers.get("set-cookie")!.split(";")[0]!;
+    const artifactServer = artifacts;
+    assert.ok(artifactServer);
     const navigate = (path: string, dest: string) =>
-      artifacts.dispatchHost(
+      artifactServer.dispatchHost(
         new Request(`http://archer-static.localhost:4402${path}`, {
           headers: {
             cookie,

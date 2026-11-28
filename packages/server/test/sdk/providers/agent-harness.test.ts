@@ -1,6 +1,5 @@
 import { ALL_PROVIDERS, agentHarness } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
-// @ts-expect-error The wrapper lifecycle host intentionally runs as plain ESM.
 import { agentHarness as hostAgentHarness } from "../../../../../scripts/provider-runtime-host.mjs";
 
 describe("agentHarness", () => {

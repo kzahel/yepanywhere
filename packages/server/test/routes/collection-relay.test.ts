@@ -1,3 +1,4 @@
+import type { HttpBindings } from "@hono/node-server";
 import { Hono } from "hono";
 import { afterEach, expect, it, vi } from "vitest";
 import {
@@ -43,7 +44,7 @@ function fixture(
   vi.stubGlobal("window", new EventTarget());
   const bus = new EventBus();
   const owner = new CollectionUpdates(bus);
-  const app = new Hono();
+  const app = new Hono<{ Bindings: HttpBindings }>();
   if (pendingHeaders)
     app.use("/api/activity/collections", async (_c, next) => {
       await next();

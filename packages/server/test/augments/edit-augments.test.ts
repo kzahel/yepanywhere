@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { anchorFromPatch, patchLineCount } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
 import {
@@ -32,6 +33,7 @@ describe("computeEditAugment", () => {
       expect(augment.structuredPatch).toHaveLength(1);
 
       const hunk = augment.structuredPatch[0];
+      ok(hunk);
       expect(hunk.oldStart).toBe(1);
       expect(hunk.newStart).toBe(1);
       // Should have removed line and added line
@@ -48,6 +50,7 @@ describe("computeEditAugment", () => {
 
       expect(augment.structuredPatch).toHaveLength(1);
       const hunk = augment.structuredPatch[0];
+      ok(hunk);
 
       // Should contain the changes
       expect(hunk.lines.some((l) => l.startsWith("-"))).toBe(true);
@@ -87,6 +90,7 @@ describe("computeEditAugment", () => {
 
       expect(augment.structuredPatch).toHaveLength(1);
       const hunk = augment.structuredPatch[0];
+      ok(hunk);
 
       // Context lines should be prefixed with space
       const contextLines = hunk.lines.filter((l) => l.startsWith(" "));
@@ -102,6 +106,7 @@ describe("computeEditAugment", () => {
 
       expect(augment.structuredPatch).toHaveLength(1);
       const hunk = augment.structuredPatch[0];
+      ok(hunk);
 
       // All lines should be additions
       const addedLines = hunk.lines.filter((l) => l.startsWith("+"));
@@ -118,6 +123,7 @@ describe("computeEditAugment", () => {
 
       expect(augment.structuredPatch).toHaveLength(1);
       const hunk = augment.structuredPatch[0];
+      ok(hunk);
 
       // All lines should be deletions
       const removedLines = hunk.lines.filter((l) => l.startsWith("-"));
@@ -176,6 +182,7 @@ describe("computeEditAugment", () => {
 
       expect(augment.structuredPatch).toHaveLength(1);
       const hunk = augment.structuredPatch[0];
+      ok(hunk);
       expect(hunk.lines).toContain(" const   x=1;");
       expect(hunk.lines).toContain("-keep");
       expect(hunk.lines).toContain("+keep changed");
@@ -603,7 +610,9 @@ describe("data-diff-line addressing agrees with anchorFromPatch", () => {
     const out: Array<{ cls: string; index: number }> = [];
     let m: RegExpExecArray | null = re.exec(html);
     while (m !== null) {
-      out.push({ cls: m[1], index: Number(m[2]) });
+      const [, cls, index] = m;
+      ok(cls !== undefined && index !== undefined);
+      out.push({ cls, index: Number(index) });
       m = re.exec(html);
     }
     return out;
@@ -687,8 +696,10 @@ describe("convertHunks", () => {
 
     const result = convertHunks(jsdiffHunks);
 
-    expect(result[0].lines).toEqual(["-old", "+new"]);
-    expect(result[0].lines).not.toContain("\\ No newline at end of file");
+    const [hunk] = result;
+    ok(hunk);
+    expect(hunk.lines).toEqual(["-old", "+new"]);
+    expect(hunk.lines).not.toContain("\\ No newline at end of file");
   });
 
   it("handles multiple hunks", () => {
@@ -712,8 +723,7 @@ describe("convertHunks", () => {
     const result = convertHunks(jsdiffHunks);
 
     expect(result).toHaveLength(2);
-    expect(result[0].oldStart).toBe(1);
-    expect(result[1].oldStart).toBe(10);
+    expect(result.map((hunk) => hunk.oldStart)).toEqual([1, 10]);
   });
 
   it("handles empty hunks array", () => {
@@ -734,7 +744,7 @@ describe("convertHunks", () => {
 
     const result = convertHunks(jsdiffHunks);
 
-    expect(result[0].lines).toEqual([" line1", " line2", " line3"]);
+    expect(result).toMatchObject([{ lines: [" line1", " line2", " line3"] }]);
   });
 });
 

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -283,8 +284,12 @@ describe("OpenCode Permissions E2E", () => {
     expect(permissionRequests.length).toBeGreaterThan(0);
 
     // Test the approval flow
-    const permReq = permissionRequests[0];
-    const permId = (permReq.properties as { id: string }).id;
+    const [permReq] = permissionRequests;
+    assert(
+      typeof permReq?.properties?.id === "string",
+      "Expected a permission request ID",
+    );
+    const permId = permReq.properties.id;
     log("Approving permission request:", permId);
 
     // Approve with "once" - API expects { reply: "once" | "always" | "reject" }

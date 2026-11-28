@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 import { NotificationService } from "../../src/notifications/NotificationService.js";
 import { MockServerClaudeProvider } from "../../src/sdk/mock.js";
+import type { Process as SessionProcess } from "../../src/supervisor/Process.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import { encodeProjectId, type Project } from "../../src/supervisor/types.js";
 import { EventBus } from "../../src/watcher/EventBus.js";
@@ -77,7 +78,7 @@ it("delivers explicit cross-session input without Inbox escalation and acknowled
   const routes = createSessionsRoutes(deps);
   // An old, inactive session keeps its receipt without being promoted to Inbox.
   const inbox = createInboxRoutes({ ...deps, supervisor: undefined });
-  let process: Awaited<ReturnType<Supervisor["startSession"]>> | undefined;
+  let process: SessionProcess | undefined;
   const post = (path: string, body: unknown) =>
     routes.request(path, {
       method: "POST",

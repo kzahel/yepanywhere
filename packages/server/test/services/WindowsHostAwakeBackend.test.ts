@@ -1,7 +1,11 @@
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { EventEmitter } from "node:events";
+import assert from "node:assert/strict";
+import {
+  ChildProcess,
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
 import { PassThrough } from "node:stream";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   WINDOWS_HELPER_START_TIMEOUT_MS,
   WINDOWS_HOST_AWAKE_BOOTSTRAP_COMMAND,
@@ -9,30 +13,50 @@ import {
   WindowsHostAwakeBackend,
 } from "../../src/services/host-awake/WindowsHostAwakeBackend.js";
 
-function fakeChild(
-  onInput: (child: ChildProcessWithoutNullStreams) => void,
-): ChildProcessWithoutNullStreams {
-  const child = new EventEmitter() as ChildProcessWithoutNullStreams;
-  Object.assign(child, {
-    stdin: new PassThrough(),
-    stdout: new PassThrough(),
-    stderr: new PassThrough(),
-    exitCode: null,
-    signalCode: null,
+vi.mock("node:child_process", { spy: true });
+
+type PipedChild = ChildProcessWithoutNullStreams & {
+  stdin: PassThrough;
+  stdout: PassThrough;
+};
+
+function fakeChild(onInput: (child: PipedChild) => void): PipedChild {
+  const stdin = new PassThrough();
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const stdio: ChildProcessWithoutNullStreams["stdio"] = [
+    stdin,
+    stdout,
+    stderr,
+    null,
+    null,
+  ];
+  const child = Object.assign(new ChildProcess(), {
+    stdin,
+    stdout,
+    stderr,
+    stdio,
     kill: vi.fn(() => {
       child.emit("exit", 0, null);
       return true;
     }),
   });
-  child.stdin.once("finish", () => queueMicrotask(() => onInput(child)));
+  stdin.once("finish", () => queueMicrotask(() => onInput(child)));
   return child;
 }
 
 describe("WindowsHostAwakeBackend", () => {
+  const spawnProcess = vi.mocked(spawn);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    spawnProcess.mockReset();
+  });
+
   it("parses the complete stdin helper without policy bypass or script files", async () => {
     let helperSource = "";
-    const spawnProcess = vi.fn((..._args: unknown[]) => {
-      const child = fakeChild((process) => {
+    spawnProcess.mockImplementationOnce(() =>
+      fakeChild((process) => {
         helperSource = process.stdin.read()?.toString() ?? "";
         process.stdout.write(
           `${JSON.stringify({
@@ -43,11 +67,9 @@ describe("WindowsHostAwakeBackend", () => {
           })}\n`,
         );
         process.emit("exit", 0, null);
-      });
-      return child;
-    });
+      }),
+    );
     const backend = new WindowsHostAwakeBackend({
-      spawnProcess: spawnProcess as never,
       powershellPath: "C:\\Windows\\powershell.exe",
       parentPid: 1234,
     });
@@ -57,7 +79,9 @@ describe("WindowsHostAwakeBackend", () => {
       powerSource: "external",
     });
 
-    const [executable, args, options] = spawnProcess.mock.calls[0] ?? [];
+    const [call] = spawnProcess.mock.calls;
+    assert(call, "Expected a PowerShell spawn");
+    const [executable, args, options] = call;
     expect(executable).toBe("C:\\Windows\\powershell.exe");
     expect(args).toEqual([
       "-NoProfile",
@@ -86,24 +110,20 @@ describe("WindowsHostAwakeBackend", () => {
   );
 
   it("owns a PID-bound SystemRequired request and releases its helper", async () => {
-    let child: ChildProcessWithoutNullStreams | null = null;
-    const spawnProcess = vi.fn(() => {
-      child = fakeChild((process) => {
-        process.stdout.write(
-          `${JSON.stringify({
-            kind: "status",
-            state: "active",
-            hasInternalBattery: true,
-            powerSource: "battery",
-            batteryPercent: 80,
-            powerObservedAt: 456,
-          })}\n`,
-        );
-      });
-      return child;
+    const child = fakeChild((process) => {
+      process.stdout.write(
+        `${JSON.stringify({
+          kind: "status",
+          state: "active",
+          hasInternalBattery: true,
+          powerSource: "battery",
+          batteryPercent: 80,
+          powerObservedAt: 456,
+        })}\n`,
+      );
     });
+    spawnProcess.mockReturnValueOnce(child);
     const backend = new WindowsHostAwakeBackend({
-      spawnProcess: spawnProcess as never,
       powershellPath: "powershell.exe",
       parentPid: 9876,
     });
@@ -117,9 +137,9 @@ describe("WindowsHostAwakeBackend", () => {
       state: "active",
       batteryPercent: 80,
     });
-    const options = spawnProcess.mock.calls[0]?.[2] as {
-      env: Record<string, string>;
-    };
+    const [call] = spawnProcess.mock.calls;
+    assert(call, "Expected a PowerShell spawn");
+    const [, , options] = call;
     expect(options.env).toMatchObject({
       YEP_HOST_AWAKE_PROBE_ONLY: "0",
       YEP_HOST_AWAKE_PARENT_PID: "9876",
@@ -133,29 +153,25 @@ describe("WindowsHostAwakeBackend", () => {
     );
 
     await lease.release();
-    expect(child?.kill).toHaveBeenCalled();
+    expect(child.kill).toHaveBeenCalled();
   });
 
   it("reports an unexpected helper failure once without restarting", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const onStatus = vi.fn();
-    let child: ChildProcessWithoutNullStreams | null = null;
-    const spawnProcess = vi.fn(() => {
-      child = fakeChild((process) => {
-        process.stdout.write(
-          `${JSON.stringify({
-            kind: "status",
-            state: "active",
-            hasInternalBattery: false,
-            powerSource: "external",
-            powerObservedAt: 456,
-          })}\n`,
-        );
-      });
-      return child;
+    const child = fakeChild((process) => {
+      process.stdout.write(
+        `${JSON.stringify({
+          kind: "status",
+          state: "active",
+          hasInternalBattery: false,
+          powerSource: "external",
+          powerObservedAt: 456,
+        })}\n`,
+      );
     });
+    spawnProcess.mockReturnValueOnce(child);
     const backend = new WindowsHostAwakeBackend({
-      spawnProcess: spawnProcess as never,
       powershellPath: "powershell.exe",
     });
     const lease = await backend.acquire(
@@ -163,8 +179,8 @@ describe("WindowsHostAwakeBackend", () => {
       onStatus,
     );
 
-    child?.emit("error", new Error("helper failed"));
-    child?.emit("exit", 1, null);
+    child.emit("error", new Error("helper failed"));
+    child.emit("exit", 1, null);
 
     expect(onStatus).toHaveBeenCalledTimes(1);
     expect(onStatus).toHaveBeenCalledWith(

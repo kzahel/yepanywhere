@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { controlledProvider } from "./support/scripted-provider.js";
 import { parseNativeSessionId } from "@yep-anywhere/shared";
 import {
@@ -30,14 +31,24 @@ import { createControllableIterator, waitFor } from "./process.test-support.js";
 import {
   RetryableSessionLaunchError,
   type ResumeCompactionError,
+  type QueueFullResponse,
   Supervisor,
 } from "../src/supervisor/Supervisor.js";
+import type { Process } from "../src/supervisor/Process.js";
+import type { QueuedResponse } from "../src/supervisor/WorkerQueue.js";
+import type { UserMessage } from "../src/sdk/types.js";
 import {
   type SessionSummary,
   encodeProjectId,
 } from "../src/supervisor/types.js";
 import { type BusEvent, EventBus } from "../src/watcher/EventBus.js";
 import { sessionRowRuntimeOverlay } from "../src/sessions/session-runtime-overlay.js";
+
+function assertStartedProcess(
+  result: Process | QueuedResponse | QueueFullResponse,
+): asserts result is Process {
+  ok("id" in result, "Expected an immediately started process");
+}
 
 function createLaunchSettingsMetadata(
   initial?: EffectiveSessionLaunchSettings,
@@ -143,6 +154,7 @@ describe("Supervisor", () => {
       const process = await supervisor.startSession("/tmp/test", {
         text: "hi",
       });
+      assertStartedProcess(process);
 
       expect(process.id).toBeDefined();
       expect(process.projectPath).toBe("/tmp/test");
@@ -375,7 +387,9 @@ describe("Supervisor", () => {
             if (aborted) return;
             yield {
               type: "assistant" as const,
-              message: { content: `unexpected turn for ${message.text}` },
+              message: {
+                content: `unexpected turn for ${JSON.stringify(message.message.content)}`,
+              },
             };
           }
         }
@@ -608,6 +622,7 @@ describe("Supervisor", () => {
       const process = await supervisor.startSession("/tmp/test", {
         text: "hi",
       });
+      assertStartedProcess(process);
 
       // /tmp/test in base64url
       expect(process.projectId).toBe(
@@ -621,6 +636,7 @@ describe("Supervisor", () => {
       const process = await supervisor.startSession("/tmp/test", {
         text: "hi",
       });
+      assertStartedProcess(process);
 
       // The message was queued
       expect(process.queueDepth).toBeGreaterThanOrEqual(0);
@@ -645,8 +661,11 @@ describe("Supervisor", () => {
 
       const process = await supervisorWithEligibility.startSession(
         "/tmp/test",
-        { text: "hi" },
+        {
+          text: "hi",
+        },
       );
+      assertStartedProcess(process);
 
       expect(providerMetadata.setProvider).toHaveBeenCalledWith(
         process.sessionId,
@@ -711,6 +730,7 @@ describe("Supervisor", () => {
           undefined,
           selected,
         );
+        assertStartedProcess(withMessage);
         const withoutMessage = await launchSupervisor.reactivateSession(
           "/tmp/test",
           "installed-existing",
@@ -766,6 +786,7 @@ describe("Supervisor", () => {
       const process = await supervisor.resumeSession("sess-123", "/tmp/test", {
         text: "continue",
       });
+      assertStartedProcess(process);
 
       expect(process.sessionId).toBe("sess-123");
     });
@@ -1197,10 +1218,12 @@ describe("Supervisor", () => {
       const process1 = await supervisor.resumeSession("sess-123", "/tmp/test", {
         text: "first",
       });
+      assertStartedProcess(process1);
 
       const process2 = await supervisor.resumeSession("sess-123", "/tmp/test", {
         text: "second",
       });
+      assertStartedProcess(process2);
 
       expect(process1.id).toBe(process2.id);
     });
@@ -1237,6 +1260,7 @@ describe("Supervisor", () => {
         supportsPermissionMode: true,
         supportsThinkingToggle: true,
         supportsSlashCommands: true,
+        supportsSteering: false,
         isInstalled: async () => true,
         isAuthenticated: async () => true,
         getAuthStatus: async () => ({
@@ -1259,6 +1283,7 @@ describe("Supervisor", () => {
         undefined,
         { thinking: { type: "adaptive" } },
       );
+      assertStartedProcess(process1);
 
       const process2 = await supervisorWithProvider.resumeSession(
         "display-session",
@@ -1267,6 +1292,7 @@ describe("Supervisor", () => {
         undefined,
         { thinking: { type: "adaptive", display: "summarized" } },
       );
+      assertStartedProcess(process2);
 
       expect(process1.id).not.toBe(process2.id);
       expect(startSession).toHaveBeenCalledTimes(2);
@@ -1710,9 +1736,12 @@ describe("Supervisor", () => {
               );
             }
           });
-          await supervisorWithProvider.queueProcessMessage(started, {
-            text: "user follow-up",
-          });
+          const queued = await supervisorWithProvider.queueMessageToSession(
+            started.sessionId,
+            started.projectPath,
+            { text: "user follow-up" },
+          );
+          expect(queued.success).toBe(true);
           await vi.waitFor(() =>
             expect(delivered).toEqual([...expected, "user follow-up"]),
           );
@@ -2148,6 +2177,7 @@ describe("Supervisor", () => {
           supportsPermissionMode: true,
           supportsThinkingToggle: true,
           supportsSlashCommands: true,
+          supportsSteering: false,
           isInstalled: async () => true,
           isAuthenticated: async () => true,
           getAuthStatus: async () => ({
@@ -2173,6 +2203,7 @@ describe("Supervisor", () => {
             effort: "low",
           },
         );
+        assertStartedProcess(process);
         await vi.waitFor(() => {
           expect(process.state.type).toBe("in-turn");
         });
@@ -2249,6 +2280,7 @@ describe("Supervisor", () => {
         supportsPermissionMode: true,
         supportsThinkingToggle: true,
         supportsSlashCommands: true,
+        supportsSteering: false,
         isInstalled: async () => true,
         isAuthenticated: async () => true,
         getAuthStatus: async () => ({
@@ -2270,6 +2302,7 @@ describe("Supervisor", () => {
         undefined,
         { thinking: { type: "adaptive" }, effort: "low" },
       );
+      assertStartedProcess(process);
       await vi.waitFor(() => expect(process.state.type).toBe("idle"));
 
       const mediumUpdate = supervisorWithProvider.reconfigureProcess(
@@ -2299,10 +2332,12 @@ describe("Supervisor", () => {
       const process1 = await supervisor.resumeSession("sess-123", "/tmp/test", {
         text: "first",
       });
+      assertStartedProcess(process1);
 
       const process2 = await supervisor.resumeSession("sess-456", "/tmp/test", {
         text: "second",
       });
+      assertStartedProcess(process2);
 
       expect(process1.id).not.toBe(process2.id);
     });
@@ -3876,6 +3911,7 @@ describe("Supervisor", () => {
       const process = await supervisor.startSession("/tmp/test", {
         text: "hi",
       });
+      assertStartedProcess(process);
       const found = supervisor.getProcess(process.id);
 
       expect(found).toBe(process);
@@ -3928,6 +3964,7 @@ describe("Supervisor", () => {
       const process = await supervisor.startSession("/tmp/test", {
         text: "hi",
       });
+      assertStartedProcess(process);
 
       const result = await supervisor.abortProcess(process.id);
 
@@ -3946,6 +3983,7 @@ describe("Supervisor", () => {
       const process = await supervisor.resumeSession("sess-123", "/tmp/test", {
         text: "hi",
       });
+      assertStartedProcess(process);
 
       await supervisor.abortProcess(process.id);
 
@@ -3986,6 +4024,7 @@ describe("Supervisor", () => {
       const process = await supervisorWithRealSdk.startSession("/tmp/test", {
         text: "hi",
       });
+      assertStartedProcess(process);
 
       await expect(
         supervisorWithRealSdk.abortProcess(process.id),
@@ -4031,6 +4070,7 @@ describe("Supervisor", () => {
         undefined,
         { claudeAutoCompactPercentOverride: 60 },
       );
+      assertStartedProcess(process);
 
       expect(startSession).toHaveBeenCalledWith(
         expect.objectContaining({ launchCompactPercentOverride: 60 }),
@@ -4129,8 +4169,11 @@ describe("Supervisor", () => {
       const first = await supervisor.resumeSession(
         "sess-restarted",
         "/tmp/test",
-        { text: "first" },
+        {
+          text: "first",
+        },
       );
+      assertStartedProcess(first);
       await supervisor.abortProcess(first.id);
       expect(supervisor.getRecentlyTerminatedProcesses()).toHaveLength(1);
 
@@ -4138,8 +4181,11 @@ describe("Supervisor", () => {
       const second = await supervisor.resumeSession(
         "sess-restarted",
         "/tmp/test",
-        { text: "second" },
+        {
+          text: "second",
+        },
       );
+      assertStartedProcess(second);
       expect(supervisor.getRecentlyTerminatedProcesses()).toEqual([]);
 
       await supervisor.abortProcess(second.id);
@@ -4191,6 +4237,7 @@ describe("Supervisor", () => {
         "/tmp/test",
         { text: "hi" },
       );
+      assertStartedProcess(process);
 
       const result = await supervisorWithRealSdk.interruptProcess(process.id);
 
@@ -4261,6 +4308,7 @@ describe("Supervisor", () => {
         "/tmp/test",
         { text: "hi" },
       );
+      assertStartedProcess(process);
 
       const startedAt = Date.now();
       const result = await supervisorWithRealSdk.interruptProcess(process.id);
@@ -4337,6 +4385,7 @@ describe("Supervisor", () => {
         "/tmp/test",
         { text: "hi" },
       );
+      assertStartedProcess(process);
       process.deferMessage(
         { text: "ping", tempId: "temp-ping" },
         { promoteIfReady: true },
@@ -4425,6 +4474,7 @@ describe("Supervisor", () => {
         "/tmp/test",
         { text: "hi" },
       );
+      assertStartedProcess(process);
       process.queueMessage({ text: "ping", tempId: "temp-ping" });
 
       const result = await supervisorWithRealSdk.interruptProcess(process.id);
@@ -4516,6 +4566,7 @@ describe("Supervisor", () => {
         "/tmp/test",
         { text: "hi" },
       );
+      assertStartedProcess(process);
       process.queueMessage({ text: "ping", tempId: "temp-ping" });
 
       const interrupted = supervisorWithRealSdk.interruptProcess(process.id);
@@ -5306,19 +5357,9 @@ describe("Supervisor", () => {
       }
       await vi.waitFor(() => expect(process.state.type).toBe("idle"));
 
-      const result = await (
-        supervisorWithProvider as unknown as {
-          requestForkedRecap: (
-            process: typeof process,
-            provider: AgentProvider,
-            sinceMs: number | null,
-          ) => Promise<{
-            supported: boolean;
-            emitted: boolean;
-            text?: string;
-          }>;
-        }
-      ).requestForkedRecap(process, provider, Date.now() - 1_000);
+      const result = await supervisorWithProvider.requestRecap(process.id, {
+        sinceMs: Date.now() - 1_000,
+      });
 
       expect(result).toMatchObject({
         supported: true,
@@ -5940,6 +5981,7 @@ describe("Supervisor", () => {
         supportsPermissionMode: true,
         supportsThinkingToggle: true,
         supportsSlashCommands: false,
+        supportsSteering: false,
         isInstalled: async () => true,
         isAuthenticated: async () => true,
         getAuthStatus: async () => ({
@@ -6184,7 +6226,7 @@ describe("Supervisor", () => {
             abort: () => {
               aborted = true;
             },
-            steer: async (message) => {
+            steer: async (message: UserMessage) => {
               steeredMessages.push(message.text);
               return true;
             },
@@ -6421,6 +6463,7 @@ describe("Supervisor", () => {
           supportsPermissionMode: true,
           supportsThinkingToggle: true,
           supportsSlashCommands: false,
+          supportsSteering: false,
           isInstalled: async () => true,
           isAuthenticated: async () => true,
           getAuthStatus: async () => ({
@@ -6823,8 +6866,11 @@ describe("Supervisor", () => {
 
         const process = await supervisorWithNames.startSession(
           "/tmp/yepanywhere",
-          { text: "hello" },
+          {
+            text: "hello",
+          },
         );
+        assertStartedProcess(process);
 
         try {
           const created = events.find(
@@ -6892,6 +6938,7 @@ describe("Supervisor", () => {
         });
         await vi.advanceTimersByTimeAsync(5000);
         const process = await starting;
+        assertStartedProcess(process);
         const provisionalSessionId = process.sessionId;
 
         expect(provisionalSessionId).not.toBe("canonical-session");
@@ -6960,7 +7007,7 @@ describe("Supervisor", () => {
         const onSessionSummary = vi.fn(
           async (
             sessionId: string,
-            projectId: string,
+            projectId: SessionSummary["projectId"],
           ): Promise<SessionSummary | null> => ({
             id: sessionId,
             projectId,
@@ -6984,6 +7031,7 @@ describe("Supervisor", () => {
         const process = await supervisorWithBus.startSession("/tmp/test", {
           text: "Seed title",
         });
+        assertStartedProcess(process);
 
         // Allow init event and first reconciliation window.
         await vi.advanceTimersByTimeAsync(20);
@@ -7050,6 +7098,7 @@ describe("Supervisor", () => {
       const process = await supervisorWithBus.startSession("/tmp/test", {
         text: "Trigger failure",
       });
+      assertStartedProcess(process);
       expect(process.sessionId).toBe(publicId);
       fail();
 
@@ -7135,8 +7184,11 @@ describe("Supervisor", () => {
 
         const process = await supervisorWithAliveProcess.startSession(
           "/tmp/test",
-          { text: "Keep this session alive" },
+          {
+            text: "Keep this session alive",
+          },
         );
+        assertStartedProcess(process);
         await vi.waitFor(() => {
           expect(process.state.type).toBe("idle");
         });
@@ -7238,8 +7290,11 @@ describe("Supervisor", () => {
 
         const process = await supervisorWithFailedAbort.startSession(
           "/tmp/test",
-          { text: "Retain this failed owner" },
+          {
+            text: "Retain this failed owner",
+          },
         );
+        assertStartedProcess(process);
         await vi.waitFor(() => {
           expect(process.state.type).toBe("idle");
         });
@@ -7686,6 +7741,7 @@ describe("Supervisor", () => {
             text: "Run quietly",
           },
         );
+        assertStartedProcess(process);
 
         await vi.advanceTimersByTimeAsync(6 * 60 * 1000);
 
@@ -7726,6 +7782,7 @@ describe("Supervisor", () => {
         supportsPermissionMode: true,
         supportsThinkingToggle: true,
         supportsSlashCommands: true,
+        supportsSteering: false,
         isInstalled: async () => true,
         isAuthenticated: async () => true,
         getAuthStatus: async () => ({
@@ -7800,6 +7857,7 @@ describe("Supervisor", () => {
         supportsPermissionMode: true,
         supportsThinkingToggle: true,
         supportsSlashCommands: true,
+        supportsSteering: false,
         isInstalled: async () => true,
         isAuthenticated: async () => true,
         getAuthStatus: async () => ({

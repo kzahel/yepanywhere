@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { toUrlProjectId } from "@yep-anywhere/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getLogger } from "../src/logging/logger.js";
@@ -5,6 +6,15 @@ import { WorkerQueue } from "../src/supervisor/WorkerQueue.js";
 import type { EventBus } from "../src/watcher/EventBus.js";
 
 const TEST_PROJECT_ID = toUrlProjectId("/test/project");
+
+function enqueueForTest(
+  queue: WorkerQueue,
+  request: Parameters<WorkerQueue["enqueue"]>[0],
+) {
+  const result = queue.enqueue(request);
+  ok(!("error" in result), "Expected the request to enter the queue");
+  return result;
+}
 
 describe("WorkerQueue", () => {
   let queue: WorkerQueue;
@@ -22,7 +32,7 @@ describe("WorkerQueue", () => {
 
   describe("enqueue", () => {
     it("should add request to queue and return position", () => {
-      const { queueId, position } = queue.enqueue({
+      const { queueId, position } = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -35,14 +45,14 @@ describe("WorkerQueue", () => {
     });
 
     it("should increment position for subsequent enqueues", () => {
-      const first = queue.enqueue({
+      const first = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
         message: { text: "First" },
       });
 
-      const second = queue.enqueue({
+      const second = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -71,7 +81,7 @@ describe("WorkerQueue", () => {
     });
 
     it("should return a promise that can be resolved", async () => {
-      const { promise } = queue.enqueue({
+      const { promise } = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -142,7 +152,7 @@ describe("WorkerQueue", () => {
         message: { text: "First" },
       });
 
-      const { queueId } = queue.enqueue({
+      const { queueId } = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -170,7 +180,7 @@ describe("WorkerQueue", () => {
     });
 
     it("should remove request from queue", () => {
-      const { queueId } = queue.enqueue({
+      const { queueId } = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -183,7 +193,7 @@ describe("WorkerQueue", () => {
     });
 
     it("should resolve promise with cancelled status", async () => {
-      const { queueId, promise } = queue.enqueue({
+      const { queueId, promise } = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -200,7 +210,7 @@ describe("WorkerQueue", () => {
     });
 
     it("should emit queue-request-removed event", () => {
-      const { queueId } = queue.enqueue({
+      const { queueId } = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -233,13 +243,13 @@ describe("WorkerQueue", () => {
         message: { text: "First" },
         onFailed,
       });
-      const second = queue.enqueue({
+      const second = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
         message: { text: "Second" },
       });
-      if ("error" in first || "error" in second) {
+      if ("error" in first) {
         throw new Error("expected queue admission");
       }
       vi.mocked(mockEventBus.emit).mockClear();
@@ -273,14 +283,14 @@ describe("WorkerQueue", () => {
     });
 
     it("should update positions for remaining items", () => {
-      const first = queue.enqueue({
+      const first = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
         message: { text: "First" },
       });
 
-      const second = queue.enqueue({
+      const second = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -369,14 +379,14 @@ describe("WorkerQueue", () => {
     });
 
     it("should return correct position", () => {
-      const first = queue.enqueue({
+      const first = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
         message: { text: "First" },
       });
 
-      const second = queue.enqueue({
+      const second = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -395,7 +405,7 @@ describe("WorkerQueue", () => {
         message: { text: "First" },
       });
 
-      const second = queue.enqueue({
+      const second = enqueueForTest(queue, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,
@@ -448,7 +458,7 @@ describe("WorkerQueue", () => {
     it("should work without eventBus", () => {
       const queueWithoutBus = new WorkerQueue();
 
-      const { queueId, position } = queueWithoutBus.enqueue({
+      const { queueId, position } = enqueueForTest(queueWithoutBus, {
         type: "new-session",
         projectPath: "/test/project",
         projectId: TEST_PROJECT_ID,

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -105,11 +106,11 @@ describe("PushService", () => {
         deviceName: "My Phone",
       });
 
-      const subs = pushService.getSubscriptions();
-      expect(subs["profile-1"]).toBeDefined();
-      expect(subs["profile-1"].userAgent).toBe("Mozilla/5.0 Test Browser");
-      expect(subs["profile-1"].deviceName).toBe("My Phone");
-      expect(subs["profile-1"].createdAt).toBeDefined();
+      const stored = pushService.getSubscriptions()["profile-1"];
+      assert(stored, "Expected persisted subscription metadata");
+      expect(stored.userAgent).toBe("Mozilla/5.0 Test Browser");
+      expect(stored.deviceName).toBe("My Phone");
+      expect(stored.createdAt).toBeDefined();
     });
 
     it("should update existing subscription", async () => {
@@ -126,11 +127,10 @@ describe("PushService", () => {
         deviceName: "New Name",
       });
 
-      const subs = pushService.getSubscriptions();
-      expect(subs["profile-1"].subscription.endpoint).toBe(
-        "https://new-endpoint.com",
-      );
-      expect(subs["profile-1"].deviceName).toBe("New Name");
+      const stored = pushService.getSubscriptions()["profile-1"];
+      assert(stored, "Expected updated subscription");
+      expect(stored.subscription.endpoint).toBe("https://new-endpoint.com");
+      expect(stored.deviceName).toBe("New Name");
     });
 
     it("should unsubscribe a device", async () => {

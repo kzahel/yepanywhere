@@ -28,7 +28,7 @@ it("resolves public helper generators to their original native sources across ro
     original = join(root, "original"),
     working = join(root, "working"),
     dataDir = join(root, "data"),
-    scopes = [join(root, "source"), join(root, "other-source")];
+    scopes = [join(root, "source"), join(root, "other-source")] as const;
   const projectId = toUrlProjectId(original),
     workingId = toUrlProjectId(working),
     nativeId = parseNativeSessionId("019a0000-9999-7999-8999-999999999999"),
@@ -141,7 +141,7 @@ it("resolves public helper generators to their original native sources across ro
         nativeId,
       );
       expect(
-        await readFile(join(scopes[0]!, `${nativeId}.jsonl`), "utf8"),
+        await readFile(join(scopes[0], `${nativeId}.jsonl`), "utf8"),
       ).toContain("selected native generator");
       // Cancellation after the real final native path proof must not invoke a provider.
       const reader = app.readerFactory(
@@ -149,7 +149,11 @@ it("resolves public helper generators to their original native sources across ro
           id: projectId,
           path: original,
           name: "fixture",
-          sessionDir: scopes[0]!,
+          sessionDir: scopes[0],
+          sessionCount: 1,
+          activeOwnedCount: 0,
+          activeExternalCount: 0,
+          lastActivity: null,
           provider: "claude",
         },
         metadata.identities.resolveYa(publicId)!.native!,

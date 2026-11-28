@@ -1,3 +1,4 @@
+import type { DurableSyntheticDoneMessage } from "@yep-anywhere/shared";
 import { describe, expect, it, vi } from "vitest";
 import type { SessionMetadataService } from "../../src/metadata/index.js";
 import type {
@@ -332,7 +333,7 @@ describe("SessionDoneCoordinator", () => {
       isSynthetic: true as const,
       yaSyntheticSource: "done" as const,
     };
-    let pendingMessage = message;
+    let pendingMessage: DurableSyntheticDoneMessage = message;
     const recordSyntheticDone = vi.fn(async () => {});
     const state = new SessionDoneCoordinator({
       sessionMetadataService: {
@@ -343,10 +344,12 @@ describe("SessionDoneCoordinator", () => {
             userTurnVersion: 4,
           },
         }),
-        updateMetadata: async (_sessionId, updates) => {
-          pendingMessage =
-            updates.pendingSyntheticDone?.message ?? pendingMessage;
-        },
+        updateMetadata: vi.fn<SessionMetadataService["updateMetadata"]>(
+          async (_sessionId, updates) => {
+            pendingMessage =
+              updates.pendingSyntheticDone?.message ?? pendingMessage;
+          },
+        ),
         recordSyntheticDone,
       } as unknown as SessionMetadataService,
       getProcessForSession: () => undefined,

@@ -1,3 +1,4 @@
+import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerSettingsService } from "../../src/services/ServerSettingsService.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
@@ -63,7 +64,7 @@ describe("LifecycleWebhookService", () => {
     eventBus.emit({
       type: "process-state-changed",
       sessionId: "sess-1",
-      projectId: Buffer.from("/tmp/repo").toString("base64url"),
+      projectId: toUrlProjectId("/tmp/repo"),
       activity: "idle",
       timestamp: "2026-04-02T12:00:00.000Z",
     });
@@ -124,7 +125,7 @@ describe("LifecycleWebhookService", () => {
     eventBus.emit({
       type: "process-state-changed",
       sessionId: "sess-1",
-      projectId: Buffer.from("/tmp/repo").toString("base64url"),
+      projectId: toUrlProjectId("/tmp/repo"),
       activity: "idle",
       timestamp: "2026-04-02T12:00:00.000Z",
     });
@@ -177,7 +178,7 @@ describe("LifecycleWebhookService", () => {
     eventBus.emit({
       type: "process-terminated",
       sessionId: "sess-1",
-      projectId: Buffer.from("/tmp/repo").toString("base64url"),
+      projectId: toUrlProjectId("/tmp/repo"),
       processId: "proc-1",
       provider: "claude",
       reason: "underlying process terminated",

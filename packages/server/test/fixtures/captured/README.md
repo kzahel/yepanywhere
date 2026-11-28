@@ -39,7 +39,7 @@ provider output to make the live paths match.
 
 ```sh
 pnpm --dir packages/server exec vitest run test/captured-provider.test.ts
-pnpm tools:typecheck
+pnpm typecheck
 ```
 
 Normal `pnpm test` discovers these tests and normal `pnpm typecheck` includes the

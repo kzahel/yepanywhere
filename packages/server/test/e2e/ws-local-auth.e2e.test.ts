@@ -17,6 +17,7 @@ import { createApp } from "../setup/create-app.js";
 import { AuthService } from "../../src/auth/AuthService.js";
 import { SESSION_COOKIE_NAME } from "../../src/auth/routes.js";
 import { attachUnifiedUpgradeHandler } from "../../src/frontend/index.js";
+import { wireBytes } from "../../src/peer-api/srp-protocol.js";
 import { RemoteAccessService } from "../../src/remote-access/index.js";
 import { createWsRelayRoutes } from "../../src/routes/ws-relay.js";
 import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
@@ -140,12 +141,12 @@ describe("WebSocket Local Cookie Auth E2E", () => {
         5000,
       );
 
-      ws.on("message", (data) => {
+      ws.on("message", (data, isBinary) => {
         try {
-          const msg: YepMessage =
-            typeof data === "string"
-              ? (JSON.parse(data) as YepMessage)
-              : decodeJsonFrame<YepMessage>(data);
+          const bytes = wireBytes(data);
+          const msg = isBinary
+            ? decodeJsonFrame<YepMessage>(bytes)
+            : (JSON.parse(bytes.toString("utf8")) as YepMessage);
           if (msg.type === "response" && msg.id === request.id) {
             clearTimeout(timeout);
             resolve(msg);

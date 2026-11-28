@@ -164,9 +164,9 @@ Both the server parity suite and the mounted client suite execute those pairs;
 synthetic variants and unavailable native facts must have explicit coverage
 notes in the parity topic. Keep developer diagnostic inventory separate.
 
-Root `typecheck` includes client positive/negative type fixtures and the clean
-`server/tsconfig.tool-display-tests.json` scope; this does not mark the broader
-server-test typing gap closed. Root `test` runs registry and native suites.
+Root `typecheck` includes client positive/negative type fixtures, the mounted
+client tool-display suite and all server TypeScript tests. Root `test` runs
+registry and native suites.
 Root `lint` includes `tools:check`, with parser-backed negative probes for
 private imports, callback access and concrete payload assertion patterns.
 These gates detect specific escapes, not arbitrary TypeScript unsoundness.

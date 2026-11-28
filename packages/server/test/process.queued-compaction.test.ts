@@ -6,6 +6,7 @@ import {
   waitFor,
   withSessionQueuePersistence,
   type UrlProjectId,
+  type SDKMessage,
 } from "./process.test-support.js";
 
 const compact = (id = "compact") => ({
@@ -37,7 +38,7 @@ function fixture(native: boolean, extra: Record<string, unknown> = {}) {
     idleTimeoutMs: 60_000,
     ...extra,
   });
-  const emit = async (message: Record<string, unknown>) => {
+  const emit = async (message: SDKMessage) => {
     let resolve!: () => void;
     const seen = new Promise<void>((r) => {
       resolve = r;
@@ -56,7 +57,7 @@ function fixture(native: boolean, extra: Record<string, unknown> = {}) {
     p,
     queue,
     run,
-    event: (m: Record<string, unknown>) => emit({ ...m, marker: ++marker }),
+    event: (m: SDKMessage) => emit({ ...m, marker: ++marker }),
   };
 }
 

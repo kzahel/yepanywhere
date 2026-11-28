@@ -1010,6 +1010,10 @@ function providerHostOwnerAbsent(descriptor) {
   }
 }
 
+/**
+ * @param {NonNullable<ReturnType<typeof resolveProviderHostPaths>>} paths
+ * @param {{ expectedIdentity?: { sourceIdentity: Record<string, unknown>, buildIdentity: string }, timeoutMs?: number }} [options]
+ */
 export async function discoverProviderHost(
   paths,
   { expectedIdentity, timeoutMs = DEFAULT_STATUS_TIMEOUT_MS } = {},

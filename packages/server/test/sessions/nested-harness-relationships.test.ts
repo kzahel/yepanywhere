@@ -1,3 +1,4 @@
+import type { SDKMessage } from "../../src/sdk/types.js";
 import {
   captureClaudeCopyBoundary,
   type ClaudeCopyBoundary,
@@ -569,62 +570,82 @@ it("preserves an unreturned call through local reload completion and reattached 
 function historicalRows(
   f: Awaited<ReturnType<typeof fixture>>,
   targets: string[],
-  timestamp = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  {
+    timestamp = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    rowPrefix = "",
+    freshCallId,
+  }: { timestamp?: string; rowPrefix?: string; freshCallId?: string } = {},
 ): ClaudeSessionEntry[] {
   const native = f.identities.resolveYa(f.context.sessionId)!.native!;
-  return targets
-    .flatMap(
-      (target, index) =>
-        [
-          {
-            type: "assistant",
-            uuid: `command-${index}`,
-            sessionId: native.id,
-            timestamp,
-            message: {
-              role: "assistant",
-              content: [
-                {
-                  type: "tool_use",
-                  name: "Bash",
-                  id: `historical-${index}`,
-                  input: {
-                    command: `cd ${quoteShellWord(f.project)} && claude --session-id ${target} --print go`,
-                  },
-                },
-              ],
-            },
-          },
-          {
-            type: "user",
-            uuid: `result-${index}`,
-            sessionId: native.id,
-            timestamp,
-            message: {
-              role: "user",
-              content: [
-                {
-                  type: "tool_result",
-                  tool_use_id: `historical-${index}`,
-                  content: "private historical output",
-                },
-              ],
-            },
-          },
-        ] as ClaudeSessionEntry[],
-    )
-    .concat([
+  const entry = {
+    isSidechain: false,
+    userType: "external",
+    cwd: f.project,
+    version: "2.1.0",
+    sessionId: native.id,
+    timestamp,
+  } as const;
+  const assistant = {
+    type: "message",
+    role: "assistant",
+    model: "fixture-model",
+    usage: { input_tokens: 1, output_tokens: 1 },
+  } as const;
+  const rows = targets.flatMap<ClaudeSessionEntry>((target, index) => {
+    const commandId = `${rowPrefix}command-${index}`;
+    const callId = freshCallId ?? `historical-${index}`;
+    return [
       {
+        ...entry,
         type: "assistant",
-        uuid: "last",
-        sessionId: native.id,
-        timestamp,
+        uuid: commandId,
+        parentUuid: index > 0 ? `${rowPrefix}result-${index - 1}` : null,
         message: {
-          role: "assistant",
-          content: [{ type: "text", text: "Complete" }],
+          ...assistant,
+          id: commandId,
+          content: [
+            {
+              type: "tool_use",
+              name: "Bash",
+              id: callId,
+              input: {
+                command: `cd ${quoteShellWord(f.project)} && claude --session-id ${target} --print go`,
+              },
+            },
+          ],
         },
-      } as ClaudeSessionEntry,
-    ]);
+      },
+      {
+        ...entry,
+        type: "user",
+        uuid: `${rowPrefix}result-${index}`,
+        parentUuid: commandId,
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: callId,
+              content: "private historical output",
+            },
+          ],
+        },
+      },
+    ];
+  });
+  rows.push({
+    ...entry,
+    type: "assistant",
+    uuid: `${rowPrefix}last`,
+    parentUuid:
+      targets.length > 0 ? `${rowPrefix}result-${targets.length - 1}` : null,
+    message: {
+      ...assistant,
+      id: `${rowPrefix}last`,
+      content: [{ type: "text", text: "Complete" }],
+    },
+  });
+  return rows;
 }
 
 it("indexes more than one historical batch from already acquired rows, without a parent file or retained commands", async () => {
@@ -705,11 +726,9 @@ it.each([
     if (kind === "confined") f.admission.confined = true;
     if (kind === "missing-sandbox") f.admission.confined = undefined;
     if (kind === "invalid-birth") f.admission.createdAt = "invalid";
-    const rows = historicalRows(
-      f,
-      [target],
-      new Date(Date.now() + 3600000).toISOString(),
-    );
+    const rows = historicalRows(f, [target], {
+      timestamp: new Date(Date.now() + 3600000).toISOString(),
+    });
     f.first.observeTranscript(f.context, rows);
     await vi.waitFor(() => expect(f.admissionReads).toHaveBeenCalled());
     await turn();
@@ -1025,32 +1044,15 @@ it("indexes only post-copy pairs across reopen, cursor reset and a future-dated 
     ),
   );
   // Deliberately future-date inherited commands: birth timestamps cannot be a copy fence.
-  const prefix = historicalRows(
-    f,
-    [inherited],
-    new Date(Date.now() + 86400000).toISOString(),
-  );
+  const prefix = historicalRows(f, [inherited], {
+    timestamp: new Date(Date.now() + 86400000).toISOString(),
+  });
   f.admission.copy = true;
   f.admission.copyBoundary = captureClaudeCopyBoundary(prefix);
-  const suffix = historicalRows(f, [fresh]).map((row) => ({
-    ...row,
-    uuid: "fresh-" + ("uuid" in row ? row.uuid : ""),
-    message:
-      "message" in row && row.message
-        ? {
-            ...row.message,
-            content: Array.isArray(row.message.content)
-              ? row.message.content.map((block) => ({
-                  ...block,
-                  ...(block.type === "tool_use" ? { id: "fresh-call" } : {}),
-                  ...(block.type === "tool_result"
-                    ? { tool_use_id: "fresh-call" }
-                    : {}),
-                }))
-              : row.message.content,
-          }
-        : undefined,
-  })) as ClaudeSessionEntry[];
+  const suffix = historicalRows(f, [fresh], {
+    rowPrefix: "fresh-",
+    freshCallId: "fresh-call",
+  });
   const rows = [...prefix, ...suffix];
   // A window lacking the original fence cannot qualify merely by containing new-looking rows.
   f.first.observeTranscript(f.context, suffix, suffix.length);
@@ -1119,7 +1121,7 @@ it("keeps an explicit Claude destination independent of its Codex parent, ignore
       },
     };
   const inner = `cd ${quoteShellWord(f.project)} && /usr/bin/env CLAUDE_CONFIG_DIR=${quoteShellWord(join(f.root, "target"))} CLAUDECODE= /owned/claude --session-id ${targetId} --print go`;
-  const commandMessage = {
+  const commandMessage: SDKMessage = {
     type: "assistant",
     session_id: f.context.sessionId,
     ...correlation,
@@ -1147,7 +1149,7 @@ it("keeps an explicit Claude destination independent of its Codex parent, ignore
       targetScope,
     ),
   );
-  const result = {
+  const result: SDKMessage = {
     type: "user",
     session_id: f.context.sessionId,
     ...correlation,

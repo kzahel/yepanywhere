@@ -596,10 +596,10 @@ describe("profile-owned provider child facts", () => {
 
   it("coalesces changes per native scope and refreshes only the proved parent", async () => {
     const f = fixture();
-    const reads = [0, 0, 0];
+    const reads: [number, number, number] = [0, 0, 0];
     let lookups = 0;
     const changedId = "64c067f8-b6e0-4eca-b27a-fc3ccf55331c";
-    for (let index = 0; index < 3; index++) {
+    for (const index of [0, 1, 2] as const) {
       f.service.demand(
         native(`parent-${index}`),
         { sessionId: `public-${index}` },

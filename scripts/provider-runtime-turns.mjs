@@ -79,7 +79,9 @@ function isTerminalRecord(record) {
 export class ProviderRuntimeTurnLedger {
   constructor({
     resolveRuntime,
-    writeReceipts = () => {},
+    writeReceipts = /** @type {(receipts: Record<string, unknown>[]) => void} */ (
+      () => {}
+    ),
     initialReceipts = [],
     onTerminal = () => {},
   }) {

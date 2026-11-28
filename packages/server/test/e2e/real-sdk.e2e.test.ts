@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import {
   mkdtempSync,
   readFileSync,
@@ -7,6 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { toUrlProjectId } from "@yep-anywhere/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { detectClaudeCli } from "../../src/sdk/cli-detection.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
@@ -33,6 +35,29 @@ function log(...args: unknown[]) {
   if (FOREGROUND) {
     console.log(...args);
   }
+}
+
+function answerQuestions(input: unknown, answer: string) {
+  assert(
+    input &&
+      typeof input === "object" &&
+      "questions" in input &&
+      Array.isArray(input.questions),
+    "Expected AskUserQuestion input",
+  );
+  const questions: unknown[] = input.questions;
+  const answers: Record<string, string> = {};
+  for (const item of questions) {
+    assert(
+      item &&
+        typeof item === "object" &&
+        "question" in item &&
+        typeof item.question === "string",
+      "Expected an AskUserQuestion prompt",
+    );
+    answers[item.question] = answer;
+  }
+  return { ...input, answers };
 }
 
 function logMessage(message: SDKMessage) {
@@ -304,6 +329,7 @@ describe("Real SDK E2E", () => {
         {
           id: "file-1",
           originalName: "data.txt",
+          name: "file-1-data.txt",
           size: 1024,
           mimeType: "text/plain",
           path: attachmentPath,
@@ -327,8 +353,9 @@ describe("Real SDK E2E", () => {
     })();
     const testProcess = new Process(mockIterator, {
       projectPath: testDir,
-      projectId: "test",
+      projectId: toUrlProjectId(testDir),
       sessionId: "test",
+      provider: sdk.name,
       idleTimeoutMs: 100,
       queue: new MessageQueue(),
     });
@@ -622,21 +649,9 @@ describe("Real SDK E2E", () => {
           askUserQuestionCalled = true;
           receivedQuestions = input;
 
-          // Simulate user answering the question
-          const questionInput = input as {
-            questions?: Array<{ question: string }>;
-          };
-          const answers: Record<string, string> = {};
-          if (questionInput.questions) {
-            for (const q of questionInput.questions) {
-              answers[q.question] = "Blue";
-            }
-          }
-
-          // Return approval with answers via updatedInput
           return {
             behavior: "allow" as const,
-            updatedInput: { ...input, answers },
+            updatedInput: answerQuestions(input, "Blue"),
           };
         }
 
@@ -692,20 +707,9 @@ describe("Real SDK E2E", () => {
         if (toolName === "AskUserQuestion") {
           askUserQuestionInPlanMode = true;
 
-          // Simulate user answering
-          const questionInput = input as {
-            questions?: Array<{ question: string }>;
-          };
-          const answers: Record<string, string> = {};
-          if (questionInput.questions) {
-            for (const q of questionInput.questions) {
-              answers[q.question] = "React";
-            }
-          }
-
           return {
             behavior: "allow" as const,
-            updatedInput: { ...input, answers },
+            updatedInput: answerQuestions(input, "React"),
           };
         }
 

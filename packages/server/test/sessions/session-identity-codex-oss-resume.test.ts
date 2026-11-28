@@ -9,7 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, it, vi } from "vitest";
+import { assert, expect, it, vi } from "vitest";
 import {
   nativeSessionRef,
   parseNativeSessionId,
@@ -165,8 +165,10 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:
           failure === "native" ? "controlled exec failure" : "EACCES",
         );
         if (failure === "native") {
-          expect(failed.pid).toBeGreaterThan(0);
-          expect(() => process.kill(failed.pid!, 0)).toThrow();
+          const pid = failed.pid;
+          assert(typeof pid === "number");
+          expect(pid).toBeGreaterThan(0);
+          expect(() => process.kill(pid, 0)).toThrow();
         } else expect(failed.pid).toBeUndefined();
         expect(leases).toBe(0);
       }
@@ -185,7 +187,9 @@ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',id:
           }
         })(),
       ).rejects.toThrow("different native thread");
-      expect(() => process.kill(wrong.pid!, 0)).toThrow();
+      const wrongPid = wrong.pid;
+      assert(typeof wrongPid === "number");
+      expect(() => process.kill(wrongPid, 0)).toThrow();
       expect(leases).toBe(0);
       vi.stubEnv("CODEX_OSS_FIXTURE_FAIL", "");
       const idle = await provider.startSession({

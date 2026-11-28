@@ -1,3 +1,4 @@
+import { transcriptMessages } from "./provider-session-fixtures.js";
 import * as fs from "node:fs";
 import {
   appendFile,
@@ -1612,9 +1613,9 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
       const projectId = toUrlProjectId(f.project);
       const loadedParent = await reader.getSession(PARENT_ID, projectId);
       expect(loadedParent?.transcriptComplete).toBe(false);
-      expect(loadedParent?.data.session.messages.map((m) => m.uuid)).toEqual([
-        `${PARENT_ID}:history-unavailable`,
-      ]);
+      expect(
+        transcriptMessages(loadedParent, "antigravity").map((m) => m.uuid),
+      ).toEqual([`${PARENT_ID}:history-unavailable`]);
       expect(await reader.getAgentMappings(PARENT_ID)).toEqual([]);
       expect(await readFile(spyLog, "utf8").catch(() => "")).toBe("");
 
@@ -1970,7 +1971,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
         { tailCompactions: 2 },
       );
       const results = new Map(
-        loaded!.data.session.messages.flatMap((message) =>
+        transcriptMessages(loaded, "antigravity").flatMap((message) =>
           Array.isArray(message.message?.content)
             ? message.message.content.flatMap((block) =>
                 block.type === "tool_result"
@@ -2035,8 +2036,10 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
           undefined,
           { tailCompactions: 2 },
         );
-        expect(resumed!.data.session.messages.map((m) => m.uuid)).toEqual([
-          ...loaded!.data.session.messages.map((m) => m.uuid),
+        expect(
+          transcriptMessages(resumed, "antigravity").map((m) => m.uuid),
+        ).toEqual([
+          ...transcriptMessages(loaded, "antigravity").map((m) => m.uuid),
           "resumed-prompt",
         ]);
       } finally {

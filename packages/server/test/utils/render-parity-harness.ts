@@ -10,7 +10,7 @@ import { normalizeSession } from "../../src/sessions/normalization.js";
 import { augmentPersistedSessionMessages } from "../../src/sessions/persisted-augments.js";
 import type { LoadedSession } from "../../src/sessions/types.js";
 import { normalizeStreamMessage } from "../../src/subscriptions.js";
-import type { Message as ServerMessage } from "../../src/supervisor/types.js";
+import { projectionMessages } from "../sessions/provider-session-fixtures.js";
 
 export interface PersistedPipelineResult {
   messages: ClientMessage[];
@@ -134,7 +134,7 @@ function normalizeSourceRelationships(
 export function normalizeRenderItemsForComparison(
   items: RenderItem[],
   options: RenderParityNormalizationOptions = {},
-): unknown[] {
+): Record<string, unknown>[] {
   return items.map((item) => {
     const base = {
       type: item.type,
@@ -331,20 +331,16 @@ export async function runPersistedPipeline(
   loadedSession: LoadedSession,
   projectionAugments?: TranscriptProjectionAugments,
 ): Promise<PersistedPipelineResult> {
-  const normalizedSession = normalizeSession(
-    structuredClone(loadedSession),
-  ) as { messages: ClientMessage[] };
-  augmentTaskListSnapshots(normalizedSession.messages as ServerMessage[]);
-  await augmentPersistedSessionMessages(
-    normalizedSession.messages as unknown as ServerMessage[],
-  );
-  const renderItems = compileTranscriptProjection(
-    normalizedSession.messages,
-    projectionAugments,
-  );
+  const { messages } = normalizeSession(structuredClone(loadedSession));
+  augmentTaskListSnapshots(messages);
+  await augmentPersistedSessionMessages(messages);
+  const transcriptMessages = projectionMessages(messages);
   return {
-    messages: normalizedSession.messages,
-    renderItems,
+    messages: transcriptMessages,
+    renderItems: compileTranscriptProjection(
+      transcriptMessages,
+      projectionAugments,
+    ),
   };
 }
 

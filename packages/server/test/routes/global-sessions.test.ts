@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +25,7 @@ import {
   createGlobalSessionsRoutes,
 } from "../../src/routes/global-sessions.js";
 import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
+import type { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import type { GeminiSessionReader } from "../../src/sessions/gemini-reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import type { ExternalSessionTracker } from "../../src/supervisor/ExternalSessionTracker.js";
@@ -265,10 +267,10 @@ describe("Global Sessions Routes", () => {
       const result = await makeRequest();
 
       expect(result.sessions).toHaveLength(2);
-      expect(result.sessions[0].id).toBe("sess1"); // More recent first
-      expect(result.sessions[0].projectName).toBe("project-one");
-      expect(result.sessions[1].id).toBe("sess2");
-      expect(result.sessions[1].projectName).toBe("project-two");
+      expect(result.sessions[0]).toHaveProperty("id", "sess1"); // More recent first
+      expect(result.sessions[0]).toHaveProperty("projectName", "project-one");
+      expect(result.sessions[1]).toHaveProperty("id", "sess2");
+      expect(result.sessions[1]).toHaveProperty("projectName", "project-two");
     });
 
     it("exposes manual resume exemptions in session summaries", async () => {
@@ -280,7 +282,7 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].autoResumeDisabled).toBe(true);
+      expect(result.sessions[0]).toHaveProperty("autoResumeDisabled", true);
     });
 
     it("only computes global stats when includeStats=true", async () => {
@@ -356,8 +358,8 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].projectId).toBe("proj1");
-      expect(result.sessions[0].projectName).toBe("my-project");
+      expect(result.sessions[0]).toHaveProperty("projectId", "proj1");
+      expect(result.sessions[0]).toHaveProperty("projectName", "my-project");
     });
   });
 
@@ -591,7 +593,7 @@ describe("Global Sessions Routes", () => {
       const result = await makeRequest("?project=proj1");
 
       expect(result.sessions).toHaveLength(1);
-      expect(result.sessions[0].id).toBe("sess1");
+      expect(result.sessions[0]).toHaveProperty("id", "sess1");
     });
 
     it("excludes archived sessions by default", async () => {
@@ -606,7 +608,7 @@ describe("Global Sessions Routes", () => {
       const result = await makeRequest();
 
       expect(result.sessions).toHaveLength(1);
-      expect(result.sessions[0].id).toBe("sess1");
+      expect(result.sessions[0]).toHaveProperty("id", "sess1");
     });
 
     it("includes archived sessions when ?includeArchived=true", async () => {
@@ -640,7 +642,7 @@ describe("Global Sessions Routes", () => {
       const result = await makeRequest("?q=login");
 
       expect(result.sessions).toHaveLength(1);
-      expect(result.sessions[0].id).toBe("sess1");
+      expect(result.sessions[0]).toHaveProperty("id", "sess1");
     });
 
     it("searches in customTitle", async () => {
@@ -659,7 +661,7 @@ describe("Global Sessions Routes", () => {
       const result = await makeRequest("?q=custom");
 
       expect(result.sessions).toHaveLength(1);
-      expect(result.sessions[0].id).toBe("sess1");
+      expect(result.sessions[0]).toHaveProperty("id", "sess1");
     });
 
     it("searches in projectName", async () => {
@@ -686,7 +688,7 @@ describe("Global Sessions Routes", () => {
       const result = await makeRequest("?q=authentication");
 
       expect(result.sessions).toHaveLength(1);
-      expect(result.sessions[0].id).toBe("sess1");
+      expect(result.sessions[0]).toHaveProperty("id", "sess1");
     });
 
     it("search is case-insensitive", async () => {
@@ -940,8 +942,8 @@ describe("Global Sessions Routes", () => {
       const result = await makeRequest(`?after=${afterCursor}`);
 
       expect(result.sessions).toHaveLength(2);
-      expect(result.sessions[0].id).toBe("sess2");
-      expect(result.sessions[1].id).toBe("sess3");
+      expect(result.sessions[0]).toHaveProperty("id", "sess2");
+      expect(result.sessions[1]).toHaveProperty("id", "sess3");
     });
 
     it("combines after cursor with limit", async () => {
@@ -954,12 +956,14 @@ describe("Global Sessions Routes", () => {
       sessionsByDir.set("/sessions/proj1", sessions);
 
       // Skip first 3, take 2
-      const afterCursor = sessions[2].updatedAt;
+      const cursorSession = sessions[2];
+      assert.ok(cursorSession);
+      const afterCursor = cursorSession.updatedAt;
       const result = await makeRequest(`?after=${afterCursor}&limit=2`);
 
       expect(result.sessions).toHaveLength(2);
-      expect(result.sessions[0].id).toBe("sess3");
-      expect(result.sessions[1].id).toBe("sess4");
+      expect(result.sessions[0]).toHaveProperty("id", "sess3");
+      expect(result.sessions[1]).toHaveProperty("id", "sess4");
       expect(result.hasMore).toBe(true);
     });
   });
@@ -1214,13 +1218,13 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].ownership).toEqual({
+      expect(result.sessions[0]).toHaveProperty("ownership", {
         owner: "self",
         processId: "proc-1",
         permissionMode: "default",
         modeVersion: 1,
       });
-      expect(result.sessions[0].activity).toBe("in-turn");
+      expect(result.sessions[0]).toHaveProperty("activity", "in-turn");
     });
 
     it("reports idle process retaining provider background work as in-turn", async () => {
@@ -1240,7 +1244,7 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].activity).toBe("in-turn");
+      expect(result.sessions[0]).toHaveProperty("activity", "in-turn");
     });
 
     it("reports idle process without provider retention as inactive", async () => {
@@ -1260,7 +1264,9 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].activity).toBeUndefined();
+      const [listedSession] = result.sessions;
+      assert.ok(listedSession);
+      expect(listedSession.activity).toBeUndefined();
     });
 
     it("enriches with external ownership", async () => {
@@ -1273,7 +1279,9 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].ownership).toEqual({ owner: "external" });
+      expect(result.sessions[0]).toHaveProperty("ownership", {
+        owner: "external",
+      });
     });
 
     it("enriches with pendingInputType", async () => {
@@ -1292,7 +1300,10 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].pendingInputType).toBe("tool-approval");
+      expect(result.sessions[0]).toHaveProperty(
+        "pendingInputType",
+        "tool-approval",
+      );
     });
 
     it("enriches with hasUnread from notification service", async () => {
@@ -1305,7 +1316,7 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].hasUnread).toBe(true);
+      expect(result.sessions[0]).toHaveProperty("hasUnread", true);
     });
 
     it("uses owned-process activity for unread, recency, and sorting", async () => {
@@ -1371,8 +1382,8 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].updatedAt).toBe(recapTimestamp);
-      expect(result.sessions[0].hasUnread).toBe(false);
+      expect(result.sessions[0]).toHaveProperty("updatedAt", recapTimestamp);
+      expect(result.sessions[0]).toHaveProperty("hasUnread", false);
       expect(mockNotificationService.hasUnread).toHaveBeenCalledWith(
         "sess1",
         rawUpdatedAt,
@@ -1392,8 +1403,11 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].customTitle).toBe("My Custom Title");
-      expect(result.sessions[0].isStarred).toBe(true);
+      expect(result.sessions[0]).toHaveProperty(
+        "customTitle",
+        "My Custom Title",
+      );
+      expect(result.sessions[0]).toHaveProperty("isStarred", true);
     });
 
     it("reports named sections and filters categorized to every named section", async () => {
@@ -1443,9 +1457,9 @@ describe("Global Sessions Routes", () => {
 
       const result = await makeRequest();
 
-      expect(result.sessions[0].id).toBe("sess2"); // 5 min ago
-      expect(result.sessions[1].id).toBe("sess3"); // 10 min ago
-      expect(result.sessions[2].id).toBe("sess1"); // 15 min ago
+      expect(result.sessions[0]).toHaveProperty("id", "sess2"); // 5 min ago
+      expect(result.sessions[1]).toHaveProperty("id", "sess3"); // 10 min ago
+      expect(result.sessions[2]).toHaveProperty("id", "sess1"); // 15 min ago
     });
   });
 });

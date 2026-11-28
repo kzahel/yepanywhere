@@ -14,6 +14,7 @@ describe("conversation context delivery", () => {
     const append = vi.fn(async () => true);
     const process = new Process(controller.iterator, {
       queue: new MessageQueue(),
+      provider: "claude",
       projectPath: "/project",
       projectId: toUrlProjectId("project"),
       sessionId: "parent",
@@ -61,6 +62,7 @@ describe("conversation context delivery", () => {
       const queue = new MessageQueue();
       const append = vi.fn(async () => native);
       const process = new Process(controller.iterator, {
+        provider: "claude",
         projectPath: "/project",
         projectId: toUrlProjectId("project"),
         sessionId: "parent",

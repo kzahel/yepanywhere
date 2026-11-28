@@ -4,7 +4,10 @@ import {
   EMPTY_LIMITED_USER_GRANTS,
   toUrlProjectId,
 } from "@yep-anywhere/shared";
-import { PRINCIPAL_VARIABLE } from "../../src/auth/principal.js";
+import {
+  PRINCIPAL_VARIABLE,
+  type Principal,
+} from "../../src/auth/principal.js";
 import { decideLimitedRoute } from "../../src/auth/limitedUserPolicy.js";
 import { createServer } from "node:net";
 import type { AddressInfo } from "node:net";
@@ -403,12 +406,17 @@ it("limits file-address replacement and release to its creator and confines link
     allowPublicApps: true,
   };
   const activeGrants = () => (allowed ? grants : null);
-  const routes = new Hono();
+  const routes = new Hono<{
+    Variables: Record<typeof PRINCIPAL_VARIABLE, Principal>;
+  }>();
   routes.use("*", async (c, next) => {
     c.set(PRINCIPAL_VARIABLE, {
       kind: "limited",
       username: c.req.header("x-user") ?? "alice",
       grants,
+      switched: false,
+      locked: true,
+      via: "direct",
     });
     const decision = decideLimitedRoute({
       method: c.req.method,

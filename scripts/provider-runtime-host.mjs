@@ -119,6 +119,11 @@ export function agentHarness(providerName) {
   }
 }
 
+/**
+ * @param {string} providerName
+ * @param {{ staticAgentEnvironment?: NodeJS.ProcessEnv, launchModel?: string, model?: string, effort?: string } | undefined} options
+ * @param {NodeJS.ProcessEnv} [baseEnvironment]
+ */
 export function withAgentLaunchEnvironment(
   providerName,
   options,
@@ -274,7 +279,9 @@ export class ProviderRuntimeHost {
     initialTurnReceipts = [],
     publishTurnReceipts = () => {},
     initialRecentRuntimes = [],
-    publishRecentRuntimes = () => {},
+    publishRecentRuntimes = /** @type {(entries: unknown[]) => void} */ (
+      () => {}
+    ),
   }) {
     this.runtimeDir = runtimeDir;
     this.controlSocketPath = controlSocketPath;

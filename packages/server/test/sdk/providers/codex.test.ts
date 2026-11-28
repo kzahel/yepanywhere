@@ -5999,6 +5999,7 @@ function readFakeCodexRequests(logPath: string): Array<{
   agentctlSessionId?: string;
   agentSelf?: unknown;
   processEnvAgentctlSessionId?: string;
+  processEnvWakeToken?: string;
 }> {
   if (!existsSync(logPath)) return [];
   return readFileSync(logPath, "utf-8")
@@ -8894,17 +8895,6 @@ describe("CodexProvider Event Normalization", () => {
 });
 
 describe("CodexProvider Configuration", () => {
-  it("should accept custom timeout", () => {
-    const config: CodexProviderConfig = {
-      timeout: 60000,
-    };
-    const provider = new CodexProvider(config);
-
-    expect(provider.name).toBe("codex");
-    // Can't directly verify timeout since it's private,
-    // but we can verify the provider was created
-  });
-
   it("should accept custom codex path", () => {
     const config: CodexProviderConfig = {
       codexPath: "/custom/path/to/codex",

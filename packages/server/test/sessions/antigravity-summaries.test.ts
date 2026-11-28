@@ -835,7 +835,6 @@ describe("AntigravitySummariesReader & top-level child exclusion", () => {
       eventBus,
       projectStores: () => [antigravityAdapter],
       adapters,
-      debounceMs: 10,
     });
     const watcherSpec = antigravitySessionWatcherSpec(aliasConvs);
     expect(watcherSpec.recursive).toBe(false);

@@ -157,7 +157,7 @@ it("retained provider owner keeps the grant and projection across controller gen
     owner.detach("first");
     controller.push({
       type: "assistant",
-      message: { model: "resolved-while-detached" },
+      message: { content: "", model: "resolved-while-detached" },
     });
     await vi.waitFor(async () =>
       expect(await report()).toMatchObject({

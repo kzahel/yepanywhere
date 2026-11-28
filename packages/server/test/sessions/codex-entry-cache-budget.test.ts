@@ -1,3 +1,4 @@
+import { codexEntries } from "./provider-session-fixtures.js";
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -168,7 +169,7 @@ describe("CodexSessionReader entry cache budget", () => {
     expect(readerA.getEntryCacheStats().sessions).toBe(1);
 
     const loaded = await readerB.getSession("budget-second", projectId);
-    expect(loaded?.data.session.entries).toHaveLength(11);
+    expect(codexEntries(loaded)).toHaveLength(11);
     expect(readerA.getEntryCacheStats().sessions).toBe(0);
     expect(readerB.getEntryCacheStats().sessions).toBe(1);
     expect(budget.getStats()).toEqual({
@@ -192,8 +193,8 @@ describe("CodexSessionReader entry cache budget", () => {
       reader.getSession("budget-oversized", projectId),
       reader.getSession("budget-oversized", projectId),
     ]);
-    expect(loaded?.data.session.entries).toHaveLength(21);
-    expect(concurrent?.data.session.entries).toHaveLength(21);
+    expect(codexEntries(loaded)).toHaveLength(21);
+    expect(codexEntries(concurrent)).toHaveLength(21);
     expect(reader.getEntryCacheStats().sessions).toBe(0);
     expect(budget.getStats().retainedEntries).toBe(0);
   });
@@ -214,7 +215,7 @@ describe("CodexSessionReader entry cache budget", () => {
       entryCacheBudget: tight,
     });
     const loaded = await tightReader.getSession("budget-compressed", projectId);
-    expect(loaded?.data.session.entries).toHaveLength(41);
+    expect(codexEntries(loaded)).toHaveLength(41);
     expect(tightReader.getEntryCacheStats().sessions).toBe(0);
 
     const roomy = new CodexEntryCacheBudget({
@@ -249,7 +250,7 @@ describe("CodexSessionReader entry cache budget", () => {
       `${userMessageLine("appended")}\n${userMessageLine("x".repeat(400))}\n`,
     );
     const loaded = await reader.getSession("budget-growing", projectId);
-    expect(loaded?.data.session.entries).toHaveLength(8);
+    expect(codexEntries(loaded)).toHaveLength(8);
     expect(reader.getEntryCacheStats().sessions).toBe(0);
     expect(budget.getStats()).toMatchObject({
       retainedEntries: 0,

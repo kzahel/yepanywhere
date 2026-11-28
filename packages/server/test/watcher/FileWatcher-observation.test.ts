@@ -1,6 +1,5 @@
 import { EventEmitter } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
-import type { FSWatcher } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -11,19 +10,22 @@ import * as sharedDirectoryWatcher from "../../src/watcher/SharedDirectoryWatche
 describe("FileWatcher observation diagnostics", () => {
   it("ceases reporting observation after a lease error or close", async () => {
     const directory = await mkdtemp(join(tmpdir(), "watch-observation-"));
-    const lease = Object.assign(new EventEmitter(), {
+    class ObservationLease extends EventEmitter {
       close() {
         this.emit("close");
-      },
+      }
+
       ref() {
         return this;
-      },
+      }
+
       unref() {
         return this;
-      },
-    });
+      }
+    }
+    const lease = new ObservationLease();
     vi.spyOn(sharedDirectoryWatcher, "watchSharedDirectory").mockReturnValue(
-      lease as FSWatcher,
+      lease,
     );
     const logError = vi
       .spyOn(console, "error")

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
@@ -475,13 +476,13 @@ describe.skipIf(process.platform !== "linux")(
     it("retitle helper", async () => {
       const generateSummary = vi
         .spyOn(app.supervisor, "generateSummary")
-        .mockResolvedValue({ text: "Proposed title" } as Awaited<
-          ReturnType<typeof app.supervisor.generateSummary>
-        >);
+        .mockResolvedValue({ text: "Proposed title" });
       const response = await post(`${source}/retitle`, {});
       expect(response.status, await response.clone().text()).toBe(200);
-      const generator = generateSummary.mock.calls[0]?.[1]?.generatorSessionId;
-      expect(sandboxRecord(generator!)).toMatchInlineSnapshot(`
+      const request = generateSummary.mock.calls[0]?.[1];
+      assert.ok(request?.strategy === "fork");
+      const generator = request.generatorSessionId;
+      expect(sandboxRecord(generator)).toMatchInlineSnapshot(`
         {
           "sandboxEverConfined": true,
           "sandboxLevel": "project-write",
@@ -496,9 +497,7 @@ describe.skipIf(process.platform !== "linux")(
     it("fork-summary helper and target", async () => {
       const generateSummary = vi
         .spyOn(app.supervisor, "generateSummary")
-        .mockResolvedValue({ text: "Summary of the work so far" } as Awaited<
-          ReturnType<typeof app.supervisor.generateSummary>
-        >);
+        .mockResolvedValue({ text: "Summary of the work so far" });
       const response = await post(`${source}/fork-summary`, {
         sourceMessageId: transcripts.get(source)![2],
       });
@@ -510,13 +509,15 @@ describe.skipIf(process.platform !== "linux")(
           expect.objectContaining({ kind: "fork-summary", status: "ready" }),
         ),
       );
-      const generator = generateSummary.mock.calls[0]?.[1]?.generatorSessionId;
+      const request = generateSummary.mock.calls[0]?.[1];
+      assert.ok(request?.strategy === "fork");
+      const generator = request.generatorSessionId;
       const target = metadata
         .getMetadata(source)
         ?.transcriptDisplayObjects?.find(
           (object) => object.kind === "fork-summary",
         ) as { targetSessionId?: string } | undefined;
-      expect(sandboxRecord(generator!)).toMatchInlineSnapshot(`
+      expect(sandboxRecord(generator)).toMatchInlineSnapshot(`
         {
           "sandboxEverConfined": true,
           "sandboxLevel": "project-write",

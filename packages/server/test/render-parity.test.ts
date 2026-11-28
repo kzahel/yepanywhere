@@ -1,9 +1,12 @@
-import type {
-  ClaudeSessionEntry,
-  CodexSessionEntry,
-  UnifiedSession,
-  UrlProjectId,
+import {
+  type ClaudeSessionEntry,
+  type CodexSessionEntry,
+  toUrlProjectId,
 } from "@yep-anywhere/shared";
+import { ok } from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   mergeJSONLMessages,
@@ -14,7 +17,12 @@ import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/com
 import type { Message as ClientMessage } from "../../client/src/types.ts";
 import * as codexItemConversion from "../src/sdk/providers/codex-item-conversion.js";
 import { normalizeSession } from "../src/sessions/normalization.js";
+import { ClaudeSessionReader } from "../src/sessions/reader.js";
 import type { LoadedSession } from "../src/sessions/types.js";
+import {
+  codexSessionFixture,
+  projectionMessages,
+} from "./sessions/provider-session-fixtures.js";
 import {
   assertRenderParity,
   normalizeRenderItemsForComparison,
@@ -32,24 +40,13 @@ type CodexProviderBridge = {
 };
 
 function buildLoadedCodexSession(entries: CodexSessionEntry[]): LoadedSession {
-  return {
-    summary: {
-      id: "codex-render-parity",
-      projectId: "test-project" as UrlProjectId,
-      title: "Codex render parity",
-      fullTitle: "Codex render parity",
-      createdAt: "2026-03-05T12:00:00.000Z",
-      updatedAt: "2026-03-05T12:00:10.000Z",
-      messageCount: entries.length,
-      status: "chat",
-      provider: "codex",
-    } as LoadedSession["summary"],
-    data: {
-      provider: "codex",
-      events: [],
-      session: { entries },
-    } as UnifiedSession,
-  };
+  return codexSessionFixture(entries, {
+    id: "codex-render-parity",
+    title: "Codex render parity",
+    provider: "codex",
+    from: "2026-03-05T12:00:00.000Z",
+    to: "2026-03-05T12:00:10.000Z",
+  });
 }
 
 function buildLoadedClaudeSession(
@@ -58,36 +55,87 @@ function buildLoadedClaudeSession(
   return {
     summary: {
       id: "claude-render-parity",
-      projectId: "test-project" as UrlProjectId,
+      projectId: toUrlProjectId("/tmp/render-parity"),
       title: "Claude render parity",
       fullTitle: "Claude render parity",
       createdAt: "2026-03-05T12:00:00.000Z",
       updatedAt: "2026-03-05T12:00:10.000Z",
       messageCount: messages.length,
-      status: { state: "idle" },
+      ownership: { owner: "none" },
       provider: "claude",
-    } as LoadedSession["summary"],
+    },
+    transcriptSnapshotUpdatedAt: "2026-03-05T12:00:10.000Z",
     data: {
       provider: "claude",
       session: { messages },
-    } as UnifiedSession,
+    },
   };
 }
 
 function normalizeClaudeMessages(
   messages: ClaudeSessionEntry[],
 ): ClientMessage[] {
-  return normalizeSession(buildLoadedClaudeSession(messages)).messages;
+  return projectionMessages(
+    normalizeSession(buildLoadedClaudeSession(messages)).messages,
+  );
+}
+
+function withLegacyAssistantText(entries: ClaudeSessionEntry[]) {
+  const final = entries.at(-1);
+  ok(final?.type === "assistant");
+  const [block] = final.message.content;
+  ok(final.message.content.length === 1 && block?.type === "text");
+  return [
+    ...entries.slice(0, -1),
+    { ...final, message: { ...final.message, content: block.text } },
+  ];
+}
+
+async function readClaudeFixture(rows: readonly Record<string, unknown>[]) {
+  const directory = await mkdtemp(join(tmpdir(), "ya-render-parity-"));
+  const sessionId = "882a9607-29ac-4798-9a7f-2a78d5f6a2bf";
+  const reader = new ClaudeSessionReader({ sessionDir: directory });
+  try {
+    const jsonl = rows.map((row) => JSON.stringify(row)).join("\n");
+    await writeFile(join(directory, `${sessionId}.jsonl`), `${jsonl}\n`);
+    const loaded = await reader.getSession(
+      sessionId,
+      toUrlProjectId(directory),
+    );
+    ok(loaded, "Expected the Claude JSONL fixture to load");
+    return loaded;
+  } finally {
+    await reader.close();
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 function buildReplayMessages(
   messages: ClaudeSessionEntry[],
   indices: number[],
 ): ClientMessage[] {
-  return indices.map((index) => ({
-    ...(structuredClone(messages[index]) as unknown as ClientMessage),
-    isReplay: true,
-  }));
+  return indices.map((index) => {
+    const entry = messages[index];
+    ok(entry?.type === "user" || entry?.type === "assistant");
+    const replay = structuredClone(entry);
+    const { content } = replay.message;
+    if (typeof content === "string") {
+      return {
+        ...replay,
+        message: { ...replay.message, content },
+        isReplay: true,
+      };
+    }
+    const blocks = content.map((block) => {
+      ok(typeof block !== "string");
+      return block;
+    });
+    return {
+      ...replay,
+      message: { ...replay.message, content: blocks },
+      isReplay: true,
+    };
+  });
 }
 
 function runReconnectScenario(
@@ -322,18 +370,39 @@ function codexStreamMessages(): Array<Record<string, unknown>> {
   return messages;
 }
 
+const CLAUDE_ENTRY_METADATA = {
+  isSidechain: false,
+  userType: "external",
+  cwd: "/tmp",
+  sessionId: "claude-render-parity",
+  version: "2.0.0",
+  timestamp: "2026-03-05T12:00:00.000Z",
+} as const;
+
+const CLAUDE_ASSISTANT_METADATA = {
+  type: "message",
+  model: "claude-sonnet-4-6",
+  usage: { input_tokens: 0, output_tokens: 0 },
+} as const;
+
+const DIRECT_TOOL_CALL = { caller: { type: "direct" } } as const;
+
 const CLAUDE_FIXTURE: ClaudeSessionEntry[] = [
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "claude-user-1",
     parentUuid: null,
     message: { role: "user", content: "Read /tmp/test.md and report." },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "claude-assistant-1",
     parentUuid: "claude-user-1",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-claude-assistant-1",
       role: "assistant",
       content: [
         { type: "text", text: "I'll read it now." },
@@ -347,6 +416,7 @@ const CLAUDE_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "claude-user-2",
     parentUuid: "claude-assistant-1",
@@ -372,28 +442,35 @@ const CLAUDE_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "claude-assistant-2",
     parentUuid: "claude-user-2",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-claude-assistant-2",
       role: "assistant",
-      content: "Done.\n\n```md\n# hello\n```",
+      content: [{ type: "text", text: "Done.\n\n```md\n# hello\n```" }],
     },
   },
 ];
 
 const CLAUDE_MULTI_TEXT_FIXTURE: ClaudeSessionEntry[] = [
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "claude-multi-user-1",
     parentUuid: null,
     message: { role: "user", content: "Show two separately rendered blocks." },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "claude-multi-assistant-1",
     parentUuid: "claude-multi-user-1",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-claude-multi-assistant-1",
       role: "assistant",
       content: [
         { type: "text", text: "First **block**." },
@@ -418,16 +495,20 @@ const EMBEDDED_HTML_MARKDOWN = [
 
 const CLAUDE_EMBEDDED_HTML_FIXTURE: ClaudeSessionEntry[] = [
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "claude-html-user-1",
     parentUuid: null,
     message: { role: "user", content: "Compare the runtimes." },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "claude-html-assistant-1",
     parentUuid: "claude-html-user-1",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-claude-html-assistant-1",
       role: "assistant",
       content: [{ type: "text", text: EMBEDDED_HTML_MARKDOWN }],
     },
@@ -436,16 +517,20 @@ const CLAUDE_EMBEDDED_HTML_FIXTURE: ClaudeSessionEntry[] = [
 
 const CLAUDE_EDIT_CHAIN_FIXTURE: ClaudeSessionEntry[] = [
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "claude-edit-user-1",
     parentUuid: null,
     message: { role: "user", content: "Update the remote access docs." },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "claude-edit-1",
     parentUuid: "claude-edit-user-1",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-claude-edit-1",
       role: "assistant",
       content: [
         {
@@ -462,10 +547,13 @@ const CLAUDE_EDIT_CHAIN_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "claude-edit-2",
     parentUuid: "claude-edit-1",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-claude-edit-2",
       role: "assistant",
       content: [
         {
@@ -482,6 +570,7 @@ const CLAUDE_EDIT_CHAIN_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "claude-edit-result-1",
     parentUuid: "claude-edit-1",
@@ -514,6 +603,7 @@ const CLAUDE_EDIT_CHAIN_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "claude-edit-result-2",
     parentUuid: "claude-edit-2",
@@ -546,28 +636,35 @@ const CLAUDE_EDIT_CHAIN_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "claude-edit-final",
     parentUuid: "claude-edit-result-2",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-claude-edit-final",
       role: "assistant",
-      content: "Done. Updated both files.",
+      content: [{ type: "text", text: "Done. Updated both files." }],
     },
   },
 ];
 
 const CLAUDE_SESSION_2E582BFB_FIXTURE: ClaudeSessionEntry[] = [
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "e416e5ea-2d96-46eb-836a-e7e0f8c79f00",
     parentUuid: null,
     message: { role: "user", content: "test session abc 123" },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "8a1ddf40-3ab7-4520-b1ab-3c0bc3447028",
     parentUuid: "e416e5ea-2d96-46eb-836a-e7e0f8c79f00",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-8a1ddf40-3ab7-4520-b1ab-3c0bc3447028",
       role: "assistant",
       content: [
         {
@@ -579,10 +676,13 @@ const CLAUDE_SESSION_2E582BFB_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "31163611-077b-489a-b12f-de7864927631",
     parentUuid: "e416e5ea-2d96-46eb-836a-e7e0f8c79f00",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-31163611-077b-489a-b12f-de7864927631",
       role: "assistant",
       content: [
         {
@@ -593,16 +693,20 @@ const CLAUDE_SESSION_2E582BFB_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "5ab134ec-de5a-421e-a259-23ddc980b145",
     parentUuid: "31163611-077b-489a-b12f-de7864927631",
     message: { role: "user", content: "read claude.md" },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "85dfc3d9-26b0-4ca0-84ad-883b9e49a804",
     parentUuid: "5ab134ec-de5a-421e-a259-23ddc980b145",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-85dfc3d9-26b0-4ca0-84ad-883b9e49a804",
       role: "assistant",
       content: [
         {
@@ -613,10 +717,13 @@ const CLAUDE_SESSION_2E582BFB_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "6f74c169-29ed-4c04-bc47-ed14a8e67259",
     parentUuid: "5ab134ec-de5a-421e-a259-23ddc980b145",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-6f74c169-29ed-4c04-bc47-ed14a8e67259",
       role: "assistant",
       content: [
         {
@@ -624,12 +731,13 @@ const CLAUDE_SESSION_2E582BFB_FIXTURE: ClaudeSessionEntry[] = [
           id: "toolu_01F85BCXN9KXiBR8uZJzVKCe",
           name: "Read",
           input: { file_path: "/Users/kgraehl/code/yepanywhere/CLAUDE.md" },
-          caller: { type: "direct" },
+          ...DIRECT_TOOL_CALL,
         },
       ],
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "f03026c2-5ee3-46fc-92d6-610d110de974",
     parentUuid: "6f74c169-29ed-4c04-bc47-ed14a8e67259",
@@ -657,10 +765,13 @@ const CLAUDE_SESSION_2E582BFB_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "a8eee3db-83a3-4907-9ba8-1634ab489abc",
     parentUuid: "f03026c2-5ee3-46fc-92d6-610d110de974",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-a8eee3db-83a3-4907-9ba8-1634ab489abc",
       role: "assistant",
       content: [
         {
@@ -688,6 +799,7 @@ const CLAUDE_QUEUE_HISTORY_FIXTURE: ClaudeSessionEntry[] = [
     sessionId: "9269d1e3-2bcf-4b90-b287-a4bd43981baa",
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "dc898006-83a5-499b-8a75-5d9a0f68edf7",
     parentUuid: null,
@@ -698,10 +810,13 @@ const CLAUDE_QUEUE_HISTORY_FIXTURE: ClaudeSessionEntry[] = [
     },
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "c7ad881f-9db6-4667-b94b-278de0bcbccf",
     parentUuid: "dc898006-83a5-499b-8a75-5d9a0f68edf7",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-c7ad881f-9db6-4667-b94b-278de0bcbccf",
       role: "assistant",
       content: [
         {
@@ -713,7 +828,7 @@ const CLAUDE_QUEUE_HISTORY_FIXTURE: ClaudeSessionEntry[] = [
             description: "Sleep for 20 seconds",
             timeout: 30000,
           },
-          caller: { type: "direct" },
+          ...DIRECT_TOOL_CALL,
         },
       ],
     },
@@ -740,6 +855,7 @@ const CLAUDE_QUEUE_HISTORY_FIXTURE: ClaudeSessionEntry[] = [
     content: "saying a third thing out of turn",
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "user",
     uuid: "a53067e7-43e7-402a-a722-6db37fbde377",
     parentUuid: "c7ad881f-9db6-4667-b94b-278de0bcbccf",
@@ -781,10 +897,13 @@ const CLAUDE_QUEUE_HISTORY_FIXTURE: ClaudeSessionEntry[] = [
     sessionId: "9269d1e3-2bcf-4b90-b287-a4bd43981baa",
   },
   {
+    ...CLAUDE_ENTRY_METADATA,
     type: "assistant",
     uuid: "0c6a9d84-9d56-4e04-b83c-37b942bb7978",
     parentUuid: "a53067e7-43e7-402a-a722-6db37fbde377",
     message: {
+      ...CLAUDE_ASSISTANT_METADATA,
+      id: "msg-0c6a9d84-9d56-4e04-b83c-37b942bb7978",
       role: "assistant",
       content: [
         {
@@ -1024,12 +1143,9 @@ describe("Render Parity Harness", () => {
   });
 
   it("keeps Claude stream and persisted rendering equivalent", async () => {
-    const persisted = await runPersistedPipeline(
-      buildLoadedClaudeSession(CLAUDE_FIXTURE),
-    );
-    const stream = await runStreamPipeline(
-      CLAUDE_FIXTURE as unknown as Array<Record<string, unknown>>,
-    );
+    const rows = withLegacyAssistantText(CLAUDE_FIXTURE);
+    const persisted = await runPersistedPipeline(await readClaudeFixture(rows));
+    const stream = await runStreamPipeline(rows);
 
     assertRenderParity("claude", persisted.renderItems, stream.renderItems, {
       persisted: { includeSourceRelationships: true },
@@ -1068,9 +1184,7 @@ describe("Render Parity Harness", () => {
     const persisted = await runPersistedPipeline(
       buildLoadedClaudeSession(CLAUDE_MULTI_TEXT_FIXTURE),
     );
-    const stream = await runStreamPipeline(
-      CLAUDE_MULTI_TEXT_FIXTURE as unknown as Array<Record<string, unknown>>,
-    );
+    const stream = await runStreamPipeline(CLAUDE_MULTI_TEXT_FIXTURE);
 
     assertRenderParity(
       "claude-multi-text",
@@ -1084,10 +1198,7 @@ describe("Render Parity Harness", () => {
 
     const textItems = normalizeRenderItemsForComparison(
       persisted.renderItems,
-    ).filter(
-      (item): item is Record<string, unknown> =>
-        typeof item === "object" && item !== null && item.type === "text",
-    );
+    ).filter((item) => item.type === "text");
     expect(textItems).toHaveLength(2);
     expect(textItems[0]?.augmentHtml).toContain("<strong>block</strong>");
     expect(textItems[1]?.augmentHtml).toContain("<p>Second block:</p>");
@@ -1098,9 +1209,7 @@ describe("Render Parity Harness", () => {
     const persisted = await runPersistedPipeline(
       buildLoadedClaudeSession(CLAUDE_EMBEDDED_HTML_FIXTURE),
     );
-    const stream = await runStreamPipeline(
-      CLAUDE_EMBEDDED_HTML_FIXTURE as unknown as Array<Record<string, unknown>>,
-    );
+    const stream = await runStreamPipeline(CLAUDE_EMBEDDED_HTML_FIXTURE);
 
     assertRenderParity(
       "claude-embedded-html",
@@ -1114,21 +1223,15 @@ describe("Render Parity Harness", () => {
 
     const textItem = normalizeRenderItemsForComparison(
       persisted.renderItems,
-    ).find(
-      (item): item is Record<string, unknown> =>
-        typeof item === "object" && item !== null && item.type === "text",
-    );
+    ).find((item) => item.type === "text");
     expect(textItem?.augmentHtml).toContain('<th colspan="2">Latency</th>');
     expect(textItem?.augmentHtml).toContain('<td rowspan="2">Desktop</td>');
   });
 
   it("keeps chained Claude Edit branches visible after persisted reload", async () => {
-    const persisted = await runPersistedPipeline(
-      buildLoadedClaudeSession(CLAUDE_EDIT_CHAIN_FIXTURE),
-    );
-    const stream = await runStreamPipeline(
-      CLAUDE_EDIT_CHAIN_FIXTURE as unknown as Array<Record<string, unknown>>,
-    );
+    const rows = withLegacyAssistantText(CLAUDE_EDIT_CHAIN_FIXTURE);
+    const persisted = await runPersistedPipeline(await readClaudeFixture(rows));
+    const stream = await runStreamPipeline(rows);
 
     assertRenderParity(
       "claude-edit-chain",

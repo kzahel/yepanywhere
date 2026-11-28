@@ -146,10 +146,7 @@ describe("ProviderSessionWatcherRegistry", () => {
     "joins only eligible startup baselines and releases discovery on %s",
     async (outcome) => {
       vi.useFakeTimers();
-      let finish!: () => void;
-      const baseline = new Promise<void>((resolve) => {
-        finish = resolve;
-      });
+      const baseline = Promise.withResolvers<null>();
       const probe = vi.fn((path: string) => path !== "/missing");
       const registry = new ProviderSessionWatcherRegistry({
         eventBus: new EventBus(),
@@ -163,7 +160,7 @@ describe("ProviderSessionWatcherRegistry", () => {
         createWatcher: () => ({
           start() {},
           stop() {},
-          waitForInitialBaseline: () => baseline,
+          waitForInitialBaseline: () => baseline.promise,
         }),
       });
       try {
@@ -190,7 +187,7 @@ describe("ProviderSessionWatcherRegistry", () => {
           controller.abort();
           await expect(waiting).rejects.toBe(controller.signal.reason);
         } else {
-          if (outcome === "complete") finish();
+          if (outcome === "complete") baseline.resolve(null);
           else if (outcome === "stop") registry.stop();
           else await vi.advanceTimersByTimeAsync(2000);
           await waiting;
@@ -200,7 +197,7 @@ describe("ProviderSessionWatcherRegistry", () => {
         ).toBeNull();
         expect(source.waitForProjectWatchStartup!()).toBeUndefined();
       } finally {
-        finish();
+        baseline.resolve(null);
         registry.stop();
         vi.useRealTimers();
       }

@@ -11,7 +11,10 @@ import {
   decodeFrameToParsedMessage,
   routeClientMessageSafely,
 } from "../../src/routes/ws-message-router.js";
-import { createConnectionState } from "../../src/routes/ws-relay-handlers.js";
+import {
+  createConnectionState,
+  type SendFn,
+} from "../../src/routes/ws-relay-handlers.js";
 
 function createMockWs() {
   return {
@@ -337,7 +340,7 @@ describe("WebSocket Message Router", () => {
       formats: [BinaryFormat.JSON, BinaryFormat.TRANSPORT_CHUNK],
     };
 
-    await routeClientMessageSafely(message, vi.fn(), handlers);
+    await routeClientMessageSafely(message, vi.fn<SendFn>(), handlers);
 
     expect(onClientCapabilities).toHaveBeenCalledWith(message);
   });

@@ -14,17 +14,6 @@ import {
 
 const FAMILY = "codex-cli";
 
-function deferred<T = void>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-} {
-  let resolve = (_value: T) => undefined;
-  const promise = new Promise<T>((complete) => {
-    resolve = complete;
-  });
-  return { promise, resolve };
-}
-
 describe("ProviderInstallationCoordinator", () => {
   let rootDir: string;
 
@@ -125,8 +114,8 @@ describe("ProviderInstallationCoordinator", () => {
 
   it("makes readers wait for an admitted update to finish", async () => {
     const coordinator = createCoordinator();
-    const updateEntered = deferred();
-    const finishUpdate = deferred();
+    const updateEntered = Promise.withResolvers<void>();
+    const finishUpdate = Promise.withResolvers<void>();
     const update = coordinator.runExclusiveUpdate(FAMILY, async () => {
       updateEntered.resolve();
       await finishUpdate.promise;
@@ -146,8 +135,8 @@ describe("ProviderInstallationCoordinator", () => {
 
   it("waits for a bounded reader before admitting an update", async () => {
     const coordinator = createCoordinator();
-    const finishRead = deferred();
-    const readEntered = deferred();
+    const finishRead = Promise.withResolvers<void>();
+    const readEntered = Promise.withResolvers<void>();
     const read = coordinator.withReadLease(FAMILY, async () => {
       readEntered.resolve();
       await finishRead.promise;
@@ -167,8 +156,8 @@ describe("ProviderInstallationCoordinator", () => {
 
   it("coalesces concurrent in-process update requests", async () => {
     const coordinator = createCoordinator();
-    const updateEntered = deferred();
-    const finishUpdate = deferred();
+    const updateEntered = Promise.withResolvers<void>();
+    const finishUpdate = Promise.withResolvers<void>();
     const operation = vi.fn(async () => {
       updateEntered.resolve();
       await finishUpdate.promise;
@@ -220,7 +209,7 @@ describe("ProviderInstallationCoordinator", () => {
     let measure = false;
     let activeProbes = 0;
     let maxActiveProbes = 0;
-    const firstMeasuredProbe = deferred();
+    const firstMeasuredProbe = Promise.withResolvers<void>();
     const slowProbe: InstallationOwnerProbe = {
       aliveState: () => "alive",
       startId: async (pid) => {

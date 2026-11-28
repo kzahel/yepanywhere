@@ -63,7 +63,7 @@ describe("NaCl Encryption", () => {
       const { nonce, ciphertext } = encrypt(message, key);
       // Decode, flip a bit, re-encode to guarantee tampering
       const decoded = Buffer.from(ciphertext, "base64");
-      decoded[0] ^= 0x01;
+      decoded.writeUInt8(decoded.readUInt8(0) ^ 0x01, 0);
       const tamperedCiphertext = decoded.toString("base64");
       const decrypted = decrypt(nonce, tamperedCiphertext, key);
 
@@ -474,10 +474,10 @@ describe("Binary Encrypted Envelope (Phase 1)", () => {
       const message = '{"test":"data"}';
 
       const envelope = encryptToBinaryEnvelope(message, key);
-      const view = new Uint8Array(envelope);
+      const view = new DataView(envelope);
 
       // Tamper with ciphertext (after version + nonce)
-      view[30] ^= 0xff;
+      view.setUint8(30, view.getUint8(30) ^ 0xff);
 
       const decrypted = decryptBinaryEnvelope(envelope, key);
       expect(decrypted).toBeNull();

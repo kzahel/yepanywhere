@@ -172,7 +172,9 @@ describe("orderly queue restart", () => {
     await handoff.prepare([owner("claude").process]);
     const record = await exitedHandoff();
     const { process, queue } = owner("claude");
-    const reactivateSession = vi.fn(async () => process);
+    const reactivateSession = vi
+      .fn<Supervisor["reactivateSession"]>()
+      .mockResolvedValue(process);
     await restoreRestartQueues(record, {
       projectQueueService: projects,
       sessionQueuePersistenceService: sessions,
@@ -231,7 +233,9 @@ describe("orderly queue restart", () => {
     await handoff.prepare([owner().process]);
     const record = await exitedHandoff();
     const { process } = owner();
-    const reactivateSession = vi.fn(async () => process);
+    const reactivateSession = vi
+      .fn<Supervisor["reactivateSession"]>()
+      .mockResolvedValue(process);
     await restoreRestartQueues(record, {
       projectQueueService: projects,
       sessionQueuePersistenceService: sessions,
@@ -256,7 +260,9 @@ describe("orderly queue restart", () => {
     await handoff.prepare([previous]);
     const record = await exitedHandoff();
     const { process } = owner();
-    const reactivateSession = vi.fn(async () => process);
+    const reactivateSession = vi
+      .fn<Supervisor["reactivateSession"]>()
+      .mockResolvedValue(process);
     await restoreRestartQueues(record, {
       projectQueueService: projects,
       sessionQueuePersistenceService: sessions,

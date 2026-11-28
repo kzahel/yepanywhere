@@ -22,6 +22,7 @@
     "dev:mock": "AUTH_DISABLED=true node ../../scripts/run-with-safe-home.js tsx --conditions source src/index.ts",
     "model-api": "node src/model-api/main.mjs",
     "build": "tsc && node ../../scripts/copy-server-assets.mjs",
+    "typecheck:test": "node scripts/check-test-typecheck-coverage.mjs && tsc -p tsconfig.test.json",
     "test": "node ../../scripts/run-with-safe-home.js --temporary-home vitest run",
     "test:e2e": "node ../../scripts/run-with-safe-home.js vitest run test/e2e",
     "test:e2e:real": "REAL_SDK_TESTS=true node ../../scripts/run-with-safe-home.js vitest run test/e2e",

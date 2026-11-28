@@ -1,3 +1,4 @@
+import { codexEntries } from "./provider-session-fixtures.js";
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -194,7 +195,7 @@ describe("Codex reference-backed rollout lineage", () => {
         });
         expect(reader.getEntryCacheStats().entries).toBe(0);
         const detail = await reader.getSession(sessionId, PROJECT_ID);
-        expect(JSON.stringify(detail?.data.session.entries)).toContain(
+        expect(JSON.stringify(codexEntries(detail))).toContain(
           "inherited-question",
         );
         await appendFile(
@@ -252,13 +253,11 @@ describe("Codex reference-backed rollout lineage", () => {
     );
 
     const loaded = await reader.getSession(CHILD_ID, PROJECT_ID);
-    expect(loaded?.data.session.entries.map((entry) => entry.ordinal)).toEqual([
+    expect(codexEntries(loaded).map((entry) => entry.ordinal)).toEqual([
       3, 1, 2,
     ]);
     expect(
-      loaded?.data.session.entries.filter(
-        (entry) => entry.type === "session_meta",
-      ),
+      codexEntries(loaded).filter((entry) => entry.type === "session_meta"),
     ).toHaveLength(1);
     expect(
       loaded
@@ -276,7 +275,7 @@ describe("Codex reference-backed rollout lineage", () => {
       },
     );
     expect(compactFallback?.readWindow).toBeUndefined();
-    expect(compactFallback?.data.session.entries).toHaveLength(3);
+    expect(codexEntries(compactFallback)).toHaveLength(3);
 
     await appendFile(
       rootPath,
@@ -290,15 +289,15 @@ describe("Codex reference-backed rollout lineage", () => {
       projectPath: PROJECT_PATH,
     });
     const coldLoaded = await coldReader.getSession(CHILD_ID, PROJECT_ID);
-    expect(JSON.stringify(coldLoaded?.data.session.entries)).not.toContain(
+    expect(JSON.stringify(codexEntries(coldLoaded))).not.toContain(
       "Later parent prompt",
     );
 
     await appendFile(childPath, jsonl([userMessage(4, "Child-local prompt")]));
     const appended = await reader.getSession(CHILD_ID, PROJECT_ID);
-    expect(
-      appended?.data.session.entries.map((entry) => entry.ordinal),
-    ).toEqual([3, 1, 2, 4]);
+    expect(codexEntries(appended).map((entry) => entry.ordinal)).toEqual([
+      3, 1, 2, 4,
+    ]);
     expect(appended?.summary.messageCount).toBe(3);
   });
 
@@ -400,9 +399,9 @@ describe("Codex reference-backed rollout lineage", () => {
           ).toBe(false);
           expect(await cold.getSessionFilePath(ROOT_ID)).toBe(replacementPath);
           const retained = await cold.getSession(ROOT_ID, PROJECT_ID);
-          expect(
-            retained?.data.session.entries.map((entry) => entry.ordinal),
-          ).toEqual([3, 1, 2, 4, 5]);
+          expect(codexEntries(retained).map((entry) => entry.ordinal)).toEqual([
+            3, 1, 2, 4, 5,
+          ]);
         } finally {
           await cold.close();
         }
@@ -426,9 +425,9 @@ describe("Codex reference-backed rollout lineage", () => {
         );
 
         const loaded = await reader.getSession(ROOT_ID, PROJECT_ID);
-        expect(
-          loaded?.data.session.entries.map((entry) => entry.ordinal),
-        ).toEqual([3, 1, 2, 4, 5]);
+        expect(codexEntries(loaded).map((entry) => entry.ordinal)).toEqual([
+          3, 1, 2, 4, 5,
+        ]);
       } finally {
         release();
         await Promise.allSettled([initial, joined]);
@@ -479,7 +478,7 @@ describe("Codex reference-backed rollout lineage", () => {
       messageCount: 4,
       forkedFromSessionId: ROOT_ID,
     });
-    expect(loaded?.data.session.entries.map((entry) => entry.ordinal)).toEqual([
+    expect(codexEntries(loaded).map((entry) => entry.ordinal)).toEqual([
       6, 1, 2, 4, 5,
     ]);
   });
@@ -520,7 +519,7 @@ describe("Codex reference-backed rollout lineage", () => {
     await appendFile(childPath, `${localLine.slice(splitAt)}\n`);
     const afterAppend = await reader.getSession(CHILD_ID, PROJECT_ID);
     expect(afterAppend?.summary.messageCount).toBe(3);
-    expect(JSON.stringify(afterAppend?.data.session.entries)).toContain(
+    expect(JSON.stringify(codexEntries(afterAppend))).toContain(
       "Completed local prompt",
     );
   });
@@ -545,19 +544,15 @@ describe("Codex reference-backed rollout lineage", () => {
     );
     const reader = new CodexSessionReader({ sessionsDir });
     const initial = await reader.getSession(CHILD_ID, PROJECT_ID);
-    expect(initial?.data.session.entries.map((e) => e.ordinal)).toEqual([
-      3, 1, 2,
-    ]);
+    expect(codexEntries(initial).map((e) => e.ordinal)).toEqual([3, 1, 2]);
     await appendFile(childPath, "\n" + jsonl([userMessage(4, "Local prompt")]));
     const replay = await reader.getSession(CHILD_ID, PROJECT_ID);
     const rebuilt = await new CodexSessionReader({ sessionsDir }).getSession(
       CHILD_ID,
       PROJECT_ID,
     );
-    expect(replay?.data.session.entries).toEqual(rebuilt?.data.session.entries);
-    expect(replay?.data.session.entries.map((e) => e.ordinal)).toEqual([
-      3, 1, 2, 4,
-    ]);
+    expect(codexEntries(replay)).toEqual(codexEntries(rebuilt));
+    expect(codexEntries(replay).map((e) => e.ordinal)).toEqual([3, 1, 2, 4]);
     await appendFile(childPath, jsonl([assistantMessage(99, "Invalid gap")]));
     vi.spyOn(getLogger(), "error").mockImplementation(() => undefined);
     await expect(reader.getSession(CHILD_ID, PROJECT_ID)).rejects.toThrow(
@@ -658,7 +653,7 @@ describe("Codex reference-backed rollout lineage", () => {
       messageCount: 4,
       forkedFromSessionId: CHILD_ID,
     });
-    expect(loaded?.data.session.entries.map((entry) => entry.ordinal)).toEqual([
+    expect(codexEntries(loaded).map((entry) => entry.ordinal)).toEqual([
       6, 1, 2, 4, 5,
     ]);
   });

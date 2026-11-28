@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { chmod, rm } from "node:fs/promises";
@@ -131,6 +132,10 @@ describe.skipIf(process.platform === "win32")(
         undefined,
         { serviceTier: "priority" },
       );
+      assert(
+        launch,
+        "Expected router allocation for the selected service tier",
+      );
       expect(codexRouterArguments(launch)).toContain(
         "features.api_key_model_discovery=true",
       );
@@ -202,6 +207,7 @@ describe.skipIf(process.platform === "win32")(
         undefined,
         { effort: "max" },
       );
+      assert(launch, "Expected router allocation for the selected effort");
       expect(
         f.requests.find((r) => r.path === "/v1/pools/prepare")?.body.thinking,
       ).toBe("on:max");
@@ -222,6 +228,7 @@ describe.skipIf(process.platform === "win32")(
         undefined,
         { effort: "high" },
       );
+      assert(resumed, "Expected the pinned router allocation on resume");
       expect(resumed.token).toBe(launch.token);
       expect(
         f.requests
@@ -689,7 +696,8 @@ describe.skipIf(process.platform === "win32")(
         authMethods: ["aar-gateway-header", "bearer"],
       });
       expect(
-        (await connector.launch("claude", "claude"))?.claudeAiConnectors,
+        (await connector.launch("claude", "claude", undefined))
+          ?.claudeAiConnectors,
       ).toBe(true);
     });
     it("refuses an unusable reservation before commit and releases it", async () => {
@@ -739,14 +747,18 @@ describe.skipIf(process.platform === "win32")(
       );
       // The router is upgraded past this server while the session rests.
       f.describeTransport(gateway, { transport: later });
-      await expect(f.connector.launch("kept", "codex")).rejects.toThrow(
-        "Update Yep Anywhere",
-      );
+      await expect(
+        f.connector.launch("kept", "codex", undefined),
+      ).rejects.toThrow("Update Yep Anywhere");
       f.describeTransport(gateway);
       f.loseCommit();
-      await expect(f.connector.launch("kept", "codex")).rejects.toThrow();
+      await expect(
+        f.connector.launch("kept", "codex", undefined),
+      ).rejects.toThrow();
       expect(paths(f)).not.toContain("/v1/bindings/cancel");
-      expect(await f.connector.launch("kept", "codex")).toMatchObject({
+      expect(
+        await f.connector.launch("kept", "codex", undefined),
+      ).toMatchObject({
         bindingId: first?.bindingId,
         token: first?.token,
         baseUrl: "http://127.0.0.1:8417/codex/v2",

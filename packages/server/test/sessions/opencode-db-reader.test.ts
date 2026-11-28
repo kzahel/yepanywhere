@@ -334,7 +334,7 @@ describe.skipIf(!loadSqliteDriver())(
       // preserving per-call structured results/media.
       // toMatchObject on an array checks length + each element, so a stray block
       // (e.g. the skipped empty reasoning) would fail here.
-      expect(normalized.messages[1].message?.content).toMatchObject([
+      expect(normalized.messages[1]?.message?.content).toMatchObject([
         { type: "thinking", thinking: "thinking aloud" },
         { type: "tool_use", name: "Bash" },
         { type: "text", text: "final answer" },
@@ -373,7 +373,7 @@ describe.skipIf(!loadSqliteDriver())(
 
       const normalized = normalizeSession(loaded!);
       expect(normalized.messages).toHaveLength(2);
-      expect(normalized.messages[0].type).toBe("assistant");
+      expect(normalized.messages[0]?.type).toBe("assistant");
       expect(normalized.messages[1]).toMatchObject({
         type: "user",
         message: {
@@ -546,7 +546,7 @@ describe.skipIf(!loadSqliteDriver())(
       });
       const original = OpenCodeDbReader.prototype.getSessionRow;
       vi.spyOn(OpenCodeDbReader.prototype, "getSessionRow").mockImplementation(
-        async function (...args) {
+        async function (this: InstanceType<typeof OpenCodeDbReader>, ...args) {
           entered();
           await held;
           return original.apply(this, args);

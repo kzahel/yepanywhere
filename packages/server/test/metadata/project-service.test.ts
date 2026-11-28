@@ -38,7 +38,7 @@ describe("ProjectMetadataService", () => {
 
       const projects = newService.getAllProjects();
       expect(projects[projectId]).toBeDefined();
-      expect(projects[projectId].path).toBe(projectPath);
+      expect(projects[projectId]).toHaveProperty("path", projectPath);
     });
 
     it("canonicalizes and deduplicates mixed-slash Windows project metadata", async () => {
@@ -170,7 +170,7 @@ describe("ProjectMetadataService", () => {
         { id: encodeProjectId("/alpha"), name: "Alpha" },
         { id: encodeProjectId("/alpine"), name: "Alpine" },
         { id: encodeProjectId("/alphanumeric"), name: "Alphanumeric" },
-      ];
+      ] as const;
 
       const update = await service.ensureProjectCodeNames(projects);
       expect(update).toEqual({
@@ -409,8 +409,8 @@ describe("ProjectMetadataService", () => {
 
       const projects = service.getAllProjects();
       expect(Object.keys(projects)).toHaveLength(2);
-      expect(projects[projectId1].path).toBe("/path1");
-      expect(projects[projectId2].path).toBe("/path2");
+      expect(projects[projectId1]).toHaveProperty("path", "/path1");
+      expect(projects[projectId2]).toHaveProperty("path", "/path2");
     });
   });
 });

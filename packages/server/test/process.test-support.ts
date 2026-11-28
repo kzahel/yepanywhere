@@ -37,7 +37,7 @@ export function createMockIterator(
 }
 
 export function createControllableIterator(): {
-  iterator: AsyncIterator<SDKMessage>;
+  iterator: AsyncIterableIterator<SDKMessage>;
   push: (message: SDKMessage) => void;
   finish: () => void;
 } {
@@ -56,6 +56,9 @@ export function createControllableIterator(): {
 
   return {
     iterator: {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
       next() {
         const queued = queue.shift();
         if (queued) {

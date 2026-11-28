@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import { parseNativeSessionId } from "@yep-anywhere/shared";
 import { spawn } from "node:child_process";
 import { serve } from "@hono/node-server";
@@ -78,6 +79,7 @@ async function runSandboxed(spawnOptions: SessionSandboxSpawn): Promise<void> {
       }
     })();
     let stderr = "";
+    ok(child.stderr, "Expected sandboxed stderr to be piped");
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString("utf8");
     });

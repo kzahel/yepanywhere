@@ -10,7 +10,15 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  assert,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   AntigravitySplitSampler,
   antigravitySplitCheck,
@@ -373,7 +381,9 @@ describe("proving an Antigravity split candidate", () => {
     await writeFile(log, first + input(2, "Second") + reply(3, "Two"));
     const taken = { ...(await candidate()), size: first.length };
     await appendFile(log, input(4, "Third"));
-    const later = { step: 3, end: (await check(taken))!.end + 100 };
+    const boundary = await check(taken);
+    assert(boundary && boundary !== "pending");
+    const later = { step: 3, end: boundary.end + 100 };
     expect(await check(taken, later)).toBeUndefined();
     expect(
       await check(taken, { step: 1, end: first.length, dev: 1, ino: 1 }),

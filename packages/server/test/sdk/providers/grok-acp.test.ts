@@ -1,3 +1,4 @@
+import { assert } from "vitest";
 /**
  * Unit tests for GrokACPProvider.
  *
@@ -455,6 +456,12 @@ describe("GrokACPProvider Auth File Parsing", () => {
 describe("GrokACPProvider — ACP integration (mocked)", () => {
   let acpClientMock: unknown;
   let connectCalls: ACPClientConfig[] = [];
+
+  function requireConnectCall(index = 0): ACPClientConfig {
+    const call = connectCalls.at(index);
+    assert(call, `Expected Grok connect call ${index}`);
+    return call;
+  }
   let promptCalls: Array<{ sessionId: string; text: string }> = [];
   let extMethodCalls: Array<{
     method: string;
@@ -866,11 +873,14 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       { uuid: "write-1", name: "Write" },
       { uuid: "write-1", name: "Write" },
     ]);
-    const results = messages.filter(
-      (message) =>
-        message.type === "user" &&
-        message.message?.content?.[0]?.type === "tool_result",
-    );
+    const results = messages.filter(({ type, message }) => {
+      const content = message?.content;
+      return (
+        type === "user" &&
+        Array.isArray(content) &&
+        content[0]?.type === "tool_result"
+      );
+    });
     expect(results).toHaveLength(1);
     expect(results[0]?.toolUseResult).toEqual({
       type: "text",
@@ -946,7 +956,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       effort: "low",
     });
     expect(connectCalls.length).toBeGreaterThan(0);
-    const argsLow = connectCalls[0].args;
+    const argsLow = requireConnectCall().args;
     expect(argsLow).toContain("--effort");
     expect(argsLow).toContain("low");
     expect(argsLow).toContain("agent");
@@ -960,7 +970,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       initialMessage: { text: "hi" },
       effort: "max",
     });
-    const argsMax = connectCalls[0].args;
+    const argsMax = requireConnectCall().args;
     expect(argsMax).toContain("--effort");
     expect(argsMax).toContain("max");
 
@@ -971,7 +981,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       cwd: "/tmp",
       initialMessage: { text: "hi" },
     });
-    const argsNone = connectCalls[0].args;
+    const argsNone = requireConnectCall().args;
     expect(argsNone).not.toContain("--effort");
     expect(argsNone).toEqual(["agent", "--no-leader", "stdio"]);
     expect(argsLow?.indexOf("agent")).toBeLessThan(
@@ -992,7 +1002,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
         cwd: "/tmp",
         initialMessage: { text: "hi" },
       });
-      expect(connectCalls[0].env?.GROK_SUBAGENTS).toBeUndefined();
+      expect(requireConnectCall().env?.GROK_SUBAGENTS).toBeUndefined();
 
       connectCalls.length = 0;
       provider.setSubagentMaxDepthGetter(() => 0);
@@ -1000,7 +1010,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
         cwd: "/tmp",
         initialMessage: { text: "hi" },
       });
-      expect(connectCalls[0].env).toMatchObject({ GROK_SUBAGENTS: "0" });
+      expect(requireConnectCall().env).toMatchObject({ GROK_SUBAGENTS: "0" });
 
       connectCalls.length = 0;
       provider.setSubagentMaxDepthGetter(() => 4);
@@ -1008,7 +1018,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
         cwd: "/tmp",
         initialMessage: { text: "hi" },
       });
-      expect(connectCalls[0].env?.GROK_SUBAGENTS).toBeUndefined();
+      expect(requireConnectCall().env?.GROK_SUBAGENTS).toBeUndefined();
 
       connectCalls.length = 0;
       provider.setSubagentMaxDepthGetter(() => null);
@@ -1016,7 +1026,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
         cwd: "/tmp",
         initialMessage: { text: "hi" },
       });
-      expect(connectCalls[0].env?.GROK_SUBAGENTS).toBeUndefined();
+      expect(requireConnectCall().env?.GROK_SUBAGENTS).toBeUndefined();
 
       process.env.GROK_SUBAGENTS = "1";
       connectCalls.length = 0;
@@ -1025,7 +1035,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
         cwd: "/tmp",
         initialMessage: { text: "hi" },
       });
-      expect(connectCalls[0].env?.GROK_SUBAGENTS).toBeUndefined();
+      expect(requireConnectCall().env?.GROK_SUBAGENTS).toBeUndefined();
     } finally {
       if (previous === undefined) {
         delete process.env.GROK_SUBAGENTS;
@@ -1046,8 +1056,8 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
     expect(connectCalls.length).toBeGreaterThan(0);
     // Keeps the user's grok.com subscription from being overridden by a YA xAI
     // STT key that may share the process environment under XAI_API_KEY.
-    expect(connectCalls[0].excludeEnv).toContain("XAI_API_KEY");
-    expect(connectCalls[0].excludeEnv).toContain("GROK_CODE_XAI_API_KEY");
+    expect(requireConnectCall().excludeEnv).toContain("XAI_API_KEY");
+    expect(requireConnectCall().excludeEnv).toContain("GROK_CODE_XAI_API_KEY");
   });
 
   it("passes XAI_API_KEY to Grok only after explicit opt-in", async () => {
@@ -1061,11 +1071,11 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
     });
 
     expect(connectCalls.length).toBeGreaterThan(0);
-    expect(connectCalls[0].env).toMatchObject({
+    expect(requireConnectCall().env).toMatchObject({
       XAI_API_KEY: "ambient-xai-key",
     });
-    expect(connectCalls[0].excludeEnv).not.toContain("XAI_API_KEY");
-    expect(connectCalls[0].excludeEnv).toContain("GROK_CODE_XAI_API_KEY");
+    expect(requireConnectCall().excludeEnv).not.toContain("XAI_API_KEY");
+    expect(requireConnectCall().excludeEnv).toContain("GROK_CODE_XAI_API_KEY");
   });
 
   it("passes -m model flag only for non-default models", async () => {
@@ -1080,7 +1090,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       initialMessage: { text: "hi" },
       model: defaultModel?.id,
     });
-    const argsDefault = connectCalls[connectCalls.length - 1].args;
+    const argsDefault = requireConnectCall(-1).args;
     expect(argsDefault).not.toContain("-m");
 
     connectCalls.length = 0;
@@ -1090,7 +1100,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       initialMessage: { text: "hi" },
       model: "default",
     });
-    const argsDefaultAlias = connectCalls[0].args;
+    const argsDefaultAlias = requireConnectCall().args;
     expect(argsDefaultAlias).not.toContain("-m");
 
     connectCalls.length = 0;
@@ -1100,7 +1110,7 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       initialMessage: { text: "hi" },
       model: "other-model",
     });
-    const argsCustom = connectCalls[0].args;
+    const argsCustom = requireConnectCall().args;
     expect(argsCustom).toContain("-m");
     expect(argsCustom).toContain("other-model");
   });
@@ -1431,9 +1441,9 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       const sessionId = (init.value as { session_id?: string }).session_id;
       expect(sessionId).toMatch(/^grok_ses_new_/);
       expect(session.publishAgentctlSessionId).toBeTypeOf("function");
-      expect(connectCalls[0]?.env?.BASH_ENV).toBeTruthy();
-      expect(connectCalls[0]?.env?.AGENTCTL_SESSION_ID).toBeUndefined();
-      expect(readAgentctlSessionId(connectCalls[0]?.env)).toBe(sessionId);
+      expect(requireConnectCall()?.env?.BASH_ENV).toBeTruthy();
+      expect(requireConnectCall()?.env?.AGENTCTL_SESSION_ID).toBeUndefined();
+      expect(readAgentctlSessionId(requireConnectCall()?.env)).toBe(sessionId);
     } finally {
       session.abort();
     }
@@ -1449,10 +1459,10 @@ describe("GrokACPProvider — ACP integration (mocked)", () => {
       });
       try {
         await session.iterator.next();
-        expect(connectCalls[0]?.env?.AGENTCTL_SESSION_ID).toBe(
+        expect(requireConnectCall()?.env?.AGENTCTL_SESSION_ID).toBe(
           "existing_ses_123",
         );
-        expect(readAgentctlSessionId(connectCalls[0]?.env)).toBe(
+        expect(readAgentctlSessionId(requireConnectCall()?.env)).toBe(
           "existing_ses_123",
         );
       } finally {

@@ -1,3 +1,7 @@
+import {
+  codexSessionFixture,
+  projectionMessages,
+} from "./provider-session-fixtures.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,33 +14,17 @@ import { describe, expect, it, vi } from "vitest";
 import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { collapseMessageSnapshots } from "@yep-anywhere/shared/transcript/message";
 import { normalizeSession } from "../../src/sessions/normalization.js";
-import type { LoadedSession } from "../../src/sessions/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function buildLoadedSession(entries: CodexSessionEntry[]): LoadedSession {
-  return {
-    summary: {
-      id: "test-session",
-      projectId: "test-project",
-      title: "Test Session",
-      fullTitle: "Test Session",
-      createdAt: "2024-01-01T00:00:00Z",
-      updatedAt: "2024-01-01T00:00:02Z",
-      messageCount: entries.length,
-      status: "chat",
-      provider: "codex-oss",
-      // biome-ignore lint/suspicious/noExplicitAny: mock summary shape
-    } as any,
-    data: {
-      provider: "codex-oss",
-      events: [],
-      session: {
-        entries,
-      },
-      // biome-ignore lint/suspicious/noExplicitAny: mock session shape
-    } as any,
-  };
+function buildLoadedSession(entries: CodexSessionEntry[]) {
+  return codexSessionFixture(entries, {
+    id: "test-session",
+    title: "Test Session",
+    provider: "codex-oss",
+    from: "2024-01-01T00:00:00Z",
+    to: "2024-01-01T00:00:02Z",
+  });
 }
 
 function loadCodexFixtureEntries(name: string): CodexSessionEntry[] {
@@ -109,7 +97,7 @@ describe("Codex Normalization", () => {
     // Message 0: Assistant "Hi there"
     const msg0 = result.messages[0];
     expect(msg0?.uuid).toBe("msg-assistant-1");
-    const content0 = msg0.message?.content;
+    const content0 = msg0?.message?.content;
     expect(Array.isArray(content0) ? content0[0] : content0).toEqual({
       type: "text",
       text: "Hi there",
@@ -118,7 +106,7 @@ describe("Codex Normalization", () => {
     // Message 1: User "How are you?"
     const msg1 = result.messages[1];
     expect(msg1?.uuid).toBe("ya-user-1");
-    const content1 = msg1.message?.content;
+    const content1 = msg1?.message?.content;
     expect(Array.isArray(content1) ? content1[0] : content1).toEqual({
       type: "text",
       text: "How are you?",
@@ -400,7 +388,7 @@ describe("Codex Normalization", () => {
     expect(messages[1]?.uuid).toBe("call-async");
     const diagnostic = vi.fn();
     const items = compileTranscriptProjection(
-      collapseMessageSnapshots(messages),
+      collapseMessageSnapshots(projectionMessages(messages)),
       undefined,
       {
         onUnmatchedToolResult: diagnostic,
@@ -529,7 +517,9 @@ describe("Codex Normalization", () => {
     const result = normalizeSession(buildLoadedSession(entries));
     expect(result.messages[0]?.orphanedToolUseIds).toEqual(["call-orphaned"]);
 
-    const renderItems = compileTranscriptProjection(result.messages);
+    const renderItems = compileTranscriptProjection(
+      projectionMessages(result.messages),
+    );
     expect(renderItems[0]).toMatchObject({
       type: "tool_call",
       id: "call-orphaned",
@@ -572,7 +562,9 @@ describe("Codex Normalization", () => {
     const result = normalizeSession(buildLoadedSession(entries));
     expect(result.messages[0]?.orphanedToolUseIds).toEqual(["call-bg"]);
 
-    const renderItems = compileTranscriptProjection(result.messages);
+    const renderItems = compileTranscriptProjection(
+      projectionMessages(result.messages),
+    );
     expect(renderItems[0]).toMatchObject({
       type: "tool_call",
       id: "call-bg",
@@ -619,7 +611,9 @@ describe("Codex Normalization", () => {
     const result = normalizeSession(buildLoadedSession(entries));
     expect(result.messages[0]?.orphanedToolUseIds).toBeUndefined();
 
-    const renderItems = compileTranscriptProjection(result.messages);
+    const renderItems = compileTranscriptProjection(
+      projectionMessages(result.messages),
+    );
     expect(renderItems[0]).toMatchObject({
       type: "tool_call",
       id: "call-bg",
@@ -672,7 +666,9 @@ describe("Codex Normalization", () => {
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const renderItems = compileTranscriptProjection(result.messages);
+      const renderItems = compileTranscriptProjection(
+        projectionMessages(result.messages),
+      );
       expect(renderItems[0]).toMatchObject({
         type: "tool_call",
         id: "call-fast",
@@ -755,7 +751,9 @@ describe("Codex Normalization", () => {
     ).toBe(false);
     expect(result.messages[0]?.orphanedToolUseIds).toEqual(["call-sleep"]);
 
-    const renderItems = compileTranscriptProjection(result.messages);
+    const renderItems = compileTranscriptProjection(
+      projectionMessages(result.messages),
+    );
     expect(renderItems[0]).toMatchObject({
       type: "tool_call",
       id: "call-sleep",
@@ -781,7 +779,9 @@ describe("Codex Normalization", () => {
     const result = normalizeSession(buildLoadedSession(entries));
     expect(result.messages[0]?.orphanedToolUseIds).toBeUndefined();
 
-    const renderItems = compileTranscriptProjection(result.messages);
+    const renderItems = compileTranscriptProjection(
+      projectionMessages(result.messages),
+    );
     expect(renderItems[0]).toMatchObject({
       type: "tool_call",
       id: "call-pending",
@@ -1633,7 +1633,9 @@ describe("Codex Normalization", () => {
     const entries = loadCodexFixtureEntries("write-stdin-linked-command");
 
     const normalized = normalizeSession(buildLoadedSession(entries));
-    const renderItems = compileTranscriptProjection(normalized.messages);
+    const renderItems = compileTranscriptProjection(
+      projectionMessages(normalized.messages),
+    );
 
     const writeStdinItem = renderItems.find(
       (item) =>
@@ -2014,7 +2016,9 @@ describe("Codex Normalization", () => {
       content: guidance,
     });
 
-    const renderItems = compileTranscriptProjection(result.messages);
+    const renderItems = compileTranscriptProjection(
+      projectionMessages(result.messages),
+    );
     expect(renderItems).toEqual([
       expect.objectContaining({
         type: "system",
@@ -2129,7 +2133,9 @@ describe("Codex Normalization", () => {
         codexTurnId: "turn-1",
       }),
     ]);
-    expect(compileTranscriptProjection(result.messages)).toContainEqual(
+    expect(
+      compileTranscriptProjection(projectionMessages(result.messages)),
+    ).toContainEqual(
       expect.objectContaining({
         type: "system",
         id: "codex-error-turn-1",
@@ -2219,7 +2225,9 @@ describe("Codex Normalization", () => {
         compactSummaryText: summary,
       },
     ]);
-    expect(compileTranscriptProjection(partial.messages)).toMatchObject([
+    expect(
+      compileTranscriptProjection(projectionMessages(partial.messages)),
+    ).toMatchObject([
       { type: "system", subtype: "compact_boundary", details: [summary] },
     ]);
 
@@ -2244,7 +2252,9 @@ describe("Codex Normalization", () => {
       subtype: "compact_boundary",
       compactSummaryText: checkpointSummary,
     });
-    expect(compileTranscriptProjection(complete.messages)).toMatchObject([
+    expect(
+      compileTranscriptProjection(projectionMessages(complete.messages)),
+    ).toMatchObject([
       {
         type: "system",
         subtype: "compact_boundary",
@@ -2264,9 +2274,11 @@ describe("Codex Normalization", () => {
         }),
       ]),
     );
-    expect(compileTranscriptProjection(emptyCheckpoint.messages)).toMatchObject(
-      [{ type: "system", subtype: "compact_boundary", details: [summary] }],
-    );
+    expect(
+      compileTranscriptProjection(projectionMessages(emptyCheckpoint.messages)),
+    ).toMatchObject([
+      { type: "system", subtype: "compact_boundary", details: [summary] },
+    ]);
 
     for (const metadata of [undefined, { compaction_output: false }]) {
       const ordinary = normalizeSession(

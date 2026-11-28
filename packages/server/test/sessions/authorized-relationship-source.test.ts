@@ -24,7 +24,7 @@ const parent: RelationshipResource = {
   serverId: "local",
   sessionId: "parent",
 };
-const native: RelationshipResource = {
+const native = {
   kind: "native",
   serverId: "local",
   native: nativeSessionRef(
@@ -32,7 +32,7 @@ const native: RelationshipResource = {
     "/private/native",
     parseNativeSessionId("parent"),
   ),
-};
+} satisfies RelationshipResource;
 const observation = {
   producer: "owned",
   sourceKey: "/private/source",

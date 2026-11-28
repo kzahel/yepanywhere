@@ -3,6 +3,7 @@ import { Supervisor } from "../../../src/supervisor/Supervisor.js";
 import {
   nativeSessionRef,
   parseNativeSessionId,
+  parseYaSessionId,
   toUrlProjectId,
 } from "@yep-anywhere/shared";
 import type { AgentProvider } from "../../../src/sdk/providers/types.js";
@@ -24,14 +25,20 @@ import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-// @ts-expect-error The wrapper lifecycle host intentionally runs as plain ESM.
+import {
+  assert,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   ProviderRuntimeHost,
   resolveProviderRuntimeWorkerPath,
   withAgentLaunchEnvironment,
 } from "../../../../../scripts/provider-runtime-host.mjs";
-// @ts-expect-error Stable discovery intentionally runs as plain Node ESM.
 import {
   captureProcessIdentity,
   consumeProviderHostRecentRuntimes,
@@ -262,7 +269,11 @@ async function waitForAvailableHost(
       expectedIdentity: expectedProviderHostIdentity,
       timeoutMs: 250,
     });
-    if (discovery.state === "available") return discovery;
+    if (discovery.state === "available") {
+      const { descriptor, token } = discovery;
+      assert(descriptor && token);
+      return { descriptor, token };
+    }
     if (Date.now() >= deadline) {
       throw new Error(
         `provider host stayed ${discovery.state} after ${Date.now() - started}ms (${child.exitCode}/${child.signalCode})\n${hostDiagnostics.get(child)?.output ?? ""}`,
@@ -2597,11 +2608,13 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
         dirname(fixtureWorker),
         "bound-provider-runtime-worker.ts",
       ),
-      publishRecentRuntimes: (entries: unknown[]) => recent.push(entries),
+      publishRecentRuntimes: (entries) => {
+        recent.push(entries);
+      },
     });
     const binding = {
       version: 1,
-      sessionId: "public-bound-session",
+      sessionId: parseYaSessionId("public-bound-session"),
       native: nativeSessionRef(
         "claude",
         root,
@@ -2667,8 +2680,10 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
       expect(entry.providerSessionId).toBe(binding.native.id);
       expect(entry.creation).toBeUndefined();
       const publicInventory = await getProviderHostInventory();
-      expect(publicInventory[0]).not.toHaveProperty("binding");
-      expect(publicInventory[0].worker).not.toHaveProperty("binding");
+      const [runtime] = publicInventory;
+      assert(runtime);
+      expect(runtime).not.toHaveProperty("binding");
+      expect(runtime.worker).not.toHaveProperty("binding");
       expect(() =>
         host.claim({ sessionId: binding.sessionId, generation: "bound-first" }),
       ).toThrow("exact native binding");
@@ -2756,7 +2771,10 @@ describe.skipIf(!nativeHostSupported)("ProviderRuntimeHost", () => {
       const paths = resolveProviderHostPaths({
         YEP_PROVIDER_HOST_RUNTIME_DIR: root,
       });
-      writeProviderHostRecentRuntimes(paths, recent[0]);
+      assert(paths);
+      const [recipes] = recent;
+      assert(recipes);
+      writeProviderHostRecentRuntimes(paths, recipes);
       expect(
         JSON.parse(await readFile(paths.recentRuntimePath, "utf8")).version,
       ).toBe(2);

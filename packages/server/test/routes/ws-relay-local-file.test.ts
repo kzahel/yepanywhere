@@ -79,7 +79,7 @@ describe("WebSocket relay local-file requests", () => {
     );
     const ws = { send: () => {}, close: () => {} };
     const trustedState = createConnectionState();
-    trustedState.connectionPolicy = "local_trusted";
+    trustedState.connectionPolicy = "local_cookie_trusted";
     trustedState.authState = "authenticated";
     const trustedResponses: YepMessage[] = [];
 

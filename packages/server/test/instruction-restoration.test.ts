@@ -389,6 +389,7 @@ describe("instruction restoration", () => {
       supportsPermissionMode: true,
       supportsThinkingToggle: false,
       supportsSlashCommands: true,
+      supportsSteering: false,
       isInstalled: async () => true,
       isAuthenticated: async () => true,
       getAuthStatus: async () => ({

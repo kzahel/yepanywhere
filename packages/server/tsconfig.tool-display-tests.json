@@ -1,28 +1,13 @@
 {
   "extends": "./tsconfig.test.json",
-  "compilerOptions": { "jsx": "react-jsx", "types": ["node"] },
   "include": [
     "../client/src/vite-env.d.ts",
     "../client/test/tool-display-native.test.tsx",
-    "test/tool-display-native.test.ts",
-    "test/captured-provider.test.ts",
-    "test/simple-client-examples.test.ts",
-    "test/simple-client-projection.test.ts",
-    "test/simple-client-subscriptions.test.ts",
-    "test/simple-client-reader.test.ts",
-    "test/simple-client-app.test.ts",
-    "test/simple-client-bindings.test.ts",
-    "test/simple-client-source.test.ts",
     "scripts/import-provider-capture.ts",
-    "test/utils/native-tool-display-corpus.ts",
     "../../scripts/audit-tool-displays.ts",
     "../../scripts/tool-display-audit.ts",
     "../../scripts/audit-server-capabilities.ts",
     "../../scripts/compatibility-sunsets.ts",
-    "../../scripts/capability-inventory.ts",
-    "test/scripts/compatibility-sunsets.test.ts",
-    "test/scripts/capability-inventory.test.ts",
-    "test/tool-display-audit.test.ts"
-  ],
-  "exclude": ["node_modules", "dist"]
+    "../../scripts/capability-inventory.ts"
+  ]
 }

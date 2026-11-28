@@ -449,7 +449,11 @@ describe("successor launch settings", () => {
   });
 
   it("stale-session handoff falls back to the live process's model before the transcript's", async () => {
-    const startSession = vi.fn(async () => startedProcess("sess-new"));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => startedProcess("sess-new"),
+    );
     const routes = createSessionsRoutes(
       launchDeps(
         unsandboxedSource,
@@ -463,12 +467,16 @@ describe("successor launch settings", () => {
     );
 
     expect(response.status).toBe(200);
-    const settings = startSession.mock.calls[0]?.[3] as Record<string, unknown>;
+    const settings = startSession.mock.calls[0]?.[3];
     expect(settings).toMatchObject(claudeCompact(60, 400_000));
   });
 
   it("restart handoff falls back to the transcript's model without a live one", async () => {
-    const startSession = vi.fn(async () => startedProcess("sess-new"));
+    const startSession = vi.fn(
+      async (
+        ..._args: Parameters<SessionsDeps["supervisor"]["startSession"]>
+      ) => startedProcess("sess-new"),
+    );
     const routes = createSessionsRoutes(
       launchDeps(
         unsandboxedSource,
@@ -482,7 +490,7 @@ describe("successor launch settings", () => {
     );
 
     expect(response.status).toBe(200);
-    const settings = startSession.mock.calls[0]?.[3] as Record<string, unknown>;
+    const settings = startSession.mock.calls[0]?.[3];
     expect(settings).toMatchObject(claudeCompact(60, 300_000));
   });
 

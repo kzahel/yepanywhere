@@ -76,6 +76,14 @@ Playwright specs, configurations and support modules through
 `packages/client/tsconfig.e2e.json`. Keep fixture and startup changes in that
 strict gate; Playwright strips types without checking them.
 
+Root `pnpm typecheck` also runs the server's `typecheck:test` script. The
+non-emitting server test config covers the test tree and its imports with
+Vitest's `source` export condition. The production config still owns tests
+beside server source. A coverage check reports any server TypeScript test or
+spec outside both configs. The peer tests import the relay workspace, so use
+a full workspace install. To check just the server test tree, run
+`pnpm --dir packages/server typecheck:test`.
+
 The general CI unit-test job runs `pnpm test`. Android unit, lint, build, and
 instrumentation coverage belongs to the dedicated Android App workflow so its
 Gradle work does not contend with the JavaScript workspace test processes.

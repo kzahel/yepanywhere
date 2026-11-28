@@ -1,3 +1,4 @@
+import { ok } from "node:assert/strict";
 import {
   type Mock,
   afterEach,
@@ -1226,10 +1227,12 @@ describe("createSessionSubscription", () => {
       .slice(countBefore)
       .filter(([type]) => type === "heartbeat");
     expect(heartbeats).toHaveLength(1);
-    expect(
-      (heartbeats[0][1] as Record<string, unknown>).timestamp,
-    ).toBeDefined();
-    expect(heartbeats[0][1]).toMatchObject({ liveness: MOCK_LIVENESS });
+    const [heartbeat] = heartbeats;
+    ok(heartbeat);
+    expect(heartbeat[1]).toMatchObject({
+      timestamp: expect.anything(),
+      liveness: MOCK_LIVENESS,
+    });
 
     cleanup();
   });
@@ -1296,8 +1299,10 @@ describe("createActivitySubscription", () => {
 
     createActivitySubscription(eventBus, emit);
 
-    expect(events[0][0]).toBe("connected");
-    expect((events[0][1] as Record<string, unknown>).timestamp).toBeDefined();
+    const [connected] = events;
+    ok(connected);
+    expect(connected[0]).toBe("connected");
+    expect(connected[1]).toMatchObject({ timestamp: expect.anything() });
   });
 
   it("forwards eventBus events with correct eventType", () => {

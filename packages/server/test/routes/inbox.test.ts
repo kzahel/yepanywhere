@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import type {
   ProjectQueueItemSummary,
   ProviderRuntimeStatus,
@@ -323,8 +324,11 @@ describe("Inbox Routes", () => {
       });
 
       expect(result.needsAttention).toHaveLength(1);
-      expect(result.needsAttention[0].sessionId).toBe("sess1");
-      expect(result.needsAttention[0].pendingInputType).toBe("tool-approval");
+      expect(result.needsAttention[0]).toHaveProperty("sessionId", "sess1");
+      expect(result.needsAttention[0]).toHaveProperty(
+        "pendingInputType",
+        "tool-approval",
+      );
       expect(result.active).toHaveLength(0);
     });
 
@@ -369,7 +373,7 @@ describe("Inbox Routes", () => {
         "delivered",
         "acknowledged",
       ]);
-      expect(result.unread8h[0].nonHumanUserTurn).toEqual({
+      expect(result.unread8h[0]).toHaveProperty("nonHumanUserTurn", {
         messageId: "msg1",
         timestamp: expect.any(String),
         sourceSessionId: "sender",
@@ -399,8 +403,8 @@ describe("Inbox Routes", () => {
 
       expect(result.needsAttention).toHaveLength(0);
       expect(result.active).toHaveLength(1);
-      expect(result.active[0].sessionId).toBe("sess1");
-      expect(result.active[0].activity).toBe("in-turn");
+      expect(result.active[0]).toHaveProperty("sessionId", "sess1");
+      expect(result.active[0]).toHaveProperty("activity", "in-turn");
     });
 
     it("uses later owned-process activity for active unread state", async () => {
@@ -468,8 +472,8 @@ describe("Inbox Routes", () => {
       });
 
       expect(result.active).toHaveLength(1);
-      expect(result.active[0].sessionId).toBe("sess1");
-      expect(result.active[0].activity).toBe("in-turn");
+      expect(result.active[0]).toHaveProperty("sessionId", "sess1");
+      expect(result.active[0]).toHaveProperty("activity", "in-turn");
       expect(result.recentActivity).toHaveLength(0);
     });
 
@@ -497,8 +501,10 @@ describe("Inbox Routes", () => {
 
       expect(result.active).toHaveLength(0);
       expect(result.recentActivity).toHaveLength(1);
-      expect(result.recentActivity[0].sessionId).toBe("sess1");
-      expect(result.recentActivity[0].activity).toBeUndefined();
+      expect(result.recentActivity[0]).toHaveProperty("sessionId", "sess1");
+      const [recent] = result.recentActivity;
+      assert.ok(recent);
+      expect(recent.activity).toBeUndefined();
     });
 
     it("categorizes existing-session Project Queue targets into active", async () => {
@@ -521,7 +527,7 @@ describe("Inbox Routes", () => {
       });
 
       expect(result.active).toHaveLength(1);
-      expect(result.active[0].sessionId).toBe("sess1");
+      expect(result.active[0]).toHaveProperty("sessionId", "sess1");
       expect(result.recentActivity).toHaveLength(0);
       expect(result.unread24h).toHaveLength(0);
     });
@@ -584,7 +590,7 @@ describe("Inbox Routes", () => {
       expect(result.needsAttention).toHaveLength(0);
       expect(result.active).toHaveLength(0);
       expect(result.recentActivity).toHaveLength(1);
-      expect(result.recentActivity[0].sessionId).toBe("sess1");
+      expect(result.recentActivity[0]).toHaveProperty("sessionId", "sess1");
     });
 
     it("categorizes unread session updated within 8 hours into unread8h", async () => {
@@ -607,7 +613,7 @@ describe("Inbox Routes", () => {
       expect(result.active).toHaveLength(0);
       expect(result.recentActivity).toHaveLength(0);
       expect(result.unread8h).toHaveLength(1);
-      expect(result.unread8h[0].sessionId).toBe("sess1");
+      expect(result.unread8h[0]).toHaveProperty("sessionId", "sess1");
     });
 
     it("categorizes unread session updated within 24 hours into unread24h", async () => {
@@ -631,7 +637,7 @@ describe("Inbox Routes", () => {
       expect(result.recentActivity).toHaveLength(0);
       expect(result.unread8h).toHaveLength(0);
       expect(result.unread24h).toHaveLength(1);
-      expect(result.unread24h[0].sessionId).toBe("sess1");
+      expect(result.unread24h[0]).toHaveProperty("sessionId", "sess1");
     });
 
     it("does not categorize session older than 24h or already read", async () => {
@@ -728,7 +734,7 @@ describe("Inbox Routes", () => {
 
       // Should only appear in needsAttention (highest priority)
       expect(result.needsAttention).toHaveLength(1);
-      expect(result.needsAttention[0].sessionId).toBe("sess1");
+      expect(result.needsAttention[0]).toHaveProperty("sessionId", "sess1");
       expect(result.active).toHaveLength(0);
       expect(result.recentActivity).toHaveLength(0);
       expect(result.unread8h).toHaveLength(0);
@@ -760,7 +766,7 @@ describe("Inbox Routes", () => {
       // Should only appear in active tier
       expect(result.needsAttention).toHaveLength(0);
       expect(result.active).toHaveLength(1);
-      expect(result.active[0].sessionId).toBe("sess1");
+      expect(result.active[0]).toHaveProperty("sessionId", "sess1");
       expect(result.recentActivity).toHaveLength(0);
       expect(result.unread8h).toHaveLength(0);
     });
@@ -790,9 +796,18 @@ describe("Inbox Routes", () => {
       // All should be in recentActivity (< 30 min)
       expect(result.recentActivity).toHaveLength(3);
       // Most recent first
-      expect(result.recentActivity[0].sessionId).toBe("sess-newest");
-      expect(result.recentActivity[1].sessionId).toBe("sess-middle");
-      expect(result.recentActivity[2].sessionId).toBe("sess-oldest");
+      expect(result.recentActivity[0]).toHaveProperty(
+        "sessionId",
+        "sess-newest",
+      );
+      expect(result.recentActivity[1]).toHaveProperty(
+        "sessionId",
+        "sess-middle",
+      );
+      expect(result.recentActivity[2]).toHaveProperty(
+        "sessionId",
+        "sess-oldest",
+      );
     });
   });
 
@@ -842,9 +857,11 @@ describe("Inbox Routes", () => {
 
       // Session should appear in recentActivity (no activity info)
       expect(result.recentActivity).toHaveLength(1);
-      expect(result.recentActivity[0].sessionId).toBe("sess1");
-      expect(result.recentActivity[0].activity).toBeUndefined();
-      expect(result.recentActivity[0].pendingInputType).toBeUndefined();
+      expect(result.recentActivity[0]).toHaveProperty("sessionId", "sess1");
+      const [recent] = result.recentActivity;
+      assert.ok(recent);
+      expect(recent.activity).toBeUndefined();
+      expect(recent.pendingInputType).toBeUndefined();
     });
 
     it("works without notificationService", async () => {
@@ -888,7 +905,7 @@ describe("Inbox Routes", () => {
       });
 
       expect(result.recentActivity).toHaveLength(1);
-      expect(result.recentActivity[0].sessionId).toBe("sess1");
+      expect(result.recentActivity[0]).toHaveProperty("sessionId", "sess1");
     });
 
     it("returns empty tiers when no projects exist", async () => {
@@ -930,10 +947,10 @@ describe("Inbox Routes", () => {
 
       expect(result.recentActivity).toHaveLength(2);
       // Sorted by updatedAt descending
-      expect(result.recentActivity[0].sessionId).toBe("sess1");
-      expect(result.recentActivity[0].projectId).toBe("proj1");
-      expect(result.recentActivity[1].sessionId).toBe("sess2");
-      expect(result.recentActivity[1].projectId).toBe("proj2");
+      expect(result.recentActivity[0]).toHaveProperty("sessionId", "sess1");
+      expect(result.recentActivity[0]).toHaveProperty("projectId", "proj1");
+      expect(result.recentActivity[1]).toHaveProperty("sessionId", "sess2");
+      expect(result.recentActivity[1]).toHaveProperty("projectId", "proj2");
     });
 
     it("includes project name in inbox items", async () => {
@@ -955,7 +972,10 @@ describe("Inbox Routes", () => {
         sessionIndexService: mockSessionIndexService,
       });
 
-      expect(result.recentActivity[0].projectName).toBe("my-awesome-project");
+      expect(result.recentActivity[0]).toHaveProperty(
+        "projectName",
+        "my-awesome-project",
+      );
     });
 
     it("uses customTitle when available", async () => {
@@ -976,7 +996,10 @@ describe("Inbox Routes", () => {
         sessionIndexService: mockSessionIndexService,
       });
 
-      expect(result.recentActivity[0].sessionTitle).toBe("My Custom Title");
+      expect(result.recentActivity[0]).toHaveProperty(
+        "sessionTitle",
+        "My Custom Title",
+      );
     });
 
     it("includes starred metadata in inbox items", async () => {
@@ -996,7 +1019,7 @@ describe("Inbox Routes", () => {
         sessionMetadataService: mockSessionMetadataService,
       });
 
-      expect(result.recentActivity[0].isStarred).toBe(true);
+      expect(result.recentActivity[0]).toHaveProperty("isStarred", true);
     });
   });
 
@@ -1071,7 +1094,7 @@ describe("Inbox Routes", () => {
 
       // Archived session should be excluded from unread tier
       expect(result.unread8h).toHaveLength(1);
-      expect(result.unread8h[0].sessionId).toBe("normal-sess");
+      expect(result.unread8h[0]).toHaveProperty("sessionId", "normal-sess");
     });
 
     it("excludes archived sessions from unread24h tier", async () => {

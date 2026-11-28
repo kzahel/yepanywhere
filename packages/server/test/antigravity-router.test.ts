@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
@@ -26,10 +27,11 @@ import {
 import { RouterUnavailable } from "../src/services/AgentAuthRouter.js";
 import { AntigravitySessionReader } from "../src/sessions/antigravity-reader.js";
 import { antigravitySessionWatcherSpec } from "../src/sessions/antigravity-summaries.js";
+import type { SessionCatalogRow } from "../src/sessions/catalog-types.js";
 import { nativeCatalogAdapters } from "../src/sessions/catalog-adapters/native-catalog-registry.js";
 import { EventBus } from "../src/watcher/EventBus.js";
 import { ProviderSessionWatcherRegistry } from "../src/watcher/ProviderSessionWatcherRegistry.js";
-import { toUrlProjectId } from "@yep-anywhere/shared";
+import { parseNativeSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import { routerFixtureFor } from "./utils/agent-auth-router-fixture.js";
 import { writeAntigravitySummaries } from "./utils/antigravity-store.js";
 
@@ -434,7 +436,7 @@ describe("AgentAuthRouter Antigravity control and capability gating", () => {
     // Mid-session switch stays refused for Antigravity in v1.
     const routes = createAgentAuthRouterRoutes(f.connector, () => ({
       getProcessForSession: () => undefined,
-      abortSessionWithVerification: async () => true,
+      abortSessionWithVerification: async () => null,
     }));
     const switchRes = await routes.request(
       "/agent-auth-router/sessions/sess-agy-1/switch",
@@ -501,18 +503,20 @@ describe("Antigravity dual-store native history and routed provider launch", () 
 
     const adapters = nativeCatalogAdapters(["antigravity"]);
     expect(adapters).toHaveLength(2);
-    const rows = (
-      await Promise.all(
-        adapters.map((adapter) =>
-          adapter.scan({
-            catalogEpoch: "test",
-            targetGeneration: 1,
-            mode: { kind: "complete" },
-            signal: new AbortController().signal,
-          }),
-        ),
-      )
-    ).flatMap((result) => [...result.rows]);
+    const scans = await Promise.all(
+      adapters.map((adapter) =>
+        adapter.scan({
+          catalogEpoch: "test",
+          targetGeneration: 1,
+          mode: { kind: "complete" },
+          signal: new AbortController().signal,
+        }),
+      ),
+    );
+    const rows: SessionCatalogRow[] = [];
+    for (const scan of scans) {
+      for await (const row of scan.rows) rows.push(row);
+    }
     expect(rows.map((r) => r.sessionId).sort()).toEqual(
       [directId, routedId].sort(),
     );
@@ -528,11 +532,17 @@ describe("Antigravity dual-store native history and routed provider launch", () 
       "Direct session",
       "Routed session",
     ]);
+    assert(
+      reader.getNativeSessionRef,
+      "Expected native reference lookup on the merged reader",
+    );
     expect(
-      (await reader.getNativeSessionRef(directId as never))?.storageScope,
+      (await reader.getNativeSessionRef(parseNativeSessionId(directId)))
+        ?.storageScope,
     ).toBe(await realpath(join(directStore, "conversations")));
     expect(
-      (await reader.getNativeSessionRef(routedId as never))?.storageScope,
+      (await reader.getNativeSessionRef(parseNativeSessionId(routedId)))
+        ?.storageScope,
     ).toBe(await realpath(join(routedStore, "conversations")));
     await reader.close?.();
   });

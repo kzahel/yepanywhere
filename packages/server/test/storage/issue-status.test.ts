@@ -57,7 +57,7 @@ function harness(
     enabled: true,
     scope: "viewed",
     recentDays: 7,
-    confirmation: { enabled: true },
+    confirmation: { enabled: true, jiraSite: "", jiraEmail: "" },
   };
   const fetch = graphql(answers);
   const refresher = new IssueStatusRefresher({
@@ -188,7 +188,7 @@ describe("tracker status refresh", () => {
     });
     expect(h.fetch).toHaveBeenCalledTimes(2);
 
-    h.set({ confirmation: { enabled: false } });
+    h.set({ confirmation: { enabled: false, jiraSite: "", jiraEmail: "" } });
     h.advance(5 * 60_000);
     expect(h.read(DRAFT).refreshing).toBe(false);
     expect(h.read(DRAFT).items[0]?.trackerStatus?.state).toBe("open");

@@ -180,7 +180,7 @@ async function configureSource() {
     }),
     "PREPARE.md": "Prepare the project.",
   };
-  const entries = [];
+  const entries: { from: string; to: string }[] = [];
   for (const [to, bytes] of Object.entries(files)) {
     const from = `file-${entries.length}`;
     await writeFile(join(directory, from), bytes);

@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createLocalResourcePathPolicy } from "../../src/routes/local-resource-policy.js";
+import { projectForPath } from "./route-fixtures.js";
 
 describe("file-access path policy (dynamic + project gate)", () => {
   let tempDir: string;
@@ -33,7 +34,7 @@ describe("file-access path policy (dynamic + project gate)", () => {
       includeProjects: () => includeProjects,
       scanner: {
         async listProjects() {
-          return [{ path: projectDir }];
+          return [projectForPath(projectDir)];
         },
       },
     });

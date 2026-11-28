@@ -1,37 +1,27 @@
+import {
+  codexSessionFixture,
+  projectionMessages,
+} from "./provider-session-fixtures.js";
 import type { CodexSessionEntry } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
 import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import { augmentEditToolUses } from "../../src/sessions/persisted-augments.js";
-import type { LoadedSession } from "../../src/sessions/types.js";
 
-function buildLoadedSession(entries: CodexSessionEntry[]): LoadedSession {
-  return {
-    summary: {
-      id: "code-mode-test",
-      projectId: "test-project",
-      title: "Code mode",
-      fullTitle: "Code mode",
-      createdAt: "2026-07-10T00:00:00Z",
-      updatedAt: "2026-07-10T00:00:02Z",
-      messageCount: entries.length,
-      status: "chat",
-      provider: "codex",
-      // biome-ignore lint/suspicious/noExplicitAny: minimal normalization fixture
-    } as any,
-    data: {
-      provider: "codex",
-      events: [],
-      session: { entries },
-      // biome-ignore lint/suspicious/noExplicitAny: minimal normalization fixture
-    } as any,
-  };
+function buildLoadedSession(entries: CodexSessionEntry[]) {
+  return codexSessionFixture(entries, {
+    id: "code-mode-test",
+    title: "Code mode",
+    provider: "codex",
+    from: "2026-07-10T00:00:00Z",
+    to: "2026-07-10T00:00:02Z",
+  });
 }
 
 function contentBlock(
-  message: ReturnType<typeof normalizeSession>["messages"][number],
+  message: ReturnType<typeof normalizeSession>["messages"][number] | undefined,
 ) {
-  const content = message.message?.content;
+  const content = message?.message?.content;
   return Array.isArray(content) ? content[0] : content;
 }
 
@@ -196,7 +186,9 @@ describe("Codex code-mode persisted normalization", () => {
     ];
 
     const normalized = normalizeSession(buildLoadedSession(entries));
-    const items = compileTranscriptProjection(normalized.messages);
+    const items = compileTranscriptProjection(
+      projectionMessages(normalized.messages),
+    );
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({

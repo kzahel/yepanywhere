@@ -744,14 +744,11 @@ describe("ProjectScanner cache", () => {
     const scanCaptured = new Promise<void>((resolve) => {
       signalScanCaptured = resolve;
     });
-    let releaseScan: (() => void) | null = null;
-    const scanGate = new Promise<void>((resolve) => {
-      releaseScan = resolve;
-    });
+    const scanGate = Promise.withResolvers<void>();
     vi.spyOn(internals, "scanProjects").mockImplementation(async () => {
       const projects = await originalScan();
       signalScanCaptured?.();
-      await scanGate;
+      await scanGate.promise;
       return projects;
     });
 
@@ -764,7 +761,7 @@ describe("ProjectScanner cache", () => {
       "sess-2",
     );
     scanner.invalidateCache();
-    releaseScan?.();
+    scanGate.resolve();
 
     expect(await firstScan).toHaveLength(1);
     expect(await scanner.listProjects()).toHaveLength(2);
@@ -789,10 +786,7 @@ describe("ProjectScanner cache", () => {
       scanProjects: () => Promise<Project[]>;
     };
     const originalScan = internals.scanProjects.bind(scanner);
-    let releaseFirstScan: (() => void) | null = null;
-    const firstScanGate = new Promise<void>((resolve) => {
-      releaseFirstScan = resolve;
-    });
+    const firstScanGate = Promise.withResolvers<void>();
     let firstScanStarted: (() => void) | null = null;
     const firstScanStart = new Promise<void>((resolve) => {
       firstScanStarted = resolve;
@@ -803,7 +797,7 @@ describe("ProjectScanner cache", () => {
       if (invocation === 1) {
         const projects = await originalScan();
         firstScanStarted?.();
-        await firstScanGate;
+        await firstScanGate.promise;
         return projects;
       }
       return originalScan();
@@ -821,7 +815,7 @@ describe("ProjectScanner cache", () => {
 
     await expect(scanner.listProjects()).resolves.toHaveLength(2);
     expect(invocation).toBe(2);
-    releaseFirstScan?.();
+    firstScanGate.resolve();
     await expect(obsoleteScan).resolves.toHaveLength(1);
   });
 
@@ -855,10 +849,7 @@ describe("ProjectScanner cache", () => {
     const firstSaveStarted = new Promise<void>((resolve) => {
       signalFirstSaveStarted = resolve;
     });
-    let releaseFirstSave: (() => void) | null = null;
-    const firstSaveGate = new Promise<void>((resolve) => {
-      releaseFirstSave = resolve;
-    });
+    const firstSaveGate = Promise.withResolvers<void>();
     let signalSecondSaveDone: (() => void) | null = null;
     const secondSaveDone = new Promise<void>((resolve) => {
       signalSecondSaveDone = resolve;
@@ -870,7 +861,7 @@ describe("ProjectScanner cache", () => {
         maxActiveSaves = Math.max(maxActiveSaves, activeSaves);
         if (saveCalls === 1) {
           signalFirstSaveStarted?.();
-          await firstSaveGate;
+          await firstSaveGate.promise;
         }
         finalSavedProjectCount = snapshot.projects.length;
         activeSaves -= 1;
@@ -890,7 +881,7 @@ describe("ProjectScanner cache", () => {
     await scanner.listProjects();
 
     expect(saveCalls).toBe(1);
-    releaseFirstSave?.();
+    firstSaveGate.resolve();
     await secondSaveDone;
     expect(maxActiveSaves).toBe(1);
     expect(finalSavedProjectCount).toBe(2);

@@ -1,3 +1,4 @@
+import { transcriptMessages } from "../../sessions/provider-session-fixtures.js";
 import { createReadStream } from "node:fs";
 import {
   chmod,
@@ -11,8 +12,16 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { toUrlProjectId } from "@yep-anywhere/shared";
+import {
+  assert,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { parseYaSessionId, toUrlProjectId } from "@yep-anywhere/shared";
 import { createProvidersRoutes } from "../../../src/routes/providers.js";
 import { AntigravityProvider } from "../../../src/sdk/providers/antigravity.js";
 import { AntigravityRuntime } from "../../../src/sdk/providers/antigravity-runtime.js";
@@ -389,7 +398,9 @@ describe("Antigravity native process boundary", () => {
           receipt.sessionId,
         ),
       ).toBeUndefined();
-      expect(metadata.identities.resolveYa(nativeId)).toBeUndefined();
+      expect(
+        metadata.identities.resolveYa(parseYaSessionId(nativeId)),
+      ).toBeUndefined();
       const reader = new AntigravitySessionReader({ projectPath: directory });
       try {
         expect(
@@ -716,7 +727,7 @@ describe("Antigravity native process boundary", () => {
         );
         expect(loaded?.data.provider).toBe("antigravity");
         expect(loaded?.transcriptComplete).toBe(false);
-        expect(loaded?.data.session.messages).toEqual([
+        expect(transcriptMessages(loaded, "antigravity")).toEqual([
           expect.objectContaining({
             type: "system",
             subtype: "informational",
@@ -792,7 +803,7 @@ describe("Antigravity native process boundary", () => {
           undefined,
           { tailCompactions: 2 },
         );
-        const rows = loaded?.data.session.messages.map((message) =>
+        const rows = transcriptMessages(loaded, "antigravity").map((message) =>
           message.type === "system"
             ? message.uuid
             : `${message.type}:${String(message.message?.content)}`,
@@ -908,6 +919,8 @@ describe("Antigravity native process boundary", () => {
           timestamp: "2027-01-01T00:00:00.000Z",
           uuid: "overlay-1",
           id: "overlay-1",
+          session_id: nativeId,
+          isSynthetic: true,
         });
         const reads = vi.spyOn(
           AntigravitySessionReader.prototype,
@@ -928,6 +941,8 @@ describe("Antigravity native process boundary", () => {
           timestamp: "2020-01-01T00:00:00.000Z",
           uuid: "overlay-old",
           id: "overlay-old",
+          session_id: nativeId,
+          isSynthetic: true,
         });
         const old = await get("?afterMessageId=overlay-old");
         expect(old.pagination?.hasOlderMessages).toBe(true);
@@ -1222,6 +1237,7 @@ describe("Antigravity native process boundary", () => {
         );
         session.queue.push({ text: "held", uuid: "turn-2" });
         await reading;
+        assert(session.queue.setConfigurationInputHeld);
         session.queue.setConfigurationInputHeld(true);
         release();
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1278,6 +1294,7 @@ describe("Antigravity native process boundary", () => {
         );
         session.queue.push({ text: "held", uuid: "turn-2" });
         await reading;
+        assert(session.queue.setConfigurationInputHeld);
         session.queue.setConfigurationInputHeld(true);
         release();
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1356,7 +1373,7 @@ describe("Antigravity native process boundary", () => {
             nativeId,
             toUrlProjectId(directory),
           );
-          const messages = whole?.data.session.messages ?? [];
+          const messages = transcriptMessages(whole, "antigravity");
           expect(whole?.transcriptComplete).not.toBe(false);
           expect(
             messages.filter(
@@ -1421,9 +1438,11 @@ describe("Antigravity native process boundary", () => {
         try {
           const retained: number[] = [];
           let lastHistory: SDKMessage[] = [];
-          let lastRead: Awaited<
-            ReturnType<AntigravitySessionReader["getSession"]>
-          > = null;
+          const observed: {
+            lastRead?: Awaited<
+              ReturnType<AntigravitySessionReader["getSession"]>
+            >;
+          } = {};
           const { errors, results } = await runBigTurns(
             session,
             4,
@@ -1440,7 +1459,7 @@ describe("Antigravity native process boundary", () => {
                 projectPath: directory,
               });
               try {
-                lastRead = await reader.getSession(
+                observed.lastRead = await reader.getSession(
                   nativeId,
                   toUrlProjectId(directory),
                   undefined,
@@ -1461,9 +1480,13 @@ describe("Antigravity native process boundary", () => {
           expect(ids).not.toContain("turn-1");
           expect(ids).toContain("turn-4");
           // The view says history is missing rather than looking whole.
-          expect(lastRead?.transcriptComplete).toBe(false);
+          const { lastRead } = observed;
+          assert(lastRead);
+          expect(lastRead.transcriptComplete).toBe(false);
           expect(
-            lastRead?.data.session.messages.map((message) => message.uuid),
+            transcriptMessages(lastRead, "antigravity").map(
+              (message) => message.uuid,
+            ),
           ).toContain("turn-4");
         } finally {
           await session.abort();
@@ -2036,7 +2059,7 @@ describe("Antigravity native process boundary", () => {
             toUrlProjectId(directory),
           );
           expect(fresh?.transcriptComplete).not.toBe(false);
-          const users = (fresh?.data.session.messages ?? [])
+          const users = transcriptMessages(fresh, "antigravity")
             .filter((message) => message.type === "user")
             .map((message) => String(message.message?.content));
           expect(users.map((text) => text.slice(0, 12))).toEqual([

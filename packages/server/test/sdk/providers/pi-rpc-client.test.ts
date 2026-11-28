@@ -1,7 +1,7 @@
 import { EventEmitter, once } from "node:events";
 import { spawn } from "node:child_process";
 import { PassThrough } from "node:stream";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import {
   attachJsonlLineReader,
   PiRpcClient,
@@ -26,7 +26,9 @@ describe("attachJsonlLineReader", () => {
     const payload = JSON.stringify({ text: "a b c" });
     stream.write(`${payload}\n`);
     expect(lines).toEqual([payload]);
-    expect(JSON.parse(lines[0]).text).toBe("a b c");
+    const [line] = lines;
+    assert(line);
+    expect(JSON.parse(line).text).toBe("a b c");
   });
 
   it("strips a trailing CR (tolerates CRLF input)", () => {
@@ -102,7 +104,9 @@ describe("PiRpcClient", () => {
 
     const pending = client.request({ type: "get_state" });
     // The client assigns an id; echo it back in a matching response.
-    const sent = JSON.parse(written[0]);
+    const [line] = written;
+    assert(line);
+    const sent = JSON.parse(line);
     expect(sent.type).toBe("get_state");
     expect(typeof sent.id).toBe("string");
 

@@ -75,7 +75,7 @@ function collectConfigEnvReads(): ConfigEnvReadReport {
 describe("hermetic config env setup", () => {
   it("scrubs every direct config env read from unit tests", () => {
     const { names, dynamicReads } = collectConfigEnvReads();
-    const scrubbed = new Set(CONFIG_ENV_VARS);
+    const scrubbed = new Set<string>(CONFIG_ENV_VARS);
 
     expect(dynamicReads).toEqual([]);
     expect(names.filter((name) => !scrubbed.has(name))).toEqual([]);

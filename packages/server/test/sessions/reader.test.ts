@@ -1,9 +1,10 @@
+import { projectionMessages } from "./provider-session-fixtures.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { UrlProjectId } from "@yep-anywhere/shared";
+import { toUrlProjectId, type UrlProjectId } from "@yep-anywhere/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
 import { normalizeSession } from "../../src/sessions/normalization.js";
@@ -132,7 +133,10 @@ describe("SessionReader", () => {
       });
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       expect(summary?.title).toBe("Can you explain this code?");
     });
 
@@ -153,7 +157,10 @@ describe("SessionReader", () => {
       });
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       // When all blocks are IDE metadata, title is null (empty content)
       expect(summary?.title).toBeNull();
     });
@@ -171,7 +178,10 @@ describe("SessionReader", () => {
       });
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       expect(summary?.title).toBe("What is this?");
     });
 
@@ -189,7 +199,10 @@ describe("SessionReader", () => {
       });
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       expect(summary?.title?.length).toBe(120);
       expect(summary?.title?.endsWith("...")).toBe(true);
     });
@@ -207,7 +220,10 @@ describe("SessionReader", () => {
       });
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       expect(summary?.title).toBe("Short message");
     });
 
@@ -227,7 +243,10 @@ describe("SessionReader", () => {
       });
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       expect(summary?.title).toBe("/harsh-review HEAD - check title cleanup");
       expect(summary?.fullTitle).toBe(
         "/harsh-review HEAD - check title cleanup",
@@ -262,7 +281,10 @@ describe("SessionReader", () => {
       ].join("\n");
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       expect(summary?.title).toBe("/effort");
       expect(summary?.fullTitle).toBe("/effort");
     });
@@ -279,7 +301,10 @@ describe("SessionReader", () => {
       });
       await writeFile(join(testDir, `${sessionId}.jsonl`), `${jsonl}\n`);
 
-      const summary = await reader.getSessionSummary(sessionId, "test-project");
+      const summary = await reader.getSessionSummary(
+        sessionId,
+        toUrlProjectId("/test-project"),
+      );
       expect(summary?.title).toBeNull();
     });
 
@@ -434,7 +459,17 @@ describe("SessionReader", () => {
     it("advances summary freshness when meaningful content is appended", async () => {
       const sessionId = "summary-content-append";
       const filePath = join(testDir, `${sessionId}.jsonl`);
-      const entries = [
+      const entries: {
+        type: string;
+        uuid: string;
+        parentUuid: string | null;
+        timestamp: string;
+        message: {
+          content: string | { type: string; text: string }[];
+          role?: string;
+          model?: string;
+        };
+      }[] = [
         {
           type: "user",
           uuid: "u1",
@@ -702,7 +737,7 @@ describe("SessionReader", () => {
 
       const loadedSession = await reader.getSession(
         sessionId,
-        "test-project",
+        toUrlProjectId("/test-project"),
         undefined,
         {
           includeOrphans: true,
@@ -1004,7 +1039,7 @@ describe("SessionReader", () => {
       );
       const session = loadedSession ? normalizeSession(loadedSession) : null;
       const renderItems = session
-        ? compileTranscriptProjection(session.messages)
+        ? compileTranscriptProjection(projectionMessages(session.messages))
         : [];
 
       expect(session?.messages.map((message) => message.uuid)).toEqual([
@@ -1267,7 +1302,9 @@ describe("SessionReader", () => {
         "agent-result",
       ]);
 
-      const renderItems = compileTranscriptProjection(result.messages);
+      const renderItems = compileTranscriptProjection(
+        projectionMessages(result.messages),
+      );
       const editCalls = renderItems.filter(
         (item) => item.type === "tool_call" && item.toolName === "Edit",
       );

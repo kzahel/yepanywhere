@@ -648,6 +648,7 @@ describe("Process", () => {
         projectPath: "/test",
         projectId: "proj-1" as UrlProjectId,
         sessionId: "sess-1",
+        provider: "claude",
         supportedCommandsFn: async () => commands,
         onCommandsObserved,
       });

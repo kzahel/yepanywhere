@@ -15,7 +15,12 @@ import {
 import type { AttachmentStagingService } from "../../src/uploads/AttachmentStagingService.js";
 import type { SessionAccessResolver } from "../../src/auth/sessionAccess.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
-let store: DraftStore, db: SqliteDatabase, app: Hono, principal: Principal;
+type PrincipalEnv = { Variables: Record<typeof PRINCIPAL_VARIABLE, Principal> };
+
+let store: DraftStore,
+  db: SqliteDatabase,
+  app: Hono<PrincipalEnv>,
+  principal: Principal;
 let sessions: SessionAccessResolver;
 beforeEach(() => {
   db = openSqliteOrThrow(":memory:");
@@ -26,7 +31,7 @@ beforeEach(() => {
       id === "session" ? { projectId: "project" } : null,
   } as SessionAccessResolver;
   principal = { kind: "superuser" };
-  app = new Hono();
+  app = new Hono<PrincipalEnv>();
   app.use("*", async (c, next) => {
     c.set(PRINCIPAL_VARIABLE, principal);
     await next();

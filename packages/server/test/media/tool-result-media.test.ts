@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import type { CodexSessionEntry, ToolResultMedia } from "@yep-anywhere/shared";
 import { execFile } from "node:child_process";
 import {
@@ -38,6 +39,13 @@ import type { ProjectScanner } from "../../src/projects/scanner.js";
 import { ProjectStoragePolicy } from "../../src/projects/projectStoragePolicy.js";
 import { MessageQueue } from "../../src/sdk/messageQueue.js";
 
+type RawToolResultMessage = Pick<
+  SDKMessage,
+  "type" | "toolResultMedia" | "toolUseResult"
+> & {
+  message: { content: Array<{ type: string; [key: string]: unknown }> };
+};
+
 const execFileAsync = promisify(execFile);
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
@@ -68,7 +76,9 @@ describe("tool-result media storage", () => {
   it("stores authoritative returned bytes and git-excludes a new .yep", async () => {
     const sourcePath = join(projectDir, "source.png");
     const differentSourceBytes = Buffer.from(PNG_BYTES);
-    differentSourceBytes[differentSourceBytes.length - 1] ^= 0xff;
+    const lastByte = differentSourceBytes.at(-1);
+    assert(lastByte !== undefined, "Expected a nonempty PNG fixture");
+    differentSourceBytes[differentSourceBytes.length - 1] = lastByte ^ 0xff;
     await writeFile(sourcePath, differentSourceBytes);
 
     const store = new ToolResultMediaStore({
@@ -127,7 +137,7 @@ describe("tool-result media storage", () => {
       "session-corrupt",
       media.id,
     );
-    if (!file) throw new Error("Expected stored media file");
+    assert(file?.path, "Expected a persistent media file");
 
     const corruptBytes = Buffer.alloc(file.byteLength, 0x5a);
     await writeFile(file.path, corruptBytes);
@@ -148,7 +158,7 @@ describe("tool-result media storage", () => {
       "session-repair",
       first.id,
     );
-    if (!file) throw new Error("Expected stored media file");
+    assert(file?.path, "Expected a persistent media file");
     await writeFile(file.path, Buffer.alloc(file.byteLength, 0x5a));
 
     const repaired = await captureDataUrl(store, projectDir, "session-repair");
@@ -690,7 +700,7 @@ describe("tool-result media storage", () => {
   it("preserves Claude Read image behavior through the shared materializer", async () => {
     const store = new ToolResultMediaStore({ dataDir });
     const projectId = encodeProjectId(projectDir);
-    const messages = [
+    const messages: RawToolResultMessage[] = [
       {
         type: "assistant",
         message: {
@@ -749,7 +759,7 @@ describe("tool-result media storage", () => {
         projectPath: projectDir,
         getSessionId: () => "session-neutral",
       })
-      .materializeMessages([
+      .materializeMessages<RawToolResultMessage>([
         {
           type: "assistant",
           message: {
@@ -980,7 +990,7 @@ function buildCodexLoadedSession(
   } as unknown as LoadedSession;
 }
 
-function toolImageMessages(toolCallId: string) {
+function toolImageMessages(toolCallId: string): RawToolResultMessage[] {
   return [
     {
       type: "assistant",

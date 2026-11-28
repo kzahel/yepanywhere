@@ -6,6 +6,7 @@ import {
   cleanupSubscriptions,
   handleUnsubscribe,
   handleWorktreeSubscribe,
+  type SendFn,
 } from "../../src/routes/ws-relay-handlers.js";
 
 function deferred<T>() {
@@ -103,7 +104,7 @@ describe("WebSocket worktree subscriptions", () => {
           filesystemScan: "complete",
         },
       },
-      vi.fn(),
+      vi.fn<SendFn>(),
       manager,
     );
     await Promise.resolve();

@@ -1,8 +1,6 @@
 import {
   getCodexToolCorrelation,
   type CodexSessionEntry,
-  type UnifiedSession,
-  type UrlProjectId,
 } from "@yep-anywhere/shared";
 import { describe, expect, it } from "vitest";
 import { compileTranscriptProjection } from "@yep-anywhere/shared/transcript/compiler";
@@ -10,6 +8,7 @@ import type { Message as ClientMessage } from "../../../client/src/types.js";
 import * as codexItemConversion from "../../src/sdk/providers/codex-item-conversion.js";
 import { normalizeSession } from "../../src/sessions/normalization.js";
 import type { LoadedSession } from "../../src/sessions/types.js";
+import { codexSessionFixture } from "../sessions/provider-session-fixtures.js";
 
 const READ_COMMAND =
   "sed -n '1,20p' CLAUDE.md && " +
@@ -26,24 +25,13 @@ type CodexProviderBridge = {
 };
 
 function buildLoadedSession(entries: CodexSessionEntry[]): LoadedSession {
-  return {
-    summary: {
-      id: "display-action-parity",
-      projectId: "test-project" as UrlProjectId,
-      title: "Display action parity",
-      fullTitle: "Display action parity",
-      createdAt: "2026-07-10T00:00:00Z",
-      updatedAt: "2026-07-10T00:00:02Z",
-      messageCount: entries.length,
-      status: "chat",
-      provider: "codex",
-    } as LoadedSession["summary"],
-    data: {
-      provider: "codex",
-      events: [],
-      session: { entries },
-    } as UnifiedSession,
-  };
+  return codexSessionFixture(entries, {
+    id: "display-action-parity",
+    title: "Display action parity",
+    provider: "codex",
+    from: "2026-07-10T00:00:00Z",
+    to: "2026-07-10T00:00:02Z",
+  });
 }
 
 function toolUseBlock(message: Record<string, unknown>) {

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import type { ConnectionsResponse } from "@yep-anywhere/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PushService } from "../../src/push/index.js";
@@ -82,10 +83,14 @@ describe("Connections Routes", () => {
       const result = await makeRequest(mockConnectedBrowsers, mockPushService);
 
       expect(result.connections).toHaveLength(1);
-      expect(result.connections[0].browserProfileId).toBe("profile-1");
-      expect(result.connections[0].connectionCount).toBe(3);
+      expect(result.connections[0]).toHaveProperty(
+        "browserProfileId",
+        "profile-1",
+      );
+      expect(result.connections[0]).toHaveProperty("connectionCount", 3);
       // Should use the earliest connectedAt timestamp
-      expect(result.connections[0].connectedAt).toBe(
+      expect(result.connections[0]).toHaveProperty(
+        "connectedAt",
         "2024-01-01T09:55:00.000Z",
       );
     });
@@ -110,8 +115,14 @@ describe("Connections Routes", () => {
 
       expect(result.connections).toHaveLength(2);
       // Should be sorted by connectedAt (oldest first)
-      expect(result.connections[0].browserProfileId).toBe("profile-2");
-      expect(result.connections[1].browserProfileId).toBe("profile-1");
+      expect(result.connections[0]).toHaveProperty(
+        "browserProfileId",
+        "profile-2",
+      );
+      expect(result.connections[1]).toHaveProperty(
+        "browserProfileId",
+        "profile-1",
+      );
     });
 
     it("includes device name from push subscriptions", async () => {
@@ -138,7 +149,7 @@ describe("Connections Routes", () => {
       const result = await makeRequest(mockConnectedBrowsers, mockPushService);
 
       expect(result.connections).toHaveLength(1);
-      expect(result.connections[0].deviceName).toBe("My iPhone");
+      expect(result.connections[0]).toHaveProperty("deviceName", "My iPhone");
     });
 
     it("works without push service", async () => {
@@ -155,7 +166,9 @@ describe("Connections Routes", () => {
       const result = await makeRequest(mockConnectedBrowsers);
 
       expect(result.connections).toHaveLength(1);
-      expect(result.connections[0].deviceName).toBeUndefined();
+      const [connection] = result.connections;
+      assert.ok(connection);
+      expect(connection.deviceName).toBeUndefined();
     });
 
     it("handles browser profile with no push subscription", async () => {

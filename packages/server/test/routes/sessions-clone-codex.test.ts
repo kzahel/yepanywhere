@@ -8,11 +8,13 @@ import {
   type SessionsDeps,
   createSessionsRoutes,
 } from "../../src/routes/sessions.js";
+import { CodexSessionScanner } from "../../src/projects/codex-scanner.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
 import type { AgentProvider } from "../../src/sdk/providers/types.js";
 import { CodexSessionReader } from "../../src/sessions/codex-reader.js";
 import type { ISessionReader } from "../../src/sessions/types.js";
 import type { Project } from "../../src/supervisor/types.js";
+import { stubProjectLookups } from "./route-fixtures.js";
 
 describe("Codex clone route", () => {
   let testDir: string;
@@ -112,9 +114,9 @@ describe("Codex clone route", () => {
         forkSession,
         assertRouterBindingInheritable: () => {},
       } as unknown as SessionsDeps["supervisor"],
-      scanner: {
+      scanner: stubProjectLookups({
         getOrCreateProject: vi.fn(async () => project),
-      } as SessionsDeps["scanner"],
+      }),
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
     });
@@ -158,9 +160,9 @@ describe("Codex clone route", () => {
         forkSession,
         assertRouterBindingInheritable: () => {},
       } as unknown as SessionsDeps["supervisor"],
-      scanner: {
+      scanner: stubProjectLookups({
         getOrCreateProject: vi.fn(async () => project),
-      } as SessionsDeps["scanner"],
+      }),
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
     });
@@ -186,9 +188,9 @@ describe("Codex clone route", () => {
         forkSession,
         assertRouterBindingInheritable: () => {},
       } as unknown as SessionsDeps["supervisor"],
-      scanner: {
+      scanner: stubProjectLookups({
         getOrCreateProject: vi.fn(async () => project),
-      } as SessionsDeps["scanner"],
+      }),
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
       sessionMetadataService: {
@@ -229,21 +231,20 @@ describe("Codex clone route", () => {
     );
     expect(sourceSummary).not.toBeNull();
 
-    const codexScanner = {
-      invalidateCache: vi.fn(),
-    };
+    const codexScanner = new CodexSessionScanner({ sessionsDir: testDir });
+    const invalidateCache = vi.spyOn(codexScanner, "invalidateCache");
     const updateMetadata = vi.fn(async () => {});
 
     const routes = createSessionsRoutes({
       supervisor: new Supervisor({
         provider: { name: "codex", forkSession } as unknown as AgentProvider,
       }),
-      scanner: {
+      scanner: stubProjectLookups({
         getOrCreateProject: vi.fn(async () => project),
-      } as SessionsDeps["scanner"],
+      }),
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
-      codexScanner: codexScanner as SessionsDeps["codexScanner"],
+      codexScanner,
       sessionMetadataService: {
         getMetadata: vi.fn(() => undefined),
         updateMetadata,
@@ -271,7 +272,7 @@ describe("Codex clone route", () => {
     );
     expect(clonedSummary).not.toBeNull();
     expect(clonedSummary?.id).toBe(body.sessionId);
-    expect(codexScanner.invalidateCache).not.toHaveBeenCalled();
+    expect(invalidateCache).not.toHaveBeenCalled();
     // The copy carries its title to creation admission, which records it
     // with the source; the route writes neither again.
     expect(forkSession).toHaveBeenCalledWith(
@@ -287,9 +288,9 @@ describe("Codex clone route", () => {
       supervisor: new Supervisor({
         provider: { name: "codex", forkSession } as unknown as AgentProvider,
       }),
-      scanner: {
+      scanner: stubProjectLookups({
         getOrCreateProject: vi.fn(async () => project),
-      } as SessionsDeps["scanner"],
+      }),
       readerFactory: vi.fn(() => reader),
       codexReaderFactory: vi.fn(() => reader),
       sessionMetadataService: {
@@ -336,9 +337,9 @@ describe("Codex clone route", () => {
       supervisor: new Supervisor({
         provider: { name: "codex", forkSession } as unknown as AgentProvider,
       }),
-      scanner: {
+      scanner: stubProjectLookups({
         getOrCreateProject: vi.fn(async () => claudeProject),
-      } as SessionsDeps["scanner"],
+      }),
       readerFactory: vi.fn(() => claudeReader),
       codexReaderFactory: vi.fn(() => reader),
     });

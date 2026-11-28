@@ -15,6 +15,7 @@ import {
   toUrlProjectId,
 } from "@yep-anywhere/shared";
 import { DiscoverySqliteService } from "../../src/storage/discovery-sqlite.js";
+import type { StartSessionOptions } from "../../src/sdk/providers/types.js";
 import { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 
 // Exercise the actual adapter/process boundary without a model account or CLI.
@@ -102,7 +103,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       storage: DiscoverySqliteService | undefined;
     const dataDir = join(root, "ya");
     try {
-      for (const options of [
+      const rejectedOptions: StartSessionOptions[] = [
         {
           cwd: project,
           nativeResumeSource: source,
@@ -126,10 +127,12 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
           nativeResumeSource: source,
           remoteEnv: { PI_CODING_AGENT_SESSION_DIR: other },
         },
-      ])
+      ];
+      for (const options of rejectedOptions) {
         await expect(
           provider.startSession({ resumeSessionId: id, ...options }),
         ).rejects.toThrow(/Pi continuation/);
+      }
       await writeFile(
         file,
         JSON.stringify({ ...header, id: "wrong-header" }) + "\n",

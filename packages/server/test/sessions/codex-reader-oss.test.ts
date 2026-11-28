@@ -1,3 +1,4 @@
+import { codexEntries } from "./provider-session-fixtures.js";
 import { randomUUID } from "node:crypto";
 import {
   appendFile,
@@ -14,7 +15,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as zlib from "node:zlib";
 import type { CodexSessionEntry, UrlProjectId } from "@yep-anywhere/shared";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  assert,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   machineControlInstructions,
   MACHINE_CONTROL_INSTRUCTIONS_NOTICE,
@@ -518,7 +527,7 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(session?.data.session.entries.length).toBeGreaterThan(0);
+    expect(codexEntries(session).length).toBeGreaterThan(0);
     expect(reader.getEntryCacheStats()).toMatchObject({
       sessions: 1,
       sourceBytes: expect.any(Number),
@@ -1308,7 +1317,7 @@ describe("CodexSessionReader - OSS Support", () => {
     );
     expect(session?.readWindow).toBeUndefined();
     expect(session?.summary.title).toBe("Hello compressed history");
-    expect(session?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(session)).toHaveLength(2);
   });
 
   itIfNoNativeZstd(
@@ -1546,7 +1555,7 @@ describe("CodexSessionReader - OSS Support", () => {
       encodeProjectId("C:/Users/kyle/Documents/webvam"),
     );
     expect(summaries).toHaveLength(1);
-    expect(summaries[0].id).toBe(sessionId);
+    expect(summaries[0]?.id).toBe(sessionId);
   });
 
   it("filters Windows cwd case variants as the same project", async () => {
@@ -1789,7 +1798,7 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(first?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(first)).toHaveLength(2);
 
     await appendFile(
       sessionPath,
@@ -1807,9 +1816,9 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(second?.data.session.entries).toHaveLength(3);
+    expect(codexEntries(second)).toHaveLength(3);
     expect(
-      second?.data.session.entries.filter(
+      codexEntries(second).filter(
         (entry) =>
           entry.type === "event_msg" && entry.payload.type === "user_message",
       ),
@@ -1880,9 +1889,9 @@ describe("CodexSessionReader - OSS Support", () => {
     if (loaded?.data.provider !== "codex") {
       throw new Error("Expected the appended Codex detail read");
     }
-    expect(loaded.data.session.entries).toHaveLength(3);
+    expect(codexEntries(loaded)).toHaveLength(3);
     expect(
-      loaded.data.session.entries.find(
+      codexEntries(loaded).find(
         (entry) =>
           entry.type === "response_item" &&
           entry.payload.type === "message" &&
@@ -2321,9 +2330,9 @@ describe("CodexSessionReader - OSS Support", () => {
     if (loaded?.data.provider !== "codex") {
       throw new Error("Expected the cold Codex detail read");
     }
-    expect(loaded.data.session.entries).toHaveLength(3);
+    expect(codexEntries(loaded)).toHaveLength(3);
     expect(
-      loaded.data.session.entries.find(
+      codexEntries(loaded).find(
         (entry) =>
           entry.type === "response_item" &&
           entry.payload.type === "message" &&
@@ -2428,7 +2437,7 @@ describe("CodexSessionReader - OSS Support", () => {
     ) {
       throw new Error("Expected the compact-tail detail read");
     }
-    expect(loadedTail.data.session.entries.map((entry) => entry.type)).toEqual([
+    expect(codexEntries(loadedTail).map((entry) => entry.type)).toEqual([
       "compacted",
       "event_msg",
       "world_state",
@@ -2480,9 +2489,11 @@ describe("CodexSessionReader - OSS Support", () => {
     ) {
       throw new Error("Expected an older page before the narrowed turn cursor");
     }
-    expect(
-      narrowedOlderPage.data.session.entries.map((entry) => entry.type),
-    ).toEqual(["compacted", "event_msg", "compacted"]);
+    expect(codexEntries(narrowedOlderPage).map((entry) => entry.type)).toEqual([
+      "compacted",
+      "event_msg",
+      "compacted",
+    ]);
 
     const olderPage = await reader.getSession(
       sessionId,
@@ -2508,7 +2519,7 @@ describe("CodexSessionReader - OSS Support", () => {
     ) {
       throw new Error("Expected the first bounded older page");
     }
-    expect(olderPage.data.session.entries.map((entry) => entry.type)).toEqual([
+    expect(codexEntries(olderPage).map((entry) => entry.type)).toEqual([
       "compacted",
       "event_msg",
       "compacted",
@@ -2544,11 +2555,9 @@ describe("CodexSessionReader - OSS Support", () => {
     ) {
       throw new Error("Expected the beginning older page");
     }
-    expect(firstPage.data.session.entries[0]?.type).toBe("session_meta");
+    expect(codexEntries(firstPage)[0]?.type).toBe("session_meta");
     expect(
-      firstPage.data.session.entries.filter(
-        (entry) => entry.type === "compacted",
-      ),
+      codexEntries(firstPage).filter((entry) => entry.type === "compacted"),
     ).toHaveLength(1);
     expect(reader.getEntryCacheStats().sessions).toBe(0);
 
@@ -2994,7 +3003,7 @@ describe("CodexSessionReader - OSS Support", () => {
     ) {
       throw new Error("Expected the compact-tail detail read");
     }
-    expect(loaded.data.session.entries.map((entry) => entry.type)).toEqual([
+    expect(codexEntries(loaded).map((entry) => entry.type)).toEqual([
       "compacted",
       "event_msg",
       "compacted",
@@ -3128,7 +3137,7 @@ describe("CodexSessionReader - OSS Support", () => {
 
     expect(compactTailRead).toHaveBeenCalledTimes(1);
     expect(loaded?.readWindow).toBeUndefined();
-    expect(loaded?.data.session.entries[0]?.type).toBe("session_meta");
+    expect(codexEntries(loaded)[0]?.type).toBe("session_meta");
   });
 
   it("uses the complete reader for a source cursor past end of file", async () => {
@@ -3155,7 +3164,7 @@ describe("CodexSessionReader - OSS Support", () => {
     );
 
     expect(loaded?.readWindow).toBeUndefined();
-    expect(loaded?.data.session.entries[0]?.type).toBe("session_meta");
+    expect(codexEntries(loaded)[0]?.type).toBe("session_meta");
   });
 
   it("keeps the forward reader below the compact-tail crossover", async () => {
@@ -3182,7 +3191,7 @@ describe("CodexSessionReader - OSS Support", () => {
     ) {
       throw new Error("Expected the complete Codex detail read");
     }
-    expect(loaded.data.session.entries[0]?.type).toBe("session_meta");
+    expect(codexEntries(loaded)[0]?.type).toBe("session_meta");
   });
 
   it("falls back to a complete read when the large rollout has too few compactions", async () => {
@@ -3247,7 +3256,7 @@ describe("CodexSessionReader - OSS Support", () => {
     ) {
       throw new Error("Expected the complete Codex detail read");
     }
-    expect(loaded.data.session.entries[0]?.type).toBe("session_meta");
+    expect(codexEntries(loaded)[0]?.type).toBe("session_meta");
     expect(ranges.some((range) => range.start > 0)).toBe(true);
     expect(ranges.some((range) => range.start === 0)).toBe(true);
   });
@@ -3304,14 +3313,14 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(loaded?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(loaded)).toHaveLength(2);
     expect(reader.getEntryCacheStats().partialLineBytes).toBeGreaterThan(0);
     await appendFile(join(testDir, `${sessionId}.jsonl`), "\n");
     const committed = await reader.getSession(
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(committed?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(committed)).toHaveLength(2);
     expect(reader.getEntryCacheStats().partialLineBytes).toBe(0);
   });
 
@@ -3349,7 +3358,7 @@ describe("CodexSessionReader - OSS Support", () => {
     expect(normalizeSession(actual!).messages).toEqual(
       normalizeSession(expected!).messages,
     );
-    expect(actual?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(actual)).toHaveLength(2);
   });
 
   it("recovers when an admitted append is truncated during byte acquisition", async () => {
@@ -3472,7 +3481,7 @@ describe("CodexSessionReader - OSS Support", () => {
     await writeFile(replacement, `${header}\n${msg("new".repeat(500))}\n`);
     await rename(replacement, path);
     const loaded = await reader.getSession(id, "test-project" as UrlProjectId);
-    expect(loaded?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(loaded)).toHaveLength(2);
     const actual = normalizeSession(loaded!).messages;
     reader.invalidateCache();
     const rebuilt = await reader.getSession(id, "test-project" as UrlProjectId);
@@ -3514,9 +3523,9 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(loaded?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(loaded)).toHaveLength(2);
     expect(
-      loaded?.data.session.entries.filter(
+      codexEntries(loaded).filter(
         (entry) =>
           entry.type === "event_msg" &&
           entry.payload.type === "user_message" &&
@@ -3574,7 +3583,7 @@ describe("CodexSessionReader - OSS Support", () => {
     );
 
     expect(
-      loaded?.data.session.entries.find(
+      codexEntries(loaded).find(
         (entry) =>
           entry.type === "event_msg" && entry.payload.type === "user_message",
       ),
@@ -3695,10 +3704,10 @@ describe("CodexSessionReader - OSS Support", () => {
     releaseRange();
 
     const [first, second] = await Promise.all([firstRead, secondRead]);
-    expect(first?.data.session.entries).toEqual(second?.data.session.entries);
-    expect(first?.data.session.entries).toHaveLength(5);
+    expect(codexEntries(first)).toEqual(codexEntries(second));
+    expect(codexEntries(first)).toHaveLength(5);
     expect(
-      first?.data.session.entries.filter(
+      codexEntries(first).filter(
         (entry) =>
           entry.type === "response_item" &&
           entry.payload.type === "message" &&
@@ -3707,7 +3716,7 @@ describe("CodexSessionReader - OSS Support", () => {
       ),
     ).toHaveLength(1);
     expect(
-      first?.data.session.entries.filter(
+      codexEntries(first).filter(
         (entry) =>
           entry.type === "event_msg" && entry.payload.type === "task_complete",
       ),
@@ -3731,7 +3740,7 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(retained?.data.session.entries).toEqual(first?.data.session.entries);
+    expect(codexEntries(retained)).toEqual(codexEntries(first));
     expect(retained).not.toBeNull();
     if (!retained) throw new Error("Expected the retained detail read");
     expect(normalizeSession(retained).messages).toBe(normalized.messages);
@@ -3742,11 +3751,10 @@ describe("CodexSessionReader - OSS Support", () => {
     );
     expect(reordered).not.toBeNull();
     if (!reordered) throw new Error("Expected a reorderable detail read");
-    const reorderedEntries = reordered.data.session.entries;
-    [reorderedEntries[1], reorderedEntries[2]] = [
-      reorderedEntries[2],
-      reorderedEntries[1],
-    ];
+    const reorderedEntries = codexEntries(reordered);
+    const [, secondEntry, thirdEntry] = reorderedEntries;
+    assert(secondEntry && thirdEntry);
+    [reorderedEntries[1], reorderedEntries[2]] = [thirdEntry, secondEntry];
     expect(normalizeSession(reordered).messages).not.toBe(normalized.messages);
     expect(rangeSpy.mock.calls.length).toBeGreaterThan(0);
   });
@@ -3814,15 +3822,15 @@ describe("CodexSessionReader - OSS Support", () => {
     releaseRange();
 
     const beforeAppendPass = await coldRead;
-    expect(beforeAppendPass?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(beforeAppendPass)).toHaveLength(2);
 
     const afterAppendPass = await reader.getSession(
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(afterAppendPass?.data.session.entries).toHaveLength(3);
+    expect(codexEntries(afterAppendPass)).toHaveLength(3);
     expect(
-      afterAppendPass?.data.session.entries.filter(
+      codexEntries(afterAppendPass).filter(
         (entry) =>
           entry.type === "event_msg" &&
           entry.payload.type === "user_message" &&
@@ -3901,7 +3909,7 @@ describe("CodexSessionReader - OSS Support", () => {
     releaseSummary();
 
     const beforeAppendPass = await firstRead;
-    expect(beforeAppendPass?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(beforeAppendPass)).toHaveLength(2);
     expect(beforeAppendPass?.transcriptSnapshotUpdatedAt).toBe(
       expectedFirstVersion,
     );
@@ -3911,7 +3919,7 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    expect(afterAppendPass?.data.session.entries).toHaveLength(3);
+    expect(codexEntries(afterAppendPass)).toHaveLength(3);
     expect(afterAppendPass?.transcriptSnapshotUpdatedAt).toBe(
       expectedAppendedVersion,
     );
@@ -3982,9 +3990,9 @@ describe("CodexSessionReader - OSS Support", () => {
     releaseRange();
 
     const loaded = await inFlight;
-    expect(loaded?.data.session.entries).toHaveLength(3);
+    expect(codexEntries(loaded)).toHaveLength(3);
     expect(
-      loaded?.data.session.entries.filter(
+      codexEntries(loaded).filter(
         (entry) =>
           entry.type === "event_msg" &&
           entry.payload.type === "user_message" &&
@@ -4034,9 +4042,9 @@ describe("CodexSessionReader - OSS Support", () => {
       "test-project" as UrlProjectId,
     );
 
-    expect(loaded?.data.session.entries).toHaveLength(3);
+    expect(codexEntries(loaded)).toHaveLength(3);
     expect(
-      loaded?.data.session.entries.filter(
+      codexEntries(loaded).filter(
         (entry) =>
           entry.type === "response_item" &&
           entry.payload.type === "message" &&
@@ -4077,17 +4085,16 @@ describe("CodexSessionReader - OSS Support", () => {
       sessionId,
       "test-project" as UrlProjectId,
     );
-    const duplicate = first?.data.session.entries[1];
-    expect(duplicate).toBeDefined();
-    if (duplicate) {
-      first?.data.session.entries.push(duplicate);
-    }
+    const entries = codexEntries(first);
+    const duplicate = entries[1];
+    assert(duplicate);
+    entries.push(duplicate);
 
     const second = await reader.getSession(
       sessionId,
       "test-project" as UrlProjectId,
     );
 
-    expect(second?.data.session.entries).toHaveLength(2);
+    expect(codexEntries(second)).toHaveLength(2);
   });
 });

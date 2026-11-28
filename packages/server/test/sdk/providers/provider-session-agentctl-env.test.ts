@@ -14,7 +14,7 @@ function isBashAvailable(): boolean {
 }
 
 function readAgentctlSessionId(bashEnvPath: string): string {
-  const env = { ...process.env, BASH_ENV: bashEnvPath };
+  const env: NodeJS.ProcessEnv = { ...process.env, BASH_ENV: bashEnvPath };
   delete env.AGENTCTL_SESSION_ID;
   return execFileSync(
     "bash",

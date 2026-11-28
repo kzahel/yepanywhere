@@ -1,3 +1,4 @@
+import type { EffortLevel } from "@yep-anywhere/shared";
 import { prepareClaudeInput } from "../src/sdk/providers/claude-delivery.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getLogger } from "../src/logging/logger.js";
@@ -153,7 +154,7 @@ describe("Process", () => {
       const providerQueue = new MessageQueue();
       const push = vi.spyOn(providerQueue, "push");
       const setEffort = vi
-        .fn<(_effort?: "high" | "max") => Promise<void>>()
+        .fn<(_effort?: EffortLevel) => Promise<void>>()
         .mockRejectedValueOnce(new Error("provider rejected effort"))
         .mockResolvedValue(undefined);
       const process = new Process(controller.iterator, {

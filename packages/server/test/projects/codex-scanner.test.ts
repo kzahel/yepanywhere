@@ -86,10 +86,10 @@ describe("CodexSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/home/user/project-a");
-    expect(projects[0].provider).toBe("codex");
-    expect(projects[0].sessionCount).toBe(1);
-    expect(projects[0].sessionCountsByProvider).toEqual({ codex: 1 });
+    expect(projects[0]).toHaveProperty("path", "/home/user/project-a");
+    expect(projects[0]).toHaveProperty("provider", "codex");
+    expect(projects[0]).toHaveProperty("sessionCount", 1);
+    expect(projects[0]).toHaveProperty("sessionCountsByProvider", { codex: 1 });
   });
 
   it("resolves a session's project from its native cwd", async () => {
@@ -167,8 +167,8 @@ describe("CodexSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/home/user/project-zst");
-    expect(projects[0].sessionCount).toBe(1);
+    expect(projects[0]).toHaveProperty("path", "/home/user/project-zst");
+    expect(projects[0]).toHaveProperty("sessionCount", 1);
 
     const metrics = scanner.getLastScanMetrics();
     expect(metrics?.compressedRolloutFiles).toBe(1);
@@ -228,7 +228,7 @@ describe("CodexSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/home/user/plain-project");
+    expect(projects[0]).toHaveProperty("path", "/home/user/plain-project");
 
     const metrics = scanner.getLastScanMetrics();
     expect(metrics?.rolloutFilesFound).toBe(2);
@@ -445,8 +445,11 @@ describe("CodexSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("C:/Users/kyle/Documents/webvam");
-    expect(projects[0].sessionCount).toBe(2);
+    expect(projects[0]).toHaveProperty(
+      "path",
+      "C:/Users/kyle/Documents/webvam",
+    );
+    expect(projects[0]).toHaveProperty("sessionCount", 2);
   });
 
   it("deduplicates Windows cwd variants that differ only by segment case", async () => {
@@ -477,8 +480,11 @@ describe("CodexSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("C:/Users/sox/Documents/code/mclone");
-    expect(projects[0].sessionCount).toBe(3);
+    expect(projects[0]).toHaveProperty(
+      "path",
+      "C:/Users/sox/Documents/code/mclone",
+    );
+    expect(projects[0]).toHaveProperty("sessionCount", 3);
   });
 
   it("parses session_meta with very large base_instructions over 64KB", async () => {
@@ -514,7 +520,7 @@ describe("CodexSessionScanner", () => {
     const projects = await scanner.listProjects();
 
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/home/user/project-large");
+    expect(projects[0]).toHaveProperty("path", "/home/user/project-large");
   });
 
   it("persists normalized metadata and reuses it after append", async () => {
@@ -571,7 +577,10 @@ describe("CodexSessionScanner", () => {
     const restartedScanner = new CodexSessionScanner({ sessionsDir, dataDir });
     const restartedProjects = await restartedScanner.listProjects();
     expect(restartedProjects).toHaveLength(1);
-    expect(restartedProjects[0].path).toBe("/home/user/project-cache");
+    expect(restartedProjects[0]).toHaveProperty(
+      "path",
+      "/home/user/project-cache",
+    );
 
     const after = JSON.parse(await readFile(shardPath, "utf-8")) as {
       records: Record<string, { lastValidatedAtMs: number }>;
@@ -635,7 +644,10 @@ describe("CodexSessionScanner", () => {
     const scanner = new CodexSessionScanner({ sessionsDir, dataDir });
     const projects = await scanner.listProjects();
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/home/user/project-before-replace");
+    expect(projects[0]).toHaveProperty(
+      "path",
+      "/home/user/project-before-replace",
+    );
 
     await rm(sessionPath);
     await writeFile(
@@ -648,7 +660,10 @@ describe("CodexSessionScanner", () => {
     const restartedScanner = new CodexSessionScanner({ sessionsDir, dataDir });
     const restartedProjects = await restartedScanner.listProjects();
     expect(restartedProjects).toHaveLength(1);
-    expect(restartedProjects[0].path).toBe("/home/user/project-after-replace");
+    expect(restartedProjects[0]).toHaveProperty(
+      "path",
+      "/home/user/project-after-replace",
+    );
   });
 
   it("rereads cached metadata when a plain rollout shrinks", async () => {
@@ -675,7 +690,10 @@ describe("CodexSessionScanner", () => {
     const scanner = new CodexSessionScanner({ sessionsDir, dataDir });
     const projects = await scanner.listProjects();
     expect(projects).toHaveLength(1);
-    expect(projects[0].path).toBe("/home/user/project-before-shrink");
+    expect(projects[0]).toHaveProperty(
+      "path",
+      "/home/user/project-before-shrink",
+    );
 
     const afterMeta = makeSessionMeta(
       id,
@@ -694,7 +712,8 @@ describe("CodexSessionScanner", () => {
     const restartedScanner = new CodexSessionScanner({ sessionsDir, dataDir });
     const restartedProjects = await restartedScanner.listProjects();
     expect(restartedProjects).toHaveLength(1);
-    expect(restartedProjects[0].path).toBe(
+    expect(restartedProjects[0]).toHaveProperty(
+      "path",
       "/home/user/project-after-shrink-with-longer-name",
     );
   });
@@ -720,7 +739,10 @@ describe("CodexSessionScanner", () => {
       const scanner = new CodexSessionScanner({ sessionsDir, dataDir });
       const projects = await scanner.listProjects();
       expect(projects).toHaveLength(1);
-      expect(projects[0].path).toBe("/home/user/project-compressed-cache");
+      expect(projects[0]).toHaveProperty(
+        "path",
+        "/home/user/project-compressed-cache",
+      );
 
       const index = createCodexSessionDiscoveryIndex(dataDir, sessionsDir);
       expect(index).toBeDefined();
@@ -741,7 +763,8 @@ describe("CodexSessionScanner", () => {
       });
       const restartedProjects = await restartedScanner.listProjects();
       expect(restartedProjects).toHaveLength(1);
-      expect(restartedProjects[0].path).toBe(
+      expect(restartedProjects[0]).toHaveProperty(
+        "path",
         "/home/user/project-compressed-cache",
       );
       const metrics = restartedScanner.getLastScanMetrics();
@@ -860,6 +883,6 @@ describe("CodexSessionScanner", () => {
       "/home/user/project-a",
     );
     expect(sessions).toHaveLength(1);
-    expect(sessions[0].id).toBe(id1);
+    expect(sessions[0]).toHaveProperty("id", id1);
   });
 });

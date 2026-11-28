@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import {
   BinaryFormat,
   TRANSPORT_CHUNK_HEADER_SIZE,
@@ -53,7 +54,9 @@ describe("WebSocket response framing", () => {
     });
 
     expect(frames).toHaveLength(1);
-    const { format, payload } = decodeBinaryFrame(frames[0]);
+    const [frame] = frames;
+    assert.ok(frame);
+    const { format, payload } = decodeBinaryFrame(frame);
     expect(format).toBe(BinaryFormat.JSON);
     const serialized = new TextDecoder().decode(payload);
     expect(serialized).toContain(`,"body":${bodyText}}`);
@@ -154,7 +157,9 @@ describe("WebSocket response framing", () => {
     });
 
     expect(frames).toHaveLength(1);
-    const decrypted = decryptBinaryEnvelopeRaw(frames[0], sessionKey);
+    const [frame] = frames;
+    assert.ok(frame);
+    const decrypted = decryptBinaryEnvelopeRaw(frame, sessionKey);
     expect(decrypted?.format).toBe(BinaryFormat.COMPRESSED_JSON);
     expect(JSON.parse(decompressGzip(decrypted!.payload))).toEqual({
       seq: 0,
@@ -237,10 +242,10 @@ describe("WebSocket response framing", () => {
     createSendFn(ws, state)(largeResponse());
 
     expect(frames).toHaveLength(1);
-    expect(frames[0].byteLength).toBeGreaterThan(
-      TRANSPORT_CHUNK_PAYLOAD_MAX_BYTES,
-    );
-    expect(decodeJsonFrame(frames[0])).toEqual(largeResponse());
+    const [frame] = frames;
+    assert.ok(frame);
+    expect(frame.byteLength).toBeGreaterThan(TRANSPORT_CHUNK_PAYLOAD_MAX_BYTES);
+    expect(decodeJsonFrame(frame)).toEqual(largeResponse());
     expect(ws.close).not.toHaveBeenCalled();
   });
 });

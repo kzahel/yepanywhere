@@ -7,14 +7,6 @@ import { CodexOSSProvider } from "../../src/sdk/providers/codex-oss.js";
 import { CodexUpdateChecker } from "../../src/services/CodexUpdateChecker.js";
 import { ProviderInstallationCoordinator } from "../../src/services/ProviderInstallationCoordinator.js";
 
-function deferred(): { promise: Promise<void>; resolve: () => void } {
-  let resolve = () => undefined;
-  const promise = new Promise<void>((complete) => {
-    resolve = complete;
-  });
-  return { promise, resolve };
-}
-
 async function writeFakeCodex(path: string, version: string): Promise<void> {
   const source =
     process.platform === "win32"
@@ -50,8 +42,8 @@ describe("Codex installation update coordination", () => {
     const retiredPath = `${codexPath}.retired`;
     await writeFakeCodex(codexPath, "0.4.2");
 
-    const replacementOpen = deferred();
-    const finishReplacement = deferred();
+    const replacementOpen = Promise.withResolvers<void>();
+    const finishReplacement = Promise.withResolvers<void>();
     const runInstall = vi.fn(async () => {
       await rename(codexPath, retiredPath);
       replacementOpen.resolve();
@@ -130,8 +122,8 @@ describe("Codex installation update coordination", () => {
     const retiredPath = `${codexPath}.retired`;
     await writeFakeCodex(codexPath, "0.4.2");
 
-    const replacementOpen = deferred();
-    const finishReplacement = deferred();
+    const replacementOpen = Promise.withResolvers<void>();
+    const finishReplacement = Promise.withResolvers<void>();
     const runInstall = vi.fn(async () => {
       await rename(codexPath, retiredPath);
       replacementOpen.resolve();
