@@ -163,14 +163,16 @@ export function parseArgs(argv: string[] = process.argv.slice(2)): Options {
   };
 
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--") continue;
-    switch (argv[i]) {
+    const flag = argv[i];
+    switch (flag) {
       case "--css-dir":
-        options.cssDir = argv[++i];
+      case "--src-dir": {
+        const value = argv[++i];
+        if (value === undefined)
+          throw new Error(`${flag} requires a directory`);
+        options[flag === "--css-dir" ? "cssDir" : "srcDir"] = value;
         break;
-      case "--src-dir":
-        options.srcDir = argv[++i];
-        break;
+      }
       case "--verbose":
         options.verbose = true;
         break;
@@ -388,15 +390,15 @@ export function extractComposes(cssContent: string): ComposesReference {
   const result: ComposesReference = { local: [], external: [], global: [] };
   postcss.parse(cssContent).walkDecls("composes", (declaration) => {
     const value = declaration.value.trim();
-    const fromMatch = /^([\s\S]+?)\s+from\s+(.+)$/.exec(value);
+    const [, classes, from] = /^([\s\S]+?)\s+from\s+(.+)$/.exec(value) ?? [];
 
-    if (!fromMatch) {
+    if (classes === undefined || from === undefined) {
       result.local.push(...value.split(/\s+/).filter(Boolean));
       return;
     }
 
-    const names = fromMatch[1].split(/\s+/).filter(Boolean);
-    const source = fromMatch[2].trim();
+    const names = classes.split(/\s+/).filter(Boolean);
+    const source = from.trim();
     if (source === "global") {
       result.global.push(...names);
       return;
@@ -456,8 +458,10 @@ export function extractModuleSelectors(
   });
 
   root.walkDecls("composes", (declaration) => {
-    const match = /^([\s\S]+?)\s+from\s+global$/.exec(declaration.value.trim());
-    if (!match) return;
+    const classes = /^([\s\S]+?)\s+from\s+global$/.exec(
+      declaration.value.trim(),
+    )?.[1];
+    if (classes === undefined) return;
     const rule = declaration.parent;
     const selector = rule?.type === "rule" ? rule.selector : "<declaration>";
     const branches =
@@ -470,7 +474,7 @@ export function extractModuleSelectors(
               globalClassNames: [],
             },
           ];
-    for (const name of match[1].split(/\s+/).filter(Boolean)) {
+    for (const name of classes.split(/\s+/).filter(Boolean)) {
       globalRefs.add(name);
       for (const branch of branches) {
         globalUses.push({
@@ -751,11 +755,10 @@ export function buildSourceUsageIndex(
       }
       if (ts.isTemplateExpression(node)) {
         addTemplateTokens(exact, node.head.text, filename, true, false);
-        for (let index = 0; index < node.templateSpans.length; index++) {
-          const literal = node.templateSpans[index].literal.text;
+        for (const [index, span] of node.templateSpans.entries()) {
           addTemplateTokens(
             exact,
-            literal,
+            span.literal.text,
             filename,
             false,
             index === node.templateSpans.length - 1,

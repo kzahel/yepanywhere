@@ -14,6 +14,7 @@
     "mockup:build": "tsc -p tsconfig.mockups.json && vite build --config vite.config.mockup.ts",
     "mockup:export": "pnpm mockup:build && playwright test --config playwright.mockups.config.ts",
     "test": "node ../../scripts/run-with-safe-home.js vitest run",
+    "typecheck:test": "tsc -p tsconfig.tools.json",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:android": "playwright test --grep \"streams physical Android\"",

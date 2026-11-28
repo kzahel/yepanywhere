@@ -16,7 +16,10 @@ import { FixedFontMathToggle } from "../../src/components/ui/FixedFontMathToggle
 import { SelectableCard } from "../../src/components/ui/SelectableCard";
 import { CopyTextButton } from "../../src/components/ui/CopyTextButton";
 import { IconButton } from "../../src/components/ui/Button";
-import { RememberedDisclosureStateProvider } from "../../src/contexts/RememberedDisclosureStateContext";
+import {
+  createRememberedDisclosureStateRegistry,
+  RememberedDisclosureStateProvider,
+} from "../../src/contexts/RememberedDisclosureStateContext";
 import appStyles from "../../src/components/ProjectAppViewer.module.css";
 import menuStyles from "../../src/components/SourceContextMenu.module.css";
 import lastStyles from "../../src/components/LastSessionFile.module.css";
@@ -68,7 +71,7 @@ function Fixture() {
           id="reveal-tool"
           toolName="Bash"
           toolInput={{ command: "printf 'hello'" }}
-          toolResult={{ content: "hello" }}
+          toolResult={{ content: "hello", isError: false }}
           status="complete"
         />
       </Site>
@@ -152,6 +155,7 @@ function Fixture() {
             stdout: "stdout witness",
             stderr: "stderr witness",
             interrupted: false,
+            isImage: false,
           }}
           isError={false}
         />
@@ -193,6 +197,7 @@ function Fixture() {
           }}
           toolResult={{
             content: "Updated /tmp/reveal.ts",
+            isError: false,
             structured: {
               filePath: "/tmp/reveal.ts",
               oldString: "before",
@@ -224,7 +229,8 @@ function Fixture() {
       </Site>
       <Site name="host">
         <div className={hostStyles.item} data-reveal-row="host">
-          Saved host <Action name="Delete host" className={hostStyles.delete} />
+          Saved host{" "}
+          <Action name="Delete host" className={hostStyles.delete!} />
         </div>
       </Site>
       <Site name="menu">
@@ -250,7 +256,9 @@ function Fixture() {
 }
 createRoot(document.getElementById("root")!).render(
   displayProviders(
-    <RememberedDisclosureStateProvider>
+    <RememberedDisclosureStateProvider
+      registry={createRememberedDisclosureStateRegistry()}
+    >
       <Fixture />
     </RememberedDisclosureStateProvider>,
   ),

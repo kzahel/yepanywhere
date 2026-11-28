@@ -6,6 +6,7 @@ import {
   nearestGatewayEffortLevel,
   parseGatewayServices,
   type GatewayEndpointEffortProbe,
+  type GatewayModelEffort,
 } from "../src/index.js";
 
 /** What a vLLM endpoint answers when asked; see gateway-effort-probe. */
@@ -172,10 +173,10 @@ describe("gatewayModelEffort", () => {
   });
 
   it("snaps an unlisted level down, never up", () => {
-    const effort = { levels: ["low", "high", "max"] } as const;
-    expect(nearestGatewayEffortLevel({ ...effort }, "medium")).toBe("low");
-    expect(nearestGatewayEffortLevel({ ...effort }, "xhigh")).toBe("high");
-    expect(nearestGatewayEffortLevel({ ...effort }, "high")).toBe("high");
+    const effort: GatewayModelEffort = { levels: ["low", "high", "max"] };
+    expect(nearestGatewayEffortLevel(effort, "medium")).toBe("low");
+    expect(nearestGatewayEffortLevel(effort, "xhigh")).toBe("high");
+    expect(nearestGatewayEffortLevel(effort, "high")).toBe("high");
     // Nothing sits below the request, so the cheapest listed level stands in.
     expect(nearestGatewayEffortLevel({ levels: ["high"] }, "low")).toBe("high");
   });

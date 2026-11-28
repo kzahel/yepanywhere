@@ -10,8 +10,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable", "DOM.AsyncIterable"]
   },
   "include": [
-    "e2e/**/*.ts",
-    "e2e/**/*.mjs",
+    "e2e/**/*",
     "playwright*.config.ts",
     "scripts/design-*.ts",
     "src/vite-env.d.ts",

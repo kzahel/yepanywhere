@@ -1,6 +1,6 @@
+import assert from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import {
-  type ClaudeSessionEntry,
   ClaudeSessionEntrySchema,
   getLogicalParentUuid,
   isInjectedContinuationPrompt,
@@ -222,16 +222,11 @@ describe("Claude SDK schema", () => {
       parentUuid: null,
     });
 
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-
-    const metadata = result.data.compactMetadata as
-      | Record<string, unknown>
-      | undefined;
-    expect(metadata?.preservedSegment).toEqual({ tailUuid: "tail" });
-    expect(getLogicalParentUuid(result.data as ClaudeSessionEntry)).toBe(
-      "tail",
-    );
+    assert(result.success, "expected a parsed compact boundary");
+    expect(result.data).toMatchObject({
+      compactMetadata: { preservedSegment: { tailUuid: "tail" } },
+    });
+    expect(getLogicalParentUuid(result.data)).toBe("tail");
   });
 
   describe("harness session-continuation entries", () => {

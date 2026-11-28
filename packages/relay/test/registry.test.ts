@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import type { SqliteDatabase } from "@yep-anywhere/shared/sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb } from "../src/db.js";
@@ -98,11 +99,11 @@ describe("UsernameRegistry", () => {
       registry.register("alice", "install-1");
       const before = registry.get("alice")?.last_seen_at;
 
-      // Small delay to ensure timestamp changes
       registry.updateLastSeen("alice");
       const after = registry.get("alice")?.last_seen_at;
 
-      // Should be same or later
+      assert(before !== undefined, "expected initial last_seen_at");
+      assert(after !== undefined, "expected updated last_seen_at");
       expect(new Date(after).getTime()).toBeGreaterThanOrEqual(
         new Date(before).getTime(),
       );

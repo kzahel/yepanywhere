@@ -1,47 +1,25 @@
 import type { SqliteDatabase } from "@yep-anywhere/shared/sqlite";
 import { SPEECH_RELAY_CHANNEL } from "@yep-anywhere/shared";
-import type { WSContext } from "hono/ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WebSocket } from "ws";
 import { ConnectionManager } from "../src/connections.js";
 import { createTestDb } from "../src/db.js";
 import { UsernameRegistry } from "../src/registry.js";
 
-/** Create a mock WSContext for testing */
-function createMockWs(): WSContext & {
-  sentMessages: (string | ArrayBuffer)[];
-  closed: boolean;
-  closeCode?: number;
-  closeReason?: string;
-} {
-  const sentMessages: (string | ArrayBuffer)[] = [];
-  let closed = false;
-  let closeCode: number | undefined;
-  let closeReason: string | undefined;
-
-  return {
-    sentMessages,
-    closed,
-    closeCode,
-    closeReason,
-    send: vi.fn((data: string | ArrayBuffer) => {
-      sentMessages.push(data);
-    }),
-    close: vi.fn((code?: number, reason?: string) => {
-      closed = true;
-      closeCode = code;
-      closeReason = reason;
-    }),
-    raw: null,
-    binaryType: "arraybuffer",
-    readyState: 1, // OPEN
-    url: null,
-    protocol: null,
-  } as unknown as WSContext & {
-    sentMessages: (string | ArrayBuffer)[];
-    closed: boolean;
-    closeCode?: number;
-    closeReason?: string;
+function createMockWs(): WebSocket {
+  type SendParameters = Parameters<WebSocket["send"]>;
+  const ws: Pick<WebSocket, "send" | "close"> = {
+    send: vi.fn<
+      (
+        data: SendParameters[0],
+        optionsOrCallback?: SendParameters[1] | SendParameters[2],
+        callback?: SendParameters[2],
+      ) => void
+    >(),
+    close: vi.fn<WebSocket["close"]>(),
   };
+  // ConnectionManager uses these methods and the socket's object identity.
+  return ws as WebSocket;
 }
 
 describe("ConnectionManager", () => {

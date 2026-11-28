@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { describe, expect, it } from "vitest";
 import {
   BinaryEnvelopeError,
@@ -1336,9 +1337,11 @@ describe("transport-chunk-frames (Phase 4)", () => {
           1 + TRANSPORT_CHUNK_HEADER_SIZE + TRANSPORT_CHUNK_PAYLOAD_MAX_BYTES,
       ),
     ).toBe(true);
-    expect(reassembler.accept(frames[0])).toBeUndefined();
-    expect(reassembler.accept(frames[1])).toBeUndefined();
-    expect(reassembler.accept(frames[2])).toEqual(message);
+    const [first, second, third] = frames;
+    assert(first && second && third, "expected three chunks");
+    expect(reassembler.accept(first)).toBeUndefined();
+    expect(reassembler.accept(second)).toBeUndefined();
+    expect(reassembler.accept(third)).toEqual(message);
     expect(reassembler.hasPendingMessage).toBe(false);
   });
 

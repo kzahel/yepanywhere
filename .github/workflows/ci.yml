@@ -256,10 +256,6 @@ jobs:
         run: node ../scripts/audit-site-dependencies.mjs
         if: ${{ !cancelled() }}
         working-directory: site
-      - name: Verify sharing worker frozen install
-        if: ${{ !cancelled() }}
-        run: npm ci --ignore-scripts --no-audit --no-fund
-        working-directory: sharing-worker
       - run: npm audit --package-lock-only
         if: ${{ !cancelled() }}
         working-directory: sharing-worker
@@ -312,6 +308,9 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
       - run: pnpm typecheck
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: sharing-worker
+      - run: pnpm typecheck:sharing-worker
 
   unit-tests:
     runs-on: ubuntu-24.04

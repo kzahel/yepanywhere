@@ -1,8 +1,6 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createRelayServer } from "../../relay/src/server.js";
-// Standalone diagnostic runner, like the existing unchanged YA fixture.
-// @ts-expect-error The shared CLI fixture is an untyped ESM JavaScript module.
 import { startFixture } from "./fixture.mjs";
 const relay = await createRelayServer({
   port: 0,

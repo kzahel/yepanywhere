@@ -72,17 +72,23 @@ cd site && npm run build   # Astro check + build (or: pnpm site:build from root)
 Fix any errors before considering the task complete.
 
 Root `pnpm typecheck` includes `pnpm e2e:typecheck`, which checks all client
-Playwright specs, configurations and support modules through
-`packages/client/tsconfig.e2e.json`. Keep fixture and startup changes in that
-strict gate; Playwright strips types without checking them.
+Playwright specs, configurations, support modules, and browser fixtures
+through `packages/client/tsconfig.e2e.json`. Playwright strips types during
+execution, so the compiler must include fixtures loaded through HTML as well
+as files imported by the specs.
 
-Root `pnpm typecheck` also runs the server's `typecheck:test` script. The
-non-emitting server test config covers the test tree and its imports with
-Vitest's `source` export condition. The production config still owns tests
-beside server source. A coverage check reports any server TypeScript test or
-spec outside both configs. The peer tests import the relay workspace, so use
-a full workspace install. To check just the server test tree, run
-`pnpm --dir packages/server typecheck:test`.
+`pnpm test:typecheck` runs the workspace test compiler configs and checks that
+every TypeScript test and spec in client, server, shared, relay, and push-broker
+belongs to a config run by root `pnpm typecheck`. It also checks membership for
+the client E2E fixture and support tree. Test configs use `noEmit` so adding
+coverage leaves production builds and their outputs alone. The peer tests
+import the relay workspace, so use a full workspace install. Run a package's
+additional test config with `pnpm --dir packages/<package> typecheck:test`.
+
+Root typechecking also covers build, CSS and native test tooling. The standalone
+sharing worker uses the same workspace compiler in CI after its separate
+`npm ci --prefix sharing-worker --ignore-scripts` install. Run its check with
+`pnpm typecheck:sharing-worker`.
 
 The general CI unit-test job runs `pnpm test`. Android unit, lint, build, and
 instrumentation coverage belongs to the dedicated Android App workflow so its

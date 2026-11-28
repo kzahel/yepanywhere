@@ -1,0 +1,17 @@
+{
+  "extends": "../packages/server/tsconfig.test.json",
+  "compilerOptions": {
+    "typeRoots": ["../packages/server/node_modules/@types"]
+  },
+  "include": [
+    "../vitest.config.ts",
+    "build-bundle.ts",
+    "css-health.ts",
+    "find-unused-css.ts",
+    "android-secure-interop-fixture.ts",
+    "../packages/android/scripts/live-transport.ts",
+    "../packages/mobile-core/scripts/live-relay.ts",
+    "../packages/mobile-core-proof/scripts/generate-vectors.ts",
+    "../packages/server/scripts/android-native-secure-probe-server.ts"
+  ]
+}

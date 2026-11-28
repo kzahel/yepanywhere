@@ -14,6 +14,7 @@
   },
   "include": [
     "../client/src/vite-env.d.ts",
+    "vitest.config.ts",
     "test/**/*.ts",
     "test/**/*.tsx",
     "test/**/*.mts",

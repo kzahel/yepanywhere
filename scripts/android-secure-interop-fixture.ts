@@ -47,7 +47,8 @@ function bytesHex(value: Uint8Array): string {
 }
 
 function base64(value: Uint8Array | ArrayBuffer): string {
-  return Buffer.from(value).toString("base64");
+  const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : value;
+  return Buffer.from(bytes).toString("base64");
 }
 
 function rangeBytes(start: number, length: number): Uint8Array {

@@ -143,6 +143,7 @@ export function Corrections() {
           toolInput={{ file_path: `/tmp/${longName}.pdf` }}
           toolResult={{
             content: "PDF",
+            isError: false,
             structured: {
               type: "pdf",
               file: {
@@ -162,7 +163,7 @@ export function Corrections() {
             linked_tool_name: "Read",
             linked_file_path: `/tmp/${longName}`,
           }}
-          toolResult={{ content: "first line\nsecond line" }}
+          toolResult={{ content: "first line\nsecond line", isError: false }}
           status="complete"
         />
         <ToolCallRow
@@ -173,7 +174,7 @@ export function Corrections() {
             old_string: "before",
             new_string: "after",
           }}
-          toolResult={{ content: "Updated" }}
+          toolResult={{ content: "Updated", isError: false }}
           status="complete"
         />
       </div>

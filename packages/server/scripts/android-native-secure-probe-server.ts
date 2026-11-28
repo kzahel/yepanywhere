@@ -375,8 +375,9 @@ const relayReady = relayUrl
       resolveRelayReady = resolve;
     })
   : Promise.resolve();
-const relayClientService = relayUrl ? new RelayClientService() : null;
-if (relayClientService) {
+let relayClientService: RelayClientService | undefined;
+if (relayUrl) {
+  relayClientService = new RelayClientService();
   const acceptRelayConnection = createAcceptRelayConnection({
     app,
     baseUrl: `http://127.0.0.1:${requestedPort}`,

@@ -3,6 +3,7 @@ import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 const repo = resolve(fileURLToPath(new URL("..", import.meta.url)), "../..");
+/** @param {{ relayURL?: string, username?: string }} [options] */
 export async function startFixture({
   relayURL,
   username = "ios-fixture",

@@ -5,7 +5,6 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { createRelayServer } from "../../relay/src/server.js";
-// @ts-expect-error The shared diagnostic fixture is an untyped ESM module.
 import { startFixture } from "../../mobile-core/scripts/fixture.mjs";
 const android = fileURLToPath(new URL("..", import.meta.url));
 const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;

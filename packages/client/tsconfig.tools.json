@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "scripts/**/*.test.*",
+    "scripts/**/*.spec.*",
+    "scripts/capture-artifact.ts",
+    "src/vite-env.d.ts"
+  ]
+}
