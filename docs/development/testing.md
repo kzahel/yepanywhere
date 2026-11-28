@@ -187,18 +187,23 @@ invalidating preference caches, so earlier cases cannot choose later defaults.
 
 ## Client Browser Tests With Installed Chrome
 
-On a Linux workstation where AppArmor blocks Playwright's bundled Chromium,
-`YEP_TEST_USE_SYSTEM_CHROME=1` selects installed Google Chrome Stable for the
-client Vitest suite.
+The usual client Vitest command works on Linux with AppArmor enabled.
 
 ```bash
-YEP_TEST_USE_SYSTEM_CHROME=1 pnpm --dir packages/client test
+pnpm --dir packages/client test
 ```
 
-The option also applies to the client Vitest suites inside root `pnpm test`.
-The browser runs with sandboxing enabled. Runs without the option, including
-CI, use Playwright's bundled Chromium for these suites. Playwright E2E and
-extension acceptance have their own browser configuration.
+On local Linux hosts where AppArmor restricts unprivileged user namespaces,
+the suite automatically uses Google Chrome Stable if it is installed at
+`/opt/google/chrome/chrome`. If Chrome is missing and bundled Chromium is
+missing or cannot start its sandbox, the error suggests installing Chrome Stable.
+CI and other hosts default to Playwright's bundled Chromium. Set
+`YEP_TEST_USE_SYSTEM_CHROME=1` to force installed Chrome or `0` to force
+bundled Chromium.
+
+The same selection applies to the client Vitest suites inside root `pnpm test`.
+Both browsers run with sandboxing enabled. Playwright E2E and extension
+acceptance have their own browser configuration.
 
 ## Native App CI Cadence
 
