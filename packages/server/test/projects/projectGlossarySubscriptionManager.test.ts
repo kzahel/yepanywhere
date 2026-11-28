@@ -1110,4 +1110,46 @@ describe("ProjectGlossarySubscriptionManager", () => {
     manager.dispose();
     expect(pathIndexClaims.held).toBe(0);
   });
+
+  it.runIf(process.platform === "darwin")(
+    "finishes activation without spinning when off-thread watch attachment fails",
+    async () => {
+      const { EventEmitter } = await import("node:events");
+      const { FocusedDirectoryWorker } = await import(
+        "../../src/watcher/FocusedDirectoryWorker.js"
+      );
+      let attempts = 0;
+      const watchSpy = vi
+        .spyOn(FocusedDirectoryWorker.prototype, "watch")
+        .mockImplementation(() => {
+          attempts += 1;
+          const handle = Object.assign(new EventEmitter(), {
+            close: vi.fn(),
+            ref: vi.fn().mockReturnThis(),
+            unref: vi.fn().mockReturnThis(),
+          });
+          queueMicrotask(() => {
+            handle.emit(
+              "error",
+              Object.assign(new Error("no space"), { code: "ENOSPC" }),
+            );
+          });
+          return handle as unknown as import("node:fs").FSWatcher;
+        });
+
+      const { manager, observePath, projectId, projectPath } =
+        await createHarness({ pollMs: 60_000 });
+      await writeFile(join(projectPath, "GLOSSARY.md"), "root");
+      observePath("GLOSSARY.md");
+      try {
+        const unsubscribe = await subscribeReady(manager, projectId, () => {});
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        expect(attempts).toBeLessThanOrEqual(2);
+        unsubscribe();
+      } finally {
+        manager.dispose();
+        watchSpy.mockRestore();
+      }
+    },
+  );
 });

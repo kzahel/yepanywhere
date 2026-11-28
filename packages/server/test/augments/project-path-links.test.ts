@@ -24,6 +24,7 @@ import {
   type PathIndexIo,
   type ProjectPathIndex,
 } from "../../src/projects/projectPathIndex.js";
+import { waitForSharedDirectoryWatchCloses } from "../../src/watcher/SharedDirectoryWatcher.js";
 
 const execFileAsync = promisify(execFile);
 const repos: string[] = [];
@@ -129,6 +130,7 @@ function recordingIo(root: string): RecordedIo {
 afterEach(async () => {
   vi.restoreAllMocks();
   __test__.reset();
+  await waitForSharedDirectoryWatchCloses();
   await Promise.all(repos.splice(0).map((dir) => rm(dir, { recursive: true })));
 });
 
@@ -1079,6 +1081,228 @@ describe("project path index", () => {
     expect(io.listed).toEqual([]);
     index.dispose();
   });
+
+  it("preserves hydrated descendant watchers when re-listing a parent after a sibling change", async () => {
+    const repo = await createRepo();
+    await mkdir(join(repo, "packages/server/src"), { recursive: true });
+    await writeFile(join(repo, "packages/server/src/app.ts"), "export {};\n");
+    await writeFile(join(repo, "README.md"), "# repo\n");
+    const io = recordingIo(repo);
+    const index = __test__.createIndex(repo, { io });
+
+    // Hydrate deep subtree + complete root listing.
+    await index.findExisting([
+      "packages/server/src/app.ts",
+      "README.md",
+      "a.txt",
+      "b.txt",
+      "c.txt",
+    ]);
+    expect(io.listed).toEqual(["."]);
+    expect(index.knownFile("packages/server/src/app.ts")).toBe(true);
+    const initialWatchers = __test__.diagnostics(index).watchers;
+    expect(initialWatchers).toBe(4);
+    const watchedBefore = io.watched.length;
+    io.listed.length = 0;
+    io.probed.length = 0;
+
+    // An unrelated sibling edit in root invalidates root completeness, then a
+    // wide root lookup triggers a fresh root listing (`replaceChildren`).
+    await writeFile(join(repo, "tmp.txt"), "x\n");
+    io.emitEvent(".", "tmp.txt");
+    const revAfterEvent = index.sourceRevision();
+
+    const found = await index.findExisting([
+      "tmp.txt",
+      "m1.txt",
+      "m2.txt",
+      "m3.txt",
+    ]);
+    expect(found).toEqual(new Set(["tmp.txt"]));
+    expect(io.listed).toEqual(["."]);
+    // Descendant directory watchers under `packages/server/src` stayed intact:
+    // no re-watching, no lost cached facts, and no spurious revision bump.
+    expect(io.watched.length).toBe(watchedBefore);
+    expect(__test__.diagnostics(index).watchers).toBe(initialWatchers);
+    expect(index.sourceRevision()).toBe(revAfterEvent);
+    expect(index.knownFile("packages/server/src/app.ts")).toBe(true);
+    expect(io.probed).toEqual([]);
+    index.dispose();
+  });
+
+  it("invalidates a hydrated subtree when a parent relist detects a same-name inode replacement", async () => {
+    const repo = await createRepo();
+    await mkdir(join(repo, "runs"), { recursive: true });
+    await writeFile(join(repo, "runs/old.json"), "{}\n");
+    await writeFile(join(repo, "README.md"), "# repo\n");
+    const io = recordingIo(repo);
+    const index = __test__.createIndex(repo, { io });
+
+    await index.findExisting(["runs/old.json", "README.md", "a", "b", "c"]);
+    expect(index.knownFile("runs/old.json")).toBe(true);
+    const revBefore = index.sourceRevision();
+
+    // Replace `runs` with a fresh directory inode without delivering a `runs`
+    // rename event; only a sibling change forces a parent relist.
+    await rm(join(repo, "runs"), { recursive: true });
+    await mkdir(join(repo, "runs"));
+    await writeFile(join(repo, "sibling.txt"), "x\n");
+    io.emitEvent(".", "sibling.txt");
+    const revAfterSibling = index.sourceRevision();
+
+    await index.findExisting(["sibling.txt", "m1", "m2", "m3"]);
+    expect(index.sourceRevision()).toBeGreaterThan(revAfterSibling);
+    expect(index.sourceRevision()).toBeGreaterThan(revBefore);
+    expect(index.knownFile("runs/old.json")).toBeUndefined();
+    expect(await index.has("runs/old.json")).toBe(false);
+
+    // Replace a hydrated directory with a regular file between readdir and
+    // identity verification: the contradicted listing must not publish it as a
+    // directory or mark the parent complete.
+    await writeFile(join(repo, "runs/new.json"), "{}\n");
+    await index.findExisting(["runs/new.json"]);
+    let mutateOnNextReaddir = true;
+    const baseReaddir = io.readdir;
+    io.readdir = async (path) => {
+      const entries = await baseReaddir(path);
+      if (mutateOnNextReaddir && path === repo) {
+        mutateOnNextReaddir = false;
+        await rm(join(repo, "runs"), { recursive: true });
+        await writeFile(join(repo, "runs"), "now a file\n");
+      }
+      return entries;
+    };
+    io.emitEvent(".", "sibling.txt");
+    expect(await index.findExisting(["runs", "x1", "x2", "x3", "x4"])).toEqual(
+      new Set(["runs"]),
+    );
+    expect(mutateOnNextReaddir).toBe(false);
+    expect(await index.has("runs")).toBe(true);
+    index.dispose();
+  });
+
+  it.runIf(process.platform === "darwin")(
+    "degrades warm caches during a stalled macOS close, clears stale facts on recovery, and does not spin on open failure",
+    async () => {
+      const { FocusedDirectoryWorker } = await import(
+        "../../src/watcher/FocusedDirectoryWorker.js"
+      );
+      const { SharedDirectoryWatcher } = await import(
+        "../../src/watcher/SharedDirectoryWatcher.js"
+      );
+      const handles: EventEmitter[] = [];
+      let failOpen = false;
+      const watchSpy = vi
+        .spyOn(FocusedDirectoryWorker.prototype, "watch")
+        .mockImplementation((_path, _retire) => {
+          const handle = Object.assign(new EventEmitter(), {
+            close: vi.fn(),
+            ref: vi.fn().mockReturnThis(),
+            unref: vi.fn().mockReturnThis(),
+          });
+          handles.push(handle);
+          queueMicrotask(() => {
+            if (failOpen) {
+              handle.emit(
+                "error",
+                Object.assign(new Error("no space"), { code: "ENOSPC" }),
+              );
+            } else {
+              handle.emit("ready");
+            }
+          });
+          return handle as unknown as FSWatcher;
+        });
+      const blockedSpy = vi
+        .spyOn(FocusedDirectoryWorker.prototype, "isBlockedInClose")
+        .mockReturnValue(false);
+
+      const registry = new SharedDirectoryWatcher();
+      const repo = await createRepo();
+      await writeFile(join(repo, "live.txt"), "ok\n");
+      const listed: string[] = [];
+      const io: PathIndexIo = {
+        lstat: (path) => lstat(path),
+        readdir: (path) => {
+          listed.push(path);
+          return readdir(path, { withFileTypes: true });
+        },
+        watch: (path, listener) =>
+          registry.watch(
+            path,
+            { asyncReady: true, persistent: false },
+            listener,
+          ),
+      };
+      const index = __test__.createIndex(repo, { io });
+      try {
+        expect(await index.has("live.txt")).toBe(true);
+        const warmRev = index.sourceRevision();
+
+        // While the worker is stalled in a close, delete the file without
+        // delivering the event: warm cache must degrade to direct lstat and
+        // sourceRevision() must advance once and stay stable for the episode.
+        await rm(join(repo, "live.txt"));
+        blockedSpy.mockReturnValue(true);
+        expect(index.knownFile("live.txt")).toBeUndefined();
+        expect(await index.has("live.txt")).toBe(false);
+        const stallRev = index.sourceRevision();
+        expect(stallRev).toBeGreaterThan(warmRev);
+        expect(index.sourceRevision()).toBe(stallRev);
+
+        // Joining an already-ready focused watch on a fresh index during a
+        // stall must not leave a factless lease retained.
+        const freshDuringStall = __test__.createIndex(repo, { io });
+        try {
+          expect(await freshDuringStall.has("live.txt")).toBe(false);
+          expect(__test__.diagnostics(freshDuringStall).watchers).toBe(0);
+        } finally {
+          freshDuringStall.dispose();
+        }
+
+        // Recovery clears cached facts without closing the healthy watcher, so
+        // deleted files are never trusted again before delayed events arrive.
+        // Replacing a hydrated subdirectory during the stall also invalidates
+        // its old watcher on the next probe rather than reusing the old inode.
+        await mkdir(join(repo, "sub"));
+        await writeFile(join(repo, "sub/a.txt"), "ok\n");
+        blockedSpy.mockReturnValue(false);
+        expect(await index.has("sub/a.txt")).toBe(true);
+        const subHandleBefore = handles.at(-1);
+        blockedSpy.mockReturnValue(true);
+        await rm(join(repo, "sub"), { recursive: true });
+        await mkdir(join(repo, "sub"));
+        await writeFile(join(repo, "sub/b.txt"), "ok\n");
+        blockedSpy.mockReturnValue(false);
+        for (const handle of [...handles]) handle.emit("stall-recovered");
+        expect(index.knownFile("live.txt")).toBeUndefined();
+        expect(index.sourceRevision()).toBeGreaterThan(stallRev);
+        expect(await index.has("sub/b.txt")).toBe(true);
+        expect(handles.at(-1)).not.toBe(subHandleBefore);
+
+        // Persistent open failure must not trigger background reconcile loops
+        // or bump uncertainGenerations / sourceRevision.
+        failOpen = true;
+        const repo2 = await createRepo();
+        await writeFile(join(repo2, "only.txt"), "ok\n");
+        const index2 = __test__.createIndex(repo2, { io });
+        const rev2Before = index2.sourceRevision();
+        try {
+          expect(await index2.has("only.txt")).toBe(true);
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          expect(__test__.diagnostics(index2).uncertainGenerations).toBe(0);
+          expect(index2.sourceRevision()).toBe(rev2Before);
+          expect(listed).toEqual([]);
+        } finally {
+          index2.dispose();
+        }
+      } finally {
+        index.dispose();
+        blockedSpy.mockRestore();
+        watchSpy.mockRestore();
+      }
+    },
+  );
 
   it("discards a generation the watcher can no longer vouch for", async () => {
     const repo = await createRepo();

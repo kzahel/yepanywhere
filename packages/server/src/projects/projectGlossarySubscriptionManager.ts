@@ -11,7 +11,10 @@ import type {
   UrlProjectId,
 } from "@yep-anywhere/shared";
 import { getLogger } from "../logging/logger.js";
-import { watchSharedDirectory } from "../watcher/SharedDirectoryWatcher.js";
+import {
+  wasDirectoryWatchAttached,
+  watchSharedDirectory,
+} from "../watcher/SharedDirectoryWatcher.js";
 import type { ProjectScanner } from "./scanner.js";
 import type { GlossaryIndexService } from "./glossaryIndexService.js";
 import {
@@ -544,12 +547,22 @@ export class ProjectGlossarySubscriptionManager {
     try {
       const watcher = watchSharedDirectory(
         absolute,
-        { persistent: false },
+        { focused: true, persistent: false },
         (_eventType, filename) => {
           this.onDirectoryEvent(state, directory, filename);
         },
       );
       watcher.on("error", (error) => {
+        if (!wasDirectoryWatchAttached(watcher)) {
+          // Off-thread open failures match synchronous fs.watch throws: fall
+          // back to polling without re-queuing refresh in a tight retry loop.
+          getLogger().debug(
+            { directory, error, projectId: state.projectId },
+            "GLOSSARY_WATCH: directory not watchable; polling covers it",
+          );
+          this.dropDirectoryWatcher(state, directory);
+          return;
+        }
         getLogger().warn(
           { directory, error, projectId: state.projectId },
           "GLOSSARY_WATCH: directory watch failed; reconciling observed candidates",

@@ -2,7 +2,13 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { EventEmitter } from "node:events";
 import { sep } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { SharedDirectoryWatcher } from "../../src/watcher/SharedDirectoryWatcher.js";
+import {
+  SharedDirectoryWatcher,
+  isDirectoryWatchPending,
+  isDirectoryWatchStalled,
+  waitForDirectoryWatchReady,
+  wasDirectoryWatchAttached,
+} from "../../src/watcher/SharedDirectoryWatcher.js";
 
 const native = vi.hoisted(() => ({ watch: vi.fn(), ino: 1 }));
 vi.mock("node:fs", async () => ({
@@ -202,6 +208,113 @@ it.runIf(process.platform === "darwin")(
     } finally {
       focused.close();
       for (const lease of others) lease.close();
+      worker.mockRestore();
+    }
+  },
+);
+
+it.runIf(process.platform === "darwin")(
+  "shares off-thread watches across asyncReady and focused leases and short-circuits when closes stall",
+  async () => {
+    const { FocusedDirectoryWorker } = await import(
+      "../../src/watcher/FocusedDirectoryWorker.js"
+    );
+    const offThread: NativeWatch[] = [];
+    const worker = vi
+      .spyOn(FocusedDirectoryWorker.prototype, "watch")
+      .mockImplementation((_path, _retire) => {
+        const handle = new NativeWatch();
+        offThread.push(handle);
+        return handle as unknown as import("node:fs").FSWatcher;
+      });
+    const blockedSpy = vi
+      .spyOn(FocusedDirectoryWorker.prototype, "isBlockedInClose")
+      .mockReturnValue(false);
+    const registry = new SharedDirectoryWatcher();
+    const asyncChanged = vi.fn();
+    const focusedChanged = vi.fn();
+    const asyncLease = registry.watch(
+      "/project",
+      { asyncReady: true, persistent: false },
+      asyncChanged,
+    );
+    const focusedLease = registry.watch(
+      "/alias",
+      { focused: true, persistent: false },
+      focusedChanged,
+    );
+    try {
+      expect(offThread).toHaveLength(1);
+      expect(isDirectoryWatchPending(asyncLease)).toBe(true);
+      const readyPromise = waitForDirectoryWatchReady(asyncLease, 1_000);
+      offThread[0]?.emit("ready");
+      expect(await readyPromise).toBe(true);
+      expect(isDirectoryWatchPending(asyncLease)).toBe(false);
+      // Focused leases receive the synthetic unnamed change on ready; asyncReady
+      // leases do not, since they await native readiness directly.
+      expect(focusedChanged).toHaveBeenCalledWith("rename", null);
+      expect(asyncChanged).not.toHaveBeenCalled();
+
+      // Joining an already-live entry succeeds immediately even when worker
+      // closes are stalled, while opening a brand-new asyncReady entry fails fast.
+      blockedSpy.mockReturnValue(true);
+      const joined = registry.watch(
+        "/project",
+        { asyncReady: true, persistent: false },
+        vi.fn(),
+      );
+      expect(isDirectoryWatchPending(joined)).toBe(false);
+      joined.close();
+
+      expect(() =>
+        registry.watch(
+          "/other-dir",
+          { asyncReady: true, persistent: false },
+          vi.fn(),
+        ),
+      ).toThrow("busy");
+      expect(isDirectoryWatchStalled(asyncLease)).toBe(true);
+      blockedSpy.mockReturnValue(false);
+      expect(isDirectoryWatchStalled(asyncLease)).toBe(false);
+
+      // Transitioning from a synchronous watch back to an off-thread watch
+      // resets lease readiness until the replacement worker handle is ready.
+      native.watch.mockImplementation((_p, _opts, listener) =>
+        new NativeWatch().on("change", listener),
+      );
+      const syncLease = registry.watch("/project", {}, vi.fn());
+      expect(isDirectoryWatchPending(asyncLease)).toBe(false);
+      syncLease.close();
+      expect(offThread).toHaveLength(2);
+      expect(isDirectoryWatchPending(asyncLease)).toBe(true);
+      const reattach = waitForDirectoryWatchReady(asyncLease, 1_000);
+      offThread[1]?.emit("ready");
+      expect(await reattach).toBe(true);
+
+      // Closing a previously-ready lease reports ready=false immediately.
+      asyncLease.close();
+      expect(await waitForDirectoryWatchReady(asyncLease, 1_000)).toBe(false);
+
+      // An off-thread lease that errors before ever reaching ready reports
+      // wasDirectoryWatchAttached() === false.
+      const failing = registry.watch(
+        "/failing",
+        { asyncReady: true, persistent: false },
+        vi.fn(),
+      );
+      const err = vi.fn();
+      failing.on("error", err);
+      offThread[2]?.emit(
+        "error",
+        Object.assign(new Error("no space"), { code: "ENOSPC" }),
+      );
+      expect(err).toHaveBeenCalledOnce();
+      expect(wasDirectoryWatchAttached(failing)).toBe(false);
+      expect(wasDirectoryWatchAttached(focusedLease)).toBe(true);
+    } finally {
+      asyncLease.close();
+      focusedLease.close();
+      blockedSpy.mockRestore();
       worker.mockRestore();
     }
   },

@@ -9,7 +9,9 @@ parentPort.on("message", ({ id, path, cancelled }) => {
     const handle = watches.get(id);
     watches.delete(id);
     handle?.close();
-    parentPort.postMessage({ id, type: "released" });
+    // Yield one loop turn so queued events for surviving watches flush before
+    // the main thread clears stall state on close retirement.
+    setImmediate(() => parentPort.postMessage({ id, type: "released" }));
     return;
   }
   // A view may have gone away while an earlier native close was blocked.

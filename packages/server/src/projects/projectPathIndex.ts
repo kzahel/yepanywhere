@@ -1,10 +1,46 @@
 import type { Dirent, FSWatcher } from "node:fs";
 import { lstat, readdir } from "node:fs/promises";
-import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createLruMap, refreshLruMap } from "../lib/lruCollections.js";
 import { getLogger } from "../logging/logger.js";
 import { notifyProjectFileChange } from "./projectFileChanges.js";
-import { watchSharedDirectory } from "../watcher/SharedDirectoryWatcher.js";
+import {
+  type DirectoryListing,
+  type MutablePathIndexStats,
+  type NodeState,
+  type ParsedCandidate,
+  type PathIndexIo,
+  type PathIndexOptions,
+  type PathNode,
+  type ProjectPathCacheStats,
+  type ProjectPathIndexStats,
+  type WatchObservation,
+  canClearStaleDirectoryState,
+  createNode,
+  createPathIndexStats,
+  directoryIdentityChanged,
+  findContradictedDirectoryChildren,
+  forEachConcurrent,
+  formatDirectoryIdentity,
+  hasRetainedFacts,
+  isUnavailablePathError,
+  nodeBytes,
+  parseRelativeComponents,
+  provesAbsence,
+  readDirectoryIdentitySync,
+  subtreeContains,
+} from "./projectPathTrieModel.js";
+
+export type { PathIndexIo, ProjectPathCacheStats, ProjectPathIndexStats };
+import {
+  getDirectoryWatchIdentity,
+  getDirectoryWatchStallGeneration,
+  isDirectoryWatchPending,
+  isDirectoryWatchStalled,
+  waitForDirectoryWatchReady,
+  wasDirectoryWatchAttached,
+  watchSharedDirectory,
+} from "../watcher/SharedDirectoryWatcher.js";
 
 /**
  * Demand-driven project path cache.
@@ -24,8 +60,6 @@ const DIRECTORY_LISTING_THRESHOLD = 4;
 /** A wider listing answers its batch but is never retained whole. */
 const MAX_RETAINED_DIRECTORY_ENTRIES = 20_000;
 const PROBE_CONCURRENCY = 8;
-/** Estimated retained bytes per cached path component. */
-const NODE_BASE_BYTES = 96;
 /** Per-project ceiling before the least recently used subtrees are dropped. */
 const MAX_INDEX_BYTES = 4 * 1024 * 1024;
 /** Per-project watcher ceiling, including while the project is actively claimed. */
@@ -39,197 +73,21 @@ const MAX_PROCESS_WATCHERS = 1_024;
 /** Fraction of a ceiling that eviction returns below, so it runs in batches. */
 const EVICTION_LOW_WATERMARK = 0.75;
 const RECONCILE_DELAY_MS = 100;
-
-/** What one directory-component edge is known to be. */
-type NodeState = "absent" | "directory" | "file";
-
-interface PathNode {
-  /** Whether this exact node is still reachable from the index root. */
-  attached: boolean;
-  /** Changes whenever this node's path identity or subtree is invalidated. */
-  attachmentGeneration: number;
-  children: Map<string, PathNode> | undefined;
-  /** Whether `children` names every entry, so an unlisted name is absent. */
-  complete: boolean;
-  name: string;
-  /**
-   * Names probed here since this generation began, across all batches.
-   *
-   * One wide batch is not the only way a directory earns a listing. Turn-text
-   * annotation asks about two or three names per rendered body, so a directory
-   * the reader keeps referring to would pay an `lstat` per name forever on the
-   * per-batch test alone.
-   */
-  probedNames: number;
-  state: NodeState;
-  watcher: FSWatcher | undefined;
-  /** Exact in-flight observations, scoped to watcher identity and generation. */
-  watcherClaims: Set<WatchObservation>;
-  /** Changes whenever the current watcher observes or loses filesystem truth. */
-  watcherGeneration: number;
-  /** Whether one listing proved this directory too wide to retain whole. */
-  wide: boolean;
-}
-
-interface MutablePathIndexStats {
-  /** Candidates answered from cache with no filesystem call. */
-  cachedAnswers: number;
-  directoryListings: number;
-  /** Subtrees dropped to stay within the per-project byte ceiling. */
-  evictedDirectories: number;
-  exactProbes: number;
-  lookupBatches: number;
-  lookupCandidates: number;
-  /** Listings too wide to retain, used for their batch only. */
-  oversizedListings: number;
-  /** Watch errors that discarded a directory's cached generation. */
-  uncertainGenerations: number;
-  /** Cached edges invalidated by a filesystem event. */
-  watcherInvalidations: number;
-}
-
-export interface ProjectPathIndexStats extends MutablePathIndexStats {
-  completeDirectories: number;
-  hydratedDirectories: number;
-  retainedBytes: number;
-  watchers: number;
-}
-
-export interface ProjectPathCacheStats {
-  evictedProjects: number;
-  projects: number;
-  retainedBytes: number;
-  watchers: number;
-}
-
-interface ParsedCandidate {
-  components: string[];
-  original: string;
-}
-
-type WatchListener = (event: string, filename: string | Buffer | null) => void;
-
-interface WatchObservation {
-  absolutePath: string;
-  attachmentGeneration: number;
-  generation: number;
-  registryActivityGeneration: number;
-  released: boolean;
-  watcher: FSWatcher;
-}
-
-interface DirectoryListing {
-  kinds: Map<string, NodeState>;
-  observation: WatchObservation | null;
-}
-
-/** Filesystem access, injectable so tests can count and fault-inject I/O. */
-export interface PathIndexIo {
-  lstat(path: string): Promise<{ isDirectory(): boolean }>;
-  readdir(path: string): Promise<Dirent[]>;
-  watch(path: string, listener: WatchListener): FSWatcher;
-}
+/** Cap async off-thread watch readiness so blocked closes degrade to direct I/O. */
+const WATCH_READY_TIMEOUT_MS = 250;
+/** Allow initial worker-thread startup on macOS before degrading to direct I/O. */
+const WATCH_BOOT_READY_TIMEOUT_MS = 2_000;
 
 const DEFAULT_IO: PathIndexIo = {
   lstat: (path) => lstat(path),
   readdir: (path) => readdir(path, { withFileTypes: true }),
   watch: (path, listener) =>
-    watchSharedDirectory(path, { persistent: false }, (event, filename) =>
-      listener(event, filename),
+    watchSharedDirectory(
+      path,
+      { asyncReady: true, persistent: false },
+      (event, filename) => listener(event, filename),
     ),
 };
-
-interface PathIndexOptions {
-  io?: PathIndexIo;
-  maxIndexBytes?: number;
-  maxIndexWatchers?: number;
-  maxRetainedEntries?: number;
-  /** Registry hook; called only after a retention mutation is self-consistent. */
-  onRetentionChanged?: () => void;
-}
-
-function createNode(
-  name: string,
-  state: NodeState,
-  attached = false,
-): PathNode {
-  return {
-    attached,
-    attachmentGeneration: 0,
-    children: undefined,
-    complete: false,
-    name,
-    probedNames: 0,
-    state,
-    watcher: undefined,
-    watcherClaims: new Set(),
-    watcherGeneration: 0,
-    wide: false,
-  };
-}
-
-function nodeBytes(name: string): number {
-  return NODE_BASE_BYTES + name.length * 2;
-}
-
-function isPortableAbsolute(path: string): boolean {
-  return (
-    isAbsolute(path) || /^[A-Za-z]:[\\/]/.test(path) || /^[/\\]{2}/.test(path)
-  );
-}
-
-function parseRelativeComponents(path: string): string[] | null {
-  if (!path || path.includes("\0") || isPortableAbsolute(path)) return null;
-  const rawComponents = path.split(/[\\/]+/);
-  if (rawComponents.includes("..")) return null;
-
-  const normalized = normalize(path);
-  if (
-    normalized === "." ||
-    normalized === ".." ||
-    normalized.startsWith(`..${sep}`)
-  ) {
-    return null;
-  }
-  const components = normalized.split(sep).filter(Boolean);
-  return components.length > 0 ? components : null;
-}
-
-/** Whether this error proves the queried path is not there. */
-function provesAbsence(error: unknown): boolean {
-  const code = (error as NodeJS.ErrnoException).code;
-  return code === "ENOENT" || code === "ENOTDIR";
-}
-
-function isUnavailablePathError(error: unknown): boolean {
-  const code = (error as NodeJS.ErrnoException).code;
-  return (
-    code === "EACCES" ||
-    code === "ENOENT" ||
-    code === "ENOTDIR" ||
-    code === "EPERM"
-  );
-}
-
-async function forEachConcurrent<T>(
-  values: readonly T[],
-  concurrency: number,
-  visit: (value: T) => Promise<void>,
-): Promise<void> {
-  let cursor = 0;
-  const workers = Array.from(
-    { length: Math.min(concurrency, values.length) },
-    async () => {
-      while (cursor < values.length) {
-        const index = cursor;
-        cursor += 1;
-        const value = values[index];
-        if (value !== undefined) await visit(value);
-      }
-    },
-  );
-  await Promise.all(workers);
-}
 
 let membershipRevisionClock = 0;
 
@@ -253,20 +111,11 @@ class SparseProjectPathIndex implements ProjectPathIndex {
   >();
   private readonly probes = new Map<string, Promise<NodeState>>();
   private readonly reconciling = new Map<PathNode, NodeJS.Timeout>();
-  private readonly stats: MutablePathIndexStats = {
-    cachedAnswers: 0,
-    directoryListings: 0,
-    evictedDirectories: 0,
-    exactProbes: 0,
-    lookupBatches: 0,
-    lookupCandidates: 0,
-    oversizedListings: 0,
-    uncertainGenerations: 0,
-    watcherInvalidations: 0,
-  };
+  private readonly stats: MutablePathIndexStats = createPathIndexStats();
   private activeBatches = 0;
   private completeDirectories = 0;
   private disposed = false;
+  private lastObservedStallGeneration = 0;
   private membershipRevision = nextMembershipRevision();
   /** Whether the registry currently has at least one owning claim. */
   private registryActive = true;
@@ -298,7 +147,22 @@ class SparseProjectPathIndex implements ProjectPathIndex {
   }
 
   sourceRevision(): number {
+    const stallGeneration = this.currentStallGeneration();
+    if (stallGeneration !== this.lastObservedStallGeneration) {
+      this.lastObservedStallGeneration = stallGeneration;
+      this.membershipRevision = nextMembershipRevision();
+    }
     return this.membershipRevision;
+  }
+
+  private currentStallGeneration(): number {
+    let max = 0;
+    for (const node of this.hydrated.keys()) {
+      if (!node.watcher) continue;
+      const generation = getDirectoryWatchStallGeneration(node.watcher);
+      if (generation > max) max = generation;
+    }
+    return max;
   }
 
   rootChildCountForTest(): number {
@@ -497,8 +361,20 @@ class SparseProjectPathIndex implements ProjectPathIndex {
       ) {
         // The directory changed while the listing was pending, or before this
         // waiter consumed a coalesced result. Resolve the requested names under
-        // the current generation rather than answering from that stale snapshot.
-        await forEachConcurrent(unresolved, PROBE_CONCURRENCY, async (name) => {
+        // the current generation (including any earlier batch cache hits whose
+        // edges were just invalidated) rather than answering from that snapshot.
+        const unresolvedSet = new Set(unresolved);
+        const toReprobe: string[] = [];
+        for (const name of new Set(names)) {
+          if (unresolvedSet.has(name)) {
+            toReprobe.push(name);
+          } else {
+            const current = this.cachedChildState(parent, name);
+            if (current === undefined) toReprobe.push(name);
+            else states.set(name, current);
+          }
+        }
+        await forEachConcurrent(toReprobe, PROBE_CONCURRENCY, async (name) => {
           states.set(
             name,
             await this.probeChild(
@@ -513,7 +389,7 @@ class SparseProjectPathIndex implements ProjectPathIndex {
           parentAbsolutePath,
           parentAttachmentGeneration,
           registryActivityGeneration,
-          unresolved.length,
+          toReprobe.length,
         );
         return states;
       }
@@ -570,10 +446,16 @@ class SparseProjectPathIndex implements ProjectPathIndex {
     parent: PathNode,
     name: string,
   ): NodeState | undefined {
-    // Without a live watcher nothing keeps these facts true.
-    if (!parent.watcher) return undefined;
+    // Without a live, unstalled watcher nothing keeps these facts true.
+    if (
+      !parent.watcher ||
+      isDirectoryWatchPending(parent.watcher) ||
+      isDirectoryWatchStalled(parent.watcher)
+    )
+      return undefined;
     const child = parent.children?.get(name);
     if (child) {
+      if (child.stateStale) return undefined;
       this.touch(parent);
       return child.state;
     }
@@ -629,21 +511,27 @@ class SparseProjectPathIndex implements ProjectPathIndex {
           )
         : null;
       try {
+        const ready =
+          observation &&
+          currentParent &&
+          isDirectoryWatchPending(observation.watcher)
+            ? await this.awaitObservationReady(currentParent, observation)
+            : observation;
         const result = await this.readChildState(absolutePath);
-        if (!result.proven || !observation || !currentParent)
-          return result.state;
-        if (this.observationIsCurrent(currentParent, observation)) {
-          this.setChildState(currentParent, name, result.state);
+        if (!result.proven || !ready || !currentParent) return result.state;
+        if (this.observationIsCurrent(currentParent, ready)) {
+          this.setChildState(
+            currentParent,
+            name,
+            result.state,
+            result.inodeIdentity,
+          );
           return result.state;
         }
         // A watcher or attachment change may be worth one retry. A claim release
         // or later reclaim invalidates the operation itself, so its completion is
         // an uncached answer and must not attach another watcher generation.
-        if (
-          !this.registryActivityIsCurrent(
-            observation.registryActivityGeneration,
-          )
-        ) {
+        if (!this.registryActivityIsCurrent(ready.registryActivityGeneration)) {
           return result.state;
         }
       } finally {
@@ -659,17 +547,21 @@ class SparseProjectPathIndex implements ProjectPathIndex {
     return (await this.readChildState(absolutePath)).state;
   }
 
-  private async readChildState(
-    absolutePath: string,
-  ): Promise<{ proven: boolean; state: NodeState }> {
+  private async readChildState(absolutePath: string): Promise<{
+    proven: boolean;
+    state: NodeState;
+    inodeIdentity?: string;
+  }> {
     this.stats.exactProbes += 1;
     try {
       // `lstat`, not `stat`: a symlink is a leaf here, so a link cannot make
       // the walk leave the project.
       const entry = await this.io.lstat(absolutePath);
+      const inodeIdentity = formatDirectoryIdentity(entry);
       return {
         proven: true,
         state: entry.isDirectory() ? "directory" : "file",
+        ...(inodeIdentity ? { inodeIdentity } : {}),
       };
     } catch (error) {
       if (!isUnavailablePathError(error)) throw error;
@@ -693,7 +585,8 @@ class SparseProjectPathIndex implements ProjectPathIndex {
     if (projectRelativePath === "") return node;
     for (const component of projectRelativePath.split(sep).filter(Boolean)) {
       const child = node.children?.get(component);
-      if (!child?.attached || child.state !== "directory") return null;
+      if (!child?.attached || child.state !== "directory" || child.stateStale)
+        return null;
       node = child;
     }
     return node;
@@ -728,15 +621,38 @@ class SparseProjectPathIndex implements ProjectPathIndex {
     ) {
       return null;
     }
+    if (isDirectoryWatchStalled(node.watcher)) {
+      this.withRetentionMutation(() => {
+        this.releaseFactlessWatcher(node);
+      });
+      return null;
+    }
     const observation: WatchObservation = {
       absolutePath,
       attachmentGeneration: node.attachmentGeneration,
       generation: node.watcherGeneration,
       registryActivityGeneration,
       released: false,
+      stallGeneration: getDirectoryWatchStallGeneration(node.watcher),
       watcher: node.watcher,
     };
     node.watcherClaims.add(observation);
+    return observation;
+  }
+
+  private async awaitObservationReady(
+    node: PathNode,
+    observation: WatchObservation,
+  ): Promise<WatchObservation | null> {
+    const attached = await waitForDirectoryWatchReady(
+      observation.watcher,
+      WATCH_READY_TIMEOUT_MS,
+      WATCH_BOOT_READY_TIMEOUT_MS,
+    );
+    if (!attached || !this.observationIsCurrent(node, observation)) {
+      this.releaseObservation(node, observation);
+      return null;
+    }
     return observation;
   }
 
@@ -755,7 +671,7 @@ class SparseProjectPathIndex implements ProjectPathIndex {
   }
 
   private releaseFactlessWatcher(node: PathNode): void {
-    if (!this.currentWatcherIsClaimed(node) && !this.hasRetainedFacts(node)) {
+    if (!this.currentWatcherIsClaimed(node) && !hasRetainedFacts(node)) {
       this.evict(node);
     }
   }
@@ -765,10 +681,6 @@ class SparseProjectPathIndex implements ProjectPathIndex {
       if (this.observationIsCurrent(node, claim)) return true;
     }
     return false;
-  }
-
-  private hasRetainedFacts(node: PathNode): boolean {
-    return node.complete || node.wide || (node.children?.size ?? 0) > 0;
   }
 
   private observationIsCurrent(
@@ -783,7 +695,10 @@ class SparseProjectPathIndex implements ProjectPathIndex {
         observation.attachmentGeneration,
       ) &&
       node.watcher === observation.watcher &&
-      node.watcherGeneration === observation.generation
+      node.watcherGeneration === observation.generation &&
+      !isDirectoryWatchStalled(observation.watcher) &&
+      getDirectoryWatchStallGeneration(observation.watcher) ===
+        observation.stallGeneration
     );
   }
 
@@ -791,15 +706,22 @@ class SparseProjectPathIndex implements ProjectPathIndex {
     parent: PathNode,
     name: string,
     state: NodeState,
+    inodeIdentity?: string,
   ): void {
     this.withRetentionMutation(() => {
       const existing = parent.children?.get(name);
       if (existing) {
-        if (existing.state !== state) {
+        if (
+          existing.state !== state ||
+          directoryIdentityChanged(existing, state, inodeIdentity)
+        ) {
           this.markMembershipChanged();
           this.invalidateSubtree(existing, false);
+          existing.state = state;
+          existing.stateStale = false;
+        } else if (canClearStaleDirectoryState(existing, inodeIdentity)) {
+          existing.stateStale = false;
         }
-        existing.state = state;
         return;
       }
       this.addChild(parent, name, state);
@@ -851,6 +773,10 @@ class SparseProjectPathIndex implements ProjectPathIndex {
       ? this.observe(node, absolutePath, registryActivityGeneration)
       : null;
     try {
+      const ready =
+        node && observation && isDirectoryWatchPending(observation.watcher)
+          ? await this.awaitObservationReady(node, observation)
+          : observation;
       let entries: Dirent[];
       try {
         entries = await this.io.readdir(absolutePath);
@@ -858,9 +784,9 @@ class SparseProjectPathIndex implements ProjectPathIndex {
         if (!isUnavailablePathError(error)) throw error;
         if (
           node &&
-          observation &&
+          ready &&
           this.registryActivityIsCurrent(registryActivityGeneration) &&
-          this.observationIsCurrent(node, observation)
+          this.observationIsCurrent(node, ready)
         ) {
           this.evict(node);
         }
@@ -875,9 +801,9 @@ class SparseProjectPathIndex implements ProjectPathIndex {
         this.stats.oversizedListings += 1;
         if (
           node &&
-          observation &&
+          ready &&
           this.registryActivityIsCurrent(registryActivityGeneration) &&
-          this.observationIsCurrent(node, observation)
+          this.observationIsCurrent(node, ready)
         ) {
           // Retaining every name here would spend a large share of the project's
           // whole budget on one directory. Recording the width instead keeps later
@@ -889,13 +815,39 @@ class SparseProjectPathIndex implements ProjectPathIndex {
         }
       } else if (
         node &&
-        observation &&
+        ready &&
         this.registryActivityIsCurrent(registryActivityGeneration) &&
-        this.observationIsCurrent(node, observation)
+        this.observationIsCurrent(node, ready)
       ) {
-        this.replaceChildren(node, kinds);
+        const contradicted = await findContradictedDirectoryChildren(
+          node,
+          absolutePath,
+          kinds,
+          PROBE_CONCURRENCY,
+          join,
+        );
+        if (
+          this.registryActivityIsCurrent(registryActivityGeneration) &&
+          this.observationIsCurrent(node, ready)
+        ) {
+          if (contradicted.length > 0) {
+            this.withRetentionMutation(() => {
+              this.markMembershipChanged();
+              node.watcherGeneration += 1;
+              for (const [name, child] of contradicted) {
+                if (node.children?.get(name) === child) {
+                  this.removeChild(node, name, child);
+                }
+              }
+            });
+            // Advancing watcherGeneration marks `ready` stale so callers and
+            // coalesced waiters fall back to exact probes instead of this listing.
+            return { kinds, observation: ready };
+          }
+          this.replaceChildren(node, kinds);
+        }
       }
-      return { kinds, observation };
+      return { kinds, observation: ready };
     } finally {
       if (node && observation) this.releaseObservation(node, observation);
     }
@@ -912,20 +864,37 @@ class SparseProjectPathIndex implements ProjectPathIndex {
 
   private replaceChildren(node: PathNode, kinds: Map<string, NodeState>): void {
     this.withRetentionMutation(() => {
-      // This listing itself completed the node's pending reconciliation.
+      // Preserve unchanged child directories and their hydrated subtrees so
+      // re-listing a parent after an unrelated sibling edit does not tear down
+      // and rebuild descendant directory watchers.
       this.cancelReconcile(node);
-      this.detachChildren(node);
-      this.resetNodeFacts(node);
       const children = new Map<string, PathNode>();
-      let bytes = 0;
-      for (const [name, state] of kinds) {
-        children.set(name, createNode(name, state, true));
-        bytes += nodeBytes(name);
+      let bytesDelta = 0;
+      let membershipChanged = false;
+      for (const [name, child] of node.children ?? []) {
+        const nextState = kinds.get(name);
+        if (nextState !== undefined && child.state === nextState) {
+          child.stateStale = false;
+          children.set(name, child);
+          continue;
+        }
+        if (nextState !== undefined || child.state !== "absent") {
+          membershipChanged = true;
+        }
+        this.invalidateSubtree(child, true);
+        bytesDelta -= nodeBytes(name);
       }
+      for (const [name, state] of kinds) {
+        if (children.has(name)) continue;
+        children.set(name, createNode(name, state, true));
+        bytesDelta += nodeBytes(name);
+      }
+      this.resetNodeFacts(node);
       node.children = children;
       node.complete = true;
       this.completeDirectories += 1;
-      this.addBytes(bytes);
+      if (membershipChanged) this.markMembershipChanged();
+      this.addBytes(bytesDelta);
     });
   }
 
@@ -967,9 +936,15 @@ class SparseProjectPathIndex implements ProjectPathIndex {
       watcher.on("error", (error) => {
         this.onWatchFailure(node, absolutePath, watcher, error);
       });
+      watcher.on("stall-recovered", () => {
+        this.onWatchStallRecovered(node, watcher);
+      });
       this.detachChildren(node);
       this.resetNodeFacts(node);
       node.watcher = watcher;
+      node.inodeIdentity =
+        getDirectoryWatchIdentity(watcher) ??
+        readDirectoryIdentitySync(absolutePath);
       node.watcherGeneration += 1;
       this.changeWatcherCount(1);
       this.hydrated.set(node, absolutePath);
@@ -984,7 +959,7 @@ class SparseProjectPathIndex implements ProjectPathIndex {
       if (this.watchers < this.maxIndexWatchers) return true;
       if (
         !this.hydrated.has(node) ||
-        this.subtreeContains(node, protectedNode) ||
+        subtreeContains(node, protectedNode) ||
         this.subtreeHasClaimedWatcher(node)
       ) {
         continue;
@@ -993,14 +968,6 @@ class SparseProjectPathIndex implements ProjectPathIndex {
       this.stats.evictedDirectories += 1;
     }
     return this.watchers < this.maxIndexWatchers;
-  }
-
-  private subtreeContains(node: PathNode, candidate: PathNode): boolean {
-    if (node === candidate) return true;
-    for (const child of node.children?.values() ?? []) {
-      if (this.subtreeContains(child, candidate)) return true;
-    }
-    return false;
   }
 
   private subtreeHasClaimedWatcher(node: PathNode): boolean {
@@ -1054,8 +1021,18 @@ class SparseProjectPathIndex implements ProjectPathIndex {
   ): void {
     this.withRetentionMutation(() => {
       if (node.watcher !== watcher) return;
-      this.markMembershipChanged();
       node.watcherGeneration += 1;
+      if (!wasDirectoryWatchAttached(watcher)) {
+        // Off-thread open failure matches a synchronous watch() throw: drop the
+        // unattached watch without advancing sourceRevision or looping.
+        getLogger().debug(
+          { err: error, path: absolutePath },
+          "PROJECT_PATH_INDEX: directory watch unavailable; answers stay uncached",
+        );
+        this.evict(node);
+        return;
+      }
+      this.markMembershipChanged();
       this.stats.uncertainGenerations += 1;
       getLogger().debug(
         { err: error, path: absolutePath },
@@ -1063,6 +1040,31 @@ class SparseProjectPathIndex implements ProjectPathIndex {
       );
       this.evict(node);
       this.scheduleReconcile(node, absolutePath);
+    });
+  }
+
+  /**
+   * Discard cached facts after a worker close stall without closing healthy
+   * watchers, so delayed or missed invalidations cannot leak back into cache.
+   */
+  private onWatchStallRecovered(node: PathNode, watcher: FSWatcher): void {
+    this.withRetentionMutation(() => {
+      if (node.watcher !== watcher) return;
+      this.markMembershipChanged();
+      node.watcherGeneration += 1;
+      this.resetNodeFacts(node);
+      if (node.children) {
+        for (const [name, child] of Array.from(node.children.entries())) {
+          if (
+            child.state === "directory" &&
+            (child.watcher || child.children)
+          ) {
+            child.stateStale = true;
+          } else {
+            this.removeChild(node, name, child);
+          }
+        }
+      }
     });
   }
 
@@ -1186,13 +1188,14 @@ class SparseProjectPathIndex implements ProjectPathIndex {
    */
   private invalidateSubtree(node: PathNode, detached: boolean): void {
     this.withRetentionMutation(() => {
-      const hadRetainedFacts = this.hasRetainedFacts(node);
+      const hadRetainedFacts = hasRetainedFacts(node);
       node.attachmentGeneration += 1;
       if (detached) node.attached = false;
       this.cancelReconcile(node);
       this.detachChildren(node);
       this.resetNodeFacts(node);
       this.closeWatcher(node, hadRetainedFacts);
+      node.inodeIdentity = undefined;
       this.hydrated.delete(node);
     });
   }

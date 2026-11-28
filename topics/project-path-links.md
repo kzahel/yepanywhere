@@ -107,11 +107,23 @@ caches that one edge as absent and claims nothing about its siblings; a present
 edge likewise implies nothing about unobserved siblings.
 
 **A live watcher is what makes a cached fact trustworthy.** Each hydrated
-directory carries a non-recursive shared watch lease, and facts under a directory with
-no watcher are never read from cache. So a cache hit costs zero `stat`, and
+directory carries a non-recursive shared watch lease (off-thread on macOS when
+no synchronous or recursive lease shares that directory, where probes and
+listings await native attachment with a short bounded timeout and degrade to
+direct uncached reads if the watch worker is busy closing handles; a mixed
+synchronous/recursive co-lease on the same directory still owns and closes its
+synchronous native handle on the caller's thread, and worker-to-synchronous
+transitions may open the synchronous handle before the retiring worker handle
+confirms close), and facts under a directory with
+no attached, unstalled watcher are never read from cache (while the macOS watch
+worker is stalled inside a close, cached facts degrade to direct reads and
+`sourceRevision()` advances so rendered output is not reused stale). So a cache hit costs zero `stat`, and
 losing — or never obtaining — a watch makes an answer re-probe rather than go
 wrong: a directory that cannot be watched still answers correctly, just from
-the filesystem every time. A named event invalidates and removes an already-
+the filesystem every time. Re-listing an already-watched directory reconciles
+its direct children in place, keeping unchanged child directories whose inode
+identity still matches and their hydrated descendant watchers intact rather than
+tearing down the whole subtree. A named event invalidates and removes an already-
 retained edge; if the parent was complete, it also invalidates completeness.
 Previously absent names likewise invalidate completeness without materializing
 an `unknown` edge. Every named-event branch then closes the parent watcher when
@@ -613,8 +625,12 @@ the native watcher. The native watch keeps the event loop alive only while a
 remaining lease requests that behavior.
 
 Recursive and non-recursive requests for the same directory share one native
-registration. Changing required coverage closes the old registration before
-opening its replacement and invalidates the old leases' observation gap.
+registration. Changing required coverage invalidates the old leases' observation
+gap; synchronous transitions close the previous native registration before
+opening its replacement, whereas on macOS an off-thread worker-to-synchronous
+transition opens the synchronous handle immediately while the retiring worker
+handle completes its close off-thread and retains its budget slot until
+acknowledged.
 Non-recursive consumers receive only direct-child events, using the host's
 native path separator. A backslash in a POSIX basename is a filename character
 and must not cause its event to be dropped. Acquiring a path whose

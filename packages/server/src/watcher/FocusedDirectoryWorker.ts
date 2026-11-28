@@ -19,6 +19,7 @@ class WorkerWatch extends EventEmitter implements FSWatcher {
     readonly path: string,
     readonly retired: () => void,
     private readonly host: FocusedDirectoryWorker,
+    readonly emitChangeOnReady: boolean,
   ) {
     super();
   }
@@ -49,12 +50,19 @@ class WorkerWatch extends EventEmitter implements FSWatcher {
 
 // A retiring handle counts against the shared registry's native budget until
 // the worker confirms close. At most one open and one close can queue per slot.
+const DEFAULT_CLOSE_STALL_THRESHOLD_MS = 250;
+
 export class FocusedDirectoryWorker {
   private worker: Worker | null = null;
+  private booted = false;
   private stopping = false;
   private references = 0;
   private nextId = 1;
   private watches = new Map<number, WorkerWatch>();
+  private closing = new Map<number, number>();
+  private idleWaiters = new Set<() => void>();
+  private inStallEpisode = false;
+  private stallGeneration = 0;
 
   private retryAt = 0;
   private cancelIdleSweep?: () => void;
@@ -65,8 +73,18 @@ export class FocusedDirectoryWorker {
       }),
   ) {}
 
-  watch(path: string, retired: () => void): FSWatcher {
-    const watch = new WorkerWatch(this.nextId++, path, retired, this);
+  watch(
+    path: string,
+    retired: () => void,
+    options?: { emitChangeOnReady?: boolean },
+  ): FSWatcher {
+    const watch = new WorkerWatch(
+      this.nextId++,
+      path,
+      retired,
+      this,
+      options?.emitChangeOnReady ?? true,
+    );
     this.watches.set(watch.id, watch);
     try {
       if (!this.stopping) this.send(watch);
@@ -75,6 +93,35 @@ export class FocusedDirectoryWorker {
       throw error;
     }
     return watch;
+  }
+
+  /** Whether an in-flight native close has already stalled the worker thread. */
+  isBlockedInClose(thresholdMs = DEFAULT_CLOSE_STALL_THRESHOLD_MS): boolean {
+    const oldest = this.closing.values().next().value;
+    return oldest !== undefined && Date.now() - oldest >= thresholdMs;
+  }
+
+  /** Wait until all in-flight native closes have been acknowledged by the worker. */
+  waitForPendingCloses(): Promise<void> {
+    if (this.closing.size === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.idleWaiters.add(resolve);
+    });
+  }
+
+  /** Monotonic generation that advances once on stall entry and once on recovery. */
+  getStallGeneration(): number {
+    const stalled = this.isBlockedInClose();
+    if (stalled !== this.inStallEpisode) {
+      this.inStallEpisode = stalled;
+      this.stallGeneration += 1;
+    }
+    return this.stallGeneration;
+  }
+
+  /** Whether a new request must wait for a worker isolate to boot or restart. */
+  isBooting(): boolean {
+    return !this.booted || this.stopping;
   }
 
   private send(watch: WorkerWatch): void {
@@ -107,6 +154,7 @@ export class FocusedDirectoryWorker {
         this.cancelIdleSweep?.();
         this.cancelIdleSweep = undefined;
         this.worker = null;
+        this.booted = false;
         this.stopping = false;
         // Only posted watches belonged to this worker. Requests that arrived
         // during termination are dispatched together on its successor.
@@ -141,17 +189,40 @@ export class FocusedDirectoryWorker {
 
   release(watch: WorkerWatch): void {
     if (!this.watches.has(watch.id)) return;
-    if (watch.sent) this.worker?.postMessage({ id: watch.id });
-    else this.forget(watch);
+    if (watch.sent) {
+      if (!this.closing.has(watch.id)) this.closing.set(watch.id, Date.now());
+      this.worker?.postMessage({ id: watch.id });
+    } else this.forget(watch);
   }
 
   private forget(watch: WorkerWatch): void {
+    const closeStartedAt = this.closing.get(watch.id);
     this.watches.delete(watch.id);
+    this.closing.delete(watch.id);
+    if (this.closing.size === 0 && this.idleWaiters.size > 0) {
+      const waiters = [...this.idleWaiters];
+      this.idleWaiters.clear();
+      for (const resolve of waiters) resolve();
+    }
     watch.unref();
     watch.retired();
+    if (
+      closeStartedAt !== undefined &&
+      (this.inStallEpisode ||
+        Date.now() - closeStartedAt >= DEFAULT_CLOSE_STALL_THRESHOLD_MS)
+    ) {
+      this.inStallEpisode = this.isBlockedInClose();
+      this.stallGeneration += 1;
+      if (!this.inStallEpisode) {
+        for (const live of [...this.watches.values()]) {
+          if (!Atomics.load(live.cancelled, 0)) live.emit("stall-recovered");
+        }
+      }
+    }
   }
 
   private receive(reply: Reply): void {
+    this.booted = true;
     const watch = this.watches.get(reply.id);
     if (!watch) return;
     if (reply.type === "released") {
@@ -163,9 +234,12 @@ export class FocusedDirectoryWorker {
           Object.assign(new Error(reply.message), { code: reply.code }),
         );
       // Validate any change between taking the first file snapshot and the
-      // asynchronous attachment. The focused manager checks only live targets.
-      else if (reply.type === "ready") watch.emit("change", "rename", null);
-      else if (reply.type === "change")
+      // asynchronous attachment. Callers that await readiness consume "ready"
+      // directly instead of receiving a synthetic unnamed change event.
+      else if (reply.type === "ready") {
+        watch.emit("ready");
+        if (watch.emitChangeOnReady) watch.emit("change", "rename", null);
+      } else if (reply.type === "change")
         watch.emit("change", reply.event, reply.filename);
     }
   }
