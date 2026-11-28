@@ -26,7 +26,6 @@ Those shapes grew at different times, so consumers choose transport by reaching
 into different globals:
 
 - `api.fetchJSON` checks `getGlobalConnection()` and otherwise uses fetch;
-- `useConnection` returns a global secure connection or `directConnection`;
 - `useSessionStream`, `useSessionWatchStream`, and `activityBus` choose between
   `getGlobalConnection()` and `getWebSocketConnection()`;
 - reconnect/backoff/readiness are exposed through the singleton
@@ -76,8 +75,6 @@ WebSocket remains visible as a channel in status/debug snapshots.
   handles same-origin `fetch`/`fetchBlob` and upload helpers. Its subscription
   methods throw because default localhost subscriptions use the local
   `WebSocketConnection` path.
-- [`useConnection`](../packages/client/src/hooks/useConnection.ts) returns a
-  global secure connection when present, otherwise `directConnection`.
 - [`api.fetchJSON`](../packages/client/src/api/client.ts) routes through the
   global secure connection when present, otherwise same-origin fetch.
 - **`SecureConnection` instances are replaced, not reused, across auth

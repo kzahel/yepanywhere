@@ -1,0 +1,174 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [
+    "site/**",
+    "sharing-worker/**",
+    "artifact-host/**",
+    "docker/**",
+    "research/**",
+    "scripts/fixtures/**",
+    "packages/android-host/**",
+    "packages/android-device-server/**",
+    "packages/device-bridge/**",
+    "packages/ios/**",
+    "packages/ios-sim-server/**",
+    "packages/mobile-core/**",
+    "packages/mobile-core-proof/**",
+    "packages/server/generated/**",
+    "packages/server/src/sdk/providers/codex-protocol/generated/**",
+    "packages/server/test/native-provider/executables/**",
+    "packages/client/mockups/**"
+  ],
+  "ignoreBinaries": [
+    "adb",
+    "cargo",
+    "codex",
+    "docker",
+    "gh",
+    "go",
+    "gradle",
+    "gradlew",
+    "minisign",
+    "opencode",
+    "openssl",
+    "pip",
+    "pip-audit",
+    "prepare-runtime",
+    "prepare-sidecar",
+    "python3",
+    "rustc",
+    "script",
+    "smoke-runtime",
+    "sqlite3",
+    "tailscale",
+    "taskkill.exe",
+    "xcodebuild"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/*.{js,mjs,cjs,ts}",
+        "scripts/*/*.{js,mjs,cjs,ts}",
+        "eslint.config.js",
+        "vitest.config.ts"
+      ],
+      "project": ["scripts/**/*.{js,mjs,cjs,ts}"],
+      "ignoreDependencies": [
+        "tssrp6a",
+        "tweetnacl",
+        "@biomejs/biome",
+        "eslint-cssicorn"
+      ],
+      "ignoreUnresolved": ["/src/lib/sessionDetail/sessionDetailStore.ts"]
+    },
+    "packages/shared": {
+      "entry": [
+        "src/index.ts!",
+        "src/server-runtime.ts!",
+        "src/agent-api-bootstrap.ts!",
+        "src/machine-control-instructions.ts!",
+        "src/sqlite.ts!",
+        "src/jsonl.ts!",
+        "src/transcript/*.ts!",
+        "src/find/*.ts!",
+        "src/experimental/*.ts!",
+        "src/collection-updates.ts!",
+        "src/sidebar-snapshot.ts!",
+        "src/provider-cli-installations.ts!",
+        "src/project-service.ts!"
+      ],
+      "project": ["src/**/*.ts!", "test/**/*.ts"]
+    },
+    "packages/server": {
+      "entry": [
+        "src/index.ts!",
+        "src/cli.ts!",
+        "src/identity-service/main.ts!",
+        "src/model-api/main.mjs!",
+        "src/agent-tools/cli.ts!",
+        "src/projects/project-service-worker.ts!",
+        "src/sessions/summary-parser-worker-entry.ts!",
+        "src/sdk/providers/provider-runtime-worker.ts!",
+        "scripts/*.{ts,mjs,js}",
+        "test/**/*.{test,spec}.{ts,tsx,mjs,js}"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx,mjs,js}!",
+        "scripts/**/*.{ts,mjs,js}",
+        "test/**/*.{ts,tsx,mjs,js}"
+      ],
+      "ignoreDependencies": ["@yep-anywhere/native-test-executables"]
+    },
+    "packages/client": {
+      "entry": [
+        "src/local-entry.ts!",
+        "src/remote-main.tsx!",
+        "src/play-main.ts!",
+        "src/extension/background.ts!",
+        "src/extension/sidepanel/main.tsx!",
+        "src/lib/connection/browserCrypto.ts!",
+        "src/**/*.specimen.tsx",
+        "src/lib/e2e/multiHostSessionProvisioning.ts",
+        "design/main.tsx",
+        "preboot/*.js!",
+        "vite.config*.ts",
+        "playwright*.config.ts",
+        "scripts/*.{ts,mts,mjs,js}",
+        "e2e/**/*.spec.{ts,tsx}",
+        "e2e/tour/*.tour.ts",
+        "e2e/css-component-fixture.tsx",
+        "e2e/start-vite-remote*.ts",
+        "e2e/global-setup.ts",
+        "e2e/global-teardown.ts",
+        "e2e/fixtures/*.{ts,tsx}",
+        "e2e/support/development-performance-workload.ts",
+        "e2e/support/fixture-runtime.mjs",
+        "e2e/support/record-host-launch.mjs",
+        "e2e/lifecycle-study/*.{mjs,ts}",
+        "e2e/transcript-performance/*.{ts,tsx}",
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "test/**/*.{ts,tsx}",
+        "vitest.setup.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx,js,mjs}!",
+        "!src/**/__tests__/**",
+        "!src/**/__fixtures__/**",
+        "!src/lib/e2e/**",
+        "src/**/__tests__/**/*.{ts,tsx}",
+        "src/**/__fixtures__/**/*.{ts,tsx}",
+        "src/lib/e2e/**/*.{ts,tsx}",
+        "design/**/*.{ts,tsx}",
+        "preboot/**/*.js!",
+        "scripts/**/*.{ts,mts,mjs,js}",
+        "e2e/**/*.{ts,tsx,mjs,js}",
+        "test/**/*.{ts,tsx}"
+      ]
+    },
+    "packages/relay": {
+      "entry": ["src/index.ts!", "src/server.ts", "test/**/*.{test,spec}.ts"],
+      "project": ["src/**/*.ts!", "test/**/*.ts"],
+      "ignoreDependencies": ["tsx"]
+    },
+    "packages/push-broker": {
+      "entry": ["src/index.ts!", "scripts/*.mjs", "test/**/*.{test,spec}.ts"],
+      "project": ["src/**/*.ts!", "scripts/**/*.mjs", "test/**/*.ts"]
+    },
+    "packages/desktop": {
+      "entry": ["src/main.tsx!", "scripts/*.mjs", "vite.config.ts"],
+      "project": ["src/**/*.{ts,tsx}!", "scripts/**/*.mjs"],
+      "ignoreDependencies": [
+        "@tauri-apps/plugin-process",
+        "@tauri-apps/plugin-updater"
+      ]
+    },
+    "packages/browser-extension": {
+      "entry": ["src/*.js!", "scripts/*.mjs"],
+      "project": ["src/**/*.js!", "scripts/**/*.mjs"]
+    },
+    "packages/android": {
+      "entry": ["scripts/*.{ts,mjs,js}"],
+      "project": ["scripts/**/*.{ts,mjs,js}"]
+    }
+  }
+}

@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAgentctlSessionEnvBridge } from "../../../src/sdk/providers/agentctl-session-env.js";
-import { startFakeProviderSession } from "../../../src/sdk/providers/provider-runtime-fake.js";
 import { ProviderSessionOwner } from "../../../src/sdk/providers/provider-session-owner.js";
+import { startFakeProviderSession } from "./provider-runtime-fake.js";
 
 function isBashAvailable(): boolean {
   try {

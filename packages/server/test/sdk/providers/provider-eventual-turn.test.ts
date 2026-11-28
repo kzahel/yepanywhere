@@ -2,8 +2,8 @@ import { PassThrough } from "node:stream";
 import { expect, it } from "vitest";
 // @ts-expect-error The host ledger intentionally runs as plain ESM.
 import { ProviderRuntimeTurnLedger } from "../../../../../scripts/provider-runtime-turns.mjs";
-import { startFakeProviderSession } from "../../../src/sdk/providers/provider-runtime-fake.js";
 import { ProviderSessionOwner } from "../../../src/sdk/providers/provider-session-owner.js";
+import { startFakeProviderSession } from "./provider-runtime-fake.js";
 
 it("queues two receipt-keyed turns behind busy provider work without steering or merging", async () => {
   let ledger: InstanceType<typeof ProviderRuntimeTurnLedger>;

@@ -118,7 +118,6 @@ root cause of the interrupt is outside YA, because the user cannot distinguish
   and `processState`-driven placeholders.
 - `MessageInputToolbar`: model title + liveness chip (`sessionLiveness`).
 - `MessageInput`: model title + slash command menu.
-- `StatusIndicator`: hides idle/no-owner edge cases and reflects `in-turn`, `waiting-input`.
 - `MessageList`: compaction banner for compaction events.
 - `ProcessInfoModal`: process + liveness metadata.
 

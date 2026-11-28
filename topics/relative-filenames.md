@@ -118,9 +118,8 @@ same helper rules as renderer labels.
 
 ### `transformFilePathsToHtml` — dead code
 
-`packages/shared/src/filePathDetection.ts` exports this function and
-it is re-exported in `packages/client/src/lib/filePathDetection.ts`,
-but it is never called anywhere in the live codebase. The `.file-link`
+`packages/shared/src/filePathDetection.ts` exports this function, but it is
+never called anywhere in the live codebase. The `.file-link`
 CSS class it would generate appears to be dead styling as well.
 
 ## projectPath availability

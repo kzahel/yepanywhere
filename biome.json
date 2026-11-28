@@ -30,9 +30,7 @@
     {
       "includes": [
         "packages/shared/src/claude-sdk-schema/index.ts",
-        "packages/shared/src/codex-schema/index.ts",
-        "packages/shared/src/gemini-schema/index.ts",
-        "packages/shared/src/opencode-schema/index.ts"
+        "packages/shared/src/codex-schema/index.ts"
       ],
       "linter": {
         "rules": {

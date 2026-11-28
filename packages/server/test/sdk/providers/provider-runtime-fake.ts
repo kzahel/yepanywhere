@@ -1,17 +1,20 @@
-import { MessageQueue } from "../messageQueue.js";
+import { MessageQueue } from "../../../src/sdk/messageQueue.js";
 import type {
   ProviderActivitySnapshot,
   ProviderLivenessProbeResult,
   ProviderRetentionSnapshot,
   SDKMessage,
   UserMessage,
-} from "../types.js";
-import type { AgentSession, ProviderSessionOptions } from "./types.js";
+} from "../../../src/sdk/types.js";
+import type {
+  AgentSession,
+  ProviderSessionOptions,
+} from "../../../src/sdk/providers/types.js";
 import {
   resolveProviderSessionOptions,
   type ProviderSessionOptionsUpdateResult,
-} from "./types.js";
-import type { ProviderSessionStartHooks } from "./provider-session-protocol.js";
+} from "../../../src/sdk/providers/types.js";
+import type { ProviderSessionStartHooks } from "../../../src/sdk/providers/provider-session-protocol.js";
 
 function userText(message: {
   message: { content: string | Array<{ type: string; text?: string }> };

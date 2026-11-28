@@ -55,8 +55,7 @@ as real authoring friction is found, rather than duplicating the schemas.
 2. **Persisted reader** (reload from disk): a `sessions/<provider>-reader.ts`
    that reads the provider's stored format and produces the same normalized
    `Message` objects the live path yields. Existing: `codex-reader.ts`,
-   `pi-reader.ts`, `grok-reader.ts`, plus the shared `reader.ts` /
-   `null-reader.ts`.
+   `pi-reader.ts`, `grok-reader.ts`, plus the shared `reader.ts`.
 
 Both halves converge on the shared `Message`/render-item model via
 normalization (`sessions/normalization.ts` dispatch; provider-specific

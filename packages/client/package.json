@@ -50,7 +50,6 @@
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@testing-library/react": "^16.1.0",
-    "@types/hast": "^3.0.4",
     "@types/node": "^22.19.15",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
