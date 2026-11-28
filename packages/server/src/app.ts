@@ -1,4 +1,7 @@
-import { readProjectCardGroups } from "./services/retained-session-query.js";
+import {
+  readProjectCardGroups,
+  retainedSessionQuery,
+} from "./services/retained-session-query.js";
 import { appProviderRuntime } from "./sdk/app-provider-runtime.js";
 import { ownedApiSessions } from "./core-api/owned-sessions.js";
 import type { ProviderObservationCallbacks } from "./watcher/ProviderSessionWatcherRegistry.js";
@@ -3347,7 +3350,9 @@ export function createApp(options: AppOptions): AppResult {
           ? options.sessionMetadataService?.identities.resolveYa(sessionId)
           : undefined;
         if (identity && !identity.native) return undefined;
-        const { rows } = await retainedCollections.read();
+        const rows = await retainedCollections.readNativeRows([
+          String(identity?.native?.id ?? sessionId),
+        ]);
         signal?.throwIfAborted();
         if (identity?.native) {
           const native = identity.native;
@@ -3653,6 +3658,8 @@ export function createApp(options: AppOptions): AppResult {
       agentAuthRouter,
       scanner,
       sessions: retainedCollections,
+      collection: () =>
+        retainedSessionQuery(retainedCollections, retainedQueryDeps),
       metadata: options.sessionMetadataService,
       providers: () => {
         const providers =

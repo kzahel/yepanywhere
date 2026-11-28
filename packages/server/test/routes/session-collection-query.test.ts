@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   toUrlProjectId,
+  EMPTY_LIMITED_USER_GRANTS,
   nativeSessionRef,
   parseNativeSessionId,
 } from "@yep-anywhere/shared";
@@ -27,6 +28,11 @@ import type { SessionCatalogRow } from "../../src/sessions/catalog-types.js";
 import type { SessionMetadataService } from "../../src/metadata/SessionMetadataService.js";
 import type { Supervisor } from "../../src/supervisor/Supervisor.js";
 import type { ProjectScanner } from "../../src/projects/scanner.js";
+import { retainedSessionQuery } from "../../src/services/retained-session-query.js";
+import { productionApiSources } from "../../src/core-api/production-sources.js";
+import { CoreApi } from "../../src/core-api/service.js";
+import type { ApiSession } from "../../src/core-api/contracts.js";
+import type { LimitedPrincipal } from "../../src/auth/principal.js";
 
 const owned: Array<{
   directory: string;
@@ -168,6 +174,111 @@ async function fixture(count = 256, days = 0) {
     },
   };
 }
+
+it("pages visible v0 sessions before hydration while retaining native order and live owners", async () => {
+  const f = await fixture(6);
+  const project = (index: number) =>
+    toUrlProjectId(join(f.directory, `p${index}`));
+  const timestamp = "2026-11-09T10:30:00.000Z";
+  await f.change((rows) =>
+    rows.map((row, index) => ({
+      ...row,
+      updatedAt: index % 2 ? "2026-11-09T11:30:00+01:00" : timestamp,
+    })),
+  );
+  await f.metadata.recordSessionCreator(f.id(1), "reader");
+  await f.metadata.setTitle(f.id(0), "retitled");
+  const live = (id: string, index: number): ApiSession => ({
+    id,
+    projectId: project(index),
+    updatedAt: timestamp,
+    provider: "claude",
+    title: "Live",
+    state: "in-turn",
+  });
+  const reads = vi.spyOn(f.collections, "read").mockImplementation(async () => {
+    throw new Error("v0 entered a complete catalog read");
+  });
+  const core = new CoreApi(
+    "local",
+    productionApiSources({
+      scanner: {
+        readRetainedProjects: async () => ({
+          projects: [],
+          refreshing: false,
+          complete: true,
+        }),
+      },
+      sessions: f.collections,
+      metadata: f.metadata,
+      collection: () => retainedSessionQuery(f.collections, f.deps),
+      providers: () => [],
+      hiddenProjects: async () => new Set([project(2)]),
+      ownedSessions: () => [live("Z-live", 0), live(f.id(4), 3)],
+    }),
+  );
+  const caller: LimitedPrincipal = {
+    kind: "limited",
+    username: "reader",
+    grants: {
+      ...EMPTY_LIMITED_USER_GRANTS,
+      pathGrants: [{ path: join(f.directory, "p0"), level: "view" }],
+      // Directory grants currently use POSIX paths. Use a named grant on
+      // Windows while still exercising the restricted SQL page.
+      viewProjects: f.directory.startsWith("/")
+        ? [project(2)]
+        : [project(0), project(2)],
+    },
+    switched: false,
+    locked: true,
+    via: "direct",
+  };
+  const expected = [f.id(0), f.id(1), "Z-live"].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  for (let offset = 0; offset <= expected.length; offset++) {
+    const page = await core.read("sessions", caller, {
+      query: { limit: "1", cursor: String(offset) },
+    });
+    expect(page).toMatchObject({
+      items: expected.slice(offset, offset + 1).map((id) => ({ id })),
+      nextCursor: offset + 1 < expected.length ? String(offset + 1) : null,
+      catalog: { complete: true },
+    });
+  }
+  expect(
+    await core.read("sessions", caller, { query: { projectId: project(0) } }),
+  ).toMatchObject({
+    items: [{ id: f.id(0), title: "retitled" }, { id: "Z-live" }],
+  });
+  expect(
+    await core.read("session", caller, { sessionId: f.id(2) }),
+  ).toMatchObject({ id: f.id(2) });
+  for (const id of [f.id(3), f.id(4), "missing"])
+    await expect(
+      core.read("session", caller, { sessionId: id }),
+    ).rejects.toMatchObject({ code: "session_not_found" });
+  await f.metadata.setWorkingProject(f.id(0), project(3), project(0));
+  expect(
+    await core.read("sessions", caller, { query: { projectId: project(0) } }),
+  ).toMatchObject({ items: [{ id: "Z-live" }] });
+  await f.change((rows) =>
+    rows.map((row, i) => (i === 5 ? { ...row, provider: "codex" } : row)),
+  );
+  expect(await core.read("sessions", caller)).toMatchObject({
+    catalog: { complete: false },
+  });
+  await expect(
+    core.read("session", caller, { sessionId: "missing" }),
+  ).rejects.toMatchObject({ code: "catalog_not_ready" });
+  await f.change((rows) =>
+    rows.map((row, i) => (i === 5 ? { ...row, provider: "claude" } : row)),
+  );
+  await expect(
+    core.read("session", caller, { sessionId: "missing" }),
+  ).rejects.toMatchObject({ code: "session_not_found" });
+  expect(reads).not.toHaveBeenCalled();
+});
 
 it("uses one SQL owner for list and Inbox polls and touches only changed metadata after publication", async () => {
   const f = await fixture();
@@ -455,6 +566,11 @@ it("restores a SQL query checkpoint without rehydrating cold metadata", async ()
   const metadata = vi.spyOn(f.metadata, "getMetadataBatch");
   const restored = new RetainedSessionQuery(f.collections, f.deps);
   try {
+    const api = await restored.apiPage({ offset: 0, limit: 1 }, () => []);
+    expect(api.rows.map((row) => row.id)).toEqual([f.id(0)]);
+    expect(api.native.map((row) => row?.title)).toEqual(["Title 0"]);
+    expect(api.hasMore).toBe(true);
+    expect(api.catalog.complete).toBe(true);
     const recent = await restored.recentVisits([f.id(0)]);
     expect(recent.sources).toMatchObject([
       { sessionId: f.id(0), title: "Title 0" },

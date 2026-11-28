@@ -9,7 +9,11 @@ import { isDetachedProjectPath } from "../projects/paths.js";
 import type { RetainedSessionCollections } from "../services/RetainedSessionCollections.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import { projectCatalogIdentityResult } from "../sessions/catalog-identity.js";
-import type { SessionCatalogRow } from "../sessions/catalog-types.js";
+import {
+  sessionCatalogRowKey,
+  type SessionCatalogRow,
+} from "../sessions/catalog-types.js";
+import type { RetainedSessionQuery } from "../services/retained-session-query.js";
 import type { AgentProvider } from "../sdk/providers/types.js";
 import type { ApiSession } from "./contracts.js";
 import type { CoreApiSources } from "./service.js";
@@ -20,6 +24,7 @@ export function productionApiSources(deps: {
   scanner: Pick<ProjectScanner, "readRetainedProjects">;
   sessions: Pick<RetainedSessionCollections, "read"> &
     Partial<Pick<RetainedSessionCollections, "readNativeRows">>;
+  collection?: () => Pick<RetainedSessionQuery, "apiPage" | "apiStatus">;
   /**
    * With its identity store, native catalog rows are projected to public ids.
    * Without one a row keeps its native id, which is the public id only for a
@@ -56,7 +61,62 @@ export function productionApiSources(deps: {
         (process ? apiSessionState(process) : "not-running"),
     };
   };
+  const identityMetadata = deps.metadata?.identities
+    ? (deps.metadata as SessionMetadataService)
+    : undefined;
+  const collection = deps.collection;
   return {
+    ...(collection &&
+      ({
+        sessionCatalog: async (signal) => {
+          signal?.throwIfAborted();
+          const { complete, refreshing } = await collection().apiStatus();
+          signal?.throwIfAborted();
+          return { complete, refreshing };
+        },
+        sessionPage: async (query, signal) => {
+          const { rows, native, catalog, hasMore } = await collection().apiPage(
+            query,
+            () => deps.ownedSessions?.() ?? [],
+            signal,
+          );
+          const projected = await projectCatalogIdentityResult(
+            native.filter((row): row is Readonly<SessionCatalogRow> => !!row),
+            identityMetadata,
+            signal,
+          );
+          signal?.throwIfAborted();
+          const byKey = new Map(
+            projected.rows.map((row) => [
+              sessionCatalogRowKey({ ...row, sessionId: row.nativeSessionId }),
+              row,
+            ]),
+          );
+          const items: ApiSession[] = [];
+          for (const entry of rows) {
+            if (entry.owned) {
+              items.push(entry.owned);
+            } else if (entry.native_key) {
+              const row = byKey.get(entry.native_key);
+              if (
+                row?.sessionId !== entry.id ||
+                isDetachedProjectPath(row.projectPath)
+              )
+                continue;
+              const item = summary(row);
+              if (item.projectId === entry.project_id) items.push(item);
+            }
+          }
+          return {
+            items,
+            hasMore,
+            catalog: {
+              complete: catalog.complete && projected.conflicts.length === 0,
+              refreshing: catalog.refreshing,
+            },
+          };
+        },
+      } satisfies Pick<CoreApiSources, "sessionCatalog" | "sessionPage">)),
     async session(id, signal) {
       const readNativeRows = deps.sessions.readNativeRows;
       if (!readNativeRows) return undefined;
@@ -77,8 +137,7 @@ export function productionApiSources(deps: {
         signal,
       );
       signal?.throwIfAborted();
-      // A disputed or unlisted id is left to `sessions`, which alone knows
-      // whether the catalog can establish absence.
+      // The catalog status separately decides whether absence is established.
       const rows = projection.rows.filter((row) => row.sessionId === id);
       if (new Set(rows.map((row) => row.projectId)).size > 1) return undefined;
       let session = rows

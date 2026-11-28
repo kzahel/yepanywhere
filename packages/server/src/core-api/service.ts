@@ -38,6 +38,7 @@ import {
 } from "./peer-policy.js";
 import type { ApiReceipt } from "./command-contracts.js";
 import { levelFor } from "../auth/limitedUserPolicy.js";
+import type { SessionApiPageQuery } from "../services/session-api-collection.js";
 import {
   API_REVISION,
   apiHelp,
@@ -77,8 +78,8 @@ export interface CoreApiSources {
     signal?: AbortSignal,
   ): Promise<{ items: ApiProject[]; catalog?: CatalogState }>;
   /**
-   * One session without visiting the population. `undefined` leaves the
-   * answer, including why a session is absent, to `sessions`.
+   * One session without visiting the population. Catalog completeness
+   * determines the error when the id cannot be resolved.
    */
   session?(
     id: string,
@@ -89,6 +90,11 @@ export interface CoreApiSources {
   sessions(
     signal?: AbortSignal,
   ): Promise<{ items: ApiSession[]; catalog?: CatalogState }>;
+  sessionPage?(
+    query: SessionApiPageQuery,
+    signal?: AbortSignal,
+  ): Promise<{ items: ApiSession[]; hasMore: boolean; catalog: CatalogState }>;
+  sessionCatalog?(signal?: AbortSignal): Promise<CatalogState>;
   providers(signal?: AbortSignal): Promise<ApiProvider[]>;
   conversation?(
     sessionId: string,
@@ -873,6 +879,47 @@ export class CoreApi {
           );
           if (found && allowed(found.session))
             return detail(found.session, found.backingStore);
+          if (this.sources.sessionCatalog)
+            throw this.missingSession(
+              await this.sources.sessionCatalog(input.signal),
+            );
+        }
+        if (operation === "sessions" && this.sources.sessionPage) {
+          const { projectId, cursor, limit: pageSize } = query.data;
+          const offset = Number(cursor ?? 0);
+          const limit = Number(pageSize ?? 50);
+          const hidden =
+            caller.kind === "limited"
+              ? await this.sources.hiddenProjects?.(caller.username)
+              : undefined;
+          const scope =
+            caller.kind === "limited"
+              ? {
+                  visibleProjects: [
+                    ...caller.grants.viewProjects,
+                    ...caller.grants.joinProjects,
+                    ...caller.grants.newSessionProjects,
+                  ],
+                  pathAllowsProject: caller.grants.pathGrants?.length
+                    ? visible
+                    : undefined,
+                  creator: caller.username,
+                  hiddenProjects: hidden && [...hidden],
+                }
+              : caller.kind === "peer" && !caller.allProjects
+                ? { visibleProjects: caller.projects }
+                : {};
+          const result = await this.sources.sessionPage(
+            { ...scope, projectId, offset, limit },
+            input.signal,
+          );
+          return {
+            items: result.items.filter(
+              (s) => allowed(s) && !hidden?.has(s.projectId),
+            ),
+            nextCursor: result.hasMore ? String(offset + limit) : null,
+            catalog: result.catalog,
+          };
         }
         const result = await this.sources.sessions(input.signal);
         const projectsById = new Map<string, string>();
@@ -893,18 +940,7 @@ export class CoreApi {
         );
         if (operation === "session") {
           const item = items.find((s) => s.id === input.sessionId);
-          if (!item && result.catalog?.complete === false)
-            throw new CoreApiError(
-              "catalog_not_ready",
-              "Session catalog is not ready",
-              503,
-            );
-          if (!item)
-            throw new CoreApiError(
-              "session_not_found",
-              "Session not found",
-              404,
-            );
+          if (!item) throw this.missingSession(result.catalog);
           return detail(
             item,
             await this.sources.backingStore?.(item, input.signal),
@@ -921,6 +957,16 @@ export class CoreApi {
         return { ...this.page(unique, query.data), catalog: result.catalog };
       }
     }
+  }
+
+  private missingSession(catalog?: CatalogState) {
+    return catalog?.complete === false
+      ? new CoreApiError(
+          "catalog_not_ready",
+          "Session catalog is not ready",
+          503,
+        )
+      : new CoreApiError("session_not_found", "Session not found", 404);
   }
 
   private launchingSession(
@@ -1004,9 +1050,11 @@ export class CoreApi {
           receipt.state === "uncertain" &&
           error instanceof CoreApiError &&
           error.code === "session_not_found" &&
-          !(await this.sources.sessions(signal)).items.some(
-            (session) => session.id === sessionId,
-          )
+          !(this.sources.sessionCatalog && this.sources.session
+            ? await this.sources.session(sessionId, signal)
+            : (await this.sources.sessions(signal)).items.some(
+                (session) => session.id === sessionId,
+              ))
         )
       )
         throw error;

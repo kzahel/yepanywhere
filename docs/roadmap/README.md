@@ -1206,6 +1206,10 @@ now verifies off-thread macOS focused-watch teardown (warm loop maximum
 2.85 s to 13 ms). Known-project Codex arrivals now use scoped discovery; the large indexed cross-project arrival fell from 8,386 catalog rows and 8,386 hashes to zero of each. Startup watcher handover also removed the second inventory on the first known Claude append (8,380 rows and hashes to zero). Bounded preview consumers,
 transcript rendering and full qualification remain open.
 New Session now [resolves recent visits by public ID](../research/190-mixed-provider-navigation-audit.md#bounded-recent-visits) after an unrelated session changes.
+The [headless v0 replay](../research/190-mixed-provider-navigation-audit.md#headless-v0-session-reads)
+verifies warm SQL session pages, indexed misses and conversation source lookup.
+The initial projection build and [native history acquisition](../../gaps/conversation-window-acquisition-cost.md)
+remain open.
 A 2026-11-13 [survey at 10,000 sessions](../../gaps/active-session-tab-background-cost.md#server-survey-at-10000-sessions--2026-11-13)
 finds the same per-write cost as at 50,000 and shows that CPU per write
 varies by half with host load, so builds are compared interleaved or by

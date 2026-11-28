@@ -20,7 +20,7 @@ import {
   type NativeSessionRef,
   type ProviderChildSessionSummary,
 } from "@yep-anywhere/shared";
-import { getProjectName } from "../projects/paths.js";
+import { getProjectName, isDetachedProjectPath } from "../projects/paths.js";
 import {
   projectCatalogIdentities,
   projectCatalogIdentityResult,
@@ -52,6 +52,12 @@ import {
   type CollectionStoredRow,
 } from "./session-collection-sql.js";
 import { sessionOwnershipFromProcess } from "../sessions/session-runtime-overlay.js";
+import type { ApiSession } from "../core-api/contracts.js";
+import {
+  apiTimestamp,
+  type SessionApiIndexRow,
+  type SessionApiPageQuery,
+} from "./session-api-collection.js";
 
 /** A single weakly owned query projection per retained collection, never per tab.
  * Different dependency owners replace the projection, rather than sharing facts.
@@ -357,6 +363,7 @@ export class RetainedSessionQuery {
     this.names = names;
     const updates: Array<{
       cards: ReturnType<typeof projectCardMembership>;
+      api?: SessionApiIndexRow;
       item?: StoredCollectionItem;
       id: string;
       key: string | null;
@@ -387,37 +394,69 @@ export class RetainedSessionQuery {
         .sourcesFor(id)
         .sort((a, b) => this.service.compareRowOrder(a.key, b.key));
       const source = sources[0];
+      const readSource = async (key: string) => {
+        const projected = projectedByKey.get(key);
+        if (projected) return projected;
+        const original = native.get(key) ?? (await this.service.readRow(key));
+        if (original)
+          return (
+            await projectCatalogIdentities(
+              [original],
+              metadata,
+              this.service.querySignal,
+            )
+          )[0];
+      };
+      const row = source && (await readSource(source.key));
       const control = metadata?.creations?.projectionForSession(id);
       let item: StoredCollectionItem | undefined,
         parent: NativeSessionRef | undefined;
-      if (source) {
-        const original =
-          native.get(source.key) ?? (await this.service.readRow(source.key));
-        if (original) {
-          const row =
-            projectedByKey.get(source.key) ??
-            (
-              await projectCatalogIdentities(
-                [original],
-                metadata,
-                this.service.querySignal,
-              )
-            )[0];
-          if (row?.sessionId === id) {
-            item = retainedNativeItem(
-              row,
-              this.deps,
-              (projectId, path) =>
-                names.get(projectId) ??
-                (this.deps.projectDisplayName ?? getProjectName)(path),
-              cutoff,
-              stored,
-            );
-            parent = nativeCatalogSessionRef({
-              ...row,
-              sessionId: row.nativeSessionId,
-            });
-          }
+      if (row?.sessionId === id) {
+        item = retainedNativeItem(
+          row,
+          this.deps,
+          (projectId, path) =>
+            names.get(projectId) ??
+            (this.deps.projectDisplayName ?? getProjectName)(path),
+          cutoff,
+          stored,
+        );
+        parent = nativeCatalogSessionRef({
+          ...row,
+          sessionId: row.nativeSessionId,
+        });
+      }
+      let api: SessionApiIndexRow | undefined;
+      if (sources.some((other) => other.project_id !== source?.project_id)) {
+        api = {
+          id,
+          project_id: null,
+          native_key: null,
+          creator: null,
+          updated_ms: 0,
+        };
+      } else {
+        // V0 omits detached rows and chooses the last same-project source in
+        // catalog order. The browser projection above chooses the first.
+        const selected = sources
+          .filter(
+            (candidate) =>
+              candidate.project_path !== null &&
+              !isDetachedProjectPath(JSON.parse(candidate.project_path)),
+          )
+          .at(-1);
+        const apiRow =
+          selected?.key === source?.key
+            ? row
+            : selected && (await readSource(selected.key));
+        if (selected && apiRow?.sessionId === id) {
+          api = {
+            id,
+            project_id: stored?.workingProjectId ?? apiRow.projectId,
+            native_key: selected.key,
+            creator: stored?.createdByUser ?? null,
+            updated_ms: apiTimestamp(apiRow.updatedAt),
+          };
         }
       }
       if (metadata)
@@ -442,6 +481,7 @@ export class RetainedSessionQuery {
         };
       const old = this.sql.get(id);
       updates.push({
+        api,
         cards: projectCardMembership(
           sources,
           control,
@@ -466,6 +506,8 @@ export class RetainedSessionQuery {
       this.sql.db.transaction(() => {
         for (const update of updates.slice(offset, offset + 256)) {
           this.sql.cards.replace(update.id, update.cards);
+          if (update.api) this.sql.api.set(update.api);
+          else this.sql.api.remove(update.id);
           if (update.item)
             this.sql.put(
               update.item,
@@ -495,7 +537,7 @@ export class RetainedSessionQuery {
     if (this.checkpoint && revision !== undefined)
       this.checkpoint.save(
         {
-          format: 5,
+          format: 6,
           signature: this.checkpointSignature,
           revision,
           token: this.token,
@@ -568,25 +610,55 @@ export class RetainedSessionQuery {
     );
     return rows.map((row) => this.hydrate(row, children, forInbox));
   }
+  private async synchronizeSources(includeMetadata = false) {
+    const state = await this.service.readState();
+    if (
+      !this.token ||
+      this.overflow ||
+      this.needsRestoreIndexes ||
+      state.catalogEpoch !== this.token.catalogEpoch ||
+      state.catalogGeneration !== this.token.catalogGeneration ||
+      this.sql.hasUnstableSources() ||
+      (includeMetadata &&
+        (this.pendingIds.size ||
+          this.sql.hasDirty() ||
+          this.deps.sessionMetadataService?.collectionState?.().pending.size))
+    ) {
+      await this.synchronize(Date.now());
+    }
+  }
   recentVisits(ids: readonly string[]) {
     return this.run(async () => {
-      const state = await this.service.readState();
-      // Visit metadata is read directly. Only a changed or unstable native
-      // source can change which candidates a visit resolves to.
-      if (
-        !this.token ||
-        this.overflow ||
-        this.needsRestoreIndexes ||
-        state.catalogEpoch !== this.token.catalogEpoch ||
-        state.catalogGeneration !== this.token.catalogGeneration ||
-        this.sql.hasUnstableSources()
-      ) {
-        await this.synchronize(Date.now());
-      }
+      // Visit metadata is read directly.
+      await this.synchronizeSources();
       return {
         sources: this.sql.recentSources(ids),
         catalog: this.catalog(true),
       };
+    });
+  }
+  apiStatus() {
+    return this.run(async () => {
+      await this.synchronizeSources();
+      return this.catalog(true);
+    });
+  }
+  apiPage(
+    query: SessionApiPageQuery,
+    owned: () => readonly ApiSession[],
+    signal?: AbortSignal,
+  ) {
+    return this.run(async () => {
+      signal?.throwIfAborted();
+      await this.synchronizeSources(true);
+      signal?.throwIfAborted();
+      const selected = this.sql.api.select(query, owned());
+      const native = await Promise.all(
+        selected.rows.map((entry) =>
+          entry.native_key ? this.service.readRow(entry.native_key) : undefined,
+        ),
+      );
+      return { ...selected, native, catalog: this.catalog(true) };
     });
   }
   private catalog(includeDiscoveredEmpty = false) {

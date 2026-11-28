@@ -78,17 +78,16 @@ returned predicates/directions or consult the generated query schema.
   precision and timezone offsets, with the session id breaking ties.
 - Collection defaults are 50 items, maximum 100. `cursor` is a nonnegative
   decimal offset; `projectId` filters sessions. Offset pages are best effort
-  across concurrent catalog changes, not snapshots. Response item count is
-  bounded by page size, while filtering/sorting still visits the retained
-  projection and the existing catalog owner governs acquisition cost. No new polling or discovery service is created by this API.
+  across concurrent catalog changes. The retained SQL query owner applies
+  access, hidden projects, ordering and offset before native row hydration.
+  Offset traversal and keys tied at a timestamp can add work. First build
+  and invalidated checkpoints can still require population-sized work.
 - Session detail and every session-scoped read or command find an established
-  session through the catalog's native-id index, without reading the session
-  population. An id the index cannot establish (missing, inaccessible,
-  ambiguous across projects, or disputed by its live owner) takes the complete
-  catalog read, which alone decides `404 session_not_found` versus
-  `503 catalog_not_ready`. Both paths return the same answer; the
-  [remaining population reads](../gaps/v0-session-lists-and-misses-read-the-whole-catalog.md)
-  are the session list and those misses.
+  session through the catalog's native-id index. For a miss or inaccessible
+  id, the retained query owner's catalog and withheld-conflict status decide
+  `404 session_not_found` versus `503 catalog_not_ready`. Conversation source
+  resolution also uses the native-id index. Native history acquisition has its
+  own [remaining costs](../gaps/conversation-window-acquisition-cost.md).
 - Successful route responses are non-cacheable. V0 errors contain
   `{error: {code, message}}`; existing host/auth/limited-user middleware may
   reject earlier with its existing JSON/text errors. Private exception text is

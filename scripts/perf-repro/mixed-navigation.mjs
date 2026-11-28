@@ -31,7 +31,10 @@ import { fingerprintTree } from "./active-session-build.mjs";
 import { typeThroughRelease } from "./mixed-navigation-typing.mjs";
 import { replayNavigationRequests } from "./mixed-navigation-requests.mjs";
 import { replayFreshness } from "./mixed-navigation-freshness.mjs";
-import { mixedFixture } from "./mixed-navigation-fixture.mjs";
+import {
+  mixedFixture,
+  mixedProfilePaths,
+} from "./mixed-navigation-fixture.mjs";
 
 const { chromium, expect } = createRequire(
   new URL("../../packages/client/package.json", import.meta.url),
@@ -146,7 +149,6 @@ writeFileSync(out, JSON.stringify(result), { flag: "wx" });
 console.log(out);
 const tempDir = realpathSync(mkdtempSync(join(tmpdir(), "ya-mixed-")));
 const fixture = mixedFixture({ population, projects, indexed });
-const profileDir = join(tempDir, "profile");
 const abort = new AbortController();
 const interrupt = () => abort.abort(new Error("Mixed-profile run interrupted"));
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"])
@@ -157,15 +159,7 @@ try {
     label: "mixed navigation",
     standalone: {},
     serveBuiltClient: true,
-    profilePaths: {
-      tempDir,
-      profileDir,
-      dataDir: join(profileDir, "yep-anywhere"),
-      claudeSessionsDir: join(profileDir, "claude", "projects"),
-      // Keep the experimental store separate from native CLI startup in CODEX_HOME.
-      codexSessionsDir: join(tempDir, "rollouts", "sessions"),
-      geminiSessionsDir: join(profileDir, ".gemini", "tmp"),
-    },
+    profilePaths: mixedProfilePaths(tempDir),
     serverPreload: new URL("./mixed-navigation-probe.mjs", import.meta.url)
       .href,
     startupDeadline: Date.now() + 300000,

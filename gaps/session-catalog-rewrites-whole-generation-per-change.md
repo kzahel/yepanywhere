@@ -33,7 +33,9 @@ Still open:
   roots retain TTL reconciliation. Complete consumer/discovery reads explicitly
   materialize the requested corpus.
   Migrate consumers by their access pattern; moving a walk to SQL alone does
-  not make it bounded.
+  not make it bounded. The warm v0 list, miss and conversation source paths
+  now use indexed access. Session content search and other population
+  readers still request the corpus.
 - Bounded session/Inbox and project/ProjectQueue clients now receive shared
   authoritative query changes behind separate capabilities. Complete search,
   oversized views and transcript rendering retain their existing read paths;

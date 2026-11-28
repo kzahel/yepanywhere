@@ -1,3 +1,4 @@
+import { SESSION_API_COLLECTION_SCHEMA } from "./migrations/042-session-api-collection.js";
 import { RECENT_SOURCE_TITLE_SCHEMA } from "./migrations/041-recent-source-title.js";
 import { PROJECT_CARD_COUNTS_SCHEMA } from "./migrations/040-project-card-counts.js";
 import { DROP_AGENT_API_RECEIPTS_SCHEMA } from "./migrations/039-drop-agent-api-receipts.js";
@@ -103,6 +104,7 @@ export const DISCOVERY_MIGRATIONS: readonly DiscoveryMigration[] = [
   { version: 39, sql: DROP_AGENT_API_RECEIPTS_SCHEMA },
   { version: 40, sql: PROJECT_CARD_COUNTS_SCHEMA },
   { version: 41, sql: RECENT_SOURCE_TITLE_SCHEMA },
+  { version: 42, sql: SESSION_API_COLLECTION_SCHEMA },
 ];
 
 /** Construct fixtures with the actual historical schema, never a parallel SQL copy. */

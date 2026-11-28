@@ -47,6 +47,8 @@ belong in driver code.
 
 The [plan 190 replay recipe](../docs/research/190-mixed-provider-navigation-audit.md#replaying-the-mixed-profile-experiments) starts an isolated production-entry server with generated Claude and Codex histories. Select `navigation` for ten real session opens and revisits, `review` for project-count scaling, `arrival` for watcher cost after writes to existing and new sessions, `freshness` for the first post-startup write and continuous-append controls, or `requests` for New Session recents refreshes and transcript request shapes. The opt-in runner records catalog reads, filesystem work and request counts independently of the suite timing ratchets.
 
+The [headless v0 replay](../docs/research/190-mixed-provider-navigation-audit.md#headless-v0-session-reads) uses the same generated fixture and request probes. It checks warm lists, detail hits and misses, and unchanged conversation follows for full catalog reads. It varies transcript size independently, measures native bytes and samples concurrent version requests.
+
 ## Isolated frontend transcript calibration
 
 The [frontend calibration](../docs/research/190-frontend-renderer-calibration.md)

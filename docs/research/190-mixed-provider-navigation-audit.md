@@ -214,7 +214,7 @@ The `requests` case opened New Session with an empty history, visited ten mixed 
 
 All three refreshes returned identical enriched visit records. The appends changed transcript content while visit order, title, project and provider stayed the same. The full SELECT in the unvisited large case took 13–15 ms. The rest of the response includes reconstructing catalog rows, projecting identities and grouping candidates in JavaScript. The independently sampled maximum loop delay in that window was 106–197 ms, versus 24–27 ms in the Inbox control. The replay attributes the 8,380-row read directly to the recents handler. Other work shares these timing windows.
 
-Preserve current project reassignment, public/native identity and ambiguity handling, newest-first visit order, unresolved visits and catalog completeness. In particular, an identity conflict outside the list can currently make the response incomplete. The retained collection query already indexes sources by public ID and by instability. Bring that projection to the current catalog generation before looking up the visits and checking whether any conflict exists (`unstable=2`). Synchronization can revisit other unstable rows, and starting directly on New Session can still require a first projection build. Account for the existing identity-binding side effect on a fresh store. Verify the bounded implementation against two candidates matching the same visit, a reassigned project, archived and unresolved visits, an unrelated identity conflict with zero visits, and limited-user error visibility. The Inbox and session-list queries returned zero unstable source rows in both instrumented runs. The current recents handler does its own projection. The current workload measures resolved visits in an operator profile; it does not qualify those semantics. [Existing catalog-reader gap](../../gaps/v0-session-lists-and-misses-read-the-whole-catalog.md) · [Retained query identity status](../../packages/server/src/services/retained-session-query.ts)
+Preserve current project reassignment, public/native identity and ambiguity handling, newest-first visit order, unresolved visits and catalog completeness. In particular, an identity conflict outside the list can currently make the response incomplete. The retained collection query already indexes sources by public ID and by instability. Bring that projection to the current catalog generation before looking up the visits and checking whether any conflict exists (`unstable=2`). Synchronization can revisit other unstable rows, and starting directly on New Session can still require a first projection build. Account for the existing identity-binding side effect on a fresh store. Verify the bounded implementation against two candidates matching the same visit, a reassigned project, archived and unresolved visits, an unrelated identity conflict with zero visits, and limited-user error visibility. The Inbox and session-list queries returned zero unstable source rows in both instrumented runs. The current recents handler does its own projection. The current workload measures resolved visits in an operator profile; it does not qualify those semantics. [Remaining catalog readers](../../gaps/session-catalog-rewrites-whole-generation-per-change.md) · [Retained query identity status](../../packages/server/src/services/retained-session-query.ts)
 
 A separate check explains the two transcript GETs seen per open in both populations. Each circuit of ten included ten bounded history responses and ten cursor responses containing zero messages. The subsequent call can catch a write between the first read and attachment of a focused watch. The recents scan has a clearer path to savings while preserving freshness. [Focused watcher catch-up](../../packages/client/src/hooks/useSession.ts)
 
@@ -262,6 +262,48 @@ synchronization returns the title from the reported generation, and a restored
 checkpoint serves the saved title. An unrelated link conflict makes even an
 empty result incomplete and clearing it restores completeness.
 [Query contract](../../topics/session-collection-queries.md#recent-visits-on-new-session) · [Replay](../../scripts/perf-repro/mixed-navigation-requests.mjs)
+
+## Headless v0 session reads
+
+Run the headless replay from the repository root with dependencies
+installed and Node 24.
+
+```bash
+replay() { node --import tsx --conditions=source scripts/perf-repro/v0-scale.mjs "$@"; }
+replay --population 50
+replay --population 8160 --projects 200
+replay --population 8160 --projects 200 --transcript-writes 640
+```
+
+Population counts unrelated sessions. Each profile has ten additional
+target sessions. `--transcript-writes` changes the histories of the two
+target sessions read by v0 while leaving the catalog population fixed.
+Every invocation starts a fresh loopback server and prints the path to
+its JSON result. It needs no Playwright browser, built client or provider
+process. The result keeps discovery and the first list request separate from
+warm reads. It checks response semantics and rejects any warm request lane
+that runs a full catalog query. The optional `--observe` records the same
+work without enforcing that invariant. Native read byte counts, host
+samples, and concurrent `/api/version` timings accompany request timings.
+
+The 2026-11-20 observation of a populated profile recorded a 155 ms
+one-row v0 page at 8,160 sessions and a 333 ms median for a concurrent
+`/api/version` probe. In the headless synthetic replay at 8,160 unrelated
+sessions, the first list built the query projection from 8,170 catalog rows
+in about 0.61 s. Warm pages and misses returned in roughly 1–2 ms with zero
+full reads. Warm conversation and unchanged follow also did no full catalog
+read. The concurrent version probe during warm lists had a local p95 of
+2.7 ms. The old host observation and the synthetic replay are independent
+diagnostics.
+
+At the same population, increasing the two histories from 4 to 640
+generated writes exposed a separate bottleneck. A warm unchanged Claude
+follow read about 12 KB per request at 4 writes and 1.27 MB at 640 writes.
+Its median went from 6 to 36 ms. The first Codex conversation read acquired
+about 2.29 MB at 640 writes, then warm follows stayed near 8 KB per request.
+These byte counts include repeated reads. The [native acquisition
+gap](../../gaps/conversation-window-acquisition-cost.md) tracks the remaining
+provider-history work.
 
 ## Replaying the mixed-profile experiments
 

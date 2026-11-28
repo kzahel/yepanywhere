@@ -118,6 +118,8 @@ DatabaseSync.prototype.prepare = function (sql) {
     queries.set(statement, "metadataFull");
   else if (/^SELECT .*\bFROM session_catalog\b/i.test(normalized))
     queries.set(statement, "otherCatalogSelect");
+  else if (/^SELECT .*\bFROM collection_query_\d+_api\b/i.test(normalized))
+    queries.set(statement, "apiIndex");
   return statement;
 };
 for (const method of ["all", "get", "run"]) {
@@ -428,7 +430,8 @@ Server.prototype.emit = function (name, ...args) {
     loop.reset();
     return true;
   }
-  if (!pathname.startsWith("/api/")) return emit.call(this, name, ...args);
+  if (!pathname.startsWith("/api/") && !pathname.startsWith("/v0/"))
+    return emit.call(this, name, ...args);
   const route = req.method + " " + pathname.replace(/[\w-]{26,}/g, "@");
   requests(route).count++;
   const state = {

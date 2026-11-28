@@ -1,4 +1,5 @@
 import { ProjectCardCounts } from "./project-card-counts.js";
+import { SessionApiCollection } from "./session-api-collection.js";
 import {
   fromUrlProjectId,
   isUrlProjectId,
@@ -58,6 +59,7 @@ let nextOwner = 0;
  */
 export class SessionCollectionSql {
   readonly cards: ProjectCardCounts;
+  readonly api: SessionApiCollection;
   readonly prefix = `collection_query_${++nextOwner}`;
   private readonly statements = new Map<string, SqliteStatement>();
   constructor(readonly db: SqliteDatabase) {
@@ -81,9 +83,14 @@ export class SessionCollectionSql {
       CREATE INDEX ${p}_source_project ON ${p}_sources(project_id,ordinal DESC);
       CREATE INDEX ${p}_unstable ON ${p}_sources(unstable);
       CREATE TEMP TABLE ${p}_dirty (id TEXT PRIMARY KEY);
+      CREATE TEMP TABLE ${p}_api (id TEXT PRIMARY KEY,project_id TEXT,native_key TEXT,creator TEXT,updated_ms REAL NOT NULL);
+      CREATE INDEX ${p}_api_time ON ${p}_api(updated_ms DESC,id) WHERE project_id IS NOT NULL;
+      CREATE INDEX ${p}_api_project ON ${p}_api(project_id,updated_ms DESC,id) WHERE project_id IS NOT NULL;
+      CREATE INDEX ${p}_api_creator ON ${p}_api(creator,updated_ms DESC,id) WHERE project_id IS NOT NULL;
 `);
       return new ProjectCardCounts(p, db, (sql) => this.prepare(sql));
     });
+    this.api = new SessionApiCollection(`${p}_api`, (sql) => this.prepare(sql));
   }
   private building = false;
   beginReplacement() {
@@ -159,9 +166,12 @@ export class SessionCollectionSql {
   }
   sourcesFor(id: string) {
     return this.prepare(
-      `SELECT key,project_id,card_provider,ordinal FROM ${this.prefix}_sources WHERE public_id=? ORDER BY ordinal`,
+      `SELECT key,project_id,project_path,card_provider,ordinal FROM ${this.prefix}_sources WHERE public_id=? ORDER BY ordinal`,
     ).all<
-      Pick<CollectionSource, "key" | "project_id" | "card_provider" | "ordinal">
+      Pick<
+        CollectionSource,
+        "key" | "project_id" | "project_path" | "card_provider" | "ordinal"
+      >
     >(id);
   }
   recentSources(ids: readonly string[]) {
@@ -585,6 +595,7 @@ export class SessionCollectionSql {
       "options",
       "cards",
       "counts",
+      "api",
     ])
       this.prepare(`DELETE FROM ${this.prefix}_${table}`).run();
   }
@@ -600,6 +611,7 @@ export class SessionCollectionSql {
       "dirty",
       "projects",
       "options",
+      "api",
     ])
       this.db.exec(`DROP TABLE IF EXISTS ${this.prefix}_${suffix}`);
   }

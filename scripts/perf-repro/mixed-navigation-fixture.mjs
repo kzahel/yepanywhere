@@ -11,7 +11,25 @@ import {
 
 // Native thread and spawn indexes used by YA, with cwd, the first prompt and
 // the exact rollout path populated. All DB writes belong to the fixture.
-export function mixedFixture({ population, projects, indexed }) {
+export function mixedProfilePaths(tempDir) {
+  const profileDir = join(tempDir, "profile");
+  return {
+    tempDir,
+    profileDir,
+    dataDir: join(profileDir, "yep-anywhere"),
+    claudeSessionsDir: join(profileDir, "claude", "projects"),
+    // Separate the experimental store from native CLI startup in CODEX_HOME.
+    codexSessionsDir: join(tempDir, "rollouts", "sessions"),
+    geminiSessionsDir: join(profileDir, ".gemini", "tmp"),
+  };
+}
+
+export function mixedFixture({
+  population,
+  projects,
+  indexed,
+  transcriptWrites,
+}) {
   let paths, threads, upsert;
   const active = [];
   let archive;
@@ -113,7 +131,12 @@ export function mixedFixture({ population, projects, indexed }) {
       }
       for (let i = 0; i < 10; i++)
         active.push(
-          make(100000 + i, paths.project, epoch + i * 200, i >= 8 ? 160 : 4),
+          make(
+            100000 + i,
+            paths.project,
+            epoch + i * 200,
+            i === 0 || i === 1 ? (transcriptWrites ?? 4) : i >= 8 ? 160 : 4,
+          ),
         );
       threads?.exec("COMMIT");
     },

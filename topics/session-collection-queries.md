@@ -277,6 +277,21 @@ Optional substring search scans normalized SQL text. To preserve existing
 timestamp, sorts those keys in JavaScript and hydrates only the selected page.
 A large equal-timestamp group therefore still costs proportional key work.
 Legacy unstable identity revalidation is another explicit bound exception.
+
+### HTTP v0 session pages
+
+The same owner checkpoints compact v0 ordering and access keys. It retains
+the last eligible native source per public ID in catalog order, and withholds
+cross-project collisions before applying the working-project overlay. The
+browser collection retains its own source precedence and effective timestamp.
+V0 merges live owners with the bounded SQL page selection, applies project
+grants, creator visibility and hidden-project policy before the offset, and
+hydrates selected native summaries by key. Path grants resolve against the
+project set. Binary SQL ordering selects the window, then boundary timestamp
+groups restore the existing locale-sensitive ID order. An offset can still
+cost index traversal. The same source token and indexed identity conflict
+status decide whether a miss represents absence. Checkpoint format 6 adds
+these derived keys and rebuilds an earlier format once.
 Do not claim that every possible query or restart is proportional to page size.
 
 [Plan190](../docs/tactical/190-active-session-cost-at-scale.md) and

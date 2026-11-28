@@ -11,6 +11,11 @@ architecture now supplies the consumer inventory, common ownership
 boundary and staged qualification. This gap remains open until native
 acquisition is implemented and measured; the indexer runner is not a dependency.
 
+The [headless v0 replay](../docs/research/190-mixed-provider-navigation-audit.md#headless-v0-session-reads)
+isolates population size from history size. At a fixed 8,160 unrelated sessions,
+an unchanged Claude follow on the longer synthetic fixture read about
+1.27 MB per request with zero full catalog reads.
+
 Remaining work belongs in this provider-history effort:
 
 - Codex conversation reads pass the indexed summary hint (2026-11-14), so
