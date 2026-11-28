@@ -21,7 +21,10 @@ import {
   createSessionsRoutes,
   type SessionsDeps,
 } from "../../src/routes/sessions.js";
-import { getClaudeSandboxProjectDir } from "../../src/session-sandbox.js";
+import {
+  getClaudeSandboxProjectDir,
+  probeSessionSandboxAvailability,
+} from "../../src/session-sandbox.js";
 import { ScriptedClaudeProvider } from "../support/scripted-provider.js";
 import { SessionReader } from "../../src/sessions/reader.js";
 import { Supervisor } from "../../src/supervisor/Supervisor.js";
@@ -142,7 +145,21 @@ describe.skipIf(process.platform !== "linux")(
         body: JSON.stringify({ provider: "claude" }),
       });
 
-    it("copies inside the private root and records the source's sandbox", async () => {
+    it("copies inside the private root and records the source's sandbox", async ({
+      skip,
+    }) => {
+      if (!process.env.CI) {
+        const { blocker } = await probeSessionSandboxAvailability({
+          stateRoot: join(dataDir, "session-sandboxes"),
+        });
+        if (blocker?.kind === "missing-packages") {
+          skip(`Missing sandbox packages: ${blocker.packages.join(", ")}`);
+        }
+        if (blocker?.kind === "userns-restricted") {
+          skip("AppArmor restricts unprivileged user namespaces");
+        }
+      }
+
       const response = await clone();
       expect(response.status, await response.clone().text()).toBe(200);
       const { sessionId } = (await response.json()) as { sessionId: string };
