@@ -14,10 +14,7 @@ import { useServerSettings } from "../hooks/useServerSettings";
 import { useI18n } from "../i18n";
 import type { ContextUsage } from "../types";
 import { ContextUsageIndicator } from "./ContextUsageIndicator";
-import {
-  ContextUsagePopover,
-  hasContextTokenDetails,
-} from "./ContextUsagePopover";
+import { ContextUsagePopover } from "./ContextUsagePopover";
 import { CommittedRangeInput } from "./ui/CommittedRangeInput";
 
 interface ContextThresholdQuickEditProps {
@@ -113,13 +110,6 @@ function InteractiveContextThresholdQuickEdit({
     model,
   );
   const canInspectUsage = bindingUsageWindow !== null;
-  /**
-   * Providers without subscription-quota windows (and Claude before its quota
-   * probe answers) still report per-turn cache accounting, so the popover is
-   * worth opening on those too.
-   */
-  const canInspectTokens = hasContextTokenDetails(usage);
-  const canInspect = canInspectUsage || canInspectTokens;
   const supportsNativeCompactThreshold =
     providers.find((candidate) => candidate.name === provider)
       ?.supportsNativeCompactThreshold === true;
@@ -216,22 +206,15 @@ function InteractiveContextThresholdQuickEdit({
       ? `${Math.round((effWindow * draft) / 100 / 1024)}K`
       : null;
 
-  // No quota detail, token detail, or editable model → passive indicator.
-  if (!canEdit && !canInspect) {
-    return <ContextUsageIndicator usage={usage} size={size} />;
-  }
-
   const ariaLabel =
     canInspectUsage && bindingUsageWindow
       ? t("subscriptionUsageContextAria", {
           contextPercent: Math.round(usage.percentage),
           usagePercent: Math.round(bindingUsageWindow.usedPercent),
         })
-      : canInspectTokens
-        ? t("contextTokenUsageAria", {
-            contextPercent: Math.round(usage.percentage),
-          })
-        : t("compactThresholdQuickTitle");
+      : t("contextTokenUsageAria", {
+          contextPercent: Math.round(usage.percentage),
+        });
 
   return (
     <div ref={wrapRef} className={thresholdStyles.contextThresholdQuickedit}>
@@ -247,20 +230,12 @@ function InteractiveContextThresholdQuickEdit({
             suppressClickRef.current = false;
             return;
           }
-          if (canInspect) {
-            setOpen((current) => (current === "usage" ? null : "usage"));
-          }
+          setOpen((current) => (current === "usage" ? null : "usage"));
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            if (canInspect) {
-              setOpen((current) => (current === "usage" ? null : "usage"));
-            } else if (canEdit) {
-              setOpen((current) =>
-                current === "threshold" ? null : "threshold",
-              );
-            }
+            setOpen((current) => (current === "usage" ? null : "usage"));
           }
         }}
         onContextMenu={(e) => {
@@ -282,7 +257,7 @@ function InteractiveContextThresholdQuickEdit({
       >
         <ContextUsageIndicator usage={usage} size={size} />
       </span>
-      {open === "usage" && (subscriptionUsage || canInspectTokens) && (
+      {open === "usage" && (
         <ContextUsagePopover
           usage={subscriptionUsage ?? undefined}
           contextUsage={usage}

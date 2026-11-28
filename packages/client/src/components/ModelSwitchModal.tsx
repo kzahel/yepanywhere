@@ -54,10 +54,7 @@ import {
   selectableServiceTiers,
   serviceTierLabel,
 } from "../lib/serviceTiers";
-import {
-  hasContextTokenDetails,
-  SessionUsagePane,
-} from "./ContextUsagePopover";
+import { SessionUsagePane } from "./ContextUsagePopover";
 import { ProviderBadge } from "./ProviderBadge";
 import { ModelSubscriptionUsage } from "./ModelSubscriptionUsage";
 import { Badge } from "./ui/Badge";
@@ -546,9 +543,7 @@ export function ModelSwitchModal({
     activeTab === "usage",
   );
   const hasUsageTab = Boolean(
-    subscriptionUsage ||
-      hasContextTokenDetails(contextUsage) ||
-      initialTab === "usage",
+    subscriptionUsage || contextUsage || initialTab === "usage",
   );
   const hasTabs = Boolean(hasUsageTab || infoPane || accountPane);
 

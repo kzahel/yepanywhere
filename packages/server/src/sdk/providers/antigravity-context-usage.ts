@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { getModelContextWindow } from "@yep-anywhere/shared";
+import type { ContextUsage } from "../../supervisor/types.js";
 import type { SDKMessage } from "../types.js";
 import type { AntigravityUpdate } from "./antigravity-runtime.js";
 
@@ -41,6 +43,21 @@ export class AntigravityContextMeter {
       ...(window ? { model_context_window: window } : {}),
     } as SDKMessage);
     return true;
+  }
+
+  /** Latest observed context reading, for live owner snapshots and reads. */
+  snapshot(): ContextUsage | undefined {
+    if (this.used === undefined) return undefined;
+    const contextWindow =
+      this.size ?? getModelContextWindow(this.model, "antigravity");
+    return {
+      inputTokens: this.used,
+      percentage:
+        contextWindow > 0
+          ? Math.min(100, Math.round((this.used / contextWindow) * 100))
+          : 0,
+      contextWindow,
+    };
   }
 
   /** The observed window for a result frame, keyed by the model it was for. */

@@ -131,6 +131,104 @@ describe("Antigravity reader over the log", () => {
     });
   });
 
+  it("reports a live owner's observed context usage for new and resumed sessions", async () => {
+    const tokens = (step: number, input: number, cached: number) =>
+      line({
+        step_index: step,
+        source: "MODEL",
+        type: "PLANNER_RESPONSE",
+        status: "DONE",
+        created_at: at,
+        model: "gemini-4-neon-low",
+        content: `REPLY_${step}`,
+        input_tokens: input,
+        cache_read_tokens: cached,
+        output_tokens: 7,
+      });
+    const projectId = toUrlProjectId(project);
+    const dir = await store(
+      "live-usage",
+      prompt("Ask") + tokens(1, 2_000, 98_000),
+    );
+    const scope = await realpath(dir);
+    const sessionReader = reader(dir);
+
+    // New session: empty boundary (0 log rows read), live usage comes from owner.
+    const freshOwner = ownAntigravitySession(scope, ID);
+    try {
+      const live = freshOwner.open({ step: -1, end: 0 });
+      live.recordContextUsage({
+        inputTokens: 429_270,
+        percentage: 41,
+        contextWindow: 1_048_576,
+      });
+      const loaded = await sessionReader.getSession(ID, projectId, undefined, {
+        tailCompactions: 2,
+      });
+      expect(loaded?.summary.contextUsage).toEqual({
+        inputTokens: 429_270,
+        percentage: 41,
+        contextWindow: 1_048_576,
+      });
+      // Durable summaries stay free of transient live-owner usage so cached
+      // summaries cannot retain a previous owner's reading after exit.
+      const summary = await sessionReader.getSessionSummary(ID, projectId);
+      expect(summary?.contextUsage).toBeUndefined();
+    } finally {
+      freshOwner.release();
+    }
+
+    // Resumed session: pre-boundary log usage before first live update, then live usage overrides.
+    const resumedOwner = ownAntigravitySession(scope, ID);
+    try {
+      const logEnd = (
+        await stat(
+          join(
+            scope,
+            "..",
+            "brain",
+            ID,
+            ".system_generated",
+            "logs",
+            "transcript_full.jsonl",
+          ),
+        )
+      ).size;
+      const live = resumedOwner.open({ step: 1, end: logEnd });
+      const beforeUpdate = await sessionReader.getSession(
+        ID,
+        projectId,
+        undefined,
+        { tailCompactions: 2 },
+      );
+      expect(beforeUpdate?.summary.contextUsage).toEqual({
+        inputTokens: 100_000,
+        percentage: 10,
+        contextWindow: 1_000_000,
+        outputTokens: 7,
+        cacheReadTokens: 98_000,
+      });
+      live.recordContextUsage({
+        inputTokens: 250_000,
+        percentage: 24,
+        contextWindow: 1_048_576,
+      });
+      const afterUpdate = await sessionReader.getSession(
+        ID,
+        projectId,
+        undefined,
+        { tailCompactions: 2 },
+      );
+      expect(afterUpdate?.summary.contextUsage).toEqual({
+        inputTokens: 250_000,
+        percentage: 24,
+        contextWindow: 1_048_576,
+      });
+    } finally {
+      resumedOwner.release();
+    }
+  });
+
   it("never returns the old store's messages after its binding moves mid-read", async () => {
     const a = await store("a", prompt("Ask") + reply(1, "REPLY_FROM_A"));
     const b = await store("b", prompt("Ask") + reply(1, "REPLY_FROM_B"));

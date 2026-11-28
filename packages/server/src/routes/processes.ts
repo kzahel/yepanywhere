@@ -19,6 +19,7 @@ import type { SessionIndexService } from "../indexes/index.js";
 import type { SessionMetadataService } from "../metadata/SessionMetadataService.js";
 import type { ProjectScanner } from "../projects/scanner.js";
 import { getProvider } from "../sdk/providers/index.js";
+import { antigravityOwnerContextUsage } from "../sdk/providers/antigravity-owners.js";
 import type { ResumeExemptionResult } from "../sessions/resume-exemption.js";
 import {
   projectProviderChildren,
@@ -179,7 +180,15 @@ async function enrichProcessInfo(
     enriched.requestedModel ??= getProvider(
       enriched.provider,
     )?.yaModelIdForReported?.(enriched.model);
-    if (summary?.contextUsage) enriched.contextUsage = summary.contextUsage;
+    const liveAntigravityUsage =
+      process.provider === "antigravity" && bound?.native
+        ? antigravityOwnerContextUsage(
+            bound.native.storageScope,
+            nativeSessionId,
+          )
+        : undefined;
+    const contextUsage = liveAntigravityUsage ?? summary?.contextUsage;
+    if (contextUsage) enriched.contextUsage = contextUsage;
     const providerChildren = await resolveProviderChildSessions(
       reader,
       nativeSessionId,

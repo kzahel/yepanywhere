@@ -1,4 +1,5 @@
 import { PROCESS_REPLAY_RETENTION_MS } from "../../supervisor/replay-window.js";
+import type { ContextUsage } from "../../supervisor/types.js";
 import type { SDKMessage } from "../types.js";
 import type { AntigravityLogBoundary } from "./antigravity-owners.js";
 
@@ -235,10 +236,12 @@ export class AntigravityLiveProjection {
   generation = 0;
   /** The boundary the owner opened at: log rows after it were once live. */
   readonly opened: AntigravityLogBoundary;
+  private contextUsage_?: ContextUsage;
 
   private readonly now: () => number;
   private readonly delivery?: AntigravityDeliveryClock;
   private readonly onRetired?: (ids: string[]) => void;
+  private readonly onContextUsage?: (usage: ContextUsage) => void;
 
   constructor(
     public boundary: AntigravityLogBoundary,
@@ -249,12 +252,25 @@ export class AntigravityLiveProjection {
       delivery?: AntigravityDeliveryClock;
       /** IDs that left memory, in the order they left. */
       onRetired?: (ids: string[]) => void;
+      /** Latest live context meter reading, published to the backend. */
+      onContextUsage?: (usage: ContextUsage) => void;
     } = {},
   ) {
     this.opened = { ...boundary };
     this.now = options.now ?? (() => performance.now());
     this.delivery = options.delivery;
     this.onRetired = options.onRetired;
+    this.onContextUsage = options.onContextUsage;
+  }
+
+  /** Latest live context meter reading observed by this owner. */
+  get contextUsage(): ContextUsage | undefined {
+    return this.contextUsage_ ? { ...this.contextUsage_ } : undefined;
+  }
+
+  recordContextUsage(usage: ContextUsage): void {
+    this.contextUsage_ = { ...usage };
+    this.onContextUsage?.({ ...usage });
   }
 
   /** Whether the cap evicted rows the log does not serve yet, or a held row is cut. */

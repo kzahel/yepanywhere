@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { scanAgentExcerpt } from "../../sessions/agent-excerpt.js";
-import type { Message } from "../../supervisor/types.js";
+import type { ContextUsage, Message } from "../../supervisor/types.js";
 import type { SDKMessage } from "../types.js";
 import {
   AntigravityLiveProjection,
@@ -103,8 +103,50 @@ interface HostedOwner {
    */
   heldUntil?: number;
   retired: Set<string>;
+  /** Latest live context meter reading published by the worker. */
+  contextUsage?: ContextUsage;
   /** Identity per worker-side owner, for a read's split check. */
   identity?: { token: string; object: object };
+}
+
+function cloneContextUsage(value: unknown): ContextUsage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = value as Record<string, unknown>;
+  const { inputTokens, percentage, contextWindow, outputTokens } = candidate;
+  const { cacheReadTokens, cacheCreationTokens } = candidate;
+  if (
+    typeof inputTokens !== "number" ||
+    !Number.isFinite(inputTokens) ||
+    inputTokens < 0 ||
+    typeof percentage !== "number" ||
+    !Number.isFinite(percentage) ||
+    percentage < 0
+  ) {
+    return undefined;
+  }
+  const optionalCount = (field: unknown) =>
+    typeof field === "number" && Number.isFinite(field) && field >= 0
+      ? field
+      : undefined;
+  const window =
+    typeof contextWindow === "number" &&
+    Number.isFinite(contextWindow) &&
+    contextWindow > 0
+      ? contextWindow
+      : undefined;
+  const output = optionalCount(outputTokens);
+  const cacheRead = optionalCount(cacheReadTokens);
+  const cacheCreation = optionalCount(cacheCreationTokens);
+  return {
+    inputTokens,
+    percentage,
+    ...(window !== undefined ? { contextWindow: window } : {}),
+    ...(output !== undefined ? { outputTokens: output } : {}),
+    ...(cacheRead !== undefined ? { cacheReadTokens: cacheRead } : {}),
+    ...(cacheCreation !== undefined
+      ? { cacheCreationTokens: cacheCreation }
+      : {}),
+  };
 }
 
 const ownedNativeSessions = new Map<string, NativeSessionOwner>();
@@ -169,6 +211,8 @@ export interface AntigravityOwnerView {
   history(): SDKMessage[];
   /** The model of the newest assistant row the owner holds. */
   model?: string;
+  /** Latest live context meter reading observed by the owner. */
+  contextUsage?: ContextUsage;
   /** The owner's newest agent prose, when the query asked for it. */
   excerpt?: string;
 }
@@ -202,6 +246,7 @@ interface AntigravityOwnerAnswer {
   holds?: boolean;
   rows?: SDKMessage[];
   model?: string;
+  contextUsage?: ContextUsage;
   excerpt?: string;
 }
 
@@ -240,6 +285,7 @@ function answerQuery(
         }
       : {}),
     ...(held ? { model: lastModel(held) } : {}),
+    ...(live.contextUsage ? { contextUsage: live.contextUsage } : {}),
     ...(query.excerpt && held
       ? { excerpt: scanAgentExcerpt(held as Message[]).prose }
       : {}),
@@ -260,6 +306,7 @@ function localView(
     incomplete: live.incomplete,
     opened: live.opened,
     firstPrompt: live.firstPrompt,
+    ...(live.contextUsage ? { contextUsage: live.contextUsage } : {}),
     history: () => live.history(),
   };
 }
@@ -334,6 +381,7 @@ export async function takeAntigravityOwnerView(
   if (hosted.identity?.token !== open.token)
     hosted.identity = { token: open.token, object: {} };
   const rows = open.rows ?? [];
+  const contextUsage = cloneContextUsage(open.contextUsage);
   return {
     owner: hosted.identity.object,
     generation: open.generation,
@@ -348,6 +396,7 @@ export async function takeAntigravityOwnerView(
       : {}),
     history: () => structuredClone(rows),
     ...(open.model !== undefined ? { model: open.model } : {}),
+    ...(contextUsage ? { contextUsage } : {}),
     ...(open.excerpt !== undefined ? { excerpt: open.excerpt } : {}),
   };
 }
@@ -366,6 +415,18 @@ export function antigravityLiveHistory(
 /** Whether a live owner, local or hosted, holds the conversation. */
 export function antigravitySessionOwned(scope: string, id: string): boolean {
   return heldOwner(keyOf(scope, id)) !== undefined;
+}
+
+/** Latest live context usage observed by an active owner, local or hosted. */
+export function antigravityOwnerContextUsage(
+  scope: string,
+  id: string,
+): ContextUsage | undefined {
+  const owner = heldOwner(keyOf(scope, id));
+  const usage = owner?.hosted
+    ? owner.hosted.contextUsage
+    : owner?.open?.contextUsage;
+  return usage ? { ...usage } : undefined;
 }
 
 /**
@@ -421,9 +482,11 @@ type NativeOwnerPublication =
       scope: string;
       id: string;
       retired: string[];
+      contextUsage?: ContextUsage;
       releasedAt?: number;
     }
   | { kind: "retired"; ids: string[] }
+  | { kind: "context-usage"; contextUsage: ContextUsage }
   | { kind: "released"; at: number };
 
 /**
@@ -449,6 +512,9 @@ export function ownAntigravitySession(
       scope,
       id,
       retired: owner.open?.retiredIds() ?? [],
+      ...(owner.open?.contextUsage
+        ? { contextUsage: owner.open.contextUsage }
+        : {}),
       ...(released !== undefined ? { releasedAt: released } : {}),
     }),
     read: (query) =>
@@ -489,6 +555,8 @@ export function ownAntigravitySession(
           ? {
               onRetired: (ids: string[]) =>
                 host.publish({ kind: "retired", ids }),
+              onContextUsage: (contextUsage: ContextUsage) =>
+                host.publish({ kind: "context-usage", contextUsage }),
             }
           : {}),
       });
@@ -559,6 +627,7 @@ export function hostedAntigravityOwnerLink(): HostedNativeOwnerLink {
             ? value.retired.slice(-RETIRED_MEMORY)
             : [],
         );
+        held.hosted.contextUsage = cloneContextUsage(value.contextUsage);
         return { scope: value.scope, id: value.id };
       }
       const hosted = entry?.hosted;
@@ -569,6 +638,9 @@ export function hostedAntigravityOwnerLink(): HostedNativeOwnerLink {
           if (hosted.retired.size <= RETIRED_MEMORY) break;
           hosted.retired.delete(id);
         }
+      } else if (value.kind === "context-usage") {
+        const usage = cloneContextUsage(value.contextUsage);
+        if (usage) hosted.contextUsage = usage;
       } else if (value.kind === "released" && typeof value.at === "number")
         release(value.at);
       return undefined;

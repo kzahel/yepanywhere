@@ -80,26 +80,46 @@ function renderClaudeSession() {
   );
 }
 
+const subscriptionUsageMock = vi.hoisted(() => ({
+  current: {
+    provider: "claude" as const,
+    fetchedAt: "2026-07-29T00:00:00.000Z",
+    windows: [
+      {
+        id: "weekly",
+        usedPercent: 72,
+        windowDurationMinutes: 10_080,
+        scope: { type: "provider" as const },
+      },
+      {
+        id: "fable",
+        usedPercent: 100,
+        windowDurationMinutes: 10_080,
+        scope: {
+          type: "models" as const,
+          modelIds: ["fable"],
+          label: "Fable",
+        },
+      },
+    ],
+  } as {
+    provider: "claude";
+    fetchedAt: string;
+    windows: Array<{
+      id: string;
+      usedPercent: number;
+      windowDurationMinutes: number;
+      scope:
+        | { type: "provider" }
+        | { type: "models"; modelIds: string[]; label: string };
+    }>;
+  } | null,
+}));
+const defaultSubscriptionUsage = subscriptionUsageMock.current;
+
 vi.mock("../../hooks/useProviderSubscriptionUsage", () => ({
   useProviderSubscriptionUsage: () => ({
-    usage: {
-      provider: "claude",
-      fetchedAt: "2026-07-29T00:00:00.000Z",
-      windows: [
-        {
-          id: "weekly",
-          usedPercent: 72,
-          windowDurationMinutes: 10_080,
-          scope: { type: "provider" },
-        },
-        {
-          id: "fable",
-          usedPercent: 100,
-          windowDurationMinutes: 10_080,
-          scope: { type: "models", modelIds: ["fable"], label: "Fable" },
-        },
-      ],
-    },
+    usage: subscriptionUsageMock.current,
     loading: false,
     supported: true,
     refresh,
@@ -127,6 +147,7 @@ describe("ContextThresholdQuickEdit", () => {
     cleanup();
     vi.clearAllMocks();
     serverVersion.current = "0.9.2";
+    subscriptionUsageMock.current = defaultSubscriptionUsage;
   });
 
   it("asks an older server for no breakdown", () => {
@@ -246,7 +267,7 @@ describe("ContextThresholdQuickEdit", () => {
     expect(dialog.textContent).toContain("104,966");
   });
 
-  it("omits the token section when no cache or output counts are reported", () => {
+  it("shows context total without cache rows or hint when only input tokens are reported", () => {
     render(
       <I18nProvider>
         <ContextThresholdQuickEdit
@@ -265,9 +286,36 @@ describe("ContextThresholdQuickEdit", () => {
       screen.getByRole("button", { name: /Subscription usage 100% used/ }),
     );
 
-    expect(screen.getByRole("dialog").textContent).not.toContain(
-      "Read from cache",
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("50,000 / 1,000,000 (5%)");
+    expect(dialog.textContent).not.toContain("Read from cache");
+    expect(dialog.textContent).not.toContain("Cached reads bill");
+  });
+
+  it("opens the context usage popover when quota and cache counts are both absent", () => {
+    subscriptionUsageMock.current = null;
+    render(
+      <I18nProvider>
+        <ContextThresholdQuickEdit
+          provider="antigravity"
+          model="gemini-4-neon"
+          usage={{
+            inputTokens: 429_270,
+            contextWindow: 1_048_576,
+            percentage: 41,
+          }}
+        />
+      </I18nProvider>,
     );
+
+    fireEvent.click(screen.getByRole("button", { name: /Context 41%/ }));
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Token usage (last turn)",
+    });
+    expect(dialog.textContent).toContain("429,270 / 1,048,576 (41%)");
+    expect(dialog.textContent).not.toContain("Read from cache");
+    expect(dialog.textContent).not.toContain("Cached reads bill");
   });
 
   it("preserves right-click access to compact threshold editing", () => {

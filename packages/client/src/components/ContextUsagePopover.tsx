@@ -41,26 +41,22 @@ function compareWindowsByDuration(
   return left.id.localeCompare(right.id);
 }
 
-/**
- * True when the last turn's usage carries provider-reported cache/output
- * counts worth showing. Plain `inputTokens` alone is already on the pie
- * indicator and its tooltip, so it does not by itself earn a popover.
- */
-export function hasContextTokenDetails(
-  usage: ContextUsage | undefined,
-): boolean {
-  return (
-    !!usage &&
-    (usage.cacheReadTokens !== undefined ||
-      usage.cacheCreationTokens !== undefined ||
-      usage.outputTokens !== undefined)
-  );
-}
-
 function ContextTokenRows({ usage }: { usage: ContextUsage }) {
   const { locale, t } = useI18n();
   const format = (tokens: number) =>
     new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(tokens);
+  const formatPercent = (percentage: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "percent",
+      maximumFractionDigits: 0,
+    }).format(percentage / 100);
+  const hasCacheTokens =
+    usage.cacheReadTokens !== undefined ||
+    usage.cacheCreationTokens !== undefined;
+  const contextTotalValue =
+    usage.contextWindow && usage.contextWindow > 0
+      ? `${format(usage.inputTokens)} / ${format(usage.contextWindow)} (${formatPercent(usage.percentage)})`
+      : format(usage.inputTokens);
 
   return (
     <div className={styles.tokenUsage}>
@@ -70,7 +66,7 @@ function ContextTokenRows({ usage }: { usage: ContextUsage }) {
       <dl className={styles.rows}>
         <div className={styles.row}>
           <dt>{t("contextTokenUsageContext")}</dt>
-          <dd>{format(usage.inputTokens)}</dd>
+          <dd>{contextTotalValue}</dd>
         </div>
         {usage.cacheReadTokens !== undefined && (
           <div className={styles.row}>
@@ -91,7 +87,9 @@ function ContextTokenRows({ usage }: { usage: ContextUsage }) {
           </div>
         )}
       </dl>
-      <div className={styles.hint}>{t("contextTokenUsageHint")}</div>
+      {hasCacheTokens && (
+        <div className={styles.hint}>{t("contextTokenUsageHint")}</div>
+      )}
     </div>
   );
 }
@@ -291,7 +289,7 @@ export function ContextUsagePopover({
   onEditCompactThreshold?: () => void;
 }) {
   const { t } = useI18n();
-  const showTokens = hasContextTokenDetails(contextUsage);
+  const showTokens = Boolean(contextUsage);
 
   return (
     <div
@@ -348,7 +346,7 @@ export function SessionUsagePane({
   onRefresh: () => void;
 }) {
   const { t } = useI18n();
-  const showTokens = hasContextTokenDetails(contextUsage);
+  const showTokens = Boolean(contextUsage);
   const showBreakdown =
     breakdown !== null &&
     breakdown !== undefined &&

@@ -1099,7 +1099,11 @@ export class AntigravityProvider implements AgentProvider {
           return;
         }
         modes.observe(update);
-        if (contextMeter.observe(update, resolvedModel, updates)) changed();
+        if (contextMeter.observe(update, resolvedModel, updates)) {
+          const snapshot = contextMeter.snapshot();
+          if (snapshot) live.recordContextUsage(snapshot);
+          changed();
+        }
         if (observeCommands(update))
           publish({
             type: "system",

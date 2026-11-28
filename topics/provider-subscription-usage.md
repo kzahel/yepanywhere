@@ -100,17 +100,21 @@ The compact binding percentage appears beside model choices in New Session,
 Model Settings, live Model Switch, and Handoff Session.
 
 The session header's model dialog includes a **Usage** tab whenever subscription
-usage or last-turn token details are available for the session. The tab lists
+usage or session context usage is available. The tab lists
 every applicable window for the current model first (ordered shortest window to
 longest, e.g., five-hour above weekly, with reset times and a manual Refresh
 control), shows any other model buckets on the same provider below under a
-separate heading, and renders the session's context breakdown and token
-accounting underneath when available.
+separate heading, and renders the session's context breakdown and context/token
+usage underneath whenever available (including providers that report only
+context total and window size without cache or output counts). When the bottom
+context indicator's usage popover is opened, it likewise includes the context
+total and window alongside any subscription windows or cache/output rows.
 
 The session context indicator has two distinct interactions:
 
-- left click, Enter, or Space opens all applicable subscription windows and
-  reset times when usage is available;
+- left click, Enter, or Space opens the usage popover showing any applicable
+  subscription windows and reset times alongside the session's context total
+  and window (plus cache/output counts when reported);
 - right click or touch long-press opens the existing per-model compact-threshold
   editor. The usage detail also links to that editor so it remains keyboard
   accessible.

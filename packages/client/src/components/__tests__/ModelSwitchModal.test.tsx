@@ -685,8 +685,34 @@ describe("ModelSwitchModal", () => {
 
       const panel = screen.getByRole("tabpanel");
       expect(panel.textContent).toContain("contextTokenUsageTitle");
+      expect(panel.textContent).toContain("104,966 / 1,000,000 (10%)");
       expect(panel.textContent).toContain("103,341");
       expect(panel.textContent).toContain("333");
+    });
+
+    it("shows context usage in the Usage tab even without cache or output token counts", () => {
+      render(
+        <ModelSwitchModal
+          sessionId="session-1"
+          currentModel="gemini-4-neon"
+          sessionProvider="antigravity"
+          contextUsage={{
+            inputTokens: 429_270,
+            contextWindow: 1_048_576,
+            percentage: 41,
+          }}
+          infoPane={<div>Session details</div>}
+          onModelChanged={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("tab", { name: "sessionUsageTab" }));
+
+      const panel = screen.getByRole("tabpanel");
+      expect(panel.textContent).toContain("contextTokenUsageTitle");
+      expect(panel.textContent).toContain("429,270 / 1,048,576 (41%)");
+      expect(panel.textContent).not.toContain("contextTokenUsageHint");
     });
   });
 });

@@ -19,6 +19,7 @@ import {
   pruneTaskListSnapshotsToLatest,
 } from "../augments/task-list-augments.js";
 import { getLogger } from "../logging/logger.js";
+import { antigravityOwnerContextUsage } from "../sdk/providers/antigravity-owners.js";
 import type { ToolResultMediaStore } from "../media/ToolResultMediaStore.js";
 import type {
   SessionMetadata,
@@ -781,16 +782,25 @@ export function registerSessionDetailRoute(
         // Use process.contextWindow (captured from result messages) as primary source
         const mis = deps.modelInfoService;
         const sdkContextWindow = process.contextWindow;
-        const contextUsage = extractContextUsageFromSDKMessages(
-          sdkMessages,
-          process.resolvedModel,
-          process.provider,
-          sdkContextWindow
-            ? () => sdkContextWindow
-            : mis
-              ? (m, p) => mis.getContextWindow(m, p)
-              : undefined,
-        );
+        const storedNative = storedIdentityFor(sessionId)?.native;
+        const liveAntigravityUsage =
+          process.provider === "antigravity" && storedNative
+            ? antigravityOwnerContextUsage(
+                storedNative.storageScope,
+                storedNative.id,
+              )
+            : undefined;
+        const contextUsage =
+          extractContextUsageFromSDKMessages(
+            sdkMessages,
+            process.resolvedModel,
+            process.provider,
+            sdkContextWindow
+              ? () => sdkContextWindow
+              : mis
+                ? (m, p) => mis.getContextWindow(m, p)
+                : undefined,
+          ) ?? liveAntigravityUsage;
         // (Durable recording happens at the observation point in Process via
         // onContextWindowObserved, not as a side effect of this GET.)
         // Get metadata even for new sessions (in case it was set before file was written)
@@ -1178,9 +1188,17 @@ export function registerSessionDetailRoute(
     );
 
     // Override context usage with SDK-reported context window from live process
-    // The reader uses hardcoded defaults; the process captures the real value at runtime
+    // The reader uses hardcoded defaults; the process captures the real value at runtime.
+    // A live Antigravity owner already pairs each ACP `used` reading with its exact `size`.
     let { contextUsage } = session;
-    if (process?.contextWindow && contextUsage) {
+    const hasLiveAntigravityUsage =
+      process?.provider === "antigravity" &&
+      nativeSource?.native !== undefined &&
+      antigravityOwnerContextUsage(
+        nativeSource.native.storageScope,
+        nativeSource.native.id,
+      ) !== undefined;
+    if (process?.contextWindow && contextUsage && !hasLiveAntigravityUsage) {
       const cw = process.contextWindow;
       contextUsage = {
         ...contextUsage,

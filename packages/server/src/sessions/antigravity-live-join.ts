@@ -142,6 +142,7 @@ export function joinAntigravityOwnerRead(
       : {}),
     ...(view.earlier ? { earlier: view.earlier } : {}),
     ...(view.model !== undefined ? { model: view.model } : {}),
+    ...(view.contextUsage ? { contextUsage: { ...view.contextUsage } } : {}),
     // History before the boundary that the log cannot supply now, or rows
     // the owner's cap evicted before the log served them.
     incomplete: window.status !== "known" || !settled || view.incomplete,
@@ -214,6 +215,8 @@ export interface AntigravitySessionRead {
    * carries only its rows from an anchor on.
    */
   model?: string;
+  /** Latest live context meter reading observed by the owner. */
+  contextUsage?: ContextUsage;
   /**
    * Earlier history the answer cannot supply: an open owner's log is
    * missing or unknown through its boundary, or the owner kept changing
@@ -231,7 +234,8 @@ function firstUserText(messages: readonly Message[]): string | undefined {
 
 /**
  * The context the last logged model call filled, from its step's tokens.
- * An owner's live rows carry none: its clients follow `usage_update`.
+ * Live owner rows carry none; once the owner observes `usage_update`,
+ * `read.contextUsage` takes precedence over pre-boundary log steps.
  */
 function lastContextUsage(
   messages: readonly Message[],
@@ -330,7 +334,7 @@ export function antigravityJoinedSession(
   }
   summary.messageCount = messages.length;
   summary.model = lastModel(messages) ?? read.model;
-  const contextUsage = lastContextUsage(messages);
+  const contextUsage = read.contextUsage ?? lastContextUsage(messages);
   if (contextUsage) summary.contextUsage = contextUsage;
   return {
     summary,
